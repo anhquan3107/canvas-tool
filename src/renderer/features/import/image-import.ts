@@ -12,13 +12,32 @@ const SUPPORTED_EXTENSIONS = new Set([
   ".ico",
 ]);
 
+const normalizeUrlCandidate = (value: string) => {
+  const trimmed = value.trim();
+
+  if (trimmed.startsWith("//")) {
+    return `https:${trimmed}`;
+  }
+
+  return trimmed;
+};
+
+const isDataImageUrl = (value: string) => {
+  const normalized = normalizeUrlCandidate(value);
+  return /^data:image\//i.test(normalized);
+};
+
 const isHttpUrl = (value: string) => {
   try {
-    const url = new URL(value.trim());
+    const url = new URL(normalizeUrlCandidate(value));
     return url.protocol === "http:" || url.protocol === "https:";
   } catch {
     return false;
   }
+};
+
+const isImportableImageSource = (value: string) => {
+  return isHttpUrl(value) || isDataImageUrl(value);
 };
 
 const fileHasSupportedExtension = (name: string) => {
@@ -83,10 +102,10 @@ const normalizeSize = (width: number, height: number) => {
 const parseUrlText = (input: string) => {
   const urls = input
     .split(/\r?\n/)
-    .map((part) => part.trim())
+    .map((part) => normalizeUrlCandidate(part))
     .filter((part) => part.length > 0)
     .filter((part) => !part.startsWith("#"))
-    .filter(isHttpUrl);
+    .filter(isImportableImageSource);
 
   return [...new Set(urls)];
 };
@@ -96,8 +115,9 @@ const parseSrcSet = (srcset: string) => {
     .split(",")
     .map((entry) => entry.trim())
     .map((entry) => entry.split(/\s+/)[0])
+    .map((entry) => normalizeUrlCandidate(entry))
     .filter((candidate) => candidate.length > 0)
-    .filter(isHttpUrl);
+    .filter(isImportableImageSource);
 };
 
 const parseUrlsFromHtml = (html: string) => {
@@ -114,8 +134,8 @@ const parseUrlsFromHtml = (html: string) => {
       return;
     }
 
-    const trimmed = value.trim();
-    if (isHttpUrl(trimmed)) {
+    const trimmed = normalizeUrlCandidate(value);
+    if (isImportableImageSource(trimmed)) {
       candidates.add(trimmed);
     }
   };
@@ -230,13 +250,16 @@ export const collectClipboardPayload = (
       .filter((file) => isImageFile(file)),
   );
 
-  const urls = [
+  const rawUrls = [
     ...new Set([
       ...parseUrlText(clipboard.getData("text/plain")),
       ...parseUrlsFromHtml(clipboard.getData("text/html")),
       ...parseUrlText(clipboard.getData("text/uri-list")),
     ]),
   ];
+
+  // Favor direct clipboard files over noisy page URL payloads.
+  const urls = files.length > 0 ? [] : rawUrls.slice(0, 8);
 
   return {
     source: "clipboard",
@@ -329,8 +352,18 @@ export const buildImageItemsFromPayload = async ({
         }
       }
 
-      const parsedUrl = new URL(url);
-      const fallbackLabel = `${parsedUrl.hostname}${parsedUrl.pathname}`;
+      const fallbackLabel = (() => {
+        if (isDataImageUrl(url)) {
+          return "Embedded clipboard image";
+        }
+
+        try {
+          const parsedUrl = new URL(url);
+          return `${parsedUrl.hostname}${parsedUrl.pathname}`;
+        } catch {
+          return "Imported image link";
+        }
+      })();
 
       return {
         id: crypto.randomUUID(),

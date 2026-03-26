@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type DragEvent,
+} from "react";
 import type { Project } from "@shared/types/project";
 import { CanvasBoard } from "@renderer/pixi/CanvasBoard";
 import {
@@ -14,98 +20,13 @@ import {
   type ImportPayload,
 } from "@renderer/features/import/image-import";
 import type { ImageItem } from "@shared/types/project";
-
-interface ImportQueueEntry {
-  id: string;
-  source: ImportPayload["source"];
-  groupId: string;
-  importedCount: number;
-  blockedItemIds: string[];
-  createdAt: string;
-}
-
-const IMPORT_QUEUE_STORAGE_PREFIX = "canvastool.import-queue.v1";
-const blockedSuffix = " (preview blocked)";
-
-const toImportQueueStorageKey = (project: Project) => {
-  const projectScope = project.filePath ?? project.id;
-  return `${IMPORT_QUEUE_STORAGE_PREFIX}:${projectScope}`;
-};
-
-const isImportQueueEntry = (value: unknown): value is ImportQueueEntry => {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-
-  const record = value as Record<string, unknown>;
-  return (
-    typeof record.id === "string" &&
-    (record.source === "drop" || record.source === "clipboard") &&
-    typeof record.groupId === "string" &&
-    typeof record.importedCount === "number" &&
-    Array.isArray(record.blockedItemIds) &&
-    record.blockedItemIds.every((item) => typeof item === "string") &&
-    typeof record.createdAt === "string"
-  );
-};
-
-const loadImportQueueFromSession = (storageKey: string): ImportQueueEntry[] => {
-  try {
-    const raw = window.sessionStorage.getItem(storageKey);
-    if (!raw) {
-      return [];
-    }
-
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-
-    return parsed.filter(isImportQueueEntry).slice(0, 12);
-  } catch {
-    return [];
-  }
-};
-
-const normalizePreviewSize = (width: number, height: number) => {
-  const max = 520;
-  const min = 90;
-
-  if (width <= max && height <= max) {
-    return {
-      width: Math.max(min, width),
-      height: Math.max(min, height),
-    };
-  }
-
-  const ratio = Math.min(max / width, max / height);
-  return {
-    width: Math.max(min, Math.round(width * ratio)),
-    height: Math.max(min, Math.round(height * ratio)),
-  };
-};
-
-const measureImageSize = (source: string) =>
-  new Promise<{ width: number; height: number }>((resolve, reject) => {
-    const image = new Image();
-    image.onload = () =>
-      resolve({
-        width: image.naturalWidth || 320,
-        height: image.naturalHeight || 240,
-      });
-    image.onerror = () => reject(new Error("Failed to decode image preview."));
-    image.src = source;
-  });
-
-const stripBlockedSuffix = (value: string | undefined) => {
-  if (!value) {
-    return value;
-  }
-
-  return value.endsWith(blockedSuffix)
-    ? value.slice(0, -blockedSuffix.length)
-    : value;
-};
+import { useToast } from "@renderer/hooks/use-toast";
+import { useImportQueueSession } from "@renderer/hooks/use-import-queue-session";
+import {
+  normalizePreviewSize,
+  measureImageSize,
+  stripBlockedSuffix,
+} from "@renderer/features/import/import-queue";
 
 export const App = () => {
   const [initialProject, setInitialProject] = useState<Project | null>(null);
@@ -132,15 +53,9 @@ const AppContent = () => {
   const [version, setVersion] = useState("loading");
   const [recentFiles, setRecentFiles] = useState<string[]>([]);
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
+  const [lastImportedItemIds, setLastImportedItemIds] = useState<string[]>([]);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
-  const [toast, setToast] = useState<{
-    kind: "success" | "error" | "info";
-    message: string;
-  } | null>(null);
-  const [importQueue, setImportQueue] = useState<ImportQueueEntry[]>([]);
   const [retryingEntryId, setRetryingEntryId] = useState<string | null>(null);
-  const toastTimerRef = useRef<number | null>(null);
-  const importQueueLoadedKeyRef = useRef<string | null>(null);
 
   const {
     project,
@@ -161,8 +76,10 @@ const AppContent = () => {
     () =>
       project.groups.find((group) => group.id === project.activeGroupId) ??
       project.groups[0],
-    [project],
+    [project.activeGroupId, project.groups],
   );
+
+  const activeGroupId = activeGroup?.id ?? null;
 
   const activeTask = useMemo(() => {
     if (!project.tasks.length) {
@@ -173,10 +90,8 @@ const AppContent = () => {
     return selected ?? project.tasks[0];
   }, [project.tasks, activeTaskId]);
 
-  const importQueueStorageKey = useMemo(
-    () => toImportQueueStorageKey(project),
-    [project],
-  );
+  const { toast, pushToast } = useToast();
+  const { importQueue, setImportQueue } = useImportQueueSession(project);
 
   const refreshRecents = useCallback(() => {
     window.desktopApi.project
@@ -203,49 +118,110 @@ const AppContent = () => {
     });
   }, [project.filePath, project.title]);
 
-  const pushToast = useCallback(
-    (kind: "success" | "error" | "info", message: string) => {
-      if (toastTimerRef.current !== null) {
-        window.clearTimeout(toastTimerRef.current);
+  const focusGroupOnItems = useCallback(
+    (
+      groupId: string,
+      items: Array<{ x: number; y: number; width: number; height: number }>,
+      canvasSize: { width: number; height: number },
+    ) => {
+      if (items.length === 0) {
+        return;
       }
 
-      setToast({ kind, message });
-      toastTimerRef.current = window.setTimeout(() => {
-        setToast(null);
-        toastTimerRef.current = null;
-      }, 2200);
+      const bounds = items.reduce(
+        (acc, item) => ({
+          minX: Math.min(acc.minX, item.x),
+          minY: Math.min(acc.minY, item.y),
+          maxX: Math.max(acc.maxX, item.x + item.width),
+          maxY: Math.max(acc.maxY, item.y + item.height),
+        }),
+        {
+          minX: Number.POSITIVE_INFINITY,
+          minY: Number.POSITIVE_INFINITY,
+          maxX: Number.NEGATIVE_INFINITY,
+          maxY: Number.NEGATIVE_INFINITY,
+        },
+      );
+
+      const viewportWidth = Math.max(420, window.innerWidth - 380);
+      const viewportHeight = Math.max(320, window.innerHeight - 180);
+      const fitPadding = 64;
+      const boundsWidth = Math.max(1, bounds.maxX - bounds.minX);
+      const boundsHeight = Math.max(1, bounds.maxY - bounds.minY);
+
+      const fitZoom = Math.min(
+        2.2,
+        Math.max(
+          0.35,
+          Math.min(
+            viewportWidth / (boundsWidth + fitPadding * 2),
+            viewportHeight / (boundsHeight + fitPadding * 2),
+            1.45,
+          ),
+        ),
+      );
+
+      const centerX = (bounds.minX + bounds.maxX) * 0.5;
+      const centerY = (bounds.minY + bounds.maxY) * 0.5;
+
+      const unclampedPanX = viewportWidth * 0.5 - centerX * fitZoom;
+      const unclampedPanY = viewportHeight * 0.5 - centerY * fitZoom;
+
+      const minPanX = viewportWidth - canvasSize.width * fitZoom - 24;
+      const maxPanX = 24;
+      const minPanY = viewportHeight - canvasSize.height * fitZoom - 24;
+      const maxPanY = 24;
+
+      const panX = Math.min(maxPanX, Math.max(minPanX, unclampedPanX));
+      const panY = Math.min(maxPanY, Math.max(minPanY, unclampedPanY));
+
+      setGroupView(groupId, fitZoom, panX, panY);
     },
-    [],
+    [setGroupView],
   );
 
-  useEffect(() => {
-    return () => {
-      if (toastTimerRef.current !== null) {
-        window.clearTimeout(toastTimerRef.current);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    const restoredQueue = loadImportQueueFromSession(importQueueStorageKey);
-    setImportQueue(restoredQueue);
-    importQueueLoadedKeyRef.current = importQueueStorageKey;
-  }, [importQueueStorageKey]);
-
-  useEffect(() => {
-    if (importQueueLoadedKeyRef.current !== importQueueStorageKey) {
-      return;
+  const importVisibilitySnapshot = useMemo(() => {
+    if (!activeGroup || lastImportedItemIds.length === 0) {
+      return null;
     }
 
-    try {
-      window.sessionStorage.setItem(
-        importQueueStorageKey,
-        JSON.stringify(importQueue.slice(0, 12)),
+    const importedSet = new Set(lastImportedItemIds);
+    const importedItems = activeGroup.items.filter(
+      (item): item is ImageItem =>
+        item.type === "image" && importedSet.has(item.id),
+    );
+
+    if (importedItems.length === 0) {
+      return {
+        total: 0,
+        visible: 0,
+        ready: 0,
+        blocked: 0,
+        offCanvas: 0,
+      };
+    }
+
+    const offCanvas = importedItems.filter((item) => {
+      const right = item.x + item.width;
+      const bottom = item.y + item.height;
+      return (
+        right < 0 ||
+        bottom < 0 ||
+        item.x > activeGroup.canvasSize.width ||
+        item.y > activeGroup.canvasSize.height
       );
-    } catch {
-      return;
-    }
-  }, [importQueue, importQueueStorageKey]);
+    }).length;
+
+    return {
+      total: importedItems.length,
+      visible: importedItems.filter((item) => item.visible).length,
+      ready: importedItems.filter((item) => item.previewStatus === "ready")
+        .length,
+      blocked: importedItems.filter((item) => item.previewStatus === "blocked")
+        .length,
+      offCanvas,
+    };
+  }, [activeGroup, lastImportedItemIds]);
 
   const saveProject = useCallback(async () => {
     const response = await window.desktopApi.project.save({
@@ -316,6 +292,61 @@ const AppContent = () => {
         addGroupItems(activeGroup.id, importedItems);
         setSelectedItemIds(importedItems.map((item) => item.id));
 
+        const viewportWidth = Math.max(520, window.innerWidth - 360);
+        const viewportHeight = Math.max(380, window.innerHeight - 160);
+        const centerWorldX =
+          (viewportWidth * 0.5 - activeGroup.panX) / activeGroup.zoom;
+        const centerWorldY =
+          (viewportHeight * 0.5 - activeGroup.panY) / activeGroup.zoom;
+
+        const maxExistingZ = activeGroup.items.reduce(
+          (acc, item) => Math.max(acc, item.zIndex),
+          -1,
+        );
+
+        const rescueUpdates = Object.fromEntries(
+          importedItems.map((item, index) => {
+            const nextX = Math.min(
+              Math.max(20, centerWorldX - item.width / 2 + (index % 4) * 44),
+              Math.max(20, activeGroup.canvasSize.width - item.width - 20),
+            );
+            const nextY = Math.min(
+              Math.max(
+                20,
+                centerWorldY - item.height / 2 + Math.floor(index / 4) * 44,
+              ),
+              Math.max(20, activeGroup.canvasSize.height - item.height - 20),
+            );
+
+            return [
+              item.id,
+              {
+                x: Math.round(nextX),
+                y: Math.round(nextY),
+                visible: true,
+                zIndex: maxExistingZ + index + 1,
+              },
+            ];
+          }),
+        );
+
+        patchGroupItems(activeGroup.id, rescueUpdates);
+
+        const rescuedItems = importedItems.map((item) => ({
+          ...item,
+          ...rescueUpdates[item.id],
+        }));
+
+        setLastImportedItemIds(importedItems.map((item) => item.id));
+
+        requestAnimationFrame(() => {
+          focusGroupOnItems(
+            activeGroup.id,
+            rescuedItems,
+            activeGroup.canvasSize,
+          );
+        });
+
         const blockedItemIds = importedItems
           .filter((item) => item.previewStatus === "blocked")
           .map((item) => item.id);
@@ -351,7 +382,14 @@ const AppContent = () => {
         pushToast("error", "Image import failed.");
       }
     },
-    [activeGroup, addGroupItems, pushToast],
+    [
+      activeGroup,
+      addGroupItems,
+      focusGroupOnItems,
+      patchGroupItems,
+      pushToast,
+      setImportQueue,
+    ],
   );
 
   const retryImportEntry = useCallback(
@@ -510,6 +548,78 @@ const AppContent = () => {
     pushToast("error", "Unable to copy selected images.");
   }, [activeGroup, selectedItemIds, pushToast]);
 
+  const handleBoardViewChange = useCallback(
+    (zoom: number, panX: number, panY: number) => {
+      if (!activeGroupId) {
+        return;
+      }
+
+      setGroupView(activeGroupId, zoom, panX, panY);
+    },
+    [activeGroupId, setGroupView],
+  );
+
+  const handleBoardItemsPatch = useCallback(
+    (updates: Record<string, Partial<Omit<ImageItem, "id" | "type">>>) => {
+      if (!activeGroupId) {
+        return;
+      }
+
+      patchGroupItems(activeGroupId, updates);
+    },
+    [activeGroupId, patchGroupItems],
+  );
+
+  const handleShellDragOver = useCallback((event: DragEvent) => {
+    event.preventDefault();
+  }, []);
+
+  const handleShellDrop = useCallback(
+    (event: DragEvent) => {
+      event.preventDefault();
+      const payload = collectDropPayload(event.nativeEvent);
+      void importFromPayload(payload);
+    },
+    [importFromPayload],
+  );
+
+  const shortcutHandlers = useMemo(
+    () => ({
+      "Ctrl+O": () => void openProject(),
+      "Ctrl+S": () => void saveProject(),
+      "Ctrl+Shift+S": () => void saveProjectAs(),
+      "Ctrl+F": () => {
+        if (!activeGroup || selectedItemIds.length === 0) {
+          return;
+        }
+
+        flipItems(activeGroup.id, selectedItemIds);
+      },
+      "Ctrl+C": () => void copySelectedImagesToClipboard(),
+      Delete: () => {
+        if (!activeGroup || selectedItemIds.length === 0) {
+          return;
+        }
+
+        const updates = Object.fromEntries(
+          selectedItemIds.map((id) => [id, { visible: false }]),
+        );
+        patchGroupItems(activeGroup.id, updates);
+        setSelectedItemIds([]);
+      },
+    }),
+    [
+      activeGroup,
+      copySelectedImagesToClipboard,
+      flipItems,
+      openProject,
+      patchGroupItems,
+      saveProject,
+      saveProjectAs,
+      selectedItemIds,
+    ],
+  );
+
   useEffect(() => {
     const onPaste = (event: ClipboardEvent) => {
       if (event.target instanceof HTMLElement) {
@@ -536,42 +646,13 @@ const AppContent = () => {
     return () => window.removeEventListener("paste", onPaste);
   }, [importFromPayload]);
 
-  useShortcuts({
-    "Ctrl+O": () => void openProject(),
-    "Ctrl+S": () => void saveProject(),
-    "Ctrl+Shift+S": () => void saveProjectAs(),
-    "Ctrl+F": () => {
-      if (!activeGroup || selectedItemIds.length === 0) {
-        return;
-      }
-
-      flipItems(activeGroup.id, selectedItemIds);
-    },
-    "Ctrl+C": () => void copySelectedImagesToClipboard(),
-    Delete: () => {
-      if (!activeGroup || selectedItemIds.length === 0) {
-        return;
-      }
-
-      const updates = Object.fromEntries(
-        selectedItemIds.map((id) => [id, { visible: false }]),
-      );
-      patchGroupItems(activeGroup.id, updates);
-      setSelectedItemIds([]);
-    },
-  });
+  useShortcuts(shortcutHandlers);
 
   return (
     <div
       className="app-shell"
-      onDragOver={(event) => {
-        event.preventDefault();
-      }}
-      onDrop={(event) => {
-        event.preventDefault();
-        const payload = collectDropPayload(event.nativeEvent);
-        void importFromPayload(payload);
-      }}
+      onDragOver={handleShellDragOver}
+      onDrop={handleShellDrop}
     >
       <aside className="left-panel">
         <div className="panel-block">
@@ -606,6 +687,23 @@ const AppContent = () => {
           </strong>
         </div>
 
+        {importVisibilitySnapshot ? (
+          <div className="info-card">
+            <span className="info-label">Last Import State</span>
+            <p className="metric-line">
+              {importVisibilitySnapshot.visible}/
+              {importVisibilitySnapshot.total} visible
+            </p>
+            <p className="metric-line">
+              {importVisibilitySnapshot.ready} ready ·{" "}
+              {importVisibilitySnapshot.blocked} blocked
+            </p>
+            <p className="metric-line">
+              {importVisibilitySnapshot.offCanvas} outside canvas bounds
+            </p>
+          </div>
+        ) : null}
+
         <div className="info-card">
           <span className="info-label">Recent Files</span>
           {recentFiles.length === 0 ? (
@@ -616,45 +714,6 @@ const AppContent = () => {
               {recentFile}
             </p>
           ))}
-        </div>
-
-        <div className="info-card import-queue-card">
-          <span className="info-label">Import Queue</span>
-          {importQueue.length === 0 ? (
-            <p className="muted">No import actions yet.</p>
-          ) : (
-            <div className="import-queue-list">
-              {importQueue.map((entry) => {
-                const blockedCount = entry.blockedItemIds.length;
-
-                return (
-                  <div key={entry.id} className="import-queue-item">
-                    <p className="import-queue-title">
-                      {entry.source === "clipboard" ? "Clipboard" : "Drag/Drop"}{" "}
-                      • {entry.importedCount} imported
-                    </p>
-                    <p className="import-queue-meta">
-                      {blockedCount > 0
-                        ? `${blockedCount} blocked previews`
-                        : "All previews ready"}
-                    </p>
-                    {blockedCount > 0 ? (
-                      <button
-                        type="button"
-                        className="import-queue-retry"
-                        disabled={retryingEntryId === entry.id}
-                        onClick={() => void retryImportEntry(entry.id)}
-                      >
-                        {retryingEntryId === entry.id
-                          ? "Retrying..."
-                          : "Retry blocked"}
-                      </button>
-                    ) : null}
-                  </div>
-                );
-              })}
-            </div>
-          )}
         </div>
 
         <div className="tasks-panel">
@@ -709,10 +768,8 @@ const AppContent = () => {
             group={activeGroup}
             selectedItemIds={selectedItemIds}
             onSelectionChange={setSelectedItemIds}
-            onViewChange={(zoom, panX, panY) =>
-              setGroupView(activeGroup.id, zoom, panX, panY)
-            }
-            onItemsPatch={(updates) => patchGroupItems(activeGroup.id, updates)}
+            onViewChange={handleBoardViewChange}
+            onItemsPatch={handleBoardItemsPatch}
           />
         ) : null}
 

@@ -87,10 +87,10 @@ This avoids overcomplicating the first milestone with a custom monorepo or a sep
 - `src/shared/types/project.ts`
 - `src/shared/types/ipc.ts`
 - `src/shared/constants/shortcuts.ts`
-- `src/main/ipc/register-ipc.ts`
-- `src/main/services/project-factory.ts`
-- `src/main/services/settings-service.ts`
-- `src/main/persistence/canvas-format.ts`
+- `src/main/ipc/ipc-handlers.ts`
+- `src/main/services/project-service.ts`
+- `src/main/services/app-settings-service.ts`
+- `src/main/persistence/canvas-project-persistence.ts`
 - `src/renderer/state/project-store.tsx`
 - `src/renderer/hooks/use-shortcuts.ts`
 - `src/renderer/components/TodoList.tsx`

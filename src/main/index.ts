@@ -1,6 +1,6 @@
 import { app, BrowserWindow } from "electron";
 import path from "node:path";
-import { registerIpc } from "./ipc/register-ipc";
+import { setupIpcHandlers } from "./ipc/ipc-handlers";
 
 const createMainWindow = async () => {
   const mainWindow = new BrowserWindow({
@@ -17,7 +17,7 @@ const createMainWindow = async () => {
     },
   });
 
-  registerIpc(mainWindow);
+  setupIpcHandlers(mainWindow);
 
   const devServerUrl = process.env.VITE_DEV_SERVER_URL;
 

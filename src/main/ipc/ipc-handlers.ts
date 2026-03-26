@@ -17,9 +17,9 @@ import type { Project } from "../../shared/types/project";
 import {
   loadCanvasProject,
   saveCanvasProject,
-} from "../persistence/canvas-format";
-import { createDefaultProject } from "../services/project-factory";
-import { addRecentFile, readSettings } from "../services/settings-service";
+} from "../persistence/canvas-project-persistence";
+import { createDefaultProject } from "../services/project-service";
+import { addRecentFile, readSettings } from "../services/app-settings-service";
 
 const canvasDialogFilter = [
   { name: "CanvasTool Project", extensions: ["canvas"] },
@@ -70,7 +70,7 @@ const toDataUrl = (contentType: string, buffer: Buffer) => {
   return `data:${type};base64,${base64}`;
 };
 
-export const registerIpc = (window: BrowserWindow) => {
+export const setupIpcHandlers = (window: BrowserWindow) => {
   ipcMain.handle("app:get-version", () => app.getVersion());
 
   ipcMain.handle("project:create", () => createDefaultProject());

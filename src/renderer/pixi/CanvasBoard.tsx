@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import {
   Application,
+  Assets,
   Container,
   FederatedPointerEvent,
   Graphics,
@@ -8,6 +9,7 @@ import {
   Sprite,
   Text,
   TextStyle,
+  Texture,
 } from "pixi.js";
 import type { CanvasItemBase, ReferenceGroup } from "@shared/types/project";
 
@@ -20,6 +22,24 @@ interface CanvasBoardProps {
   onViewChange: (zoom: number, panX: number, panY: number) => void;
   onItemsPatch: (updates: Record<string, CanvasItemPatch>) => void;
 }
+
+const loadTextureForAssetPath = async (assetPath: string) => {
+  try {
+    return await Assets.load<Texture>(assetPath);
+  } catch {
+    return await new Promise<Texture>((resolve, reject) => {
+      const image = new Image();
+      image.decoding = "async";
+      image.onload = () => {
+        resolve(Texture.from(image));
+      };
+      image.onerror = () => {
+        reject(new Error(`Failed to decode texture for ${assetPath}`));
+      };
+      image.src = assetPath;
+    });
+  }
+};
 
 export const CanvasBoard = ({
   group,
@@ -57,7 +77,7 @@ export const CanvasBoard = ({
       }
 
       pixiApp = app;
-      host.appendChild(app.canvas);
+      host.replaceChildren(app.canvas);
 
       const root = new Container();
       app.stage.addChild(root);
@@ -97,125 +117,160 @@ export const CanvasBoard = ({
 
       const patchBuffer: Record<string, CanvasItemPatch> = {};
 
-      group.items
+      const visibleItems = group.items
         .filter((item) => item.visible)
-        .sort((left, right) => left.zIndex - right.zIndex)
-        .forEach((item) => {
-          const itemNode = new Container();
-          itemNode.position.set(item.x, item.y);
-          itemNode.rotation = item.rotation;
-          itemNode.scale.set(
-            item.flippedX ? -item.scaleX : item.scaleX,
-            item.scaleY,
-          );
-          itemNode.pivot.x = item.flippedX ? item.width : 0;
-          itemNode.eventMode = "static";
-          itemNode.cursor = "move";
-          itemNode.hitArea = new Rectangle(0, 0, item.width, item.height);
+        .sort((left, right) => left.zIndex - right.zIndex);
 
-          const frame = new Graphics();
-          frame.roundRect(0, 0, item.width, item.height, 12);
-          frame.fill(item.type === "capture" ? 0x3f6574 : 0xb87944);
-          frame.stroke({
-            color: selectionSet.has(item.id) ? 0xf2d1a8 : 0xe8b98a,
-            width: selectionSet.has(item.id) ? 4 : 2,
-            alpha: 0.95,
-          });
-          itemNode.addChild(frame);
+      visibleItems.forEach((item) => {
+        const safeWidth =
+          Number.isFinite(item.width) && item.width > 1 ? item.width : 180;
+        const safeHeight =
+          Number.isFinite(item.height) && item.height > 1 ? item.height : 120;
+        const safeRotation = Number.isFinite(item.rotation) ? item.rotation : 0;
+        const safeScaleX =
+          Number.isFinite(item.scaleX) && item.scaleX !== 0 ? item.scaleX : 1;
+        const safeScaleY =
+          Number.isFinite(item.scaleY) && item.scaleY !== 0 ? item.scaleY : 1;
 
-          if (
-            item.type === "image" &&
-            item.assetPath &&
-            item.previewStatus !== "blocked"
-          ) {
-            const sprite = Sprite.from(item.assetPath);
-            sprite.width = item.width;
-            sprite.height = item.height;
-            sprite.roundPixels = true;
-            sprite.alpha = 0.92;
-            itemNode.addChild(sprite);
-          }
+        const itemNode = new Container();
+        itemNode.position.set(item.x, item.y);
+        itemNode.rotation = safeRotation;
+        itemNode.scale.set(
+          item.flippedX ? -safeScaleX : safeScaleX,
+          safeScaleY,
+        );
+        itemNode.pivot.x = item.flippedX ? safeWidth : 0;
+        itemNode.eventMode = "static";
+        itemNode.cursor = "move";
+        itemNode.hitArea = new Rectangle(0, 0, safeWidth, safeHeight);
 
-          if (item.type === "image" && item.previewStatus === "blocked") {
-            const blockedHint = new Text({
-              text: "Preview blocked by remote source",
+        const frame = new Graphics();
+        frame.roundRect(0, 0, safeWidth, safeHeight, 12);
+        frame.fill(item.type === "capture" ? 0x3f6574 : 0xb87944);
+        frame.stroke({
+          color: selectionSet.has(item.id) ? 0xf2d1a8 : 0xe8b98a,
+          width: selectionSet.has(item.id) ? 4 : 2,
+          alpha: 0.95,
+        });
+        itemNode.addChild(frame);
+
+        if (
+          item.type === "image" &&
+          item.assetPath &&
+          item.previewStatus !== "blocked"
+        ) {
+          const showFallbackHint = () => {
+            const fallbackHint = new Text({
+              text: "Preview unavailable",
               style: new TextStyle({
                 fill: "#ffce9e",
                 fontSize: 13,
                 fontFamily: "IBM Plex Sans",
               }),
             });
-            blockedHint.position.set(10, item.height - 24);
-            blockedHint.alpha = 0.9;
-            itemNode.addChild(blockedHint);
-          }
+            fallbackHint.position.set(10, safeHeight - 24);
+            fallbackHint.alpha = 0.9;
+            itemNode.addChild(fallbackHint);
+          };
 
-          const label = new Text({
-            text: `${("label" in item ? item.label : undefined) ?? item.type} (${Math.round(item.width)}×${Math.round(item.height)})`,
+          void loadTextureForAssetPath(item.assetPath)
+            .then((texture) => {
+              if (!mounted) {
+                return;
+              }
+
+              const sprite = new Sprite(texture);
+              sprite.width = safeWidth;
+              sprite.height = safeHeight;
+              sprite.roundPixels = true;
+              sprite.alpha = 0.92;
+              itemNode.addChildAt(sprite, 1);
+            })
+            .catch(() => {
+              if (!mounted) {
+                return;
+              }
+
+              showFallbackHint();
+            });
+        }
+
+        if (item.type === "image" && item.previewStatus === "blocked") {
+          const blockedHint = new Text({
+            text: "Preview blocked by remote source",
             style: new TextStyle({
-              fill: "#fff4e8",
-              fontSize: 14,
+              fill: "#ffce9e",
+              fontSize: 13,
               fontFamily: "IBM Plex Sans",
             }),
           });
-          label.position.set(10, 10);
-          label.alpha = 0.95;
-          itemNode.addChild(label);
+          blockedHint.position.set(10, safeHeight - 24);
+          blockedHint.alpha = 0.9;
+          itemNode.addChild(blockedHint);
+        }
 
-          let dragStart: { x: number; y: number } | null = null;
-          let startPos: { x: number; y: number } | null = null;
-
-          itemNode.on("pointerdown", (event: FederatedPointerEvent) => {
-            if (event.nativeEvent.shiftKey) {
-              if (selectionSet.has(item.id)) {
-                onSelectionChange(
-                  selectedItemIds.filter((id) => id !== item.id),
-                );
-              } else {
-                onSelectionChange([...selectedItemIds, item.id]);
-              }
-            } else {
-              onSelectionChange([item.id]);
-            }
-
-            dragStart = { x: event.globalX, y: event.globalY };
-            startPos = { x: item.x, y: item.y };
-          });
-
-          itemNode.on("pointermove", (event: FederatedPointerEvent) => {
-            if (!dragStart || !startPos || item.locked) {
-              return;
-            }
-
-            const deltaX =
-              (event.globalX - dragStart.x) / boardContainer.scale.x;
-            const deltaY =
-              (event.globalY - dragStart.y) / boardContainer.scale.y;
-
-            itemNode.position.set(startPos.x + deltaX, startPos.y + deltaY);
-
-            patchBuffer[item.id] = {
-              x: startPos.x + deltaX,
-              y: startPos.y + deltaY,
-            };
-          });
-
-          itemNode.on("pointerup", () => {
-            dragStart = null;
-            startPos = null;
-
-            if (Object.keys(patchBuffer).length > 0) {
-              onItemsPatch({ ...patchBuffer });
-            }
-          });
-
-          itemNode.on("pointerupoutside", () => {
-            dragStart = null;
-            startPos = null;
-          });
-
-          boardContainer.addChild(itemNode);
+        const label = new Text({
+          text: `${("label" in item ? item.label : undefined) ?? item.type} (${Math.round(safeWidth)}×${Math.round(safeHeight)})`,
+          style: new TextStyle({
+            fill: "#fff4e8",
+            fontSize: 14,
+            fontFamily: "IBM Plex Sans",
+          }),
         });
+        label.position.set(10, 10);
+        label.alpha = 0.95;
+        itemNode.addChild(label);
+
+        let dragStart: { x: number; y: number } | null = null;
+        let startPos: { x: number; y: number } | null = null;
+
+        itemNode.on("pointerdown", (event: FederatedPointerEvent) => {
+          if (event.nativeEvent.shiftKey) {
+            if (selectionSet.has(item.id)) {
+              onSelectionChange(selectedItemIds.filter((id) => id !== item.id));
+            } else {
+              onSelectionChange([...selectedItemIds, item.id]);
+            }
+          } else {
+            onSelectionChange([item.id]);
+          }
+
+          dragStart = { x: event.globalX, y: event.globalY };
+          startPos = { x: item.x, y: item.y };
+        });
+
+        itemNode.on("pointermove", (event: FederatedPointerEvent) => {
+          if (!dragStart || !startPos || item.locked) {
+            return;
+          }
+
+          const deltaX = (event.globalX - dragStart.x) / boardContainer.scale.x;
+          const deltaY = (event.globalY - dragStart.y) / boardContainer.scale.y;
+
+          itemNode.position.set(startPos.x + deltaX, startPos.y + deltaY);
+
+          patchBuffer[item.id] = {
+            x: startPos.x + deltaX,
+            y: startPos.y + deltaY,
+          };
+        });
+
+        itemNode.on("pointerup", () => {
+          dragStart = null;
+          startPos = null;
+
+          if (Object.keys(patchBuffer).length > 0) {
+            onItemsPatch({ ...patchBuffer });
+          }
+        });
+
+        itemNode.on("pointerupoutside", () => {
+          dragStart = null;
+          startPos = null;
+        });
+
+        boardContainer.addChild(itemNode);
+      });
 
       const hint = new Text({
         text: "Drop files/URLs or paste image links/files | Pan: Space+Drag | Zoom: Ctrl +/-",
@@ -328,6 +383,8 @@ export const CanvasBoard = ({
           children: true,
         });
       }
+
+      host.replaceChildren();
     };
   }, [group, onItemsPatch, onSelectionChange, onViewChange, selectedItemIds]);
 

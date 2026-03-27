@@ -177,6 +177,30 @@ export const setupIpcHandlers = (window: BrowserWindow) => {
     window.setTitle(safeTitle);
   });
 
+  ipcMain.handle("window:minimize", () => {
+    window.minimize();
+  });
+
+  ipcMain.handle("window:toggle-maximize", () => {
+    if (window.isMaximized()) {
+      window.unmaximize();
+    } else {
+      window.maximize();
+    }
+
+    return {
+      isMaximized: window.isMaximized(),
+    };
+  });
+
+  ipcMain.handle("window:close", () => {
+    window.close();
+  });
+
+  ipcMain.handle("window:get-controls-state", () => ({
+    isMaximized: window.isMaximized(),
+  }));
+
   ipcMain.handle(
     "clipboard:write-image-data-url",
     (_, payload: ClipboardWriteImageRequest) => {

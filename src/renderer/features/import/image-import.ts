@@ -162,22 +162,6 @@ const parseUrlsFromHtml = (html: string) => {
       pushCandidate(element.getAttribute("content"));
     });
 
-  documentNode.querySelectorAll("a").forEach((element) => {
-    const href = element.getAttribute("href");
-    if (!href) {
-      return;
-    }
-
-    const lowered = href.toLowerCase();
-    if (
-      Array.from(SUPPORTED_EXTENSIONS).some((extension) =>
-        lowered.includes(extension),
-      )
-    ) {
-      pushCandidate(href);
-    }
-  });
-
   return [...candidates];
 };
 
@@ -219,13 +203,12 @@ export const collectDropPayload = (event: DragEvent): ImportPayload => {
   const plainText = transfer.getData("text/plain");
   const html = transfer.getData("text/html");
 
-  const urls = [
-    ...new Set([
-      ...parseUrlText(uriList),
-      ...parseUrlText(plainText),
-      ...parseUrlsFromHtml(html),
-    ]),
-  ];
+  const htmlUrls = parseUrlsFromHtml(html);
+  const fallbackUrls =
+    htmlUrls.length > 0
+      ? []
+      : [...parseUrlText(uriList), ...parseUrlText(plainText)];
+  const urls = [...new Set([...htmlUrls, ...fallbackUrls])];
 
   return {
     source: "drop",
@@ -324,32 +307,28 @@ export const buildImageItemsFromPayload = async ({
 
   const webStart = localItems.length;
 
-  const webItems = await Promise.all(
-    payload.urls.map(async (url, index) => {
+  const webItems = await Promise.all<ImageItem | null>(
+    payload.urls.map(async (url, index): Promise<ImageItem | null> => {
       let size = { width: 320, height: 220 };
-      let previewStatus: ImageItem["previewStatus"] = "ready";
-      let finalAssetPath = url;
+      let finalAssetPath: string | null = isDataImageUrl(url) ? url : null;
+
+      if (!finalAssetPath && resolveRemoteUrl) {
+        try {
+          finalAssetPath = await resolveRemoteUrl(url);
+        } catch {
+          finalAssetPath = null;
+        }
+      }
+
+      if (!finalAssetPath) {
+        return null;
+      }
 
       try {
-        const measured = await measureImage(url);
+        const measured = await measureImage(finalAssetPath);
         size = normalizeSize(measured.width, measured.height);
       } catch {
-        if (resolveRemoteUrl) {
-          try {
-            const dataUrl = await resolveRemoteUrl(url);
-            if (dataUrl) {
-              finalAssetPath = dataUrl;
-              const measured = await measureImage(dataUrl);
-              size = normalizeSize(measured.width, measured.height);
-            } else {
-              previewStatus = "blocked";
-            }
-          } catch {
-            previewStatus = "blocked";
-          }
-        } else {
-          previewStatus = "blocked";
-        }
+        return null;
       }
 
       const fallbackLabel = (() => {
@@ -370,11 +349,8 @@ export const buildImageItemsFromPayload = async ({
         type: "image" as const,
         source: "web" as const,
         assetPath: finalAssetPath,
-        label:
-          previewStatus === "blocked"
-            ? `${payload.source === "clipboard" ? "Clipboard link: " : ""}${fallbackLabel} (preview blocked)`
-            : `${payload.source === "clipboard" ? "Clipboard link: " : ""}${fallbackLabel}`,
-        previewStatus,
+        label: `${payload.source === "clipboard" ? "Clipboard link: " : ""}${fallbackLabel}`,
+        previewStatus: "ready" as const,
         x: Math.round(startX + ((webStart + index) % 4) * 46),
         y: Math.round(startY + (webStart + index) * 36),
         width: size.width,
@@ -390,5 +366,5 @@ export const buildImageItemsFromPayload = async ({
     }),
   );
 
-  return [...localItems, ...webItems];
+  return [...localItems, ...webItems.filter((item) => item !== null)];
 };

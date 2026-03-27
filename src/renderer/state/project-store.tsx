@@ -1,7 +1,6 @@
 import {
   createContext,
   useCallback,
-  useContext,
   useMemo,
   useReducer,
   type Dispatch,
@@ -9,6 +8,7 @@ import {
 } from "react";
 import type {
   CanvasItemBase,
+  GroupFilters,
   ImageItem,
   Project,
   ReferenceGroup,
@@ -32,6 +32,19 @@ type Action =
   | {
       type: "add-group-items";
       payload: { groupId: string; items: ImageItem[] };
+    }
+  | {
+      type: "remove-group-items";
+      payload: { groupId: string; itemIds: string[] };
+    }
+  | { type: "add-group"; payload: { name: string } }
+  | {
+      type: "set-group-filters";
+      payload: { groupId: string; filters: Partial<GroupFilters> };
+    }
+  | {
+      type: "set-group-canvas-size";
+      payload: { groupId: string; width: number; height: number };
     }
   | { type: "flip-items"; payload: { groupId: string; itemIds: string[] } }
   | { type: "add-task"; payload: { title: string } }
@@ -62,6 +75,10 @@ interface Store {
     updates: Record<string, CanvasItemPatch>,
   ) => void;
   addGroupItems: (groupId: string, items: ImageItem[]) => void;
+  removeGroupItems: (groupId: string, itemIds: string[]) => void;
+  addGroup: (name: string) => void;
+  setGroupFilters: (groupId: string, filters: Partial<GroupFilters>) => void;
+  setGroupCanvasSize: (groupId: string, width: number, height: number) => void;
   flipItems: (groupId: string, itemIds: string[]) => void;
   addTask: (title: string) => void;
   addTodo: (taskId: string, text: string) => void;
@@ -83,6 +100,28 @@ const touchProject = (project: Project): Project => ({
 
 const reorderTodos = (todos: TodoItem[]) =>
   todos.map((todo, index) => ({ ...todo, order: index }));
+
+const createEmptyGroup = (
+  name: string,
+  order: number,
+  canvasSize: Project["canvasSize"],
+): ReferenceGroup => ({
+  id: randomUUID(),
+  name,
+  order,
+  canvasSize: { ...canvasSize },
+  zoom: 1,
+  panX: 120,
+  panY: 120,
+  layoutMode: "pinterest-dynamic",
+  filters: {
+    blur: 0,
+    grayscale: 0,
+  },
+  items: [],
+  annotations: [],
+  extractedSwatches: [],
+});
 
 const reducer = (project: Project, action: Action): Project => {
   switch (action.type) {
@@ -135,6 +174,70 @@ const reducer = (project: Project, action: Action): Project => {
           return {
             ...group,
             items: [...group.items, ...action.payload.items],
+          };
+        }),
+      });
+    case "remove-group-items": {
+      const removed = new Set(action.payload.itemIds);
+
+      return touchProject({
+        ...project,
+        groups: project.groups.map((group) => {
+          if (group.id !== action.payload.groupId) {
+            return group;
+          }
+
+          return {
+            ...group,
+            items: group.items.filter((item) => !removed.has(item.id)),
+          };
+        }),
+      });
+    }
+    case "add-group": {
+      const nextGroup = createEmptyGroup(
+        action.payload.name || `Group ${project.groups.length + 1}`,
+        project.groups.length,
+        project.canvasSize,
+      );
+
+      return touchProject({
+        ...project,
+        activeGroupId: nextGroup.id,
+        groups: [...project.groups, nextGroup],
+      });
+    }
+    case "set-group-filters":
+      return touchProject({
+        ...project,
+        groups: project.groups.map((group) => {
+          if (group.id !== action.payload.groupId) {
+            return group;
+          }
+
+          return {
+            ...group,
+            filters: {
+              ...group.filters,
+              ...action.payload.filters,
+            },
+          };
+        }),
+      });
+    case "set-group-canvas-size":
+      return touchProject({
+        ...project,
+        groups: project.groups.map((group) => {
+          if (group.id !== action.payload.groupId) {
+            return group;
+          }
+
+          return {
+            ...group,
+            canvasSize: {
+              width: Math.max(group.canvasSize.width, action.payload.width),
+              height: Math.max(group.canvasSize.height, action.payload.height),
+            },
           };
         }),
       });
@@ -252,7 +355,7 @@ const reducer = (project: Project, action: Action): Project => {
   }
 };
 
-const ProjectContext = createContext<Store | null>(null);
+export const ProjectContext = createContext<Store | null>(null);
 
 export const ProjectProvider = ({
   initialProject,
@@ -291,6 +394,31 @@ export const ProjectProvider = ({
   const addGroupItems = useCallback((groupId: string, items: ImageItem[]) => {
     dispatch({ type: "add-group-items", payload: { groupId, items } });
   }, []);
+
+  const removeGroupItems = useCallback((groupId: string, itemIds: string[]) => {
+    dispatch({ type: "remove-group-items", payload: { groupId, itemIds } });
+  }, []);
+
+  const addGroup = useCallback((name: string) => {
+    dispatch({ type: "add-group", payload: { name } });
+  }, []);
+
+  const setGroupFilters = useCallback(
+    (groupId: string, filters: Partial<GroupFilters>) => {
+      dispatch({ type: "set-group-filters", payload: { groupId, filters } });
+    },
+    [],
+  );
+
+  const setGroupCanvasSize = useCallback(
+    (groupId: string, width: number, height: number) => {
+      dispatch({
+        type: "set-group-canvas-size",
+        payload: { groupId, width, height },
+      });
+    },
+    [],
+  );
 
   const flipItems = useCallback((groupId: string, itemIds: string[]) => {
     dispatch({ type: "flip-items", payload: { groupId, itemIds } });
@@ -334,6 +462,10 @@ export const ProjectProvider = ({
       setGroupView,
       patchGroupItems,
       addGroupItems,
+      removeGroupItems,
+      addGroup,
+      setGroupFilters,
+      setGroupCanvasSize,
       flipItems,
       addTask,
       addTodo,
@@ -348,6 +480,10 @@ export const ProjectProvider = ({
       setGroupView,
       patchGroupItems,
       addGroupItems,
+      removeGroupItems,
+      addGroup,
+      setGroupFilters,
+      setGroupCanvasSize,
       flipItems,
       addTask,
       addTodo,
@@ -360,14 +496,4 @@ export const ProjectProvider = ({
   return (
     <ProjectContext.Provider value={value}>{children}</ProjectContext.Provider>
   );
-};
-
-export const useProjectStore = () => {
-  const ctx = useContext(ProjectContext);
-
-  if (!ctx) {
-    throw new Error("useProjectStore must be used inside ProjectProvider.");
-  }
-
-  return ctx;
 };

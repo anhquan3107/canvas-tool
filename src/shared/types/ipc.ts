@@ -23,6 +23,10 @@ export interface AppWindowState {
   fileName?: string;
 }
 
+export interface AppWindowControlsState {
+  isMaximized: boolean;
+}
+
 export interface ClipboardWriteImageRequest {
   dataUrl: string;
 }
@@ -44,6 +48,10 @@ export interface DesktopApi {
   };
   window: {
     setTitle: (payload: AppWindowState) => Promise<void>;
+    minimize: () => Promise<void>;
+    toggleMaximize: () => Promise<AppWindowControlsState>;
+    close: () => Promise<void>;
+    getControlsState: () => Promise<AppWindowControlsState>;
   };
   clipboard: {
     writeImageFromDataUrl: (

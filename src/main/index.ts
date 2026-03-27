@@ -8,6 +8,7 @@ const createMainWindow = async () => {
     height: 920,
     minWidth: 1100,
     minHeight: 700,
+    frame: false,
     backgroundColor: "#12100f",
     title: "CanvasTool",
     webPreferences: {
@@ -20,10 +21,13 @@ const createMainWindow = async () => {
   setupIpcHandlers(mainWindow);
 
   const devServerUrl = process.env.VITE_DEV_SERVER_URL;
+  const shouldOpenDevTools = process.env.ELECTRON_OPEN_DEVTOOLS === "1";
 
   if (devServerUrl) {
     await mainWindow.loadURL(devServerUrl);
-    mainWindow.webContents.openDevTools({ mode: "detach" });
+    if (shouldOpenDevTools) {
+      mainWindow.webContents.openDevTools({ mode: "detach" });
+    }
   } else {
     await mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
   }

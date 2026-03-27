@@ -1,4 +1,4 @@
-interface ToolFooterProps {
+interface FilterFooterProps {
   label: string;
   htmlFor: string;
   min: number;
@@ -7,14 +7,14 @@ interface ToolFooterProps {
   onChange: (nextValue: number) => void;
 }
 
-export const ToolFooter = ({
+export const FilterFooter = ({
   label,
   htmlFor,
   min,
   max,
   value,
   onChange,
-}: ToolFooterProps) => (
+}: FilterFooterProps) => (
   <div className="tool-footer">
     <label htmlFor={htmlFor}>{label}</label>
     <input

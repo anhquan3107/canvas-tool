@@ -9,28 +9,26 @@ import {
 import type { Project } from "@shared/types/project";
 import { CanvasBoard } from "@renderer/pixi/CanvasBoard";
 import { ProjectProvider } from "@renderer/state/project-store";
-import { useProjectStore } from "@renderer/hooks/use-project-store";
+import { useProjectStore } from "@renderer/state/use-project-store";
 import { useShortcuts } from "@renderer/hooks/use-shortcuts";
 import { collectClipboardPayload } from "@renderer/features/import/image-import";
+import { useImportQueueSession } from "@renderer/features/import/hooks/use-import-queue-session";
+import { GroupDialog } from "@renderer/features/groups/components/GroupDialog";
+import { GroupOverlay } from "@renderer/features/groups/components/GroupOverlay";
+import { useGroupFeature } from "@renderer/features/groups/hooks/use-group-feature";
+import { TaskDialog } from "@renderer/features/tasks/components/TaskDialog";
+import { TaskOverlay } from "@renderer/features/tasks/components/TaskOverlay";
+import { useTaskFeature } from "@renderer/features/tasks/hooks/use-task-feature";
+import { ColorWheel } from "@renderer/features/tools/components/ColorWheel";
+import { FilterFooter } from "@renderer/features/tools/components/FilterFooter";
+import { useToolFeature } from "@renderer/features/tools/hooks/use-tool-feature";
+import { useCanvasWorkspace } from "@renderer/features/workspace/hooks/use-canvas-workspace";
 import { useToast } from "@renderer/hooks/use-toast";
-import { useImportQueueSession } from "@renderer/hooks/use-import-queue-session";
-import type { MenuState, TaskDateRange, ToolMode } from "@renderer/app/types";
-import {
-  TOOL_LABELS,
-  createDefaultTaskDates,
-  getDayCount,
-} from "@renderer/app/utils";
-import { ColorWheel } from "@renderer/app/components/ColorWheel";
+import type { MenuState } from "@renderer/app/types";
 import { AppMenu } from "@renderer/app/components/AppMenu";
 import { TopBar } from "@renderer/app/components/TopBar";
 import { AppInfoPanel } from "@renderer/app/components/AppInfoPanel";
-import { TaskOverlay } from "@renderer/app/components/TaskOverlay";
-import { GroupOverlay } from "@renderer/app/components/GroupOverlay";
-import { ToolFooter } from "@renderer/app/components/ToolFooter";
 import { StatusBar } from "@renderer/app/components/StatusBar";
-import { TaskDialog } from "@renderer/app/components/TaskDialog";
-import { GroupDialog } from "@renderer/app/components/GroupDialog";
-import { useCanvasWorkspace } from "@renderer/app/hooks/use-canvas-workspace";
 
 export const App = () => {
   const [initialProject, setInitialProject] = useState<Project | null>(null);
@@ -58,20 +56,10 @@ const AppContent = () => {
   const [recentFiles, setRecentFiles] = useState<string[]>([]);
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
   const [lastImportedItemIds, setLastImportedItemIds] = useState<string[]>([]);
-  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [retryingEntryId, setRetryingEntryId] = useState<string | null>(null);
-  const [activeTool, setActiveTool] = useState<ToolMode | null>(null);
   const [appInfoOpen, setAppInfoOpen] = useState(false);
-  const [taskOverlayOpen, setTaskOverlayOpen] = useState(false);
   const [menuState, setMenuState] = useState<MenuState | null>(null);
   const [windowMaximized, setWindowMaximized] = useState(false);
-  const [taskDialogOpen, setTaskDialogOpen] = useState(false);
-  const [groupDialogOpen, setGroupDialogOpen] = useState(false);
-  const [draftTaskTitle, setDraftTaskTitle] = useState("New Task");
-  const [draftGroupName, setDraftGroupName] = useState("Group 2");
-  const [taskDates, setTaskDates] = useState<TaskDateRange>(
-    createDefaultTaskDates(),
-  );
   const hasInitializedViewRef = useRef(false);
 
   const {
@@ -102,17 +90,55 @@ const AppContent = () => {
 
   const activeGroupId = activeGroup?.id ?? null;
 
-  const activeTask = useMemo(() => {
-    if (!project.tasks.length) {
-      return null;
-    }
-
-    const selected = project.tasks.find((task) => task.id === activeTaskId);
-    return selected ?? project.tasks[0];
-  }, [project.tasks, activeTaskId]);
-
   const { toast, pushToast } = useToast();
   const { importQueue, setImportQueue } = useImportQueueSession(project);
+
+  const {
+    activeTask,
+    activeTaskTodoCount,
+    taskOverlayOpen,
+    taskDialogOpen,
+    draftTaskTitle,
+    taskDates,
+    taskDuration,
+    setActiveTaskId,
+    setTaskOverlayOpen,
+    setTaskDialogOpen,
+    setDraftTaskTitle,
+    setTaskDates,
+    openTaskDialog,
+    handleCreateTask,
+  } = useTaskFeature({
+    tasks: project.tasks,
+    addTask,
+    pushToast,
+  });
+
+  const {
+    groupDialogOpen,
+    draftGroupName,
+    setGroupDialogOpen,
+    setDraftGroupName,
+    openGroupDialog,
+    handleCreateGroup,
+  } = useGroupFeature({
+    groupCount: project.groups.length,
+    addGroup,
+    setSelectedItemIds,
+    pushToast,
+  });
+
+  const {
+    activeTool,
+    showColorWheel,
+    handleToolButton,
+    toggleBlur,
+    toggleBlackAndWhite,
+  } = useToolFeature({
+    activeGroup,
+    setGroupFilters,
+    pushToast,
+  });
 
   const refreshRecents = useCallback(() => {
     window.desktopApi.project
@@ -201,56 +227,6 @@ const AppContent = () => {
       resetView();
     });
   }, [activeGroup, resetView]);
-
-  const openTaskDialog = useCallback(() => {
-    setDraftTaskTitle(`New Task ${project.tasks.length + 1}`);
-    setTaskDates(createDefaultTaskDates());
-    setTaskDialogOpen(true);
-  }, [project.tasks.length]);
-
-  const openGroupDialog = useCallback(() => {
-    setDraftGroupName(`Group ${project.groups.length + 1}`);
-    setGroupDialogOpen(true);
-  }, [project.groups.length]);
-
-  const handleToolButton = useCallback(
-    (tool: ToolMode) => {
-      if (tool === "blur" || tool === "bw") {
-        setActiveTool((previous) => (previous === tool ? null : tool));
-        return;
-      }
-
-      if (tool === "connect") {
-        setActiveTool((previous) => (previous === tool ? null : tool));
-        pushToast("info", "Connect is a placeholder in this build.");
-        return;
-      }
-
-      setActiveTool((previous) => (previous === tool ? null : tool));
-      pushToast("info", `${TOOL_LABELS[tool]} is not wired yet in this MVP.`);
-    },
-    [pushToast],
-  );
-
-  const toggleBlur = useCallback(() => {
-    if (!activeGroup) {
-      return;
-    }
-
-    setGroupFilters(activeGroup.id, {
-      blur: activeGroup.filters.blur > 0 ? 0 : 8,
-    });
-  }, [activeGroup, setGroupFilters]);
-
-  const toggleBlackAndWhite = useCallback(() => {
-    if (!activeGroup) {
-      return;
-    }
-
-    setGroupFilters(activeGroup.id, {
-      grayscale: activeGroup.filters.grayscale > 0 ? 0 : 100,
-    });
-  }, [activeGroup, setGroupFilters]);
 
   const shortcutHandlers = useMemo(
     () => ({
@@ -348,21 +324,6 @@ const AppContent = () => {
     });
   };
 
-  const handleCreateTask = () => {
-    const title = draftTaskTitle.trim() || `Task ${project.tasks.length + 1}`;
-    addTask(title);
-    setTaskDialogOpen(false);
-    pushToast("success", `Created ${title}.`);
-  };
-
-  const handleCreateGroup = () => {
-    const name = draftGroupName.trim() || `Group ${project.groups.length + 1}`;
-    addGroup(name);
-    setSelectedItemIds([]);
-    setGroupDialogOpen(false);
-    pushToast("success", `Created ${name}.`);
-  };
-
   const handleMinimizeWindow = () => {
     void window.desktopApi.window.minimize();
   };
@@ -386,9 +347,6 @@ const AppContent = () => {
     : "0 x 0";
   const projectFileName =
     project.filePath?.split(/[\\/]/).at(-1) ?? "Untitled.canvas";
-  const activeTaskTodoCount = activeTask?.todos.length ?? 0;
-  const taskDuration = getDayCount(taskDates.startDate, taskDates.endDate);
-  const showColorWheel = activeTool === "doodle";
 
   return (
     <div
@@ -479,26 +437,13 @@ const AppContent = () => {
             </div>
 
             {activeTool === "blur" && activeGroup ? (
-              <ToolFooter
+              <FilterFooter
                 label="Blur"
                 htmlFor="blur-range"
                 min={0}
                 max={32}
                 value={activeGroup.filters.blur}
                 onChange={(blur) => setGroupFilters(activeGroup.id, { blur })}
-              />
-            ) : null}
-
-            {activeTool === "bw" && activeGroup ? (
-              <ToolFooter
-                label="B&W"
-                htmlFor="bw-range"
-                min={0}
-                max={100}
-                value={activeGroup.filters.grayscale}
-                onChange={(grayscale) =>
-                  setGroupFilters(activeGroup.id, { grayscale })
-                }
               />
             ) : null}
           </main>

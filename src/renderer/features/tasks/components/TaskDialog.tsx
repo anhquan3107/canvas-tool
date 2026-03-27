@@ -1,7 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
-import type { TaskDateRange } from "@renderer/app/types";
-import { formatDateLabel } from "@renderer/app/utils";
-import { DialogFrame } from "./DialogFrame";
+import { DialogFrame } from "@renderer/ui/DialogFrame";
+import type { TaskDateRange } from "@renderer/features/tasks/types";
+import { formatDateLabel } from "@renderer/features/tasks/utils";
 
 interface TaskDialogProps {
   open: boolean;
@@ -80,7 +80,11 @@ export const TaskDialog = ({
       <p className="dialog-duration">Duration: {taskDuration} day(s)</p>
 
       <div className="dialog-actions">
-        <button type="button" className="dialog-button primary" onClick={onCreateTask}>
+        <button
+          type="button"
+          className="dialog-button primary"
+          onClick={onCreateTask}
+        >
           OK
         </button>
         <button type="button" className="dialog-button" onClick={onClose}>

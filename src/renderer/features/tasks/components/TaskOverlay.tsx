@@ -1,6 +1,6 @@
 import { startTransition } from "react";
 import type { Task } from "@shared/types/project";
-import { TodoList } from "@renderer/components/TodoList";
+import { TodoList } from "@renderer/features/tasks/components/TodoList";
 
 interface TaskOverlayProps {
   tasks: Task[];

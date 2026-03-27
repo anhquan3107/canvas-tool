@@ -1,6 +1,6 @@
 import type { ReferenceGroup } from "@shared/types/project";
-import type { ToolMode } from "@renderer/app/types";
-import { TOOL_LABELS } from "@renderer/app/utils";
+import { TOOL_LABELS, TOOL_ORDER } from "@renderer/features/tools/constants";
+import type { ToolMode } from "@renderer/features/tools/types";
 
 interface TopBarProps {
   activeGroup: ReferenceGroup | null | undefined;
@@ -16,14 +16,6 @@ interface TopBarProps {
   onToggleMaximize: () => void;
   onCloseWindow: () => void;
 }
-
-const TOOL_ORDER: ToolMode[] = [
-  "connect",
-  "doodle",
-  "blur",
-  "bw",
-  "ruler",
-];
 
 export const TopBar = ({
   activeGroup,

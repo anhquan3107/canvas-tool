@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from "react";
-import { DialogFrame } from "./DialogFrame";
+import { DialogFrame } from "@renderer/ui/DialogFrame";
 
 interface GroupDialogProps {
   open: boolean;
@@ -32,7 +32,11 @@ export const GroupDialog = ({
       </div>
 
       <div className="dialog-actions compact">
-        <button type="button" className="dialog-button primary" onClick={onCreateGroup}>
+        <button
+          type="button"
+          className="dialog-button primary"
+          onClick={onCreateGroup}
+        >
           OK
         </button>
         <button type="button" className="dialog-button" onClick={onClose}>

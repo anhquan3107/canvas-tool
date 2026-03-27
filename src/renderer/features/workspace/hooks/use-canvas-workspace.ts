@@ -1,4 +1,10 @@
-import { useCallback, useMemo, type Dispatch, type DragEvent, type SetStateAction } from "react";
+import {
+  useCallback,
+  useMemo,
+  type Dispatch,
+  type DragEvent,
+  type SetStateAction,
+} from "react";
 import type { ImageItem, Project, ReferenceGroup } from "@shared/types/project";
 import {
   buildImageItemsFromPayload,

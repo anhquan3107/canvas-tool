@@ -13,10 +13,12 @@ import {
 } from "pixi.js";
 import type {
   AnnotationStroke,
+  CaptureItem,
   CanvasItemBase,
   ReferenceGroup,
 } from "@shared/types/project";
 import type { DoodleMode, ToolMode } from "@renderer/features/tools/types";
+import { CAPTURE_QUALITY_PROFILES } from "@renderer/features/connect/utils";
 
 type CanvasItemPatch = Partial<Omit<CanvasItemBase, "id" | "type">>;
 
@@ -40,6 +42,14 @@ const BOARD_EXPANSION_PADDING = 140;
 const BOARD_CORNER_RADIUS = 24;
 const ZERO_INSETS = { left: 0, top: 0, right: 0, bottom: 0 };
 const MIN_STROKE_POINT_DISTANCE = 2;
+
+interface CaptureSession {
+  sourceId: string;
+  quality: CaptureItem["quality"];
+  stream: MediaStream;
+  video: HTMLVideoElement;
+  texture: Texture;
+}
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
@@ -276,6 +286,7 @@ export const CanvasBoard = ({
   const frameMetaByIdRef = useRef(
     new Map<string, { width: number; height: number; isCapture: boolean }>(),
   );
+  const captureSessionByIdRef = useRef(new Map<string, CaptureSession>());
   const selectionIdsRef = useRef(selectedItemIds);
   const groupRef = useRef(group);
   const onSelectionChangeRef = useRef(onSelectionChange);
@@ -563,6 +574,69 @@ export const CanvasBoard = ({
     boardContainer.y = scene.panY;
     boardContainer.scale.set(scene.zoom, scene.zoom);
   }, []);
+
+  const stopCaptureSession = useCallback((captureId: string) => {
+    const session = captureSessionByIdRef.current.get(captureId);
+    if (!session) {
+      return;
+    }
+
+    captureSessionByIdRef.current.delete(captureId);
+    session.stream.getTracks().forEach((track) => track.stop());
+    session.texture.destroy(true);
+    session.video.pause();
+    session.video.srcObject = null;
+  }, []);
+
+  const ensureCaptureSession = useCallback(async (item: CaptureItem) => {
+    const existing = captureSessionByIdRef.current.get(item.id);
+    if (
+      existing &&
+      existing.sourceId === item.sourceId &&
+      existing.quality === item.quality
+    ) {
+      return existing;
+    }
+
+    if (existing) {
+      stopCaptureSession(item.id);
+    }
+
+    const profile = CAPTURE_QUALITY_PROFILES[item.quality];
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: {
+        mandatory: {
+          chromeMediaSource: "desktop",
+          chromeMediaSourceId: item.sourceId,
+          minWidth: 640,
+          maxWidth: profile.width,
+          minHeight: 360,
+          maxHeight: profile.height,
+          minFrameRate: profile.frameRate,
+          maxFrameRate: profile.frameRate,
+        },
+      } as MediaTrackConstraints,
+    } as MediaStreamConstraints);
+
+    const video = document.createElement("video");
+    video.autoplay = true;
+    video.muted = true;
+    video.playsInline = true;
+    video.srcObject = stream;
+    await video.play();
+
+    const texture = Texture.from(video);
+    const session = {
+      sourceId: item.sourceId,
+      quality: item.quality,
+      stream,
+      video,
+      texture,
+    };
+    captureSessionByIdRef.current.set(item.id, session);
+    return session;
+  }, [stopCaptureSession]);
 
   const redrawAnnotations = useCallback((annotations = groupRef.current.annotations) => {
     const annotationLayer = annotationLayerRef.current;
@@ -949,8 +1023,53 @@ export const CanvasBoard = ({
           });
       }
 
+      if (item.type === "capture") {
+        const showCaptureFallback = (message: string) => {
+          const fallbackHint = new Text({
+            text: message,
+            style: new TextStyle({
+              fill: "#d7d0c8",
+              fontSize: 13,
+              fontFamily: "Aptos",
+            }),
+          });
+          fallbackHint.position.set(10, safeHeight - 24);
+          fallbackHint.alpha = 0.9;
+          itemNode.addChild(fallbackHint);
+        };
+
+        void ensureCaptureSession(item)
+          .then((session) => {
+            if (renderTokenRef.current !== renderToken) {
+              return;
+            }
+
+            const sprite = new Sprite(session.texture);
+            sprite.width = safeWidth;
+            sprite.height = safeHeight;
+            sprite.alpha = 0.98;
+            itemNode.addChildAt(sprite, 1);
+          })
+          .catch((error) => {
+            if (renderTokenRef.current !== renderToken) {
+              return;
+            }
+
+            showCaptureFallback(
+              error instanceof Error &&
+                error.message.toLowerCase().includes("permission")
+                ? "Screen recording permission required"
+                : "Capture preview unavailable",
+            );
+          });
+      }
+
       const label = new Text({
-        text: `${("label" in item ? item.label : undefined) ?? item.type} (${Math.round(safeWidth)}x${Math.round(safeHeight)})`,
+        text: `${
+          item.type === "capture"
+            ? item.sourceName
+            : ("label" in item ? item.label : undefined) ?? item.type
+        } (${Math.round(safeWidth)}x${Math.round(safeHeight)})`,
         style: new TextStyle({
           fill: "#f0ece7",
           fontSize: 14,
@@ -1031,7 +1150,10 @@ export const CanvasBoard = ({
       }
 
       isPanningRef.current = true;
-      panStartRef.current = { x: event.globalX, y: event.globalY };
+      panStartRef.current = {
+        x: event.nativeEvent.clientX,
+        y: event.nativeEvent.clientY,
+      };
       panOriginRef.current = { x: boardContainer.x, y: boardContainer.y };
       board.cursor = "grabbing";
       const currentSelection = selectionIdsRef.current;
@@ -1217,6 +1339,9 @@ export const CanvasBoard = ({
       annotationPreviewLayerRef.current = null;
       frameByIdRef.current.clear();
       frameMetaByIdRef.current.clear();
+      captureSessionByIdRef.current.forEach((_, captureId) => {
+        stopCaptureSession(captureId);
+      });
     };
   }, [
     commitAnnotationSession,
@@ -1225,6 +1350,7 @@ export const CanvasBoard = ({
     hideDoodleCursor,
     rebuildScene,
     scheduleViewCommit,
+    stopCaptureSession,
     updateAnnotationSession,
     updateDoodleCursor,
     updateDraggedItemPosition,
@@ -1249,6 +1375,20 @@ export const CanvasBoard = ({
   ]);
 
   useEffect(() => {
+    const activeCaptureIds = new Set(
+      group.items
+        .filter((item): item is CaptureItem => item.type === "capture")
+        .map((item) => item.id),
+    );
+
+    captureSessionByIdRef.current.forEach((_, captureId) => {
+      if (!activeCaptureIds.has(captureId)) {
+        stopCaptureSession(captureId);
+      }
+    });
+  }, [group.id, group.items, stopCaptureSession]);
+
+  useEffect(() => {
     if (!appReady) {
       return;
     }
@@ -1269,6 +1409,14 @@ export const CanvasBoard = ({
 
   useEffect(() => {
     if (!appReady) {
+      return;
+    }
+
+    if (
+      isPanningRef.current ||
+      activeItemDragRef.current ||
+      activeAnnotationSessionRef.current
+    ) {
       return;
     }
 

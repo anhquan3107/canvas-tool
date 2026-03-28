@@ -10,12 +10,14 @@ interface UseToolFeatureOptions {
     filters: { blur?: number; grayscale?: number },
   ) => void;
   pushToast: (kind: "success" | "error" | "info", message: string) => void;
+  onConnectRequested: () => void;
 }
 
 export const useToolFeature = ({
   activeGroup,
   setGroupFilters,
   pushToast,
+  onConnectRequested,
 }: UseToolFeatureOptions) => {
   const [activeTool, setActiveTool] = useState<ToolMode | null>(null);
   const [doodleMode, setDoodleMode] = useState<DoodleMode>("brush");
@@ -43,8 +45,8 @@ export const useToolFeature = ({
       }
 
       if (tool === "connect") {
-        setActiveTool((previous) => (previous === tool ? null : tool));
-        pushToast("info", "Connect is a placeholder in this build.");
+        setActiveTool(null);
+        onConnectRequested();
         return;
       }
 
@@ -56,7 +58,7 @@ export const useToolFeature = ({
       setActiveTool((previous) => (previous === tool ? null : tool));
       pushToast("info", `${TOOL_LABELS[tool]} is not wired yet in this MVP.`);
     },
-    [activeGroup, pushToast, setGroupFilters],
+    [activeGroup, onConnectRequested, pushToast, setGroupFilters],
   );
 
   const toggleBlur = useCallback(() => {

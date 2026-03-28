@@ -73,6 +73,8 @@ export interface ImageItem extends CanvasItemBase {
 export interface CaptureItem extends CanvasItemBase {
   type: "capture";
   sourceId: string;
+  sourceName: string;
+  quality: "low" | "medium" | "high";
   blur: number;
   grayscale: number;
   refreshMs: number;

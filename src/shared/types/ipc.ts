@@ -1,4 +1,5 @@
 import type { Project } from "./project";
+import type { CaptureItem } from "./project";
 
 export interface ProjectOpenResult {
   project: Project;
@@ -35,6 +36,30 @@ export interface RemoteImageFetchRequest {
   url: string;
 }
 
+export interface DesktopCaptureSource {
+  id: string;
+  name: string;
+  kind: "window" | "screen";
+  thumbnailDataUrl: string | null;
+  appIconDataUrl: string | null;
+  thumbnailWidth: number;
+  thumbnailHeight: number;
+}
+
+export interface DesktopCaptureStreamRequest {
+  sourceId: string;
+  sourceName: string;
+  quality: CaptureItem["quality"];
+}
+
+export interface OpenCaptureWindowRequest {
+  sourceId: string;
+  sourceName: string;
+  quality: CaptureItem["quality"];
+  sourceWidth?: number;
+  sourceHeight?: number;
+}
+
 export interface DesktopApi {
   app: {
     getVersion: () => Promise<string>;
@@ -62,5 +87,9 @@ export interface DesktopApi {
     fetchRemoteImageDataUrl: (
       payload: RemoteImageFetchRequest,
     ) => Promise<string | null>;
+  };
+  capture: {
+    listSources: () => Promise<DesktopCaptureSource[]>;
+    openWindow: (payload: OpenCaptureWindowRequest) => Promise<void>;
   };
 }

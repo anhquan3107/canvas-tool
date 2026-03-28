@@ -11,6 +11,11 @@ import { CanvasBoard } from "@renderer/pixi/CanvasBoard";
 import { ProjectProvider } from "@renderer/state/project-store";
 import { useProjectStore } from "@renderer/state/use-project-store";
 import { useShortcuts } from "@renderer/hooks/use-shortcuts";
+import { CaptureWindowApp } from "@renderer/app/CaptureWindowApp";
+import { ConnectDialog } from "@renderer/features/connect/components/ConnectDialog";
+import { useConnectFeature } from "@renderer/features/connect/hooks/use-connect-feature";
+import type { CaptureSource } from "@renderer/features/connect/types";
+import { CAPTURE_QUALITY_PROFILES } from "@renderer/features/connect/utils";
 import { collectClipboardPayload } from "@renderer/features/import/image-import";
 import { useImportQueueSession } from "@renderer/features/import/hooks/use-import-queue-session";
 import { GroupDialog } from "@renderer/features/groups/components/GroupDialog";
@@ -32,6 +37,11 @@ import { AppInfoPanel } from "@renderer/app/components/AppInfoPanel";
 import { StatusBar } from "@renderer/app/components/StatusBar";
 
 export const App = () => {
+  const mode = new URLSearchParams(window.location.search).get("mode");
+  if (mode === "capture") {
+    return <CaptureWindowApp />;
+  }
+
   const [initialProject, setInitialProject] = useState<Project | null>(null);
 
   useEffect(() => {
@@ -107,6 +117,36 @@ const AppContent = () => {
   const { toast, pushToast } = useToast();
   const { importQueue, setImportQueue } = useImportQueueSession(project);
 
+  const handleConnectCapture = useCallback(
+    async (source: CaptureSource, quality: keyof typeof CAPTURE_QUALITY_PROFILES) => {
+      await window.desktopApi.capture.openWindow({
+        sourceId: source.id,
+        sourceName: source.name,
+        quality,
+        sourceWidth: source.thumbnailWidth,
+        sourceHeight: source.thumbnailHeight,
+      });
+    },
+    [],
+  );
+
+  const {
+    dialogOpen: connectDialogOpen,
+    loadingSources: loadingCaptureSources,
+    sources: captureSources,
+    selectedSourceId,
+    quality: captureQuality,
+    setDialogOpen: setConnectDialogOpen,
+    setSelectedSourceId,
+    setQuality: setCaptureQuality,
+    openDialog: openConnectDialog,
+    handleConfirm: handleConfirmConnect,
+  } = useConnectFeature({
+    pushToast,
+    onConnect: handleConnectCapture,
+    qualityProfiles: CAPTURE_QUALITY_PROFILES,
+  });
+
   const {
     primaryTask,
     selectedTask,
@@ -164,6 +204,7 @@ const AppContent = () => {
     activeGroup,
     setGroupFilters,
     pushToast,
+    onConnectRequested: openConnectDialog,
   });
 
   const refreshRecents = useCallback(() => {
@@ -652,6 +693,18 @@ const AppContent = () => {
         onClose={() => setGroupDialogOpen(false)}
         onCreateGroup={handleCreateGroup}
         onDraftGroupNameChange={setDraftGroupName}
+      />
+
+      <ConnectDialog
+        open={connectDialogOpen}
+        loading={loadingCaptureSources}
+        sources={captureSources}
+        selectedSourceId={selectedSourceId}
+        quality={captureQuality}
+        onClose={() => setConnectDialogOpen(false)}
+        onSelectSource={setSelectedSourceId}
+        onQualityChange={setCaptureQuality}
+        onConfirm={handleConfirmConnect}
       />
 
       {toast ? (

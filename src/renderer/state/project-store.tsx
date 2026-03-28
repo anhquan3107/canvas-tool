@@ -8,9 +8,9 @@ import {
 } from "react";
 import type {
   AnnotationStroke,
+  CanvasItem,
   CanvasItemBase,
   GroupFilters,
-  ImageItem,
   Project,
   ReferenceGroup,
   Task,
@@ -33,7 +33,7 @@ type Action =
     }
   | {
       type: "add-group-items";
-      payload: { groupId: string; items: ImageItem[] };
+      payload: { groupId: string; items: CanvasItem[] };
     }
   | {
       type: "remove-group-items";
@@ -83,7 +83,7 @@ interface Store {
     groupId: string,
     updates: Record<string, CanvasItemPatch>,
   ) => void;
-  addGroupItems: (groupId: string, items: ImageItem[]) => void;
+  addGroupItems: (groupId: string, items: CanvasItem[]) => void;
   removeGroupItems: (groupId: string, itemIds: string[]) => void;
   addGroup: (name: string) => void;
   setGroupFilters: (groupId: string, filters: Partial<GroupFilters>) => void;
@@ -424,7 +424,7 @@ export const ProjectProvider = ({
     [],
   );
 
-  const addGroupItems = useCallback((groupId: string, items: ImageItem[]) => {
+  const addGroupItems = useCallback((groupId: string, items: CanvasItem[]) => {
     dispatch({ type: "add-group-items", payload: { groupId, items } });
   }, []);
 

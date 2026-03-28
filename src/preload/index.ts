@@ -27,6 +27,10 @@ const desktopApi: DesktopApi = {
     fetchRemoteImageDataUrl: (payload) =>
       ipcRenderer.invoke("import:fetch-remote-image-data-url", payload),
   },
+  capture: {
+    listSources: () => ipcRenderer.invoke("capture:list-sources"),
+    openWindow: (payload) => ipcRenderer.invoke("capture:open-window", payload),
+  },
 };
 
 contextBridge.exposeInMainWorld("desktopApi", desktopApi);

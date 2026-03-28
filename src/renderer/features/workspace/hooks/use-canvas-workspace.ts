@@ -5,7 +5,12 @@ import {
   type DragEvent,
   type SetStateAction,
 } from "react";
-import type { ImageItem, Project, ReferenceGroup } from "@shared/types/project";
+import type {
+  CanvasItem,
+  ImageItem,
+  Project,
+  ReferenceGroup,
+} from "@shared/types/project";
 import {
   buildImageItemsFromPayload,
   collectDropPayload,
@@ -40,7 +45,7 @@ interface UseCanvasWorkspaceOptions {
     panY: number,
   ) => void;
   patchGroupItems: (groupId: string, updates: Record<string, ImagePatch>) => void;
-  addGroupItems: (groupId: string, items: ImageItem[]) => void;
+  addGroupItems: (groupId: string, items: CanvasItem[]) => void;
   removeGroupItems: (groupId: string, itemIds: string[]) => void;
   setGroupCanvasSize: (groupId: string, width: number, height: number) => void;
   setImportQueue: Dispatch<SetStateAction<ImportQueueEntry[]>>;

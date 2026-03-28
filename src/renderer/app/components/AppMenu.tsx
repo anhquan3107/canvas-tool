@@ -3,7 +3,12 @@ import type { MenuState } from "@renderer/app/types";
 interface AppMenuProps extends MenuState {
   selectedCount: number;
   canExportSwatch: boolean;
+  canPaste: boolean;
+  canUndo: boolean;
+  canRedo: boolean;
   onClose: () => void;
+  onUndo: () => void;
+  onRedo: () => void;
   onOpen: () => void;
   onSave: () => void;
   onSaveAs: () => void;
@@ -13,6 +18,7 @@ interface AppMenuProps extends MenuState {
   onAutoArrange: () => void;
   onCopySelected: () => void;
   onCutSelected: () => void;
+  onPaste: () => void;
   onDeleteSelected: () => void;
   onArrangePinterest: () => void;
   onArrangeHorizontal: () => void;
@@ -24,7 +30,12 @@ export const AppMenu = ({
   y,
   selectedCount,
   canExportSwatch,
+  canPaste,
+  canUndo,
+  canRedo,
   onClose,
+  onUndo,
+  onRedo,
   onOpen,
   onSave,
   onSaveAs,
@@ -34,6 +45,7 @@ export const AppMenu = ({
   onAutoArrange,
   onCopySelected,
   onCutSelected,
+  onPaste,
   onDeleteSelected,
   onArrangePinterest,
   onArrangeHorizontal,
@@ -53,6 +65,11 @@ export const AppMenu = ({
         <button type="button" onClick={onCutSelected}>
           Cut Selection
         </button>
+        {canPaste ? (
+          <button type="button" onClick={onPaste}>
+            Paste
+          </button>
+        ) : null}
         <button type="button" onClick={onArrangePinterest}>
           Arrange Pinterest
         </button>
@@ -73,6 +90,18 @@ export const AppMenu = ({
       </>
     ) : (
       <>
+        <button type="button" onClick={onUndo} disabled={!canUndo}>
+          Undo
+        </button>
+        <button type="button" onClick={onRedo} disabled={!canRedo}>
+          Redo
+        </button>
+        {canPaste ? (
+          <button type="button" onClick={onPaste}>
+            Paste
+          </button>
+        ) : null}
+        <div className="app-menu-divider" />
         <button type="button" onClick={() => void onOpen()}>
           Open
         </button>

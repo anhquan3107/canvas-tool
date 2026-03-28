@@ -20,6 +20,11 @@
   font-size: 11px;
 }
 
+.app-menu button:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+
 .app-menu-divider {
   height: 1px;
   margin: 4px 0;

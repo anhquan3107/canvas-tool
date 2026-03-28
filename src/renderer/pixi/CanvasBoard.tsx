@@ -46,6 +46,7 @@ const MIN_STROKE_POINT_DISTANCE = 2;
 const SNAP_THRESHOLD = 14;
 const SNAP_GAP = 2;
 const MARQUEE_DRAG_THRESHOLD = 4;
+const ITEM_DRAG_THRESHOLD = 3;
 
 interface CaptureSession {
   sourceId: string;
@@ -329,6 +330,8 @@ export const CanvasBoard = ({
       height: number;
     }>;
     patchBuffer: Record<string, CanvasItemPatch>;
+    hasMoved: boolean;
+    zIndexApplied: boolean;
   } | null>(null);
   const activeSelectionBoxRef = useRef<{
     startClient: { x: number; y: number };
@@ -961,6 +964,33 @@ export const CanvasBoard = ({
       (clientX - activeDrag.startPointer.x) / boardContainer.scale.x;
     const deltaY =
       (clientY - activeDrag.startPointer.y) / boardContainer.scale.y;
+    const movedDistance = Math.hypot(deltaX, deltaY);
+
+    if (!activeDrag.hasMoved && movedDistance < ITEM_DRAG_THRESHOLD) {
+      return;
+    }
+
+    if (!activeDrag.hasMoved) {
+      activeDrag.hasMoved = true;
+    }
+
+    if (!activeDrag.zIndexApplied) {
+      const highestZIndex = groupRef.current.items.reduce(
+        (acc, entry) => Math.max(acc, entry.zIndex),
+        -1,
+      );
+
+      activeDrag.items.forEach((dragItem, index) => {
+        activeDrag.patchBuffer[dragItem.itemId] = {
+          ...activeDrag.patchBuffer[dragItem.itemId],
+          zIndex: highestZIndex + index + 1,
+        };
+        activeDrag.itemLayer.addChild(dragItem.itemNode);
+      });
+
+      activeDrag.zIndexApplied = true;
+    }
+
     let translateX = deltaX;
     let translateY = deltaY;
 
@@ -1101,6 +1131,11 @@ export const CanvasBoard = ({
     }
 
     activeItemDragRef.current = null;
+
+    if (!activeDrag.hasMoved) {
+      setPreviewInsets(ZERO_INSETS);
+      return;
+    }
 
     if (Object.keys(activeDrag.patchBuffer).length > 0) {
       onItemsPatchRef.current({ ...activeDrag.patchBuffer });
@@ -1408,23 +1443,9 @@ export const CanvasBoard = ({
           },
           items: dragItems,
           patchBuffer: {},
+          hasMoved: false,
+          zIndexApplied: false,
         };
-
-        const highestZIndex = groupRef.current.items.reduce(
-          (acc, entry) => Math.max(acc, entry.zIndex),
-          -1,
-        );
-        const activeDrag = activeItemDragRef.current;
-        if (!activeDrag) {
-          return;
-        }
-
-        dragItems.forEach((dragItem, index) => {
-          activeDrag.patchBuffer[dragItem.itemId] = {
-            zIndex: highestZIndex + index + 1,
-          };
-          activeDrag.itemLayer.addChild(dragItem.itemNode);
-        });
       });
 
       itemLayer.addChild(itemNode);

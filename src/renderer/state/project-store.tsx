@@ -22,6 +22,10 @@ type CanvasItemPatch = Partial<Omit<CanvasItemBase, "id" | "type">>;
 
 type Action =
   | { type: "set-project"; payload: Project }
+  | { type: "undo" }
+  | { type: "redo" }
+  | { type: "begin-history-batch" }
+  | { type: "end-history-batch" }
   | { type: "set-active-group"; payload: string }
   | {
       type: "set-group-view";
@@ -70,8 +74,13 @@ type Action =
 
 interface Store {
   project: Project;
+  canUndo: boolean;
+  canRedo: boolean;
   dispatch: Dispatch<Action>;
   setProject: (project: Project) => void;
+  undo: () => void;
+  redo: () => void;
+  runHistoryBatch: (callback: () => void) => void;
   setActiveGroup: (groupId: string) => void;
   setGroupView: (
     groupId: string,
@@ -104,11 +113,25 @@ interface Store {
   ) => void;
 }
 
+interface HistoryState {
+  past: Project[];
+  project: Project;
+  future: Project[];
+  batchBase: Project | null;
+}
+
 const now = () => new Date().toISOString();
 const DEFAULT_EMPTY_GROUP_CANVAS_SIZE = {
   width: 980,
   height: 640,
 };
+const MAX_HISTORY_ENTRIES = 100;
+const cloneProject = (project: Project) => structuredClone(project);
+const projectHistorySignature = (project: Project) =>
+  JSON.stringify({
+    ...project,
+    updatedAt: undefined,
+  });
 
 const touchProject = (project: Project): Project => ({
   ...project,
@@ -140,10 +163,15 @@ const createEmptyGroup = (
   extractedSwatches: [],
 });
 
-const reducer = (project: Project, action: Action): Project => {
+const projectReducer = (project: Project, action: Action): Project => {
   switch (action.type) {
     case "set-project":
       return action.payload;
+    case "undo":
+    case "redo":
+    case "begin-history-batch":
+    case "end-history-batch":
+      return project;
     case "set-active-group":
       return touchProject({
         ...project,
@@ -388,6 +416,115 @@ const reducer = (project: Project, action: Action): Project => {
   }
 };
 
+const shouldRecordHistory = (action: Action) =>
+  ![
+    "set-project",
+    "set-active-group",
+    "set-group-view",
+    "undo",
+    "redo",
+    "begin-history-batch",
+    "end-history-batch",
+  ].includes(action.type);
+
+const pushHistoryEntry = (entries: Project[], project: Project) =>
+  [...entries, cloneProject(project)].slice(-MAX_HISTORY_ENTRIES);
+
+const historyReducer = (state: HistoryState, action: Action): HistoryState => {
+  switch (action.type) {
+    case "set-project":
+      return {
+        past: [],
+        project: cloneProject(action.payload),
+        future: [],
+        batchBase: null,
+      };
+    case "undo": {
+      if (state.past.length === 0) {
+        return state;
+      }
+
+      const previous = state.past[state.past.length - 1];
+      return {
+        past: state.past.slice(0, -1),
+        project: cloneProject(previous),
+        future: [cloneProject(state.project), ...state.future],
+        batchBase: null,
+      };
+    }
+    case "redo": {
+      if (state.future.length === 0) {
+        return state;
+      }
+
+      const next = state.future[0];
+      return {
+        past: pushHistoryEntry(state.past, state.project),
+        project: cloneProject(next),
+        future: state.future.slice(1),
+        batchBase: null,
+      };
+    }
+    case "begin-history-batch":
+      return state.batchBase
+        ? state
+        : {
+            ...state,
+            batchBase: cloneProject(state.project),
+          };
+    case "end-history-batch": {
+      if (!state.batchBase) {
+        return state;
+      }
+
+      if (
+        projectHistorySignature(state.batchBase) ===
+        projectHistorySignature(state.project)
+      ) {
+        return {
+          ...state,
+          batchBase: null,
+        };
+      }
+
+      return {
+        past: pushHistoryEntry(state.past, state.batchBase),
+        project: state.project,
+        future: [],
+        batchBase: null,
+      };
+    }
+    default: {
+      const nextProject = projectReducer(state.project, action);
+      if (nextProject === state.project) {
+        return state;
+      }
+
+      if (!shouldRecordHistory(action)) {
+        return {
+          ...state,
+          project: nextProject,
+        };
+      }
+
+      if (state.batchBase) {
+        return {
+          ...state,
+          project: nextProject,
+          future: [],
+        };
+      }
+
+      return {
+        past: pushHistoryEntry(state.past, state.project),
+        project: nextProject,
+        future: [],
+        batchBase: null,
+      };
+    }
+  }
+};
+
 export const ProjectContext = createContext<Store | null>(null);
 
 export const ProjectProvider = ({
@@ -397,10 +534,30 @@ export const ProjectProvider = ({
   initialProject: Project;
   children: ReactNode;
 }) => {
-  const [project, dispatch] = useReducer(reducer, initialProject);
+  const [state, dispatch] = useReducer(historyReducer, {
+    past: [],
+    project: initialProject,
+    future: [],
+    batchBase: null,
+  });
+  const project = state.project;
 
   const setProject = useCallback((nextProject: Project) => {
     dispatch({ type: "set-project", payload: nextProject });
+  }, []);
+
+  const undo = useCallback(() => {
+    dispatch({ type: "undo" });
+  }, []);
+
+  const redo = useCallback(() => {
+    dispatch({ type: "redo" });
+  }, []);
+
+  const runHistoryBatch = useCallback((callback: () => void) => {
+    dispatch({ type: "begin-history-batch" });
+    callback();
+    dispatch({ type: "end-history-batch" });
   }, []);
 
   const setActiveGroup = useCallback((groupId: string) => {
@@ -512,8 +669,13 @@ export const ProjectProvider = ({
   const value = useMemo(
     () => ({
       project,
+      canUndo: state.past.length > 0,
+      canRedo: state.future.length > 0,
       dispatch,
       setProject,
+      undo,
+      redo,
+      runHistoryBatch,
       setActiveGroup,
       setGroupView,
       patchGroupItems,
@@ -532,7 +694,12 @@ export const ProjectProvider = ({
     }),
     [
       project,
+      state.future.length,
+      state.past.length,
       setProject,
+      undo,
+      redo,
+      runHistoryBatch,
       setActiveGroup,
       setGroupView,
       patchGroupItems,

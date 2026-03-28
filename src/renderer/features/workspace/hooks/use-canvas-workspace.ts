@@ -39,6 +39,7 @@ interface UseCanvasWorkspaceOptions {
   selectedItemIds: string[];
   lastImportedItemIds: string[];
   importQueue: ImportQueueEntry[];
+  clipboardItems: CanvasItem[];
   setProject: (project: Project) => void;
   setGroupView: (
     groupId: string,
@@ -51,10 +52,12 @@ interface UseCanvasWorkspaceOptions {
   removeGroupItems: (groupId: string, itemIds: string[]) => void;
   setGroupCanvasSize: (groupId: string, width: number, height: number) => void;
   setImportQueue: Dispatch<SetStateAction<ImportQueueEntry[]>>;
+  setClipboardItems: Dispatch<SetStateAction<CanvasItem[]>>;
   setSelectedItemIds: Dispatch<SetStateAction<string[]>>;
   setLastImportedItemIds: Dispatch<SetStateAction<string[]>>;
   pushToast: (kind: ToastKind, message: string) => void;
   refreshRecents: () => void;
+  runHistoryBatch: (callback: () => void) => void;
 }
 
 export const useCanvasWorkspace = ({
@@ -65,6 +68,7 @@ export const useCanvasWorkspace = ({
   selectedItemIds,
   lastImportedItemIds,
   importQueue,
+  clipboardItems,
   setProject,
   setGroupView,
   patchGroupItems,
@@ -72,10 +76,12 @@ export const useCanvasWorkspace = ({
   removeGroupItems,
   setGroupCanvasSize,
   setImportQueue,
+  setClipboardItems,
   setSelectedItemIds,
   setLastImportedItemIds,
   pushToast,
   refreshRecents,
+  runHistoryBatch,
 }: UseCanvasWorkspaceOptions) => {
   const focusGroupOnItems = useCallback(
     (
@@ -409,84 +415,86 @@ export const useCanvasWorkspace = ({
           return;
         }
 
-        addGroupItems(activeGroup.id, importedItems);
-        setSelectedItemIds(importedItems.map((item) => item.id));
+        runHistoryBatch(() => {
+          addGroupItems(activeGroup.id, importedItems);
+          setSelectedItemIds(importedItems.map((item) => item.id));
 
-        const viewportWidth = Math.max(520, viewportSize.width);
-        const viewportHeight = Math.max(380, viewportSize.height);
-        const centerWorldX =
-          (viewportWidth * 0.5 - activeGroup.panX) / activeGroup.zoom;
-        const centerWorldY =
-          (viewportHeight * 0.5 - activeGroup.panY) / activeGroup.zoom;
+          const viewportWidth = Math.max(520, viewportSize.width);
+          const viewportHeight = Math.max(380, viewportSize.height);
+          const centerWorldX =
+            (viewportWidth * 0.5 - activeGroup.panX) / activeGroup.zoom;
+          const centerWorldY =
+            (viewportHeight * 0.5 - activeGroup.panY) / activeGroup.zoom;
 
-        const maxExistingZ = activeGroup.items.reduce(
-          (acc, item) => Math.max(acc, item.zIndex),
-          -1,
-        );
+          const maxExistingZ = activeGroup.items.reduce(
+            (acc, item) => Math.max(acc, item.zIndex),
+            -1,
+          );
 
-        const itemsPerRow = 4;
-        const rows = Array.from(
-          { length: Math.ceil(importedItems.length / itemsPerRow) },
-          (_, rowIndex) =>
-            importedItems.slice(
-              rowIndex * itemsPerRow,
-              rowIndex * itemsPerRow + itemsPerRow,
-            ),
-        );
-        const totalLayoutHeight = rows.reduce(
-          (sum, row) => sum + Math.max(...row.map((item) => item.height)),
-          0,
-        );
-        let cursorY = centerWorldY - totalLayoutHeight * 0.5;
+          const itemsPerRow = 4;
+          const rows = Array.from(
+            { length: Math.ceil(importedItems.length / itemsPerRow) },
+            (_, rowIndex) =>
+              importedItems.slice(
+                rowIndex * itemsPerRow,
+                rowIndex * itemsPerRow + itemsPerRow,
+              ),
+          );
+          const totalLayoutHeight = rows.reduce(
+            (sum, row) => sum + Math.max(...row.map((item) => item.height)),
+            0,
+          );
+          let cursorY = centerWorldY - totalLayoutHeight * 0.5;
 
-        const rescueEntries = rows.flatMap((row, rowIndex) => {
-          const rowWidth = row.reduce((sum, item) => sum + item.width, 0);
-          const rowHeight = Math.max(...row.map((item) => item.height));
-          let cursorX = centerWorldX - rowWidth * 0.5;
+          const rescueEntries = rows.flatMap((row, rowIndex) => {
+            const rowWidth = row.reduce((sum, item) => sum + item.width, 0);
+            const rowHeight = Math.max(...row.map((item) => item.height));
+            let cursorX = centerWorldX - rowWidth * 0.5;
 
-          const entries = row.map((item, columnIndex) => {
-            const nextX = cursorX;
-            const nextY = cursorY + (rowHeight - item.height) * 0.5;
-            cursorX += item.width;
+            const entries = row.map((item, columnIndex) => {
+              const nextX = cursorX;
+              const nextY = cursorY + (rowHeight - item.height) * 0.5;
+              cursorX += item.width;
 
-            return [
-              item.id,
-              {
-                x: Math.round(nextX),
-                y: Math.round(nextY),
-                visible: true,
-                zIndex: maxExistingZ + rowIndex * itemsPerRow + columnIndex + 1,
-              },
-            ] as const;
+              return [
+                item.id,
+                {
+                  x: Math.round(nextX),
+                  y: Math.round(nextY),
+                  visible: true,
+                  zIndex: maxExistingZ + rowIndex * itemsPerRow + columnIndex + 1,
+                },
+              ] as const;
+            });
+
+            cursorY += rowHeight;
+            return entries;
           });
 
-          cursorY += rowHeight;
-          return entries;
+          const rescueUpdates = Object.fromEntries(
+            rescueEntries,
+          ) as Record<string, ImagePatch>;
+
+          patchGroupItems(activeGroup.id, rescueUpdates);
+
+          const rescuedItems = importedItems.map((item) => ({
+            ...item,
+            ...rescueUpdates[item.id],
+          }));
+
+          setLastImportedItemIds(importedItems.map((item) => item.id));
+
+          ensureCanvasFitsItems(
+            activeGroup.id,
+            [...activeGroup.items, ...rescuedItems],
+            activeGroup.canvasSize,
+            {
+              zoom: activeGroup.zoom,
+              panX: activeGroup.panX,
+              panY: activeGroup.panY,
+            },
+          );
         });
-
-        const rescueUpdates = Object.fromEntries(
-          rescueEntries,
-        ) as Record<string, ImagePatch>;
-
-        patchGroupItems(activeGroup.id, rescueUpdates);
-
-        const rescuedItems = importedItems.map((item) => ({
-          ...item,
-          ...rescueUpdates[item.id],
-        }));
-
-        setLastImportedItemIds(importedItems.map((item) => item.id));
-
-        ensureCanvasFitsItems(
-          activeGroup.id,
-          [...activeGroup.items, ...rescuedItems],
-          activeGroup.canvasSize,
-          {
-            zoom: activeGroup.zoom,
-            panX: activeGroup.panX,
-            panY: activeGroup.panY,
-          },
-        );
 
         const blockedItemIds = importedItems
           .filter((item) => item.previewStatus === "blocked")
@@ -531,6 +539,7 @@ export const useCanvasWorkspace = ({
       setSelectedItemIds,
       viewportSize.height,
       viewportSize.width,
+      runHistoryBatch,
     ],
   );
 
@@ -631,53 +640,7 @@ export const useCanvasWorkspace = ({
     [importQueue, project, pushToast, setProject, setImportQueue],
   );
 
-  const copySelectedImagesToClipboard = useCallback(async () => {
-    if (!activeGroup || selectedItemIds.length === 0) {
-      pushToast("info", "No selected image to copy.");
-      return;
-    }
-
-    const selectedImages = activeGroup.items.filter(
-      (item): item is ImageItem =>
-        item.type === "image" && selectedItemIds.includes(item.id),
-    );
-
-    for (const imageItem of selectedImages) {
-      let dataUrl: string | null = null;
-      const assetPath = imageItem.assetPath;
-
-      if (
-        typeof assetPath === "string" &&
-        assetPath.startsWith("data:image/")
-      ) {
-        dataUrl = assetPath;
-      } else if (
-        typeof assetPath === "string" &&
-        /^https?:\/\//i.test(assetPath)
-      ) {
-        dataUrl = await window.desktopApi.import.fetchRemoteImageDataUrl({
-          url: assetPath,
-        });
-      }
-
-      if (!dataUrl) {
-        continue;
-      }
-
-      const copied = await window.desktopApi.clipboard.writeImageFromDataUrl({
-        dataUrl,
-      });
-
-      if (copied) {
-        pushToast("success", "Copied image to system clipboard.");
-        return;
-      }
-    }
-
-    pushToast("error", "Unable to copy selected images.");
-  }, [activeGroup, pushToast, selectedItemIds]);
-
-  const duplicateSelectedItems = useCallback(() => {
+  const copySelectedItemsToClipboard = useCallback(() => {
     if (!activeGroup || selectedItemIds.length === 0) {
       pushToast("info", "No selected items to copy.");
       return;
@@ -687,39 +650,18 @@ export const useCanvasWorkspace = ({
       .filter((item) => selectedItemIds.includes(item.id))
       .sort((left, right) => left.zIndex - right.zIndex);
 
-    const maxExistingZ = activeGroup.items.reduce(
-      (acc, item) => Math.max(acc, item.zIndex),
-      -1,
-    );
+    if (selectedItems.length === 0) {
+      pushToast("info", "No selected items to copy.");
+      return;
+    }
 
-    const duplicates = selectedItems.map((item, index) => ({
-      ...item,
-      id: crypto.randomUUID(),
-      x: item.x + 24,
-      y: item.y + 24,
-      zIndex: maxExistingZ + index + 1,
-    }));
-
-    addGroupItems(activeGroup.id, duplicates);
-    setSelectedItemIds(duplicates.map((item) => item.id));
-    ensureCanvasFitsItems(
-      activeGroup.id,
-      [...activeGroup.items, ...duplicates],
-      activeGroup.canvasSize,
-      {
-        zoom: activeGroup.zoom,
-        panX: activeGroup.panX,
-        panY: activeGroup.panY,
-      },
-    );
-    pushToast("success", `Copied ${duplicates.length} item(s).`);
+    setClipboardItems(structuredClone(selectedItems));
+    pushToast("success", `Copied ${selectedItems.length} item(s) to clipboard.`);
   }, [
     activeGroup,
-    addGroupItems,
-    ensureCanvasFitsItems,
     pushToast,
     selectedItemIds,
-    setSelectedItemIds,
+    setClipboardItems,
   ]);
 
   const cutSelectedItems = useCallback(() => {
@@ -728,14 +670,73 @@ export const useCanvasWorkspace = ({
       return;
     }
 
-    removeGroupItems(activeGroup.id, selectedItemIds);
-    setSelectedItemIds([]);
+    const selectedItems = activeGroup.items
+      .filter((item) => selectedItemIds.includes(item.id))
+      .sort((left, right) => left.zIndex - right.zIndex);
+
+    if (selectedItems.length === 0) {
+      pushToast("info", "No selected items to cut.");
+      return;
+    }
+
+    setClipboardItems(structuredClone(selectedItems));
+    runHistoryBatch(() => {
+      removeGroupItems(activeGroup.id, selectedItemIds);
+      setSelectedItemIds([]);
+    });
     pushToast("success", "Selected item(s) cut.");
   }, [
     activeGroup,
     pushToast,
     removeGroupItems,
+    runHistoryBatch,
     selectedItemIds,
+    setClipboardItems,
+    setSelectedItemIds,
+  ]);
+
+  const pasteClipboardItems = useCallback(() => {
+    if (!activeGroup || clipboardItems.length === 0) {
+      pushToast("info", "Clipboard is empty.");
+      return;
+    }
+
+    const maxExistingZ = activeGroup.items.reduce(
+      (acc, item) => Math.max(acc, item.zIndex),
+      -1,
+    );
+
+    const duplicates = clipboardItems.map((item, index) => ({
+      ...structuredClone(item),
+      id: crypto.randomUUID(),
+      x: item.x + 24,
+      y: item.y + 24,
+      zIndex: maxExistingZ + index + 1,
+    }));
+
+    runHistoryBatch(() => {
+      addGroupItems(activeGroup.id, duplicates);
+      setSelectedItemIds(duplicates.map((item) => item.id));
+      ensureCanvasFitsItems(
+        activeGroup.id,
+        [...activeGroup.items, ...duplicates],
+        activeGroup.canvasSize,
+        {
+          zoom: activeGroup.zoom,
+          panX: activeGroup.panX,
+          panY: activeGroup.panY,
+        },
+      );
+    });
+
+    pushToast("success", `Pasted ${duplicates.length} item(s).`);
+  }, [
+    activeGroup,
+    addGroupItems,
+    clipboardItems,
+    ensureCanvasFitsItems,
+    pushToast,
+    runHistoryBatch,
     setSelectedItemIds,
   ]);
 
@@ -745,13 +746,16 @@ export const useCanvasWorkspace = ({
       return;
     }
 
-    removeGroupItems(activeGroup.id, selectedItemIds);
-    setSelectedItemIds([]);
+    runHistoryBatch(() => {
+      removeGroupItems(activeGroup.id, selectedItemIds);
+      setSelectedItemIds([]);
+    });
     pushToast("success", "Selected image(s) deleted.");
   }, [
     activeGroup,
     pushToast,
     removeGroupItems,
+    runHistoryBatch,
     selectedItemIds,
     setSelectedItemIds,
   ]);
@@ -773,21 +777,23 @@ export const useCanvasWorkspace = ({
         return;
       }
 
-      patchGroupItems(activeGroupId, updates);
+      runHistoryBatch(() => {
+        patchGroupItems(activeGroupId, updates);
 
-      if (activeGroup) {
-        const nextItems = activeGroup.items.map((item) => ({
-          ...item,
-          ...updates[item.id],
-        }));
-        ensureCanvasFitsItems(activeGroupId, nextItems, activeGroup.canvasSize, {
-          zoom: activeGroup.zoom,
-          panX: activeGroup.panX,
-          panY: activeGroup.panY,
-        });
-      }
+        if (activeGroup) {
+          const nextItems = activeGroup.items.map((item) => ({
+            ...item,
+            ...updates[item.id],
+          }));
+          ensureCanvasFitsItems(activeGroupId, nextItems, activeGroup.canvasSize, {
+            zoom: activeGroup.zoom,
+            panX: activeGroup.panX,
+            panY: activeGroup.panY,
+          });
+        }
+      });
     },
-    [activeGroup, activeGroupId, ensureCanvasFitsItems, patchGroupItems],
+    [activeGroup, activeGroupId, ensureCanvasFitsItems, patchGroupItems, runHistoryBatch],
   );
 
   const handleShellDragOver = useCallback((event: DragEvent) => {
@@ -810,12 +816,14 @@ export const useCanvasWorkspace = ({
 
     const fittedCanvas = fitCanvasToItems(activeGroup);
     if (fittedCanvas) {
-      patchGroupItems(activeGroup.id, fittedCanvas.updates);
-      setGroupCanvasSize(
-        activeGroup.id,
-        fittedCanvas.canvasSize.width,
-        fittedCanvas.canvasSize.height,
-      );
+      runHistoryBatch(() => {
+        patchGroupItems(activeGroup.id, fittedCanvas.updates);
+        setGroupCanvasSize(
+          activeGroup.id,
+          fittedCanvas.canvasSize.width,
+          fittedCanvas.canvasSize.height,
+        );
+      });
 
       requestAnimationFrame(() => {
         focusGroupOnItems(
@@ -899,16 +907,18 @@ export const useCanvasWorkspace = ({
         });
       }
 
-      patchGroupItems(activeGroup.id, updates);
+      runHistoryBatch(() => {
+        patchGroupItems(activeGroup.id, updates);
 
-      const nextItems = activeGroup.items.map((item) => ({
-        ...item,
-        ...updates[item.id],
-      }));
-      ensureCanvasFitsItems(activeGroup.id, nextItems, activeGroup.canvasSize, {
-        zoom: activeGroup.zoom,
-        panX: activeGroup.panX,
-        panY: activeGroup.panY,
+        const nextItems = activeGroup.items.map((item) => ({
+          ...item,
+          ...updates[item.id],
+        }));
+        ensureCanvasFitsItems(activeGroup.id, nextItems, activeGroup.canvasSize, {
+          zoom: activeGroup.zoom,
+          panX: activeGroup.panX,
+          panY: activeGroup.panY,
+        });
       });
 
       pushToast(
@@ -923,6 +933,7 @@ export const useCanvasWorkspace = ({
       ensureCanvasFitsItems,
       patchGroupItems,
       pushToast,
+      runHistoryBatch,
       selectedItemIds,
     ],
   );
@@ -975,9 +986,9 @@ export const useCanvasWorkspace = ({
     openProject,
     importFromPayload,
     retryImportEntry,
-    copySelectedImagesToClipboard,
-    duplicateSelectedItems,
+    copySelectedItemsToClipboard,
     cutSelectedItems,
+    pasteClipboardItems,
     deleteSelectedItems,
     arrangeSelectedItems,
     handleBoardViewChange,

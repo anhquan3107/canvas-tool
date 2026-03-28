@@ -6,7 +6,7 @@ import {
   useState,
   type MouseEvent as ReactMouseEvent,
 } from "react";
-import type { ImageItem, Project } from "@shared/types/project";
+import type { CanvasItem, ImageItem, Project } from "@shared/types/project";
 import { CanvasBoard } from "@renderer/pixi/CanvasBoard";
 import { ProjectProvider } from "@renderer/state/project-store";
 import { useProjectStore } from "@renderer/state/use-project-store";
@@ -75,6 +75,7 @@ const AppContent = () => {
   const [recentFiles, setRecentFiles] = useState<string[]>([]);
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
   const [lastImportedItemIds, setLastImportedItemIds] = useState<string[]>([]);
+  const [clipboardItems, setClipboardItems] = useState<CanvasItem[]>([]);
   const [retryingEntryId, setRetryingEntryId] = useState<string | null>(null);
   const [appInfoOpen, setAppInfoOpen] = useState(false);
   const [canvasSizePreview, setCanvasSizePreview] = useState<{
@@ -101,7 +102,12 @@ const AppContent = () => {
 
   const {
     project,
+    canUndo,
+    canRedo,
     setProject,
+    undo,
+    redo,
+    runHistoryBatch,
     setActiveGroup,
     setGroupView,
     patchGroupItems,
@@ -296,9 +302,9 @@ const AppContent = () => {
     openProject,
     importFromPayload,
     retryImportEntry: retryImportEntryBase,
-    copySelectedImagesToClipboard,
-    duplicateSelectedItems,
+    copySelectedItemsToClipboard,
     cutSelectedItems,
+    pasteClipboardItems,
     deleteSelectedItems,
     arrangeSelectedItems,
     handleBoardViewChange,
@@ -315,6 +321,7 @@ const AppContent = () => {
     selectedItemIds,
     lastImportedItemIds,
     importQueue,
+    clipboardItems,
     setProject,
     setGroupView,
     patchGroupItems,
@@ -322,10 +329,12 @@ const AppContent = () => {
     removeGroupItems,
     setGroupCanvasSize,
     setImportQueue,
+    setClipboardItems,
     setSelectedItemIds,
     setLastImportedItemIds,
     pushToast,
     refreshRecents,
+    runHistoryBatch,
   });
 
   const retryImportEntry = useCallback(
@@ -411,6 +420,9 @@ const AppContent = () => {
       "Ctrl+O": () => void handleOpenProject(),
       "Ctrl+S": () => void handleSaveProject(),
       "Ctrl+Shift+S": () => void handleSaveProjectAs(),
+      "Ctrl+Z": undo,
+      "Ctrl+Shift+Z": redo,
+      "Ctrl+X": cutSelectedItems,
       "Ctrl+F": () => {
         if (!activeGroup || selectedItemIds.length === 0) {
           return;
@@ -418,7 +430,7 @@ const AppContent = () => {
 
         flipItems(activeGroup.id, selectedItemIds);
       },
-      "Ctrl+C": () => void copySelectedImagesToClipboard(),
+      "Ctrl+C": copySelectedItemsToClipboard,
       "Ctrl+0": resetView,
       "Ctrl+G": openGroupDialog,
       "Ctrl+T": openTaskDialog,
@@ -429,7 +441,8 @@ const AppContent = () => {
     }),
     [
       autoArrange,
-      copySelectedImagesToClipboard,
+      copySelectedItemsToClipboard,
+      cutSelectedItems,
       deleteSelectedItems,
       flipItems,
       handleOpenProject,
@@ -437,9 +450,11 @@ const AppContent = () => {
       handleSaveProjectAs,
       openGroupDialog,
       openTaskDialog,
+      redo,
       resetView,
       toggleBlackAndWhite,
       toggleBlur,
+      undo,
     ],
   );
 
@@ -456,6 +471,12 @@ const AppContent = () => {
         }
       }
 
+      if (clipboardItems.length > 0) {
+        event.preventDefault();
+        pasteClipboardItems();
+        return;
+      }
+
       const payload = collectClipboardPayload(event);
       if (payload.files.length === 0 && payload.urls.length === 0) {
         return;
@@ -467,7 +488,7 @@ const AppContent = () => {
 
     window.addEventListener("paste", onPaste);
     return () => window.removeEventListener("paste", onPaste);
-  }, [importFromPayload]);
+  }, [clipboardItems.length, importFromPayload, pasteClipboardItems]);
 
   useEffect(() => {
     if (!menuState && !taskDialogOpen && !groupDialogOpen && !settingsOpen) {
@@ -847,7 +868,18 @@ const AppContent = () => {
           y={menuState.y}
           selectedCount={selectedItemIds.length}
           canExportSwatch={canExportSelectedSwatch}
+          canPaste={clipboardItems.length > 0}
+          canUndo={canUndo}
+          canRedo={canRedo}
           onClose={() => setMenuState(null)}
+          onUndo={() => {
+            setMenuState(null);
+            undo();
+          }}
+          onRedo={() => {
+            setMenuState(null);
+            redo();
+          }}
           onOpen={() => {
             setMenuState(null);
             void handleOpenProject();
@@ -878,11 +910,15 @@ const AppContent = () => {
           }}
           onCopySelected={() => {
             setMenuState(null);
-            duplicateSelectedItems();
+            copySelectedItemsToClipboard();
           }}
           onCutSelected={() => {
             setMenuState(null);
             cutSelectedItems();
+          }}
+          onPaste={() => {
+            setMenuState(null);
+            pasteClipboardItems();
           }}
           onDeleteSelected={() => {
             setMenuState(null);

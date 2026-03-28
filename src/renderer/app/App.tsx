@@ -64,7 +64,10 @@ const AppContent = () => {
   } | null>(null);
   const [menuState, setMenuState] = useState<MenuState | null>(null);
   const [windowMaximized, setWindowMaximized] = useState(false);
+  const [groupsOverlayOpen, setGroupsOverlayOpen] = useState(false);
   const hasInitializedViewRef = useRef(false);
+  const centeredGroupIdsRef = useRef(new Set<string>());
+  const previousActiveGroupIdRef = useRef<string | null>(null);
   const canvasStageRef = useRef<HTMLDivElement | null>(null);
   const [viewportSize, setViewportSize] = useState<{
     width: number;
@@ -82,6 +85,7 @@ const AppContent = () => {
     addGroup,
     setGroupFilters,
     setGroupCanvasSize,
+    setGroupAnnotations,
     flipItems,
     addTask,
     addTodo,
@@ -140,7 +144,15 @@ const AppContent = () => {
   const {
     activeTool,
     showColorWheel,
+    doodleMode,
+    doodleColor,
+    brushSize,
+    eraserSize,
     handleToolButton,
+    setDoodleMode,
+    setDoodleColor,
+    setBrushSize,
+    setEraserSize,
     toggleBlur,
     toggleBlackAndWhite,
   } = useToolFeature({
@@ -265,6 +277,31 @@ const AppContent = () => {
     });
   }, [activeGroup, resetView, viewportSize]);
 
+  useEffect(() => {
+    if (!activeGroup) {
+      return;
+    }
+
+    if (!viewportSize || viewportSize.width <= 0 || viewportSize.height <= 0) {
+      return;
+    }
+
+    if (activeGroup.items.length > 0) {
+      return;
+    }
+
+    if (centeredGroupIdsRef.current.has(activeGroup.id)) {
+      return;
+    }
+
+    centeredGroupIdsRef.current.add(activeGroup.id);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        resetView();
+      });
+    });
+  }, [activeGroup, resetView, viewportSize]);
+
   const shortcutHandlers = useMemo(
     () => ({
       "Ctrl+O": () => void openProject(),
@@ -353,6 +390,17 @@ const AppContent = () => {
 
   useShortcuts(shortcutHandlers);
 
+  useEffect(() => {
+    if (!activeGroupId) {
+      return;
+    }
+
+    if (previousActiveGroupIdRef.current !== activeGroupId) {
+      setGroupsOverlayOpen(false);
+      previousActiveGroupIdRef.current = activeGroupId;
+    }
+  }, [activeGroupId]);
+
   const handleShellContextMenu = (event: ReactMouseEvent<HTMLDivElement>) => {
     event.preventDefault();
     setMenuState({
@@ -386,6 +434,8 @@ const AppContent = () => {
       : "0 x 0";
   const projectFileName =
     project.filePath?.split(/[\\/]/).at(-1) ?? "Untitled.canvas";
+  const activeDoodleSize =
+    doodleMode === "brush" ? brushSize : eraserSize;
 
   return (
     <div
@@ -421,10 +471,17 @@ const AppContent = () => {
               {activeGroup ? (
                 <CanvasBoard
                   group={activeGroup}
+                  activeTool={activeTool}
+                  doodleMode={doodleMode}
+                  doodleColor={doodleColor}
+                  doodleSize={activeDoodleSize}
                   selectedItemIds={selectedItemIds}
                   onSelectionChange={setSelectedItemIds}
                   onViewChange={handleBoardViewChange}
                   onItemsPatch={handleBoardItemsPatch}
+                  onAnnotationsChange={(annotations) =>
+                    setGroupAnnotations(activeGroup.id, annotations)
+                  }
                   onCanvasSizePreviewChange={setCanvasSizePreview}
                 />
               ) : null}
@@ -462,6 +519,8 @@ const AppContent = () => {
                 <GroupOverlay
                   groups={project.groups}
                   activeGroupId={project.activeGroupId}
+                  open={groupsOverlayOpen}
+                  onToggle={() => setGroupsOverlayOpen((previous) => !previous)}
                   onSelectGroup={(groupId) => {
                     setActiveGroup(groupId);
                     setSelectedItemIds([]);
@@ -471,7 +530,16 @@ const AppContent = () => {
 
               {showColorWheel ? (
                 <div className="canvas-overlay-column top-right canvas-wheel-overlay">
-                  <ColorWheel />
+                  <ColorWheel
+                    doodleMode={doodleMode}
+                    doodleColor={doodleColor}
+                    brushSize={brushSize}
+                    eraserSize={eraserSize}
+                    onDoodleModeChange={setDoodleMode}
+                    onDoodleColorChange={setDoodleColor}
+                    onBrushSizeChange={setBrushSize}
+                    onEraserSizeChange={setEraserSize}
+                  />
                 </div>
               ) : null}
             </div>

@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import type {
+  AnnotationStroke,
   CanvasItemBase,
   GroupFilters,
   ImageItem,
@@ -46,6 +47,10 @@ type Action =
       type: "set-group-canvas-size";
       payload: { groupId: string; width: number; height: number };
     }
+  | {
+      type: "set-group-annotations";
+      payload: { groupId: string; annotations: AnnotationStroke[] };
+    }
   | { type: "flip-items"; payload: { groupId: string; itemIds: string[] } }
   | { type: "add-task"; payload: { title: string } }
   | { type: "add-todo"; payload: { taskId: string; text: string } }
@@ -79,6 +84,10 @@ interface Store {
   addGroup: (name: string) => void;
   setGroupFilters: (groupId: string, filters: Partial<GroupFilters>) => void;
   setGroupCanvasSize: (groupId: string, width: number, height: number) => void;
+  setGroupAnnotations: (
+    groupId: string,
+    annotations: AnnotationStroke[],
+  ) => void;
   flipItems: (groupId: string, itemIds: string[]) => void;
   addTask: (title: string) => void;
   addTodo: (taskId: string, text: string) => void;
@@ -92,6 +101,10 @@ interface Store {
 }
 
 const now = () => new Date().toISOString();
+const DEFAULT_EMPTY_GROUP_CANVAS_SIZE = {
+  width: 980,
+  height: 640,
+};
 
 const touchProject = (project: Project): Project => ({
   ...project,
@@ -111,8 +124,8 @@ const createEmptyGroup = (
   order,
   canvasSize: { ...canvasSize },
   zoom: 1,
-  panX: 120,
-  panY: 120,
+  panX: 0,
+  panY: 0,
   layoutMode: "pinterest-dynamic",
   filters: {
     blur: 0,
@@ -198,7 +211,7 @@ const reducer = (project: Project, action: Action): Project => {
       const nextGroup = createEmptyGroup(
         action.payload.name || `Group ${project.groups.length + 1}`,
         project.groups.length,
-        project.canvasSize,
+        DEFAULT_EMPTY_GROUP_CANVAS_SIZE,
       );
 
       return touchProject({
@@ -238,6 +251,20 @@ const reducer = (project: Project, action: Action): Project => {
               width: Math.max(1, Math.round(action.payload.width)),
               height: Math.max(1, Math.round(action.payload.height)),
             },
+          };
+        }),
+      });
+    case "set-group-annotations":
+      return touchProject({
+        ...project,
+        groups: project.groups.map((group) => {
+          if (group.id !== action.payload.groupId) {
+            return group;
+          }
+
+          return {
+            ...group,
+            annotations: action.payload.annotations,
           };
         }),
       });
@@ -420,6 +447,16 @@ export const ProjectProvider = ({
     [],
   );
 
+  const setGroupAnnotations = useCallback(
+    (groupId: string, annotations: AnnotationStroke[]) => {
+      dispatch({
+        type: "set-group-annotations",
+        payload: { groupId, annotations },
+      });
+    },
+    [],
+  );
+
   const flipItems = useCallback((groupId: string, itemIds: string[]) => {
     dispatch({ type: "flip-items", payload: { groupId, itemIds } });
   }, []);
@@ -466,6 +503,7 @@ export const ProjectProvider = ({
       addGroup,
       setGroupFilters,
       setGroupCanvasSize,
+      setGroupAnnotations,
       flipItems,
       addTask,
       addTodo,
@@ -484,6 +522,7 @@ export const ProjectProvider = ({
       addGroup,
       setGroupFilters,
       setGroupCanvasSize,
+      setGroupAnnotations,
       flipItems,
       addTask,
       addTodo,

@@ -11,16 +11,26 @@ import {
   TextStyle,
   Texture,
 } from "pixi.js";
-import type { CanvasItemBase, ReferenceGroup } from "@shared/types/project";
+import type {
+  AnnotationStroke,
+  CanvasItemBase,
+  ReferenceGroup,
+} from "@shared/types/project";
+import type { DoodleMode, ToolMode } from "@renderer/features/tools/types";
 
 type CanvasItemPatch = Partial<Omit<CanvasItemBase, "id" | "type">>;
 
 interface CanvasBoardProps {
   group: ReferenceGroup;
+  activeTool: ToolMode | null;
+  doodleMode: DoodleMode;
+  doodleColor: string;
+  doodleSize: number;
   selectedItemIds: string[];
   onSelectionChange: (itemIds: string[]) => void;
   onViewChange: (zoom: number, panX: number, panY: number) => void;
   onItemsPatch: (updates: Record<string, CanvasItemPatch>) => void;
+  onAnnotationsChange: (annotations: AnnotationStroke[]) => void;
   onCanvasSizePreviewChange?: (
     size: { width: number; height: number } | null,
   ) => void;
@@ -29,9 +39,184 @@ interface CanvasBoardProps {
 const BOARD_EXPANSION_PADDING = 140;
 const BOARD_CORNER_RADIUS = 24;
 const ZERO_INSETS = { left: 0, top: 0, right: 0, bottom: 0 };
+const MIN_STROKE_POINT_DISTANCE = 2;
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
+
+const hexToRgba = (hex: string, alpha: number) => {
+  const normalized = hex.replace("#", "");
+  const expanded =
+    normalized.length === 3
+      ? normalized
+          .split("")
+          .map((value) => value + value)
+          .join("")
+      : normalized.padEnd(6, "0").slice(0, 6);
+
+  return `rgba(${Number.parseInt(expanded.slice(0, 2), 16)}, ${Number.parseInt(
+    expanded.slice(2, 4),
+    16,
+  )}, ${Number.parseInt(expanded.slice(4, 6), 16)}, ${alpha})`;
+};
+
+const distanceBetween = (
+  first: { x: number; y: number },
+  second: { x: number; y: number },
+) => Math.hypot(first.x - second.x, first.y - second.y);
+
+const distanceToSegment = (
+  point: { x: number; y: number },
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+) => {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+
+  if (dx === 0 && dy === 0) {
+    return distanceBetween(point, start);
+  }
+
+  const t = clamp(
+    ((point.x - start.x) * dx + (point.y - start.y) * dy) /
+      (dx * dx + dy * dy),
+    0,
+    1,
+  );
+
+  return Math.hypot(point.x - (start.x + dx * t), point.y - (start.y + dy * t));
+};
+
+const drawAnnotationStroke = (graphics: Graphics, stroke: AnnotationStroke) => {
+  if (stroke.points.length < 2) {
+    return;
+  }
+
+  if (stroke.points.length === 2) {
+    graphics.circle(stroke.points[0], stroke.points[1], stroke.size * 0.5);
+    graphics.fill({ color: stroke.color, alpha: 1 });
+    return;
+  }
+
+  graphics.moveTo(stroke.points[0], stroke.points[1]);
+  for (let index = 2; index < stroke.points.length; index += 2) {
+    graphics.lineTo(stroke.points[index], stroke.points[index + 1]);
+  }
+  graphics.stroke({
+    color: stroke.color,
+    width: stroke.size,
+    alpha: 1,
+    cap: "round",
+    join: "round",
+  });
+};
+
+const strokeTouchesPoint = (
+  stroke: AnnotationStroke,
+  point: { x: number; y: number },
+  radius: number,
+) => {
+  const effectiveRadius = radius + stroke.size * 0.5;
+  if (stroke.points.length === 2) {
+    return (
+      distanceBetween(point, { x: stroke.points[0], y: stroke.points[1] }) <=
+      effectiveRadius
+    );
+  }
+
+  for (let index = 0; index < stroke.points.length - 2; index += 2) {
+    if (
+      distanceToSegment(
+        point,
+        { x: stroke.points[index], y: stroke.points[index + 1] },
+        { x: stroke.points[index + 2], y: stroke.points[index + 3] },
+      ) <= effectiveRadius
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
+const eraseWholeStrokesAtPoint = (
+  annotations: AnnotationStroke[],
+  point: { x: number; y: number },
+  radius: number,
+) => {
+  const nextAnnotations = annotations.filter(
+    (stroke) => !strokeTouchesPoint(stroke, point, radius),
+  );
+
+  return nextAnnotations.length === annotations.length ? annotations : nextAnnotations;
+};
+
+const eraseStrokePixelsAtPoint = (
+  stroke: AnnotationStroke,
+  point: { x: number; y: number },
+  radius: number,
+) => {
+  const effectiveRadius = radius + stroke.size * 0.5;
+  const nextSegments: number[][] = [];
+  let currentSegment: number[] = [];
+
+  for (let index = 0; index < stroke.points.length; index += 2) {
+    const x = stroke.points[index];
+    const y = stroke.points[index + 1];
+    const shouldErase = distanceBetween(point, { x, y }) <= effectiveRadius;
+
+    if (shouldErase) {
+      if (currentSegment.length >= 2) {
+        nextSegments.push(currentSegment);
+      }
+      currentSegment = [];
+      continue;
+    }
+
+    currentSegment.push(x, y);
+  }
+
+  if (currentSegment.length >= 2) {
+    nextSegments.push(currentSegment);
+  }
+
+  if (nextSegments.length === 0) {
+    return [];
+  }
+
+  if (
+    nextSegments.length === 1 &&
+    nextSegments[0].length === stroke.points.length
+  ) {
+    return [stroke];
+  }
+
+  return nextSegments.map((points, index) => ({
+    ...stroke,
+    id: index === 0 ? stroke.id : crypto.randomUUID(),
+    points,
+  }));
+};
+
+const eraseStrokePixelsAtPointFromAnnotations = (
+  annotations: AnnotationStroke[],
+  point: { x: number; y: number },
+  radius: number,
+) => {
+  let changed = false;
+  const nextAnnotations = annotations.flatMap((stroke) => {
+    const nextStrokes = eraseStrokePixelsAtPoint(stroke, point, radius);
+    if (
+      nextStrokes.length !== 1 ||
+      nextStrokes[0] !== stroke
+    ) {
+      changed = true;
+    }
+    return nextStrokes;
+  });
+
+  return changed ? nextAnnotations : annotations;
+};
 
 const drawItemFrame = (
   frame: Graphics,
@@ -67,18 +252,26 @@ const loadTextureForAssetPath = async (assetPath: string) => {
 
 export const CanvasBoard = ({
   group,
+  activeTool,
+  doodleMode,
+  doodleColor,
+  doodleSize,
   selectedItemIds,
   onSelectionChange,
   onViewChange,
   onItemsPatch,
+  onAnnotationsChange,
   onCanvasSizePreviewChange,
 }: CanvasBoardProps) => {
   const hostRef = useRef<HTMLDivElement | null>(null);
+  const cursorOverlayRef = useRef<HTMLDivElement | null>(null);
   const appRef = useRef<Application | null>(null);
   const boardContainerRef = useRef<Container | null>(null);
   const boardGraphicRef = useRef<Graphics | null>(null);
   const gridGraphicRef = useRef<Graphics | null>(null);
   const itemLayerRef = useRef<Container | null>(null);
+  const annotationLayerRef = useRef<Graphics | null>(null);
+  const annotationPreviewLayerRef = useRef<Graphics | null>(null);
   const frameByIdRef = useRef(new Map<string, Graphics>());
   const frameMetaByIdRef = useRef(
     new Map<string, { width: number; height: number; isCapture: boolean }>(),
@@ -88,7 +281,12 @@ export const CanvasBoard = ({
   const onSelectionChangeRef = useRef(onSelectionChange);
   const onItemsPatchRef = useRef(onItemsPatch);
   const onViewChangeRef = useRef(onViewChange);
+  const onAnnotationsChangeRef = useRef(onAnnotationsChange);
   const onCanvasSizePreviewChangeRef = useRef(onCanvasSizePreviewChange);
+  const activeToolRef = useRef<ToolMode | null>(activeTool);
+  const doodleModeRef = useRef<DoodleMode>(doodleMode);
+  const doodleColorRef = useRef(doodleColor);
+  const doodleSizeRef = useRef(doodleSize);
   const renderTokenRef = useRef(0);
   const viewCommitTimerRef = useRef<number | null>(null);
   const isPanningRef = useRef(false);
@@ -104,6 +302,14 @@ export const CanvasBoard = ({
     height: number;
     patchBuffer: Record<string, CanvasItemPatch>;
   } | null>(null);
+  const activeAnnotationSessionRef = useRef<{
+    mode: DoodleMode;
+    draftStroke: AnnotationStroke | null;
+    annotations: AnnotationStroke[];
+    lastPoint: { x: number; y: number };
+    changed: boolean;
+  } | null>(null);
+  const lastPointerClientRef = useRef<{ x: number; y: number } | null>(null);
   const [appReady, setAppReady] = useState(false);
   const boardFilter = `blur(${group.filters.blur}px) grayscale(${group.filters.grayscale}%)`;
 
@@ -142,8 +348,107 @@ export const CanvasBoard = ({
   }, [onViewChange]);
 
   useEffect(() => {
+    onAnnotationsChangeRef.current = onAnnotationsChange;
+  }, [onAnnotationsChange]);
+
+  useEffect(() => {
     onCanvasSizePreviewChangeRef.current = onCanvasSizePreviewChange;
   }, [onCanvasSizePreviewChange]);
+
+  useEffect(() => {
+    activeToolRef.current = activeTool;
+    if (activeTool !== "doodle") {
+      hideDoodleCursor();
+      return;
+    }
+
+    const lastPointer = lastPointerClientRef.current;
+    if (lastPointer) {
+      updateDoodleCursor(lastPointer.x, lastPointer.y);
+    }
+  }, [activeTool]);
+
+  useEffect(() => {
+    doodleModeRef.current = doodleMode;
+    const lastPointer = lastPointerClientRef.current;
+    if (lastPointer) {
+      updateDoodleCursor(lastPointer.x, lastPointer.y);
+    }
+  }, [doodleMode]);
+
+  useEffect(() => {
+    doodleColorRef.current = doodleColor;
+    const lastPointer = lastPointerClientRef.current;
+    if (lastPointer) {
+      updateDoodleCursor(lastPointer.x, lastPointer.y);
+    }
+  }, [doodleColor]);
+
+  useEffect(() => {
+    doodleSizeRef.current = doodleSize;
+    const lastPointer = lastPointerClientRef.current;
+    if (lastPointer) {
+      updateDoodleCursor(lastPointer.x, lastPointer.y);
+    }
+  }, [doodleSize]);
+
+  const hideDoodleCursor = useCallback(() => {
+    const cursorOverlay = cursorOverlayRef.current;
+    if (!cursorOverlay) {
+      return;
+    }
+
+    cursorOverlay.style.opacity = "0";
+  }, []);
+
+  const updateDoodleCursor = useCallback((clientX: number, clientY: number) => {
+    lastPointerClientRef.current = { x: clientX, y: clientY };
+
+    const host = hostRef.current;
+    const cursorOverlay = cursorOverlayRef.current;
+    const boardContainer = boardContainerRef.current;
+    if (!host || !cursorOverlay || !boardContainer) {
+      return;
+    }
+
+    if (activeToolRef.current !== "doodle") {
+      cursorOverlay.style.opacity = "0";
+      return;
+    }
+
+    const rect = host.getBoundingClientRect();
+    if (
+      clientX < rect.left ||
+      clientX > rect.right ||
+      clientY < rect.top ||
+      clientY > rect.bottom
+    ) {
+      cursorOverlay.style.opacity = "0";
+      return;
+    }
+
+    const size = Math.max(10, doodleSizeRef.current * boardContainer.scale.x);
+    const localX = clientX - rect.left;
+    const localY = clientY - rect.top;
+    const erasing =
+      doodleModeRef.current === "erase-line" ||
+      doodleModeRef.current === "erase-pixel";
+
+    cursorOverlay.style.width = `${size}px`;
+    cursorOverlay.style.height = `${size}px`;
+    cursorOverlay.style.transform = `translate(${localX - size * 0.5}px, ${localY - size * 0.5}px)`;
+    cursorOverlay.style.borderColor = erasing ? "rgba(255, 255, 255, 0.88)" : doodleColorRef.current;
+    cursorOverlay.style.background = erasing
+      ? "rgba(255, 255, 255, 0.08)"
+      : hexToRgba(doodleColorRef.current, 0.12);
+    cursorOverlay.style.boxShadow = erasing
+      ? "0 0 0 1px rgba(0, 0, 0, 0.38), inset 0 0 0 1px rgba(255, 255, 255, 0.08)"
+      : `0 0 0 1px rgba(0, 0, 0, 0.36), inset 0 0 0 1px ${hexToRgba(
+          doodleColorRef.current,
+          0.22,
+        )}`;
+    cursorOverlay.style.opacity = "1";
+  }, []);
 
   const drawBoardSurface = useCallback(
     (insets = previewInsetsRef.current) => {
@@ -259,6 +564,206 @@ export const CanvasBoard = ({
     boardContainer.scale.set(scene.zoom, scene.zoom);
   }, []);
 
+  const redrawAnnotations = useCallback((annotations = groupRef.current.annotations) => {
+    const annotationLayer = annotationLayerRef.current;
+    if (!annotationLayer) {
+      return;
+    }
+
+    annotationLayer.clear();
+    annotations.forEach((stroke) => drawAnnotationStroke(annotationLayer, stroke));
+  }, []);
+
+  const redrawDraftAnnotation = useCallback((stroke: AnnotationStroke | null) => {
+    const annotationLayer = annotationLayerRef.current;
+    const previewLayer = annotationPreviewLayerRef.current;
+    if (!annotationLayer || !previewLayer) {
+      return;
+    }
+
+    redrawAnnotations(groupRef.current.annotations);
+    previewLayer.clear();
+    if (stroke) {
+      drawAnnotationStroke(annotationLayer, stroke);
+    }
+  }, [redrawAnnotations]);
+
+  const clientPointToCanvas = useCallback((clientX: number, clientY: number) => {
+    const host = hostRef.current;
+    const boardContainer = boardContainerRef.current;
+    if (!host || !boardContainer) {
+      return null;
+    }
+
+    const rect = host.getBoundingClientRect();
+    const scene = groupRef.current;
+    const rawX =
+      (clientX - rect.left - boardContainer.x) / boardContainer.scale.x;
+    const rawY =
+      (clientY - rect.top - boardContainer.y) / boardContainer.scale.y;
+
+    return {
+      x: clamp(rawX, 0, scene.canvasSize.width),
+      y: clamp(rawY, 0, scene.canvasSize.height),
+      insideCanvas:
+        rawX >= 0 &&
+        rawX <= scene.canvasSize.width &&
+        rawY >= 0 &&
+        rawY <= scene.canvasSize.height,
+    };
+  }, []);
+
+  const finalizeAnnotationSession = useCallback(
+    (session: NonNullable<typeof activeAnnotationSessionRef.current>) => {
+      activeAnnotationSessionRef.current = null;
+      redrawDraftAnnotation(null);
+
+      if (session.mode === "brush" && session.draftStroke) {
+        const nextAnnotations = [
+          ...groupRef.current.annotations,
+          session.draftStroke,
+        ];
+        redrawAnnotations(nextAnnotations);
+        onAnnotationsChangeRef.current(nextAnnotations);
+        return;
+      }
+
+      if (session.changed) {
+        redrawAnnotations(session.annotations);
+        onAnnotationsChangeRef.current(session.annotations);
+        return;
+      }
+
+      redrawAnnotations(groupRef.current.annotations);
+    },
+    [redrawAnnotations, redrawDraftAnnotation],
+  );
+
+  const startAnnotationSession = useCallback((clientX: number, clientY: number) => {
+    const point = clientPointToCanvas(clientX, clientY);
+    if (!point || !point.insideCanvas) {
+      return;
+    }
+
+    if (selectionIdsRef.current.length > 0) {
+      selectionIdsRef.current = [];
+      onSelectionChangeRef.current([]);
+    }
+
+    const mode = doodleModeRef.current;
+
+    if (mode === "brush") {
+      const draftStroke: AnnotationStroke = {
+        id: crypto.randomUUID(),
+        points: [point.x, point.y],
+        color: doodleColorRef.current,
+        size: doodleSizeRef.current,
+        tool: "brush",
+        createdAt: new Date().toISOString(),
+      };
+
+      activeAnnotationSessionRef.current = {
+        mode,
+        draftStroke,
+        annotations: groupRef.current.annotations,
+        lastPoint: point,
+        changed: false,
+      };
+      redrawDraftAnnotation(draftStroke);
+      return;
+    }
+
+    const nextAnnotations =
+      mode === "erase-line"
+        ? eraseWholeStrokesAtPoint(
+            groupRef.current.annotations,
+            point,
+            doodleSizeRef.current,
+          )
+        : eraseStrokePixelsAtPointFromAnnotations(
+            groupRef.current.annotations,
+            point,
+            doodleSizeRef.current,
+          );
+
+    activeAnnotationSessionRef.current = {
+      mode,
+      draftStroke: null,
+      annotations: nextAnnotations,
+      lastPoint: point,
+      changed: nextAnnotations !== groupRef.current.annotations,
+    };
+    redrawAnnotations(nextAnnotations);
+    redrawDraftAnnotation(null);
+  }, [clientPointToCanvas, redrawAnnotations, redrawDraftAnnotation]);
+
+  const updateAnnotationSession = useCallback((clientX: number, clientY: number) => {
+    const session = activeAnnotationSessionRef.current;
+    if (!session) {
+      return;
+    }
+
+    const point = clientPointToCanvas(clientX, clientY);
+    if (!point) {
+      return;
+    }
+
+    if (!point.insideCanvas) {
+      if (
+        session.mode === "brush" &&
+        session.draftStroke &&
+        distanceBetween(session.lastPoint, point) >= MIN_STROKE_POINT_DISTANCE
+      ) {
+        session.draftStroke = {
+          ...session.draftStroke,
+          points: [...session.draftStroke.points, point.x, point.y],
+        };
+      }
+      finalizeAnnotationSession(session);
+      return;
+    }
+
+    if (distanceBetween(session.lastPoint, point) < MIN_STROKE_POINT_DISTANCE) {
+      return;
+    }
+
+    session.lastPoint = point;
+
+    if (session.mode === "brush" && session.draftStroke) {
+      session.draftStroke = {
+        ...session.draftStroke,
+        points: [...session.draftStroke.points, point.x, point.y],
+      };
+      redrawDraftAnnotation(session.draftStroke);
+      return;
+    }
+
+    const nextAnnotations =
+      session.mode === "erase-line"
+        ? eraseWholeStrokesAtPoint(session.annotations, point, doodleSizeRef.current)
+        : eraseStrokePixelsAtPointFromAnnotations(
+            session.annotations,
+            point,
+            doodleSizeRef.current,
+          );
+
+    if (nextAnnotations === session.annotations) {
+      return;
+    }
+
+    session.annotations = nextAnnotations;
+    session.changed = true;
+    redrawAnnotations(nextAnnotations);
+  }, [clientPointToCanvas, finalizeAnnotationSession, redrawAnnotations, redrawDraftAnnotation]);
+
+  const commitAnnotationSession = useCallback(() => {
+    const session = activeAnnotationSessionRef.current;
+    if (!session) {
+      return;
+    }
+    finalizeAnnotationSession(session);
+  }, [finalizeAnnotationSession]);
+
   const updateDraggedItemPosition = useCallback((clientX: number, clientY: number) => {
     const activeDrag = activeItemDragRef.current;
     const boardContainer = boardContainerRef.current;
@@ -326,23 +831,36 @@ export const CanvasBoard = ({
     const board = boardGraphicRef.current;
     const grid = gridGraphicRef.current;
     const itemLayer = itemLayerRef.current;
+    const annotationLayer = annotationLayerRef.current;
+    const annotationPreviewLayer = annotationPreviewLayerRef.current;
     const host = hostRef.current;
 
-    if (!boardContainer || !board || !grid || !itemLayer || !host) {
+    if (
+      !boardContainer ||
+      !board ||
+      !grid ||
+      !itemLayer ||
+      !annotationLayer ||
+      !annotationPreviewLayer ||
+      !host
+    ) {
       return;
     }
 
     const scene = groupRef.current;
     const renderToken = ++renderTokenRef.current;
+    const doodleActive = activeToolRef.current === "doodle";
 
     syncViewFromGroup();
 
     board.eventMode = "static";
-    board.cursor = "grab";
+    board.cursor = doodleActive ? "none" : "grab";
     board.removeAllListeners();
     drawBoardSurface();
 
     grid.clear();
+    annotationLayer.clear();
+    annotationPreviewLayer.clear();
 
     itemLayer.removeChildren().forEach((child) => {
       child.destroy({ children: true });
@@ -370,8 +888,8 @@ export const CanvasBoard = ({
       itemNode.rotation = safeRotation;
       itemNode.scale.set(item.flippedX ? -safeScaleX : safeScaleX, safeScaleY);
       itemNode.pivot.x = item.flippedX ? safeWidth : 0;
-      itemNode.eventMode = "static";
-      itemNode.cursor = item.locked ? "default" : "move";
+      itemNode.eventMode = doodleActive ? "none" : "static";
+      itemNode.cursor = doodleActive ? "none" : item.locked ? "default" : "move";
       itemNode.hitArea = new Rectangle(0, 0, safeWidth, safeHeight);
 
       const frame = new Graphics();
@@ -499,8 +1017,19 @@ export const CanvasBoard = ({
       itemLayer.addChild(itemNode);
     });
 
+    redrawAnnotations(scene.annotations);
+
     board.on("pointerdown", (event: FederatedPointerEvent) => {
       event.stopPropagation();
+
+      if (activeToolRef.current === "doodle") {
+        startAnnotationSession(
+          event.nativeEvent.clientX,
+          event.nativeEvent.clientY,
+        );
+        return;
+      }
+
       isPanningRef.current = true;
       panStartRef.current = { x: event.globalX, y: event.globalY };
       panOriginRef.current = { x: boardContainer.x, y: boardContainer.y };
@@ -511,7 +1040,7 @@ export const CanvasBoard = ({
         onSelectionChangeRef.current([]);
       }
     });
-  }, []);
+  }, [drawBoardSurface, redrawAnnotations, startAnnotationSession, syncViewFromGroup]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -521,6 +1050,9 @@ export const CanvasBoard = ({
 
     let mounted = true;
     let resizeObserver: ResizeObserver | null = null;
+    const onPointerLeave = () => {
+      hideDoodleCursor();
+    };
 
     const bootstrap = async () => {
       const app = new Application();
@@ -559,7 +1091,24 @@ export const CanvasBoard = ({
       boardContainer.addChild(itemLayer);
       itemLayerRef.current = itemLayer;
 
+      const annotationLayer = new Graphics();
+      annotationLayer.eventMode = "none";
+      boardContainer.addChild(annotationLayer);
+      annotationLayerRef.current = annotationLayer;
+
+      const annotationPreviewLayer = new Graphics();
+      annotationPreviewLayer.eventMode = "none";
+      boardContainer.addChild(annotationPreviewLayer);
+      annotationPreviewLayerRef.current = annotationPreviewLayer;
+
       const onPointerMove = (event: PointerEvent) => {
+        updateDoodleCursor(event.clientX, event.clientY);
+
+        if (activeAnnotationSessionRef.current) {
+          updateAnnotationSession(event.clientX, event.clientY);
+          return;
+        }
+
         if (activeItemDragRef.current) {
           updateDraggedItemPosition(event.clientX, event.clientY);
           return;
@@ -577,6 +1126,10 @@ export const CanvasBoard = ({
       };
 
       const onPointerUp = () => {
+        if (activeAnnotationSessionRef.current) {
+          commitAnnotationSession();
+        }
+
         if (activeItemDragRef.current) {
           commitDraggedItemPatch();
         }
@@ -587,7 +1140,8 @@ export const CanvasBoard = ({
 
         isPanningRef.current = false;
         if (boardGraphicRef.current) {
-          boardGraphicRef.current.cursor = "grab";
+          boardGraphicRef.current.cursor =
+            activeToolRef.current === "doodle" ? "none" : "grab";
         }
         commitView();
       };
@@ -626,6 +1180,7 @@ export const CanvasBoard = ({
       };
 
       host.addEventListener("wheel", onWheel, { passive: false });
+      host.addEventListener("pointerleave", onPointerLeave);
       window.addEventListener("pointermove", onPointerMove);
       window.addEventListener("pointerup", onPointerUp);
       window.addEventListener("pointercancel", onPointerUp);
@@ -649,6 +1204,7 @@ export const CanvasBoard = ({
       }
 
       resizeObserver?.disconnect();
+      host.removeEventListener("pointerleave", onPointerLeave);
       activeItemDragRef.current = null;
       host.replaceChildren();
       appRef.current?.destroy(true, { children: true });
@@ -657,33 +1213,59 @@ export const CanvasBoard = ({
       boardGraphicRef.current = null;
       gridGraphicRef.current = null;
       itemLayerRef.current = null;
+      annotationLayerRef.current = null;
+      annotationPreviewLayerRef.current = null;
       frameByIdRef.current.clear();
       frameMetaByIdRef.current.clear();
     };
   }, [
+    commitAnnotationSession,
     commitDraggedItemPatch,
     commitView,
+    hideDoodleCursor,
     rebuildScene,
     scheduleViewCommit,
+    updateAnnotationSession,
+    updateDoodleCursor,
     updateDraggedItemPosition,
   ]);
 
   useEffect(() => {
-      if (!appReady) {
-        return;
-      }
+    if (!appReady) {
+      return;
+    }
 
-      previewInsetsRef.current = ZERO_INSETS;
-      onCanvasSizePreviewChangeRef.current?.(null);
-      rebuildScene();
-    }, [
-      appReady,
+    previewInsetsRef.current = ZERO_INSETS;
+    onCanvasSizePreviewChangeRef.current?.(null);
+    rebuildScene();
+  }, [
+    appReady,
     group.id,
     group.items,
-      group.canvasSize.width,
-      group.canvasSize.height,
-      rebuildScene,
-    ]);
+    group.canvasSize.width,
+    group.canvasSize.height,
+    activeTool,
+    rebuildScene,
+  ]);
+
+  useEffect(() => {
+    if (!appReady) {
+      return;
+    }
+
+    redrawAnnotations(group.annotations);
+  }, [appReady, group.annotations, redrawAnnotations]);
+
+  useEffect(() => {
+    if (!appReady) {
+      return;
+    }
+
+    const lastPointer = lastPointerClientRef.current;
+    if (lastPointer) {
+      updateDoodleCursor(lastPointer.x, lastPointer.y);
+    }
+  }, [appReady, group.zoom, updateDoodleCursor]);
 
   useEffect(() => {
     if (!appReady) {
@@ -705,8 +1287,12 @@ export const CanvasBoard = ({
       <div
         className="canvas-surface"
         ref={hostRef}
-        style={{ filter: boardFilter }}
+        style={{
+          filter: boardFilter,
+          cursor: activeTool === "doodle" ? "none" : "default",
+        }}
       />
+      <div className="canvas-cursor-overlay" ref={cursorOverlayRef} />
     </div>
   );
 };

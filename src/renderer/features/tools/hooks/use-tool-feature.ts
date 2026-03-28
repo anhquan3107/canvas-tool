@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import type { ReferenceGroup } from "@shared/types/project";
 import { TOOL_LABELS } from "@renderer/features/tools/constants";
-import type { ToolMode } from "@renderer/features/tools/types";
+import type { DoodleMode, ToolMode } from "@renderer/features/tools/types";
 
 interface UseToolFeatureOptions {
   activeGroup: ReferenceGroup | undefined;
@@ -18,6 +18,10 @@ export const useToolFeature = ({
   pushToast,
 }: UseToolFeatureOptions) => {
   const [activeTool, setActiveTool] = useState<ToolMode | null>(null);
+  const [doodleMode, setDoodleMode] = useState<DoodleMode>("brush");
+  const [doodleColor, setDoodleColor] = useState("#f38ba8");
+  const [brushSize, setBrushSize] = useState(18);
+  const [eraserSize, setEraserSize] = useState(24);
 
   const handleToolButton = useCallback(
     (tool: ToolMode) => {
@@ -41,6 +45,11 @@ export const useToolFeature = ({
       if (tool === "connect") {
         setActiveTool((previous) => (previous === tool ? null : tool));
         pushToast("info", "Connect is a placeholder in this build.");
+        return;
+      }
+
+      if (tool === "doodle") {
+        setActiveTool((previous) => (previous === tool ? null : tool));
         return;
       }
 
@@ -73,7 +82,15 @@ export const useToolFeature = ({
   return {
     activeTool,
     showColorWheel: activeTool === "doodle",
+    doodleMode,
+    doodleColor,
+    brushSize,
+    eraserSize,
     setActiveTool,
+    setDoodleMode,
+    setDoodleColor,
+    setBrushSize,
+    setEraserSize,
     handleToolButton,
     toggleBlur,
     toggleBlackAndWhite,

@@ -784,21 +784,8 @@ export const useCanvasWorkspace = ({
 
     patchGroupItems(activeGroup.id, updates);
 
-    requestAnimationFrame(() => {
-      focusGroupOnItems(
-        activeGroup.id,
-        visibleItems.map((item) => ({
-          ...item,
-          ...updates[item.id],
-          width: item.width,
-          height: item.height,
-        })),
-        activeGroup.canvasSize,
-      );
-    });
-
     pushToast("success", "Items arranged across the canvas.");
-  }, [activeGroup, focusGroupOnItems, patchGroupItems, pushToast]);
+  }, [activeGroup, patchGroupItems, pushToast]);
 
   return {
     importVisibilitySnapshot,

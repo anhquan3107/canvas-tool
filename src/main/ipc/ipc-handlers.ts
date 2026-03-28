@@ -285,6 +285,17 @@ export const setupIpcHandlers = (window: BrowserWindow) => {
     getSenderWindow(event.sender)?.minimize();
   });
 
+  ipcMain.handle("window:toggle-always-on-top", (event) => {
+    const targetWindow = getSenderWindow(event.sender) ?? window;
+    const nextState = !targetWindow.isAlwaysOnTop();
+    targetWindow.setAlwaysOnTop(nextState);
+
+    return {
+      isMaximized: targetWindow.isMaximized(),
+      isAlwaysOnTop: targetWindow.isAlwaysOnTop(),
+    };
+  });
+
   ipcMain.handle("window:toggle-maximize", (event) => {
     const targetWindow = getSenderWindow(event.sender) ?? window;
     if (targetWindow.isMaximized()) {
@@ -295,6 +306,7 @@ export const setupIpcHandlers = (window: BrowserWindow) => {
 
     return {
       isMaximized: targetWindow.isMaximized(),
+      isAlwaysOnTop: targetWindow.isAlwaysOnTop(),
     };
   });
 
@@ -304,6 +316,7 @@ export const setupIpcHandlers = (window: BrowserWindow) => {
 
   ipcMain.handle("window:get-controls-state", (event) => ({
     isMaximized: (getSenderWindow(event.sender) ?? window).isMaximized(),
+    isAlwaysOnTop: (getSenderWindow(event.sender) ?? window).isAlwaysOnTop(),
   }));
 
   ipcMain.handle(

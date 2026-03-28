@@ -6,6 +6,7 @@ interface TopBarProps {
   activeGroup: ReferenceGroup | null | undefined;
   activeTool: ToolMode | null;
   windowMaximized: boolean;
+  windowAlwaysOnTop: boolean;
   onBrandClick: () => void;
   onToolClick: (tool: ToolMode) => void;
   onResetView: () => void;
@@ -13,6 +14,7 @@ interface TopBarProps {
   onCreateGroup: () => void;
   onShowShortcuts: () => void;
   onMinimize: () => void;
+  onToggleAlwaysOnTop: () => void;
   onToggleMaximize: () => void;
   onCloseWindow: () => void;
 }
@@ -21,6 +23,7 @@ export const TopBar = ({
   activeGroup,
   activeTool,
   windowMaximized,
+  windowAlwaysOnTop,
   onBrandClick,
   onToolClick,
   onResetView,
@@ -28,6 +31,7 @@ export const TopBar = ({
   onCreateGroup,
   onShowShortcuts,
   onMinimize,
+  onToggleAlwaysOnTop,
   onToggleMaximize,
   onCloseWindow,
 }: TopBarProps) => (
@@ -71,6 +75,15 @@ export const TopBar = ({
       <span className="locale-indicator">ENG</span>
       <button type="button" className="chrome-chip" onClick={onShowShortcuts}>
         ?
+      </button>
+      <button
+        type="button"
+        className={`window-button ${windowAlwaysOnTop ? "active" : ""}`}
+        onClick={onToggleAlwaysOnTop}
+        title="Always on top"
+        aria-label="Toggle always on top"
+      >
+        ⇪
       </button>
       <button type="button" className="window-button" onClick={onMinimize}>
         -

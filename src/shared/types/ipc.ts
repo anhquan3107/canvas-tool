@@ -26,6 +26,7 @@ export interface AppWindowState {
 
 export interface AppWindowControlsState {
   isMaximized: boolean;
+  isAlwaysOnTop: boolean;
 }
 
 export interface ClipboardWriteImageRequest {
@@ -74,6 +75,7 @@ export interface DesktopApi {
   window: {
     setTitle: (payload: AppWindowState) => Promise<void>;
     minimize: () => Promise<void>;
+    toggleAlwaysOnTop: () => Promise<AppWindowControlsState>;
     toggleMaximize: () => Promise<AppWindowControlsState>;
     close: () => Promise<void>;
     getControlsState: () => Promise<AppWindowControlsState>;

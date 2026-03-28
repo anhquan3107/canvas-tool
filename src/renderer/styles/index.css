@@ -331,6 +331,12 @@ p {
   color: white;
 }
 
+.window-button.active {
+  background: rgba(240, 162, 63, 0.18);
+  color: var(--text);
+  border-color: rgba(240, 162, 63, 0.34);
+}
+
 .desktop-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);

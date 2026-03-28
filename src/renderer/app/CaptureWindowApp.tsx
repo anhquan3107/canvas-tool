@@ -37,6 +37,7 @@ export const CaptureWindowApp = () => {
   const [blurAmount, setBlurAmount] = useState(8);
   const [bwEnabled, setBwEnabled] = useState(false);
   const [windowMaximized, setWindowMaximized] = useState(false);
+  const [windowAlwaysOnTop, setWindowAlwaysOnTop] = useState(false);
 
   const loadSources = useCallback(async () => {
     setLoadingSources(true);
@@ -57,8 +58,14 @@ export const CaptureWindowApp = () => {
   useEffect(() => {
     void window.desktopApi.window
       .getControlsState()
-      .then((state) => setWindowMaximized(state.isMaximized))
-      .catch(() => setWindowMaximized(false));
+      .then((state) => {
+        setWindowMaximized(state.isMaximized);
+        setWindowAlwaysOnTop(state.isAlwaysOnTop);
+      })
+      .catch(() => {
+        setWindowMaximized(false);
+        setWindowAlwaysOnTop(false);
+      });
   }, []);
 
   useEffect(() => {
@@ -225,6 +232,22 @@ export const CaptureWindowApp = () => {
         <div className="window-cluster">
           <button
             type="button"
+            className={`window-button ${windowAlwaysOnTop ? "active" : ""}`}
+            onClick={() =>
+              void window.desktopApi.window
+                .toggleAlwaysOnTop()
+                .then((state) => {
+                  setWindowMaximized(state.isMaximized);
+                  setWindowAlwaysOnTop(state.isAlwaysOnTop);
+                })
+            }
+            title="Always on top"
+            aria-label="Toggle always on top"
+          >
+            ⇪
+          </button>
+          <button
+            type="button"
             className="window-button"
             onClick={() => void window.desktopApi.window.minimize()}
           >
@@ -236,7 +259,10 @@ export const CaptureWindowApp = () => {
             onClick={() =>
               void window.desktopApi.window
                 .toggleMaximize()
-                .then((state) => setWindowMaximized(state.isMaximized))
+                .then((state) => {
+                  setWindowMaximized(state.isMaximized);
+                  setWindowAlwaysOnTop(state.isAlwaysOnTop);
+                })
             }
           >
             {windowMaximized ? "❐" : "□"}

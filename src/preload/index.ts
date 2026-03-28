@@ -15,6 +15,7 @@ const desktopApi: DesktopApi = {
   window: {
     setTitle: (payload) => ipcRenderer.invoke("window:set-title", payload),
     minimize: () => ipcRenderer.invoke("window:minimize"),
+    toggleAlwaysOnTop: () => ipcRenderer.invoke("window:toggle-always-on-top"),
     toggleMaximize: () => ipcRenderer.invoke("window:toggle-maximize"),
     close: () => ipcRenderer.invoke("window:close"),
     getControlsState: () => ipcRenderer.invoke("window:get-controls-state"),

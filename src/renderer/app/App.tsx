@@ -75,6 +75,7 @@ const AppContent = () => {
   } | null>(null);
   const [menuState, setMenuState] = useState<MenuState | null>(null);
   const [windowMaximized, setWindowMaximized] = useState(false);
+  const [windowAlwaysOnTop, setWindowAlwaysOnTop] = useState(false);
   const [groupsOverlayOpen, setGroupsOverlayOpen] = useState(false);
   const hasInitializedViewRef = useRef(false);
   const centeredGroupIdsRef = useRef(new Set<string>());
@@ -222,8 +223,14 @@ const AppContent = () => {
         .catch(() => setVersion("unknown")),
       window.desktopApi.window
         .getControlsState()
-        .then((state) => setWindowMaximized(state.isMaximized))
-        .catch(() => setWindowMaximized(false)),
+        .then((state) => {
+          setWindowMaximized(state.isMaximized);
+          setWindowAlwaysOnTop(state.isAlwaysOnTop);
+        })
+        .catch(() => {
+          setWindowMaximized(false);
+          setWindowAlwaysOnTop(false);
+        }),
     ]);
     refreshRecents();
   }, [refreshRecents]);
@@ -459,10 +466,23 @@ const AppContent = () => {
     void window.desktopApi.window.minimize();
   };
 
+  const handleToggleAlwaysOnTop = () => {
+    void window.desktopApi.window
+      .toggleAlwaysOnTop()
+      .then((state) => {
+        setWindowMaximized(state.isMaximized);
+        setWindowAlwaysOnTop(state.isAlwaysOnTop);
+      })
+      .catch(() => null);
+  };
+
   const handleToggleMaximize = () => {
     void window.desktopApi.window
       .toggleMaximize()
-      .then((state) => setWindowMaximized(state.isMaximized))
+      .then((state) => {
+        setWindowMaximized(state.isMaximized);
+        setWindowAlwaysOnTop(state.isAlwaysOnTop);
+      })
       .catch(() => null);
   };
 
@@ -495,6 +515,7 @@ const AppContent = () => {
           activeGroup={activeGroup}
           activeTool={activeTool}
           windowMaximized={windowMaximized}
+          windowAlwaysOnTop={windowAlwaysOnTop}
           onBrandClick={() => setAppInfoOpen((previous) => !previous)}
           onToolClick={handleToolButton}
           onResetView={resetView}
@@ -507,6 +528,7 @@ const AppContent = () => {
             )
           }
           onMinimize={handleMinimizeWindow}
+          onToggleAlwaysOnTop={handleToggleAlwaysOnTop}
           onToggleMaximize={handleToggleMaximize}
           onCloseWindow={handleCloseWindow}
         />

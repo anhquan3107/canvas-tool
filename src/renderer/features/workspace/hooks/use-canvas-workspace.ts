@@ -17,6 +17,7 @@ import {
   collectDropPayload,
   type ImportPayload,
 } from "@renderer/features/import/image-import";
+import { extractImageSwatches } from "@renderer/features/import/swatches";
 import {
   measureImageSize,
   normalizePreviewSize,
@@ -579,12 +580,15 @@ export const useCanvasWorkspace = ({
         try {
           const measured = await measureImageSize(dataUrl);
           const size = normalizePreviewSize(measured.width, measured.height);
+          const swatches = await extractImageSwatches(dataUrl);
 
           targetItem.assetPath = dataUrl;
           targetItem.previewStatus = "ready";
           targetItem.label = stripBlockedSuffix(targetItem.label);
           targetItem.width = size.width;
           targetItem.height = size.height;
+          targetItem.swatchHex = swatches[0]?.colorHex;
+          targetItem.swatches = swatches;
           recoveredCount += 1;
         } catch {
           continue;

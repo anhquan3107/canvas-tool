@@ -19,6 +19,14 @@ export interface ProjectExportResult {
   filePath: string;
 }
 
+export interface SwatchExportRequest {
+  swatches: Array<{
+    colorHex: string;
+    name?: string;
+  }>;
+  name?: string;
+}
+
 export interface AppWindowState {
   title: string;
   fileName?: string;
@@ -71,6 +79,9 @@ export interface DesktopApi {
     open: () => Promise<ProjectOpenResult | null>;
     save: (payload: ProjectSaveRequest) => Promise<ProjectSaveResult>;
     saveAs: (payload: ProjectSaveRequest) => Promise<ProjectSaveResult | null>;
+    exportSwatchAco: (
+      payload: SwatchExportRequest,
+    ) => Promise<ProjectExportResult | null>;
     getRecentFiles: () => Promise<string[]>;
   };
   window: {

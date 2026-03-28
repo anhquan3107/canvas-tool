@@ -68,6 +68,8 @@ export interface ImageItem extends CanvasItemBase {
   source: "local" | "web" | "clipboard";
   label?: string;
   previewStatus?: "ready" | "blocked";
+  swatchHex?: string;
+  swatches?: ColorSwatch[];
 }
 
 export interface CaptureItem extends CanvasItemBase {

@@ -74,6 +74,9 @@ const hexToRgba = (hex: string, alpha: number) => {
   )}, ${Number.parseInt(expanded.slice(4, 6), 16)}, ${alpha})`;
 };
 
+const hexToPixiColor = (hex: string) =>
+  Number.parseInt(hex.replace("#", ""), 16);
+
 const distanceBetween = (
   first: { x: number; y: number },
   second: { x: number; y: number },
@@ -1272,7 +1275,63 @@ export const CanvasBoard = ({
                 ? "Screen recording permission required"
                 : "Capture preview unavailable",
             );
+        });
+      }
+
+      if (
+        item.type === "image" &&
+        ((item.swatches?.length ?? 0) > 0 || item.swatchHex)
+      ) {
+        const paletteColors =
+          item.swatches?.length
+            ? item.swatches.map((swatch) => swatch.colorHex)
+            : item.swatchHex
+              ? [item.swatchHex]
+              : [];
+        const visibleColors = paletteColors.slice(0, 10);
+        const chipWidth = 18;
+        const chipHeight = 18;
+        const chipGap = 2;
+        const stripPadding = 5;
+        const stripWidth =
+          visibleColors.length * chipWidth +
+          Math.max(0, visibleColors.length - 1) * chipGap;
+        const stripX = 12;
+        const stripY = safeHeight - chipHeight - 12;
+
+        const tray = new Graphics();
+        tray.roundRect(
+          stripX - stripPadding,
+          stripY - stripPadding,
+          stripWidth + stripPadding * 2,
+          chipHeight + stripPadding * 2,
+          7,
+        );
+        tray.fill({ color: 0x111111, alpha: 0.72 });
+        tray.stroke({
+          color: 0xffffff,
+          width: 1,
+          alpha: 0.16,
+        });
+        itemNode.addChild(tray);
+
+        visibleColors.forEach((colorHex, index) => {
+          const swatch = new Graphics();
+          swatch.roundRect(
+            stripX + index * (chipWidth + chipGap),
+            stripY,
+            chipWidth,
+            chipHeight,
+            2,
+          );
+          swatch.fill(hexToPixiColor(colorHex));
+          swatch.stroke({
+            color: 0xffffff,
+            width: 1,
+            alpha: 0.18,
           });
+          itemNode.addChild(swatch);
+        });
       }
 
       itemNode.on("pointerdown", (event: FederatedPointerEvent) => {

@@ -1,4 +1,5 @@
 import type { ImageItem, ReferenceGroup } from "@shared/types/project";
+import { extractImageSwatches } from "./swatches";
 
 const SUPPORTED_EXTENSIONS = new Set([
   ".jpg",
@@ -277,6 +278,7 @@ export const buildImageItemsFromPayload = async ({
     payload.files.map(async (file, index) => {
       const dataUrl = await fileToDataUrl(file);
       const measured = await measureImage(dataUrl);
+      const swatches = await extractImageSwatches(dataUrl);
       const size = normalizeSize(measured.width, measured.height);
       const sourceType: ImageItem["source"] =
         payload.source === "clipboard" ? "clipboard" : "local";
@@ -290,6 +292,8 @@ export const buildImageItemsFromPayload = async ({
         source: sourceType,
         assetPath: dataUrl,
         label,
+        swatchHex: swatches[0]?.colorHex,
+        swatches,
         x: Math.round(startX + (index % 4) * 46),
         y: Math.round(startY + index * 36),
         width: size.width,
@@ -331,6 +335,8 @@ export const buildImageItemsFromPayload = async ({
         return null;
       }
 
+      const swatches = await extractImageSwatches(finalAssetPath);
+
       const fallbackLabel = (() => {
         if (isDataImageUrl(url)) {
           return "Embedded clipboard image";
@@ -351,6 +357,8 @@ export const buildImageItemsFromPayload = async ({
         assetPath: finalAssetPath,
         label: `${payload.source === "clipboard" ? "Clipboard link: " : ""}${fallbackLabel}`,
         previewStatus: "ready" as const,
+        swatchHex: swatches[0]?.colorHex,
+        swatches,
         x: Math.round(startX + ((webStart + index) % 4) * 46),
         y: Math.round(startY + (webStart + index) * 36),
         width: size.width,

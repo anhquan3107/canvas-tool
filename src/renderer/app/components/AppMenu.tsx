@@ -2,6 +2,7 @@ import type { MenuState } from "@renderer/app/types";
 
 interface AppMenuProps extends MenuState {
   selectedCount: number;
+  canExportSwatch: boolean;
   onClose: () => void;
   onOpen: () => void;
   onSave: () => void;
@@ -15,12 +16,14 @@ interface AppMenuProps extends MenuState {
   onDeleteSelected: () => void;
   onArrangePinterest: () => void;
   onArrangeHorizontal: () => void;
+  onExportSwatch: () => void;
 }
 
 export const AppMenu = ({
   x,
   y,
   selectedCount,
+  canExportSwatch,
   onClose,
   onOpen,
   onSave,
@@ -34,6 +37,7 @@ export const AppMenu = ({
   onDeleteSelected,
   onArrangePinterest,
   onArrangeHorizontal,
+  onExportSwatch,
 }: AppMenuProps) => (
   <div
     className="app-menu"
@@ -58,31 +62,41 @@ export const AppMenu = ({
         <button type="button" onClick={onDeleteSelected}>
           Delete Selection
         </button>
+        {canExportSwatch ? (
+          <>
+            <div className="app-menu-divider" />
+            <button type="button" onClick={onExportSwatch}>
+              Export Swatch (.aco)
+            </button>
+          </>
+        ) : null}
+      </>
+    ) : (
+      <>
+        <button type="button" onClick={() => void onOpen()}>
+          Open
+        </button>
+        <button type="button" onClick={() => void onSave()}>
+          Save Canvas
+        </button>
+        <button type="button" onClick={() => void onSaveAs()}>
+          Save Canvas As...
+        </button>
+        <button type="button" onClick={onResetView}>
+          Reset View
+        </button>
+        <button type="button" onClick={onAutoArrange}>
+          Auto Arrange
+        </button>
+        <button type="button" onClick={onCreateGroup}>
+          Create Group
+        </button>
+        <button type="button" onClick={onCreateTask}>
+          Add Task
+        </button>
         <div className="app-menu-divider" />
       </>
-    ) : null}
-    <button type="button" onClick={() => void onOpen()}>
-      Open
-    </button>
-    <button type="button" onClick={() => void onSave()}>
-      Save Canvas
-    </button>
-    <button type="button" onClick={() => void onSaveAs()}>
-      Save Canvas As...
-    </button>
-    <button type="button" onClick={onResetView}>
-      Reset View
-    </button>
-    <button type="button" onClick={onAutoArrange}>
-      Auto Arrange
-    </button>
-    <button type="button" onClick={onCreateGroup}>
-      Create Group
-    </button>
-    <button type="button" onClick={onCreateTask}>
-      Add Task
-    </button>
-    <div className="app-menu-divider" />
+    )}
     <button type="button" onClick={onClose}>
       Close Menu
     </button>

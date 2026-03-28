@@ -6,7 +6,7 @@ import {
   useState,
   type MouseEvent as ReactMouseEvent,
 } from "react";
-import type { Project } from "@shared/types/project";
+import type { ImageItem, Project } from "@shared/types/project";
 import { CanvasBoard } from "@renderer/pixi/CanvasBoard";
 import { ProjectProvider } from "@renderer/state/project-store";
 import { useProjectStore } from "@renderer/state/use-project-store";
@@ -18,6 +18,7 @@ import type { CaptureSource } from "@renderer/features/connect/types";
 import { CAPTURE_QUALITY_PROFILES } from "@renderer/features/connect/utils";
 import { collectClipboardPayload } from "@renderer/features/import/image-import";
 import { useImportQueueSession } from "@renderer/features/import/hooks/use-import-queue-session";
+import { extractImageSwatches } from "@renderer/features/import/swatches";
 import { GroupDialog } from "@renderer/features/groups/components/GroupDialog";
 import { GroupOverlay } from "@renderer/features/groups/components/GroupOverlay";
 import { useGroupFeature } from "@renderer/features/groups/hooks/use-group-feature";
@@ -598,6 +599,80 @@ const AppContent = () => {
     project.filePath?.split(/[\\/]/).at(-1) ?? "Untitled.canvas";
   const activeDoodleSize =
     doodleMode === "brush" ? brushSize : eraserSize;
+  const selectedImageForSwatchExport =
+    selectedItemIds.length === 1 && activeGroup
+      ? activeGroup.items.find(
+          (item): item is ImageItem =>
+            item.id === selectedItemIds[0] && item.type === "image",
+        )
+      : undefined;
+  const canExportSelectedSwatch = Boolean(selectedImageForSwatchExport);
+
+  const handleExportSelectedSwatch = useCallback(async () => {
+    if (!selectedImageForSwatchExport || selectedImageForSwatchExport.type !== "image") {
+      pushToast("info", "Select one image to export swatches.");
+      return;
+    }
+
+    let swatches =
+      selectedImageForSwatchExport.swatches?.length
+        ? selectedImageForSwatchExport.swatches.map((swatch) => ({
+            colorHex: swatch.colorHex,
+            name: swatch.label,
+          }))
+        : selectedImageForSwatchExport.swatchHex
+          ? [
+              {
+                colorHex: selectedImageForSwatchExport.swatchHex,
+                name: selectedImageForSwatchExport.label ?? "Swatch 1",
+              },
+            ]
+          : [];
+
+    if (swatches.length === 0 && selectedImageForSwatchExport.assetPath) {
+      let source = selectedImageForSwatchExport.assetPath;
+      if (/^https?:\/\//i.test(source)) {
+        source =
+          (await window.desktopApi.import.fetchRemoteImageDataUrl({
+            url: source,
+          })) ?? source;
+      }
+
+      const extracted = await extractImageSwatches(source);
+      swatches = extracted.map((swatch) => ({
+        colorHex: swatch.colorHex,
+        name: swatch.label,
+      }));
+    }
+
+    if (swatches.length === 0) {
+      pushToast("error", "No swatches available to export for this image.");
+      return;
+    }
+
+    if (typeof window.desktopApi.project.exportSwatchAco !== "function") {
+      pushToast("error", "Swatch export needs an app restart to load the new desktop API.");
+      return;
+    }
+
+    try {
+      const result = await window.desktopApi.project.exportSwatchAco({
+        swatches,
+        name: selectedImageForSwatchExport.label ?? "Swatch",
+      });
+
+      if (!result) {
+        return;
+      }
+
+      pushToast("success", "Swatches exported as .aco.");
+    } catch (error) {
+      pushToast(
+        "error",
+        error instanceof Error ? error.message : "Swatch export failed.",
+      );
+    }
+  }, [pushToast, selectedImageForSwatchExport]);
 
   return (
     <div
@@ -771,6 +846,7 @@ const AppContent = () => {
           x={menuState.x}
           y={menuState.y}
           selectedCount={selectedItemIds.length}
+          canExportSwatch={canExportSelectedSwatch}
           onClose={() => setMenuState(null)}
           onOpen={() => {
             setMenuState(null);
@@ -819,6 +895,10 @@ const AppContent = () => {
           onArrangeHorizontal={() => {
             setMenuState(null);
             arrangeSelectedItems("horizontal");
+          }}
+          onExportSwatch={() => {
+            setMenuState(null);
+            void handleExportSelectedSwatch();
           }}
         />
       ) : null}

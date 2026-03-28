@@ -11,6 +11,8 @@ const desktopApi: DesktopApi = {
     open: () => ipcRenderer.invoke("project:open"),
     save: (payload) => ipcRenderer.invoke("project:save", payload),
     saveAs: (payload) => ipcRenderer.invoke("project:save-as", payload),
+    exportSwatchAco: (payload) =>
+      ipcRenderer.invoke("project:export-swatch-aco", payload),
     getRecentFiles: () => ipcRenderer.invoke("project:get-recent-files"),
   },
   window: {

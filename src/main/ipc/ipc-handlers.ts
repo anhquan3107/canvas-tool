@@ -7,13 +7,16 @@ import {
   ipcMain,
   nativeImage,
 } from "electron";
+import fs from "node:fs/promises";
 import path from "node:path";
 import type {
   AppWindowState,
   ClipboardWriteImageRequest,
   OpenCaptureWindowRequest,
+  ProjectExportResult,
   ProjectSaveRequest,
   RemoteImageFetchRequest,
+  SwatchExportRequest,
 } from "../../shared/types/ipc";
 import type { Project } from "../../shared/types/project";
 import {
@@ -26,6 +29,7 @@ import { addRecentFile, readSettings } from "../services/app-settings-service";
 const canvasDialogFilter = [
   { name: "CanvasTool Project", extensions: ["canvas"] },
 ];
+const acoDialogFilter = [{ name: "Adobe Color Swatch", extensions: ["aco"] }];
 
 const ensureProject = (value: unknown): Project => {
   if (!value || typeof value !== "object") {
@@ -46,6 +50,77 @@ const ensureSavePayload = (value: unknown): ProjectSaveRequest => {
     filePath:
       typeof payload.filePath === "string" ? payload.filePath : undefined,
   };
+};
+
+const ensureSwatchExportPayload = (value: unknown): SwatchExportRequest => {
+  if (!value || typeof value !== "object") {
+    throw new Error("Invalid swatch export payload.");
+  }
+
+  const payload = value as Record<string, unknown>;
+  const parsedSwatches: SwatchExportRequest["swatches"] = Array.isArray(
+    payload.swatches,
+  )
+    ? payload.swatches.flatMap((entry) => {
+        if (!entry || typeof entry !== "object") {
+          return [];
+        }
+
+        const record = entry as Record<string, unknown>;
+        if (typeof record.colorHex !== "string") {
+          return [];
+        }
+
+        return [
+          {
+            colorHex: record.colorHex,
+            name: typeof record.name === "string" ? record.name : undefined,
+          },
+        ];
+      })
+    : [];
+
+  return {
+    swatches: parsedSwatches,
+    name: typeof payload.name === "string" ? payload.name : undefined,
+  };
+};
+
+const sanitizeFileStem = (value: string) =>
+  value
+    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 64);
+
+const createAcoBuffer = (swatches: SwatchExportRequest["swatches"]) => {
+  if (swatches.length === 0) {
+    throw new Error("No swatches available to export.");
+  }
+
+  const buffer = Buffer.alloc(4 + swatches.length * 10);
+  buffer.writeUInt16BE(1, 0);
+  buffer.writeUInt16BE(swatches.length, 2);
+
+  swatches.forEach((swatch, index) => {
+    const normalized = swatch.colorHex.replace("#", "").trim();
+    if (!/^[0-9a-fA-F]{6}$/.test(normalized)) {
+      throw new Error("Swatch color must be a 6-digit hex value.");
+    }
+
+    const red = Number.parseInt(normalized.slice(0, 2), 16) * 257;
+    const green = Number.parseInt(normalized.slice(2, 4), 16) * 257;
+    const blue = Number.parseInt(normalized.slice(4, 6), 16) * 257;
+    const offset = 4 + index * 10;
+
+    buffer.writeUInt16BE(0, offset);
+    buffer.writeUInt16BE(red, offset + 2);
+    buffer.writeUInt16BE(green, offset + 4);
+    buffer.writeUInt16BE(blue, offset + 6);
+    buffer.writeUInt16BE(0, offset + 8);
+  });
+
+  return buffer;
 };
 
 const updateWindowTitle = (window: BrowserWindow | null, project: Project) => {
@@ -111,6 +186,43 @@ export const setupIpcHandlers = (window: BrowserWindow) => {
     const settings = await readSettings();
     return settings.recentFiles;
   });
+
+  ipcMain.handle(
+    "project:export-swatch-aco",
+    async (event, rawPayload: unknown): Promise<ProjectExportResult | null> => {
+      const targetWindow = getSenderWindow(event.sender) ?? window;
+      const payload = ensureSwatchExportPayload(rawPayload);
+      if (payload.swatches.length === 0) {
+        throw new Error("No swatches selected for export.");
+      }
+      const defaultStem = sanitizeFileStem(payload.name ?? "Swatch") || "Swatch";
+      const defaultFileName = `${defaultStem}.aco`;
+      let dialogResult;
+
+      try {
+        dialogResult = await dialog.showSaveDialog(targetWindow, {
+          defaultPath: path.join(app.getPath("documents"), defaultFileName),
+          filters: acoDialogFilter,
+        });
+      } catch {
+        dialogResult = await dialog.showSaveDialog({
+          defaultPath: path.join(app.getPath("documents"), "Swatch.aco"),
+          filters: acoDialogFilter,
+        });
+      }
+
+      if (dialogResult.canceled || !dialogResult.filePath) {
+        return null;
+      }
+
+      const safePath = dialogResult.filePath.endsWith(".aco")
+        ? dialogResult.filePath
+        : `${dialogResult.filePath}.aco`;
+
+      await fs.writeFile(safePath, createAcoBuffer(payload.swatches));
+      return { filePath: safePath };
+    },
+  );
 
   ipcMain.handle("capture:list-sources", async () => {
     const sources = await desktopCapturer.getSources({

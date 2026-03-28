@@ -21,7 +21,14 @@ interface CanvasBoardProps {
   onSelectionChange: (itemIds: string[]) => void;
   onViewChange: (zoom: number, panX: number, panY: number) => void;
   onItemsPatch: (updates: Record<string, CanvasItemPatch>) => void;
+  onCanvasSizePreviewChange?: (
+    size: { width: number; height: number } | null,
+  ) => void;
 }
+
+const BOARD_EXPANSION_PADDING = 140;
+const BOARD_CORNER_RADIUS = 24;
+const ZERO_INSETS = { left: 0, top: 0, right: 0, bottom: 0 };
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
@@ -64,6 +71,7 @@ export const CanvasBoard = ({
   onSelectionChange,
   onViewChange,
   onItemsPatch,
+  onCanvasSizePreviewChange,
 }: CanvasBoardProps) => {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const appRef = useRef<Application | null>(null);
@@ -80,11 +88,22 @@ export const CanvasBoard = ({
   const onSelectionChangeRef = useRef(onSelectionChange);
   const onItemsPatchRef = useRef(onItemsPatch);
   const onViewChangeRef = useRef(onViewChange);
+  const onCanvasSizePreviewChangeRef = useRef(onCanvasSizePreviewChange);
   const renderTokenRef = useRef(0);
   const viewCommitTimerRef = useRef<number | null>(null);
   const isPanningRef = useRef(false);
   const panStartRef = useRef({ x: 0, y: 0 });
   const panOriginRef = useRef({ x: 0, y: 0 });
+  const previewInsetsRef = useRef(ZERO_INSETS);
+  const activeItemDragRef = useRef<{
+    itemId: string;
+    itemNode: Container;
+    startPointer: { x: number; y: number };
+    startPos: { x: number; y: number };
+    width: number;
+    height: number;
+    patchBuffer: Record<string, CanvasItemPatch>;
+  } | null>(null);
   const [appReady, setAppReady] = useState(false);
   const boardFilter = `blur(${group.filters.blur}px) grayscale(${group.filters.grayscale}%)`;
 
@@ -121,6 +140,74 @@ export const CanvasBoard = ({
   useEffect(() => {
     onViewChangeRef.current = onViewChange;
   }, [onViewChange]);
+
+  useEffect(() => {
+    onCanvasSizePreviewChangeRef.current = onCanvasSizePreviewChange;
+  }, [onCanvasSizePreviewChange]);
+
+  const drawBoardSurface = useCallback(
+    (insets = previewInsetsRef.current) => {
+      const board = boardGraphicRef.current;
+      if (!board) {
+        return;
+      }
+
+      const scene = groupRef.current;
+      const width = scene.canvasSize.width + insets.left + insets.right;
+      const height = scene.canvasSize.height + insets.top + insets.bottom;
+
+      board.clear();
+      board.roundRect(
+        -insets.left,
+        -insets.top,
+        width,
+        height,
+        BOARD_CORNER_RADIUS,
+      );
+      board.fill(0x151515);
+      board.stroke({ color: 0x2a2a2a, width: 2, alpha: 0.92 });
+      board.hitArea = new Rectangle(-insets.left, -insets.top, width, height);
+    },
+    [],
+  );
+
+  const setPreviewInsets = useCallback(
+    (nextInsets: typeof ZERO_INSETS) => {
+      const currentInsets = previewInsetsRef.current;
+      if (
+        currentInsets.left === nextInsets.left &&
+        currentInsets.top === nextInsets.top &&
+        currentInsets.right === nextInsets.right &&
+        currentInsets.bottom === nextInsets.bottom
+      ) {
+        return;
+      }
+
+      previewInsetsRef.current = nextInsets;
+      drawBoardSurface(nextInsets);
+
+      if (
+        nextInsets.left === 0 &&
+        nextInsets.top === 0 &&
+        nextInsets.right === 0 &&
+        nextInsets.bottom === 0
+      ) {
+        onCanvasSizePreviewChangeRef.current?.(null);
+        return;
+      }
+
+      const scene = groupRef.current;
+      onCanvasSizePreviewChangeRef.current?.({
+        width: Math.round(
+          scene.canvasSize.width + nextInsets.left + nextInsets.right,
+        ),
+        height: Math.round(
+          scene.canvasSize.height + nextInsets.top + nextInsets.bottom,
+        ),
+      });
+    },
+    [drawBoardSurface],
+  );
 
   const commitView = useCallback(() => {
     const boardContainer = boardContainerRef.current;
@@ -172,6 +259,68 @@ export const CanvasBoard = ({
     boardContainer.scale.set(scene.zoom, scene.zoom);
   }, []);
 
+  const updateDraggedItemPosition = useCallback((clientX: number, clientY: number) => {
+    const activeDrag = activeItemDragRef.current;
+    const boardContainer = boardContainerRef.current;
+    if (!activeDrag || !boardContainer) {
+      return;
+    }
+
+    const deltaX =
+      (clientX - activeDrag.startPointer.x) / boardContainer.scale.x;
+    const deltaY =
+      (clientY - activeDrag.startPointer.y) / boardContainer.scale.y;
+    const nextX = activeDrag.startPos.x + deltaX;
+    const nextY = activeDrag.startPos.y + deltaY;
+
+    activeDrag.itemNode.position.set(nextX, nextY);
+    activeDrag.patchBuffer[activeDrag.itemId] = {
+      x: Math.round(nextX),
+      y: Math.round(nextY),
+    };
+
+    setPreviewInsets({
+      left:
+        nextX < 0 ? Math.ceil(-nextX + BOARD_EXPANSION_PADDING) : 0,
+      top:
+        nextY < 0 ? Math.ceil(-nextY + BOARD_EXPANSION_PADDING) : 0,
+      right:
+        nextX + activeDrag.width > groupRef.current.canvasSize.width
+          ? Math.ceil(
+              nextX +
+                activeDrag.width -
+                groupRef.current.canvasSize.width +
+                BOARD_EXPANSION_PADDING,
+            )
+          : 0,
+      bottom:
+        nextY + activeDrag.height > groupRef.current.canvasSize.height
+          ? Math.ceil(
+              nextY +
+                activeDrag.height -
+                groupRef.current.canvasSize.height +
+                BOARD_EXPANSION_PADDING,
+            )
+          : 0,
+    });
+  }, [setPreviewInsets]);
+
+  const commitDraggedItemPatch = useCallback(() => {
+    const activeDrag = activeItemDragRef.current;
+    if (!activeDrag) {
+      return;
+    }
+
+    activeItemDragRef.current = null;
+
+    if (Object.keys(activeDrag.patchBuffer).length > 0) {
+      onItemsPatchRef.current({ ...activeDrag.patchBuffer });
+      return;
+    }
+
+    setPreviewInsets(ZERO_INSETS);
+  }, [setPreviewInsets]);
+
   const rebuildScene = useCallback(() => {
     const boardContainer = boardContainerRef.current;
     const board = boardGraphicRef.current;
@@ -188,19 +337,10 @@ export const CanvasBoard = ({
 
     syncViewFromGroup();
 
-    board.clear();
-    board.roundRect(0, 0, scene.canvasSize.width, scene.canvasSize.height, 24);
-    board.fill(0x151515);
-    board.stroke({ color: 0x2a2a2a, width: 2, alpha: 0.92 });
     board.eventMode = "static";
     board.cursor = "grab";
-    board.hitArea = new Rectangle(
-      0,
-      0,
-      scene.canvasSize.width,
-      scene.canvasSize.height,
-    );
     board.removeAllListeners();
+    drawBoardSurface();
 
     grid.clear();
 
@@ -303,19 +443,6 @@ export const CanvasBoard = ({
       label.alpha = 0.95;
       itemNode.addChild(label);
 
-      let dragStart: { x: number; y: number } | null = null;
-      let startPos: { x: number; y: number } | null = null;
-      const patchBuffer: Record<string, CanvasItemPatch> = {};
-
-      const commitItemPatch = () => {
-        dragStart = null;
-        startPos = null;
-
-        if (Object.keys(patchBuffer).length > 0) {
-          onItemsPatchRef.current({ ...patchBuffer });
-        }
-      };
-
       itemNode.on("pointerdown", (event: FederatedPointerEvent) => {
         event.stopPropagation();
 
@@ -341,26 +468,33 @@ export const CanvasBoard = ({
           return;
         }
 
-        dragStart = { x: event.globalX, y: event.globalY };
-        startPos = { x: item.x, y: item.y };
-      });
-
-      itemNode.on("pointermove", (event: FederatedPointerEvent) => {
-        if (!dragStart || !startPos || item.locked) {
-          return;
-        }
-
-        const deltaX = (event.globalX - dragStart.x) / boardContainer.scale.x;
-        const deltaY = (event.globalY - dragStart.y) / boardContainer.scale.y;
-        itemNode.position.set(startPos.x + deltaX, startPos.y + deltaY);
-        patchBuffer[item.id] = {
-          x: Math.round(startPos.x + deltaX),
-          y: Math.round(startPos.y + deltaY),
+        activeItemDragRef.current = {
+          itemId: item.id,
+          itemNode,
+          startPointer: {
+            x: event.nativeEvent.clientX,
+            y: event.nativeEvent.clientY,
+          },
+          startPos: { x: item.x, y: item.y },
+          width: safeWidth,
+          height: safeHeight,
+          patchBuffer: {},
         };
       });
 
-      itemNode.on("pointerup", commitItemPatch);
-      itemNode.on("pointerupoutside", commitItemPatch);
+      itemNode.on("pointermove", (event: FederatedPointerEvent) => {
+        if (item.locked || !activeItemDragRef.current) {
+          return;
+        }
+
+        updateDraggedItemPosition(
+          event.nativeEvent.clientX,
+          event.nativeEvent.clientY,
+        );
+      });
+
+      itemNode.on("pointerup", commitDraggedItemPatch);
+      itemNode.on("pointerupoutside", commitDraggedItemPatch);
 
       itemLayer.addChild(itemNode);
     });
@@ -426,6 +560,11 @@ export const CanvasBoard = ({
       itemLayerRef.current = itemLayer;
 
       const onPointerMove = (event: PointerEvent) => {
+        if (activeItemDragRef.current) {
+          updateDraggedItemPosition(event.clientX, event.clientY);
+          return;
+        }
+
         const currentBoard = boardContainerRef.current;
         if (!isPanningRef.current || !currentBoard) {
           return;
@@ -438,6 +577,10 @@ export const CanvasBoard = ({
       };
 
       const onPointerUp = () => {
+        if (activeItemDragRef.current) {
+          commitDraggedItemPatch();
+        }
+
         if (!isPanningRef.current) {
           return;
         }
@@ -485,6 +628,7 @@ export const CanvasBoard = ({
       host.addEventListener("wheel", onWheel, { passive: false });
       window.addEventListener("pointermove", onPointerMove);
       window.addEventListener("pointerup", onPointerUp);
+      window.addEventListener("pointercancel", onPointerUp);
 
       resizeObserver = new ResizeObserver(() => {
         app.renderer.resize(host.clientWidth, host.clientHeight);
@@ -505,6 +649,7 @@ export const CanvasBoard = ({
       }
 
       resizeObserver?.disconnect();
+      activeItemDragRef.current = null;
       host.replaceChildren();
       appRef.current?.destroy(true, { children: true });
       appRef.current = null;
@@ -515,22 +660,30 @@ export const CanvasBoard = ({
       frameByIdRef.current.clear();
       frameMetaByIdRef.current.clear();
     };
-  }, [commitView, rebuildScene, scheduleViewCommit]);
+  }, [
+    commitDraggedItemPatch,
+    commitView,
+    rebuildScene,
+    scheduleViewCommit,
+    updateDraggedItemPosition,
+  ]);
 
   useEffect(() => {
-    if (!appReady) {
-      return;
-    }
+      if (!appReady) {
+        return;
+      }
 
-    rebuildScene();
-  }, [
-    appReady,
+      previewInsetsRef.current = ZERO_INSETS;
+      onCanvasSizePreviewChangeRef.current?.(null);
+      rebuildScene();
+    }, [
+      appReady,
     group.id,
     group.items,
-    group.canvasSize.width,
-    group.canvasSize.height,
-    rebuildScene,
-  ]);
+      group.canvasSize.width,
+      group.canvasSize.height,
+      rebuildScene,
+    ]);
 
   useEffect(() => {
     if (!appReady) {
@@ -539,6 +692,13 @@ export const CanvasBoard = ({
 
     syncViewFromGroup();
   }, [appReady, group.panX, group.panY, group.zoom, syncViewFromGroup]);
+
+  useEffect(
+    () => () => {
+      onCanvasSizePreviewChangeRef.current?.(null);
+    },
+    [],
+  );
 
   return (
     <div className="canvas-host">

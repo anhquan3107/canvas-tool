@@ -58,9 +58,18 @@ const AppContent = () => {
   const [lastImportedItemIds, setLastImportedItemIds] = useState<string[]>([]);
   const [retryingEntryId, setRetryingEntryId] = useState<string | null>(null);
   const [appInfoOpen, setAppInfoOpen] = useState(false);
+  const [canvasSizePreview, setCanvasSizePreview] = useState<{
+    width: number;
+    height: number;
+  } | null>(null);
   const [menuState, setMenuState] = useState<MenuState | null>(null);
   const [windowMaximized, setWindowMaximized] = useState(false);
   const hasInitializedViewRef = useRef(false);
+  const canvasStageRef = useRef<HTMLDivElement | null>(null);
+  const [viewportSize, setViewportSize] = useState<{
+    width: number;
+    height: number;
+  } | null>(null);
 
   const {
     project,
@@ -169,6 +178,29 @@ const AppContent = () => {
     });
   }, [project.filePath, project.title]);
 
+  useEffect(() => {
+    const node = canvasStageRef.current;
+    if (!node) {
+      return;
+    }
+
+    const updateViewportSize = () => {
+      setViewportSize({
+        width: Math.round(node.clientWidth),
+        height: Math.round(node.clientHeight),
+      });
+    };
+
+    updateViewportSize();
+
+    const observer = new ResizeObserver(() => {
+      updateViewportSize();
+    });
+    observer.observe(node);
+
+    return () => observer.disconnect();
+  }, []);
+
   const {
     importVisibilitySnapshot,
     saveProject,
@@ -188,6 +220,7 @@ const AppContent = () => {
     project,
     activeGroup,
     activeGroupId,
+    viewportSize: viewportSize ?? { width: 0, height: 0 },
     selectedItemIds,
     lastImportedItemIds,
     importQueue,
@@ -222,11 +255,15 @@ const AppContent = () => {
       return;
     }
 
+    if (!viewportSize || viewportSize.width <= 0 || viewportSize.height <= 0) {
+      return;
+    }
+
     hasInitializedViewRef.current = true;
     requestAnimationFrame(() => {
       resetView();
     });
-  }, [activeGroup, resetView]);
+  }, [activeGroup, resetView, viewportSize]);
 
   const shortcutHandlers = useMemo(
     () => ({
@@ -342,9 +379,11 @@ const AppContent = () => {
   const zoomLabel = activeGroup
     ? `${Math.round(activeGroup.zoom * 100)}%`
     : "0%";
-  const canvasLabel = activeGroup
-    ? `${activeGroup.canvasSize.width} x ${activeGroup.canvasSize.height}`
-    : "0 x 0";
+  const canvasLabel = canvasSizePreview
+    ? `${canvasSizePreview.width} x ${canvasSizePreview.height}`
+    : activeGroup
+      ? `${activeGroup.canvasSize.width} x ${activeGroup.canvasSize.height}`
+      : "0 x 0";
   const projectFileName =
     project.filePath?.split(/[\\/]/).at(-1) ?? "Untitled.canvas";
 
@@ -378,7 +417,7 @@ const AppContent = () => {
 
         <div className="desktop-layout">
           <main className="workspace-panel">
-            <div className="canvas-stage">
+            <div className="canvas-stage" ref={canvasStageRef}>
               {activeGroup ? (
                 <CanvasBoard
                   group={activeGroup}
@@ -386,6 +425,7 @@ const AppContent = () => {
                   onSelectionChange={setSelectedItemIds}
                   onViewChange={handleBoardViewChange}
                   onItemsPatch={handleBoardItemsPatch}
+                  onCanvasSizePreviewChange={setCanvasSizePreview}
                 />
               ) : null}
 

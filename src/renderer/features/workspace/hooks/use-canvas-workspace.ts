@@ -20,11 +20,15 @@ import {
 
 type ToastKind = "success" | "error" | "info";
 type ImagePatch = Partial<Omit<ImageItem, "id" | "type">>;
+const CANVAS_EXPANSION_PADDING = 140;
+const MIN_CANVAS_WIDTH = 360;
+const MIN_CANVAS_HEIGHT = 240;
 
 interface UseCanvasWorkspaceOptions {
   project: Project;
   activeGroup: ReferenceGroup | undefined;
   activeGroupId: string | null;
+  viewportSize: { width: number; height: number };
   selectedItemIds: string[];
   lastImportedItemIds: string[];
   importQueue: ImportQueueEntry[];
@@ -50,6 +54,7 @@ export const useCanvasWorkspace = ({
   project,
   activeGroup,
   activeGroupId,
+  viewportSize,
   selectedItemIds,
   lastImportedItemIds,
   importQueue,
@@ -90,8 +95,8 @@ export const useCanvasWorkspace = ({
         },
       );
 
-      const viewportWidth = Math.max(420, window.innerWidth - 420);
-      const viewportHeight = Math.max(320, window.innerHeight - 180);
+      const viewportWidth = Math.max(420, viewportSize.width);
+      const viewportHeight = Math.max(320, viewportSize.height);
       const fitPadding = 64;
       const boundsWidth = Math.max(1, bounds.maxX - bounds.minX);
       const boundsHeight = Math.max(1, bounds.maxY - bounds.minY);
@@ -114,17 +119,29 @@ export const useCanvasWorkspace = ({
       const unclampedPanX = viewportWidth * 0.5 - centerX * fitZoom;
       const unclampedPanY = viewportHeight * 0.5 - centerY * fitZoom;
 
-      const minPanX = viewportWidth - canvasSize.width * fitZoom - 24;
-      const maxPanX = 24;
-      const minPanY = viewportHeight - canvasSize.height * fitZoom - 24;
-      const maxPanY = 24;
-
-      const panX = Math.min(maxPanX, Math.max(minPanX, unclampedPanX));
-      const panY = Math.min(maxPanY, Math.max(minPanY, unclampedPanY));
+      const scaledCanvasWidth = canvasSize.width * fitZoom;
+      const scaledCanvasHeight = canvasSize.height * fitZoom;
+      const panX =
+        scaledCanvasWidth <= viewportWidth
+          ? (viewportWidth - scaledCanvasWidth) * 0.5
+          : Math.min(
+              24,
+              Math.max(viewportWidth - scaledCanvasWidth - 24, unclampedPanX),
+            );
+      const panY =
+        scaledCanvasHeight <= viewportHeight
+          ? (viewportHeight - scaledCanvasHeight) * 0.5
+          : Math.min(
+              24,
+              Math.max(
+                viewportHeight - scaledCanvasHeight - 24,
+                unclampedPanY,
+              ),
+            );
 
       setGroupView(groupId, fitZoom, panX, panY);
     },
-    [setGroupView],
+    [setGroupView, viewportSize.height, viewportSize.width],
   );
 
   const importVisibilitySnapshot = useMemo(() => {
@@ -173,6 +190,7 @@ export const useCanvasWorkspace = ({
     (
       groupId: string,
       items: Array<{
+        id: string;
         x: number;
         y: number;
         width: number;
@@ -180,30 +198,132 @@ export const useCanvasWorkspace = ({
         visible?: boolean;
       }>,
       currentSize: { width: number; height: number },
+      currentView?: { zoom: number; panX: number; panY: number },
     ) => {
       const visibleItems = items.filter((item) => item.visible !== false);
       if (visibleItems.length === 0) {
         return;
       }
 
-      const padding = 180;
+      const expandLeft = Math.max(
+        0,
+        Math.ceil(
+          Math.max(0, -Math.min(...visibleItems.map((item) => item.x))) +
+            (Math.min(...visibleItems.map((item) => item.x)) < 0
+              ? CANVAS_EXPANSION_PADDING
+              : 0),
+        ),
+      );
+      const expandTop = Math.max(
+        0,
+        Math.ceil(
+          Math.max(0, -Math.min(...visibleItems.map((item) => item.y))) +
+            (Math.min(...visibleItems.map((item) => item.y)) < 0
+              ? CANVAS_EXPANSION_PADDING
+              : 0),
+        ),
+      );
+
+      const normalizedItems =
+        expandLeft > 0 || expandTop > 0
+          ? items.map((item) => ({
+              ...item,
+              x: item.x + expandLeft,
+              y: item.y + expandTop,
+            }))
+          : items;
+      const normalizedVisibleItems = normalizedItems.filter(
+        (item) => item.visible !== false,
+      );
+
       const requiredWidth = Math.max(
-        currentSize.width,
-        ...visibleItems.map((item) => Math.ceil(item.x + item.width + padding)),
+        currentSize.width + expandLeft,
+        ...normalizedVisibleItems.map((item) =>
+          Math.ceil(item.x + item.width + CANVAS_EXPANSION_PADDING),
+        ),
       );
       const requiredHeight = Math.max(
-        currentSize.height,
-        ...visibleItems.map((item) => Math.ceil(item.y + item.height + padding)),
+        currentSize.height + expandTop,
+        ...normalizedVisibleItems.map((item) =>
+          Math.ceil(item.y + item.height + CANVAS_EXPANSION_PADDING),
+        ),
       );
+
+      if (expandLeft > 0 || expandTop > 0) {
+        const shiftedUpdates = Object.fromEntries(
+          normalizedItems.map((item) => [
+            item.id,
+            {
+              x: Math.round(item.x),
+              y: Math.round(item.y),
+            },
+          ]),
+        ) as Record<string, ImagePatch>;
+
+        patchGroupItems(groupId, shiftedUpdates);
+
+        if (currentView) {
+          setGroupView(
+            groupId,
+            currentView.zoom,
+            currentView.panX - expandLeft * currentView.zoom,
+            currentView.panY - expandTop * currentView.zoom,
+          );
+        }
+      }
 
       if (
         requiredWidth > currentSize.width ||
-        requiredHeight > currentSize.height
+        requiredHeight > currentSize.height ||
+        expandLeft > 0 ||
+        expandTop > 0
       ) {
         setGroupCanvasSize(groupId, requiredWidth, requiredHeight);
       }
     },
-    [setGroupCanvasSize],
+    [patchGroupItems, setGroupCanvasSize, setGroupView],
+  );
+
+  const fitCanvasToItems = useCallback(
+    (group: ReferenceGroup) => {
+      const visibleItems = group.items.filter((item) => item.visible !== false);
+      if (visibleItems.length === 0) {
+        return null;
+      }
+
+      const minX = Math.min(...visibleItems.map((item) => item.x));
+      const minY = Math.min(...visibleItems.map((item) => item.y));
+      const maxX = Math.max(...visibleItems.map((item) => item.x + item.width));
+      const maxY = Math.max(...visibleItems.map((item) => item.y + item.height));
+      const shiftX = Math.round(CANVAS_EXPANSION_PADDING - minX);
+      const shiftY = Math.round(CANVAS_EXPANSION_PADDING - minY);
+      const nextWidth = Math.max(
+        MIN_CANVAS_WIDTH,
+        Math.ceil(maxX - minX + CANVAS_EXPANSION_PADDING * 2),
+      );
+      const nextHeight = Math.max(
+        MIN_CANVAS_HEIGHT,
+        Math.ceil(maxY - minY + CANVAS_EXPANSION_PADDING * 2),
+      );
+      const updates = Object.fromEntries(
+        group.items.map((item) => [
+          item.id,
+          {
+            x: Math.round(item.x + shiftX),
+            y: Math.round(item.y + shiftY),
+          },
+        ]),
+      ) as Record<string, ImagePatch>;
+
+      return {
+        canvasSize: {
+          width: nextWidth,
+          height: nextHeight,
+        },
+        updates,
+      };
+    },
+    [],
   );
 
   const saveProject = useCallback(async () => {
@@ -278,8 +398,8 @@ export const useCanvasWorkspace = ({
         addGroupItems(activeGroup.id, importedItems);
         setSelectedItemIds(importedItems.map((item) => item.id));
 
-        const viewportWidth = Math.max(520, window.innerWidth - 360);
-        const viewportHeight = Math.max(380, window.innerHeight - 160);
+        const viewportWidth = Math.max(520, viewportSize.width);
+        const viewportHeight = Math.max(380, viewportSize.height);
         const centerWorldX =
           (viewportWidth * 0.5 - activeGroup.panX) / activeGroup.zoom;
         const centerWorldY =
@@ -292,17 +412,12 @@ export const useCanvasWorkspace = ({
 
         const rescueUpdates = Object.fromEntries(
           importedItems.map((item, index) => {
-            const nextX = Math.min(
-              Math.max(20, centerWorldX - item.width / 2 + (index % 4) * 44),
-              Math.max(20, activeGroup.canvasSize.width - item.width - 20),
-            );
-            const nextY = Math.min(
-              Math.max(
-                20,
-                centerWorldY - item.height / 2 + Math.floor(index / 4) * 44,
-              ),
-              Math.max(20, activeGroup.canvasSize.height - item.height - 20),
-            );
+            const nextX =
+              centerWorldX - item.width / 2 + (index % 4) * (item.width + 44);
+            const nextY =
+              centerWorldY -
+              item.height / 2 +
+              Math.floor(index / 4) * (item.height + 44);
 
             return [
               item.id,
@@ -329,6 +444,11 @@ export const useCanvasWorkspace = ({
           activeGroup.id,
           [...activeGroup.items, ...rescuedItems],
           activeGroup.canvasSize,
+          {
+            zoom: activeGroup.zoom,
+            panX: activeGroup.panX,
+            panY: activeGroup.panY,
+          },
         );
 
         const blockedItemIds = importedItems
@@ -372,6 +492,8 @@ export const useCanvasWorkspace = ({
       setImportQueue,
       setLastImportedItemIds,
       setSelectedItemIds,
+      viewportSize.height,
+      viewportSize.width,
     ],
   );
 
@@ -556,7 +678,11 @@ export const useCanvasWorkspace = ({
           ...item,
           ...updates[item.id],
         }));
-        ensureCanvasFitsItems(activeGroupId, nextItems, activeGroup.canvasSize);
+        ensureCanvasFitsItems(activeGroupId, nextItems, activeGroup.canvasSize, {
+          zoom: activeGroup.zoom,
+          panX: activeGroup.panX,
+          panY: activeGroup.panY,
+        });
       }
     },
     [activeGroup, activeGroupId, ensureCanvasFitsItems, patchGroupItems],
@@ -580,6 +706,32 @@ export const useCanvasWorkspace = ({
       return;
     }
 
+    const fittedCanvas = fitCanvasToItems(activeGroup);
+    if (fittedCanvas) {
+      patchGroupItems(activeGroup.id, fittedCanvas.updates);
+      setGroupCanvasSize(
+        activeGroup.id,
+        fittedCanvas.canvasSize.width,
+        fittedCanvas.canvasSize.height,
+      );
+
+      requestAnimationFrame(() => {
+        focusGroupOnItems(
+          activeGroup.id,
+          [
+            {
+              x: 0,
+              y: 0,
+              width: fittedCanvas.canvasSize.width,
+              height: fittedCanvas.canvasSize.height,
+            },
+          ],
+          fittedCanvas.canvasSize,
+        );
+      });
+      return;
+    }
+
     focusGroupOnItems(
       activeGroup.id,
       [
@@ -592,7 +744,7 @@ export const useCanvasWorkspace = ({
       ],
       activeGroup.canvasSize,
     );
-  }, [activeGroup, focusGroupOnItems]);
+  }, [activeGroup, fitCanvasToItems, focusGroupOnItems, patchGroupItems, setGroupCanvasSize]);
 
   const autoArrange = useCallback(() => {
     if (!activeGroup) {

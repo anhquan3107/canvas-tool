@@ -235,8 +235,8 @@ const reducer = (project: Project, action: Action): Project => {
           return {
             ...group,
             canvasSize: {
-              width: Math.max(group.canvasSize.width, action.payload.width),
-              height: Math.max(group.canvasSize.height, action.payload.height),
+              width: Math.max(1, Math.round(action.payload.width)),
+              height: Math.max(1, Math.round(action.payload.height)),
             },
           };
         }),

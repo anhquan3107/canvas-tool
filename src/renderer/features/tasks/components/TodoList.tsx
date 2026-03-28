@@ -31,10 +31,6 @@ export const TodoList = ({
 
   return (
     <section className="task-card">
-      <header className="task-header">
-        <h3>{task.title}</h3>
-      </header>
-
       <ol className="todo-list">
         {sortedTodos.map((todo, index) => (
           <li
@@ -116,7 +112,19 @@ export const TodoList = ({
         <input
           value={newTodoText}
           onChange={(event) => setNewTodoText(event.target.value)}
-          placeholder="Add to-do"
+          placeholder="Add a new task... (Ctrl+Enter to save)"
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+              event.preventDefault();
+              const trimmed = newTodoText.trim();
+              if (!trimmed) {
+                return;
+              }
+
+              onAddTodo(task.id, trimmed);
+              setNewTodoText("");
+            }
+          }}
         />
         <button type="submit">Add</button>
       </form>

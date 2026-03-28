@@ -91,6 +91,8 @@ export interface Task {
   id: string;
   title: string;
   order: number;
+  startDate?: string;
+  endDate?: string;
   todos: TodoItem[];
 }
 

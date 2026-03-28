@@ -17,6 +17,7 @@ import { GroupDialog } from "@renderer/features/groups/components/GroupDialog";
 import { GroupOverlay } from "@renderer/features/groups/components/GroupOverlay";
 import { useGroupFeature } from "@renderer/features/groups/hooks/use-group-feature";
 import { TaskDialog } from "@renderer/features/tasks/components/TaskDialog";
+import { TaskDetailPanel } from "@renderer/features/tasks/components/TaskDetailPanel";
 import { TaskOverlay } from "@renderer/features/tasks/components/TaskOverlay";
 import { useTaskFeature } from "@renderer/features/tasks/hooks/use-task-feature";
 import { ColorWheel } from "@renderer/features/tools/components/ColorWheel";
@@ -107,15 +108,19 @@ const AppContent = () => {
   const { importQueue, setImportQueue } = useImportQueueSession(project);
 
   const {
-    activeTask,
-    activeTaskTodoCount,
-    taskOverlayOpen,
+    primaryTask,
+    selectedTask,
+    selectedTaskId,
+    orderedTasks,
+    taskListExpanded,
+    taskDetailOpen,
     taskDialogOpen,
     draftTaskTitle,
     taskDates,
     taskDuration,
-    setActiveTaskId,
-    setTaskOverlayOpen,
+    setSelectedTaskId,
+    setTaskListExpanded,
+    setTaskDetailOpen,
     setTaskDialogOpen,
     setDraftTaskTitle,
     setTaskDates,
@@ -452,7 +457,7 @@ const AppContent = () => {
           onBrandClick={() => setAppInfoOpen((previous) => !previous)}
           onToolClick={handleToolButton}
           onResetView={resetView}
-          onTaskClick={() => setTaskOverlayOpen((previous) => !previous)}
+          onTaskClick={openTaskDialog}
           onCreateGroup={openGroupDialog}
           onShowShortcuts={() =>
             pushToast(
@@ -500,17 +505,20 @@ const AppContent = () => {
                   />
                 ) : null}
 
-                {taskOverlayOpen && activeTask ? (
+                {primaryTask ? (
                   <TaskOverlay
-                    tasks={project.tasks}
-                    activeTask={activeTask}
-                    activeTaskTodoCount={activeTaskTodoCount}
-                    onClose={() => setTaskOverlayOpen(false)}
-                    onSelectTask={setActiveTaskId}
-                    onAddTodo={addTodo}
-                    onToggleTodo={toggleTodo}
-                    onRenameTodo={renameTodo}
-                    onReorderTodo={reorderTodo}
+                    tasks={orderedTasks}
+                    primaryTask={primaryTask}
+                    selectedTaskId={selectedTaskId}
+                    expanded={taskListExpanded}
+                    onToggleExpanded={() =>
+                      setTaskListExpanded((previous) => !previous)
+                    }
+                    onSelectTask={(taskId) => {
+                      setSelectedTaskId(taskId);
+                      setTaskDetailOpen(true);
+                      setTaskListExpanded(false);
+                    }}
                   />
                 ) : null}
               </div>
@@ -527,6 +535,22 @@ const AppContent = () => {
                   }}
                 />
               </div>
+
+              {selectedTask ? (
+                <div className="canvas-overlay-column right-center">
+                  <TaskDetailPanel
+                    task={selectedTask}
+                    open={taskDetailOpen}
+                    onToggleOpen={() =>
+                      setTaskDetailOpen((previous) => !previous)
+                    }
+                    onAddTodo={addTodo}
+                    onToggleTodo={toggleTodo}
+                    onRenameTodo={renameTodo}
+                    onReorderTodo={reorderTodo}
+                  />
+                </div>
+              ) : null}
 
               {showColorWheel ? (
                 <div className="canvas-overlay-column top-right canvas-wheel-overlay">

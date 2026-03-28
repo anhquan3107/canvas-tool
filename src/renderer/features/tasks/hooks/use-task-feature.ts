@@ -8,7 +8,10 @@ import {
 
 interface UseTaskFeatureOptions {
   tasks: Task[];
-  addTask: (title: string) => void;
+  addTask: (
+    title: string,
+    dates: Pick<Task, "startDate" | "endDate">,
+  ) => string;
   pushToast: (kind: "success" | "error" | "info", message: string) => void;
 }
 
@@ -17,22 +20,26 @@ export const useTaskFeature = ({
   addTask,
   pushToast,
 }: UseTaskFeatureOptions) => {
-  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
-  const [taskOverlayOpen, setTaskOverlayOpen] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [taskListExpanded, setTaskListExpanded] = useState(false);
+  const [taskDetailOpen, setTaskDetailOpen] = useState(false);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [draftTaskTitle, setDraftTaskTitle] = useState("New Task");
   const [taskDates, setTaskDates] = useState<TaskDateRange>(
     createDefaultTaskDates(),
   );
 
-  const activeTask = useMemo(() => {
-    if (!tasks.length) {
-      return null;
-    }
+  const orderedTasks = useMemo(
+    () => [...tasks].sort((left, right) => left.order - right.order),
+    [tasks],
+  );
 
-    const selected = tasks.find((task) => task.id === activeTaskId);
-    return selected ?? tasks[0];
-  }, [tasks, activeTaskId]);
+  const selectedTask = useMemo(
+    () => orderedTasks.find((task) => task.id === selectedTaskId) ?? null,
+    [orderedTasks, selectedTaskId],
+  );
+
+  const primaryTask = selectedTask ?? orderedTasks[0] ?? null;
 
   const taskDuration = useMemo(
     () => getDayCount(taskDates.startDate, taskDates.endDate),
@@ -47,22 +54,28 @@ export const useTaskFeature = ({
 
   const handleCreateTask = useCallback(() => {
     const title = draftTaskTitle.trim() || `Task ${tasks.length + 1}`;
-    addTask(title);
+    const nextTaskId = addTask(title, taskDates);
+    setSelectedTaskId(nextTaskId);
+    setTaskListExpanded(false);
+    setTaskDetailOpen(true);
     setTaskDialogOpen(false);
     pushToast("success", `Created ${title}.`);
-  }, [addTask, draftTaskTitle, pushToast, tasks.length]);
+  }, [addTask, draftTaskTitle, pushToast, taskDates, tasks.length]);
 
   return {
-    activeTask,
-    activeTaskId,
-    activeTaskTodoCount: activeTask?.todos.length ?? 0,
-    taskOverlayOpen,
+    primaryTask,
+    selectedTask,
+    selectedTaskId,
+    orderedTasks,
+    taskListExpanded,
+    taskDetailOpen,
     taskDialogOpen,
     draftTaskTitle,
     taskDates,
     taskDuration,
-    setActiveTaskId,
-    setTaskOverlayOpen,
+    setSelectedTaskId,
+    setTaskListExpanded,
+    setTaskDetailOpen,
     setTaskDialogOpen,
     setDraftTaskTitle,
     setTaskDates,

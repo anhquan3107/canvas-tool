@@ -1,72 +1,84 @@
 import { startTransition } from "react";
 import type { Task } from "@shared/types/project";
-import { TodoList } from "@renderer/features/tasks/components/TodoList";
+import {
+  formatTaskDateRange,
+  getTaskRemainingLabel,
+} from "@renderer/features/tasks/utils";
 
 interface TaskOverlayProps {
   tasks: Task[];
-  activeTask: Task;
-  activeTaskTodoCount: number;
-  onClose: () => void;
+  primaryTask: Task;
+  selectedTaskId: string | null;
+  expanded: boolean;
+  onToggleExpanded: () => void;
   onSelectTask: (taskId: string) => void;
-  onAddTodo: (taskId: string, text: string) => void;
-  onToggleTodo: (taskId: string, todoId: string) => void;
-  onRenameTodo: (taskId: string, todoId: string, text: string) => void;
-  onReorderTodo: (
-    taskId: string,
-    sourceIndex: number,
-    targetIndex: number,
-  ) => void;
 }
 
 export const TaskOverlay = ({
   tasks,
-  activeTask,
-  activeTaskTodoCount,
-  onClose,
+  primaryTask,
+  selectedTaskId,
+  expanded,
+  onToggleExpanded,
   onSelectTask,
-  onAddTodo,
-  onToggleTodo,
-  onRenameTodo,
-  onReorderTodo,
-}: TaskOverlayProps) => (
-  <section className="overlay-panel task-overlay-panel">
-    <div className="overlay-panel-header">
-      <span>Main Task</span>
-      <button type="button" className="overlay-close" onClick={onClose}>
-        ×
+}: TaskOverlayProps) => {
+  const remainingTasks = tasks.filter((task) => task.id !== primaryTask.id);
+  const showingDetails = selectedTaskId === primaryTask.id;
+
+  return (
+    <section className="task-overlay-shell">
+      <button
+        type="button"
+        className="task-summary-card"
+        onClick={() =>
+          startTransition(() => {
+            onSelectTask(primaryTask.id);
+          })
+        }
+      >
+        <span className="task-summary-dot" />
+        <div className="task-summary-copy">
+          <strong>{primaryTask.title}</strong>
+          {showingDetails ? (
+            <span>{formatTaskDateRange(primaryTask.startDate, primaryTask.endDate)}</span>
+          ) : null}
+        </div>
+        {showingDetails ? (
+          <span className="task-summary-remaining">
+            {getTaskRemainingLabel(primaryTask.endDate)}
+          </span>
+        ) : null}
       </button>
-    </div>
 
-    <div className="task-stack">
-      {tasks.map((task) => (
-        <button
-          key={task.id}
-          type="button"
-          className={`task-chip ${task.id === activeTask.id ? "active" : ""}`}
-          onClick={() =>
-            startTransition(() => {
-              onSelectTask(task.id);
-            })
-          }
-        >
-          <span className="task-chip-dot" />
-          <span>{task.title}</span>
-        </button>
-      ))}
-    </div>
+      <button
+        type="button"
+        className={`task-overlay-toggle ${expanded ? "open" : ""}`}
+        onClick={onToggleExpanded}
+        aria-expanded={expanded}
+        aria-label={expanded ? "Hide tasks" : "Show tasks"}
+      >
+        {expanded ? "▴" : "▾"}
+      </button>
 
-    <section className="task-drawer">
-      <div className="task-drawer-header">
-        <span>{activeTask.title}</span>
-        <strong>{activeTaskTodoCount} items</strong>
-      </div>
-      <TodoList
-        task={activeTask}
-        onAddTodo={onAddTodo}
-        onToggleTodo={onToggleTodo}
-        onRenameTodo={onRenameTodo}
-        onReorderTodo={onReorderTodo}
-      />
+      {expanded && remainingTasks.length > 0 ? (
+        <div className="task-list-popover">
+          {remainingTasks.map((task) => (
+            <button
+              key={task.id}
+              type="button"
+              className="task-list-item"
+              onClick={() =>
+                startTransition(() => {
+                  onSelectTask(task.id);
+                })
+              }
+            >
+              <span className="task-chip-dot" />
+              <span>{task.title}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
     </section>
-  </section>
-);
+  );
+};

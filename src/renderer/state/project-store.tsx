@@ -13,6 +13,7 @@ import type {
   ImageItem,
   Project,
   ReferenceGroup,
+  Task,
   TodoItem,
 } from "@shared/types/project";
 
@@ -52,7 +53,10 @@ type Action =
       payload: { groupId: string; annotations: AnnotationStroke[] };
     }
   | { type: "flip-items"; payload: { groupId: string; itemIds: string[] } }
-  | { type: "add-task"; payload: { title: string } }
+  | {
+      type: "add-task";
+      payload: { id: string; title: string; startDate: string; endDate: string };
+    }
   | { type: "add-todo"; payload: { taskId: string; text: string } }
   | { type: "toggle-todo"; payload: { taskId: string; todoId: string } }
   | {
@@ -89,7 +93,7 @@ interface Store {
     annotations: AnnotationStroke[],
   ) => void;
   flipItems: (groupId: string, itemIds: string[]) => void;
-  addTask: (title: string) => void;
+  addTask: (title: string, dates: Pick<Task, "startDate" | "endDate">) => string;
   addTodo: (taskId: string, text: string) => void;
   toggleTodo: (taskId: string, todoId: string) => void;
   renameTodo: (taskId: string, todoId: string, text: string) => void;
@@ -294,9 +298,11 @@ const reducer = (project: Project, action: Action): Project => {
         tasks: [
           ...project.tasks,
           {
-            id: randomUUID(),
+            id: action.payload.id,
             title: action.payload.title || `Task ${project.tasks.length + 1}`,
             order: project.tasks.length,
+            startDate: action.payload.startDate,
+            endDate: action.payload.endDate,
             todos: [],
           },
         ],
@@ -461,9 +467,22 @@ export const ProjectProvider = ({
     dispatch({ type: "flip-items", payload: { groupId, itemIds } });
   }, []);
 
-  const addTask = useCallback((title: string) => {
-    dispatch({ type: "add-task", payload: { title } });
-  }, []);
+  const addTask = useCallback(
+    (title: string, dates: Pick<Task, "startDate" | "endDate">) => {
+      const id = randomUUID();
+      dispatch({
+        type: "add-task",
+        payload: {
+          id,
+          title,
+          startDate: dates.startDate ?? "",
+          endDate: dates.endDate ?? "",
+        },
+      });
+      return id;
+    },
+    [],
+  );
 
   const addTodo = useCallback((taskId: string, text: string) => {
     dispatch({ type: "add-todo", payload: { taskId, text } });

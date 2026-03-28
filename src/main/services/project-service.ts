@@ -1,10 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type {
-  ImageItem,
-  Project,
-  ReferenceGroup,
-  Task,
-} from "../../shared/types/project";
+import type { Project, ReferenceGroup, Task } from "../../shared/types/project";
 
 const now = () => new Date().toISOString();
 
@@ -44,42 +39,7 @@ export const createDefaultGroup = (
     blur: 0,
     grayscale: 0,
   },
-  items: [
-    {
-      id: randomUUID(),
-      type: "image",
-      x: 180,
-      y: 140,
-      scaleX: 1,
-      scaleY: 1,
-      rotation: 0,
-      width: 280,
-      height: 220,
-      flippedX: false,
-      locked: false,
-      visible: true,
-      zIndex: 0,
-      source: "local",
-      label: "Reference 1",
-    } satisfies ImageItem,
-    {
-      id: randomUUID(),
-      type: "image",
-      x: 520,
-      y: 240,
-      scaleX: 1,
-      scaleY: 1,
-      rotation: 0,
-      width: 360,
-      height: 260,
-      flippedX: false,
-      locked: false,
-      visible: true,
-      zIndex: 1,
-      source: "local",
-      label: "Reference 2",
-    } satisfies ImageItem,
-  ],
+  items: [],
   annotations: [],
   extractedSwatches: [],
 });

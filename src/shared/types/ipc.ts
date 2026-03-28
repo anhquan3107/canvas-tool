@@ -64,6 +64,7 @@ export interface OpenCaptureWindowRequest {
 export interface DesktopApi {
   app: {
     getVersion: () => Promise<string>;
+    quit: () => Promise<void>;
   };
   project: {
     create: () => Promise<Project>;

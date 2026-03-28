@@ -1,0 +1,38 @@
+.app-toast {
+  position: fixed;
+  right: 18px;
+  bottom: 16px;
+  z-index: 70;
+  padding: 12px 14px;
+  border: 1px solid;
+  border-radius: 8px;
+  background: rgba(20, 20, 23, 0.96);
+  font-size: 12px;
+  box-shadow: var(--shadow);
+}
+
+.app-toast-success {
+  border-color: rgba(135, 221, 166, 0.56);
+  color: #8ce0ac;
+}
+
+.app-toast-error {
+  border-color: rgba(239, 123, 123, 0.56);
+  color: #f29999;
+}
+
+.app-toast-info {
+  border-color: rgba(112, 181, 235, 0.56);
+  color: #86c2f3;
+}
+
+.todo-list::-webkit-scrollbar,
+.inspector-panel::-webkit-scrollbar {
+  width: 8px;
+}
+
+.todo-list::-webkit-scrollbar-thumb,
+.inspector-panel::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+}

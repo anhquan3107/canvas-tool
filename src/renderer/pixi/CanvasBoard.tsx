@@ -25,6 +25,7 @@ type CanvasItemPatch = Partial<Omit<CanvasItemBase, "id" | "type">>;
 interface CanvasBoardProps {
   group: ReferenceGroup;
   activeTool: ToolMode | null;
+  snapEnabled: boolean;
   doodleMode: DoodleMode;
   doodleColor: string;
   doodleSize: number;
@@ -38,10 +39,13 @@ interface CanvasBoardProps {
   ) => void;
 }
 
-const BOARD_EXPANSION_PADDING = 140;
+const BOARD_EXPANSION_PADDING = 24;
 const BOARD_CORNER_RADIUS = 24;
 const ZERO_INSETS = { left: 0, top: 0, right: 0, bottom: 0 };
 const MIN_STROKE_POINT_DISTANCE = 2;
+const SNAP_THRESHOLD = 14;
+const SNAP_GAP = 2;
+const MARQUEE_DRAG_THRESHOLD = 4;
 
 interface CaptureSession {
   sourceId: string;
@@ -238,11 +242,13 @@ const drawItemFrame = (
   frame.clear();
   frame.roundRect(0, 0, width, height, 12);
   frame.fill(isCapture ? 0x3d6072 : 0x8a5e32);
-  frame.stroke({
-    color: isSelected ? 0xf3a84c : 0xe8d9bf,
-    width: isSelected ? 4 : 2,
-    alpha: isSelected ? 0.95 : 0.72,
-  });
+  if (isSelected) {
+    frame.stroke({
+      color: 0xf3a84c,
+      width: 4,
+      alpha: 0.95,
+    });
+  }
 };
 
 const loadTextureForAssetPath = async (assetPath: string) => {
@@ -263,6 +269,7 @@ const loadTextureForAssetPath = async (assetPath: string) => {
 export const CanvasBoard = ({
   group,
   activeTool,
+  snapEnabled,
   doodleMode,
   doodleColor,
   doodleSize,
@@ -275,6 +282,7 @@ export const CanvasBoard = ({
 }: CanvasBoardProps) => {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const cursorOverlayRef = useRef<HTMLDivElement | null>(null);
+  const selectionMarqueeRef = useRef<HTMLDivElement | null>(null);
   const appRef = useRef<Application | null>(null);
   const boardContainerRef = useRef<Container | null>(null);
   const boardGraphicRef = useRef<Graphics | null>(null);
@@ -283,6 +291,7 @@ export const CanvasBoard = ({
   const annotationLayerRef = useRef<Graphics | null>(null);
   const annotationPreviewLayerRef = useRef<Graphics | null>(null);
   const frameByIdRef = useRef(new Map<string, Graphics>());
+  const itemNodeByIdRef = useRef(new Map<string, Container>());
   const frameMetaByIdRef = useRef(
     new Map<string, { width: number; height: number; isCapture: boolean }>(),
   );
@@ -295,6 +304,7 @@ export const CanvasBoard = ({
   const onAnnotationsChangeRef = useRef(onAnnotationsChange);
   const onCanvasSizePreviewChangeRef = useRef(onCanvasSizePreviewChange);
   const activeToolRef = useRef<ToolMode | null>(activeTool);
+  const snapEnabledRef = useRef(snapEnabled);
   const doodleModeRef = useRef<DoodleMode>(doodleMode);
   const doodleColorRef = useRef(doodleColor);
   const doodleSizeRef = useRef(doodleSize);
@@ -306,12 +316,21 @@ export const CanvasBoard = ({
   const previewInsetsRef = useRef(ZERO_INSETS);
   const activeItemDragRef = useRef<{
     itemId: string;
-    itemNode: Container;
+    itemLayer: Container;
     startPointer: { x: number; y: number };
-    startPos: { x: number; y: number };
-    width: number;
-    height: number;
+    items: Array<{
+      itemId: string;
+      itemNode: Container;
+      startPos: { x: number; y: number };
+      width: number;
+      height: number;
+    }>;
     patchBuffer: Record<string, CanvasItemPatch>;
+  } | null>(null);
+  const activeSelectionBoxRef = useRef<{
+    startClient: { x: number; y: number };
+    additive: boolean;
+    baseSelection: string[];
   } | null>(null);
   const activeAnnotationSessionRef = useRef<{
     mode: DoodleMode;
@@ -380,6 +399,10 @@ export const CanvasBoard = ({
   }, [activeTool]);
 
   useEffect(() => {
+    snapEnabledRef.current = snapEnabled;
+  }, [snapEnabled]);
+
+  useEffect(() => {
     doodleModeRef.current = doodleMode;
     const lastPointer = lastPointerClientRef.current;
     if (lastPointer) {
@@ -410,6 +433,18 @@ export const CanvasBoard = ({
     }
 
     cursorOverlay.style.opacity = "0";
+  }, []);
+
+  const hideSelectionMarquee = useCallback(() => {
+    const marquee = selectionMarqueeRef.current;
+    if (!marquee) {
+      return;
+    }
+
+    marquee.style.opacity = "0";
+    marquee.style.transform = "translate(-9999px, -9999px)";
+    marquee.style.width = "0px";
+    marquee.style.height = "0px";
   }, []);
 
   const updateDoodleCursor = useCallback((clientX: number, clientY: number) => {
@@ -687,6 +722,80 @@ export const CanvasBoard = ({
     };
   }, []);
 
+  const clientPointToWorld = useCallback((clientX: number, clientY: number) => {
+    const host = hostRef.current;
+    const boardContainer = boardContainerRef.current;
+    if (!host || !boardContainer) {
+      return null;
+    }
+
+    const rect = host.getBoundingClientRect();
+    return {
+      x: (clientX - rect.left - boardContainer.x) / boardContainer.scale.x,
+      y: (clientY - rect.top - boardContainer.y) / boardContainer.scale.y,
+    };
+  }, []);
+
+  const updateSelectionMarquee = useCallback(
+    (clientX: number, clientY: number) => {
+      const marquee = selectionMarqueeRef.current;
+      const host = hostRef.current;
+      const selectionBox = activeSelectionBoxRef.current;
+      if (!marquee || !host || !selectionBox) {
+        return;
+      }
+
+      const hostRect = host.getBoundingClientRect();
+      const startLeft = selectionBox.startClient.x - hostRect.left;
+      const startTop = selectionBox.startClient.y - hostRect.top;
+      const currentLeft = clientX - hostRect.left;
+      const currentTop = clientY - hostRect.top;
+
+      const left = Math.min(startLeft, currentLeft);
+      const top = Math.min(startTop, currentTop);
+      const width = Math.abs(currentLeft - startLeft);
+      const height = Math.abs(currentTop - startTop);
+
+      marquee.style.opacity = width > 0 || height > 0 ? "1" : "0";
+      marquee.style.transform = `translate(${left}px, ${top}px)`;
+      marquee.style.width = `${width}px`;
+      marquee.style.height = `${height}px`;
+
+      const startWorld = clientPointToWorld(
+        selectionBox.startClient.x,
+        selectionBox.startClient.y,
+      );
+      const endWorld = clientPointToWorld(clientX, clientY);
+      if (!startWorld || !endWorld) {
+        return;
+      }
+
+      const minX = Math.min(startWorld.x, endWorld.x);
+      const minY = Math.min(startWorld.y, endWorld.y);
+      const maxX = Math.max(startWorld.x, endWorld.x);
+      const maxY = Math.max(startWorld.y, endWorld.y);
+
+      const hitIds = groupRef.current.items
+        .filter((item) => item.visible)
+        .filter(
+          (item) =>
+            item.x < maxX &&
+            item.x + item.width > minX &&
+            item.y < maxY &&
+            item.y + item.height > minY,
+        )
+        .map((item) => item.id);
+
+      const nextSelection = selectionBox.additive
+        ? Array.from(new Set([...selectionBox.baseSelection, ...hitIds]))
+        : hitIds;
+
+      selectionIdsRef.current = nextSelection;
+      onSelectionChangeRef.current(nextSelection);
+    },
+    [clientPointToWorld],
+  );
+
   const finalizeAnnotationSession = useCallback(
     (session: NonNullable<typeof activeAnnotationSessionRef.current>) => {
       activeAnnotationSessionRef.current = null;
@@ -849,36 +958,134 @@ export const CanvasBoard = ({
       (clientX - activeDrag.startPointer.x) / boardContainer.scale.x;
     const deltaY =
       (clientY - activeDrag.startPointer.y) / boardContainer.scale.y;
-    const nextX = activeDrag.startPos.x + deltaX;
-    const nextY = activeDrag.startPos.y + deltaY;
+    let translateX = deltaX;
+    let translateY = deltaY;
 
-    activeDrag.itemNode.position.set(nextX, nextY);
-    activeDrag.patchBuffer[activeDrag.itemId] = {
-      x: Math.round(nextX),
-      y: Math.round(nextY),
-    };
+    const dragBounds = activeDrag.items.reduce(
+      (acc, item) => ({
+        minX: Math.min(acc.minX, item.startPos.x + translateX),
+        minY: Math.min(acc.minY, item.startPos.y + translateY),
+        maxX: Math.max(acc.maxX, item.startPos.x + translateX + item.width),
+        maxY: Math.max(acc.maxY, item.startPos.y + translateY + item.height),
+      }),
+      {
+        minX: Number.POSITIVE_INFINITY,
+        minY: Number.POSITIVE_INFINITY,
+        maxX: Number.NEGATIVE_INFINITY,
+        maxY: Number.NEGATIVE_INFINITY,
+      },
+    );
+
+    let snappedOnX = false;
+    let snappedOnY = false;
+
+    if (snapEnabledRef.current) {
+      const selectedSet = new Set(activeDrag.items.map((item) => item.itemId));
+      const candidateRects = groupRef.current.items.filter(
+        (item) => !selectedSet.has(item.id) && item.visible,
+      );
+
+      let snappedTranslateX = translateX;
+      let snappedTranslateY = translateY;
+      let bestSnapX = SNAP_THRESHOLD + 1;
+      let bestSnapY = SNAP_THRESHOLD + 1;
+
+      candidateRects.forEach((item) => {
+        const itemRight = item.x + item.width;
+        const itemBottom = item.y + item.height;
+
+        const horizontalCandidates = [
+          { delta: Math.abs(dragBounds.minX - item.x), value: item.x - dragBounds.minX + translateX },
+          {
+            delta: Math.abs(dragBounds.minX - (itemRight + SNAP_GAP)),
+            value: itemRight + SNAP_GAP - dragBounds.minX + translateX,
+          },
+          {
+            delta: Math.abs(dragBounds.maxX - (item.x - SNAP_GAP)),
+            value: item.x - SNAP_GAP - dragBounds.maxX + translateX,
+          },
+          {
+            delta: Math.abs(dragBounds.maxX - itemRight),
+            value: itemRight - dragBounds.maxX + translateX,
+          },
+        ];
+
+        const verticalCandidates = [
+          { delta: Math.abs(dragBounds.minY - item.y), value: item.y - dragBounds.minY + translateY },
+          {
+            delta: Math.abs(dragBounds.minY - (itemBottom + SNAP_GAP)),
+            value: itemBottom + SNAP_GAP - dragBounds.minY + translateY,
+          },
+          {
+            delta: Math.abs(dragBounds.maxY - (item.y - SNAP_GAP)),
+            value: item.y - SNAP_GAP - dragBounds.maxY + translateY,
+          },
+          {
+            delta: Math.abs(dragBounds.maxY - itemBottom),
+            value: itemBottom - dragBounds.maxY + translateY,
+          },
+        ];
+
+        horizontalCandidates.forEach((candidate) => {
+          if (candidate.delta < bestSnapX && candidate.delta <= SNAP_THRESHOLD) {
+            bestSnapX = candidate.delta;
+            snappedTranslateX = candidate.value;
+            snappedOnX = true;
+          }
+        });
+
+        verticalCandidates.forEach((candidate) => {
+          if (candidate.delta < bestSnapY && candidate.delta <= SNAP_THRESHOLD) {
+            bestSnapY = candidate.delta;
+            snappedTranslateY = candidate.value;
+            snappedOnY = true;
+          }
+        });
+      });
+
+      translateX = snappedTranslateX;
+      translateY = snappedTranslateY;
+    }
+
+    let minX = Number.POSITIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY;
+    let maxX = Number.NEGATIVE_INFINITY;
+    let maxY = Number.NEGATIVE_INFINITY;
+
+    activeDrag.items.forEach((item) => {
+      const resolvedX = snappedOnX
+        ? Math.round(item.startPos.x + translateX)
+        : item.startPos.x + translateX;
+      const resolvedY = snappedOnY
+        ? Math.round(item.startPos.y + translateY)
+        : item.startPos.y + translateY;
+
+      item.itemNode.position.set(resolvedX, resolvedY);
+      activeDrag.patchBuffer[item.itemId] = {
+        ...activeDrag.patchBuffer[item.itemId],
+        x: Math.round(resolvedX),
+        y: Math.round(resolvedY),
+      };
+
+      minX = Math.min(minX, resolvedX);
+      minY = Math.min(minY, resolvedY);
+      maxX = Math.max(maxX, resolvedX + item.width);
+      maxY = Math.max(maxY, resolvedY + item.height);
+    });
 
     setPreviewInsets({
-      left:
-        nextX < 0 ? Math.ceil(-nextX + BOARD_EXPANSION_PADDING) : 0,
-      top:
-        nextY < 0 ? Math.ceil(-nextY + BOARD_EXPANSION_PADDING) : 0,
+      left: minX < 0 ? Math.ceil(-minX + BOARD_EXPANSION_PADDING) : 0,
+      top: minY < 0 ? Math.ceil(-minY + BOARD_EXPANSION_PADDING) : 0,
       right:
-        nextX + activeDrag.width > groupRef.current.canvasSize.width
+        maxX > groupRef.current.canvasSize.width
           ? Math.ceil(
-              nextX +
-                activeDrag.width -
-                groupRef.current.canvasSize.width +
-                BOARD_EXPANSION_PADDING,
+              maxX - groupRef.current.canvasSize.width + BOARD_EXPANSION_PADDING,
             )
           : 0,
       bottom:
-        nextY + activeDrag.height > groupRef.current.canvasSize.height
+        maxY > groupRef.current.canvasSize.height
           ? Math.ceil(
-              nextY +
-                activeDrag.height -
-                groupRef.current.canvasSize.height +
-                BOARD_EXPANSION_PADDING,
+              maxY - groupRef.current.canvasSize.height + BOARD_EXPANSION_PADDING,
             )
           : 0,
     });
@@ -940,7 +1147,10 @@ export const CanvasBoard = ({
       child.destroy({ children: true });
     });
     frameByIdRef.current.clear();
+    itemNodeByIdRef.current.clear();
     frameMetaByIdRef.current.clear();
+    activeSelectionBoxRef.current = null;
+    hideSelectionMarquee();
 
     const visibleItems = scene.items
       .filter((item) => item.visible)
@@ -968,6 +1178,7 @@ export const CanvasBoard = ({
 
       const frame = new Graphics();
       frameByIdRef.current.set(item.id, frame);
+      itemNodeByIdRef.current.set(item.id, itemNode);
       frameMetaByIdRef.current.set(item.id, {
         width: safeWidth,
         height: safeHeight,
@@ -1064,74 +1275,98 @@ export const CanvasBoard = ({
           });
       }
 
-      const label = new Text({
-        text: `${
-          item.type === "capture"
-            ? item.sourceName
-            : ("label" in item ? item.label : undefined) ?? item.type
-        } (${Math.round(safeWidth)}x${Math.round(safeHeight)})`,
-        style: new TextStyle({
-          fill: "#f0ece7",
-          fontSize: 14,
-          fontFamily: "Aptos",
-        }),
-      });
-      label.position.set(10, 10);
-      label.alpha = 0.95;
-      itemNode.addChild(label);
-
       itemNode.on("pointerdown", (event: FederatedPointerEvent) => {
         event.stopPropagation();
 
         const currentSelection = selectionIdsRef.current;
-        const nextSelection = event.nativeEvent.shiftKey
-          ? currentSelection.includes(item.id)
+        if (event.nativeEvent.shiftKey) {
+          const nextSelection = currentSelection.includes(item.id)
             ? currentSelection.filter((id) => id !== item.id)
-            : [...currentSelection, item.id]
+            : [...currentSelection, item.id];
+
+          selectionIdsRef.current = nextSelection;
+          onSelectionChangeRef.current(nextSelection);
+          return;
+        }
+
+        const nextSelection = currentSelection.includes(item.id)
+          ? currentSelection
           : [item.id];
 
         selectionIdsRef.current = nextSelection;
         onSelectionChangeRef.current(nextSelection);
 
-        drawItemFrame(
-          frame,
-          safeWidth,
-          safeHeight,
-          item.type === "capture",
-          true,
-        );
-
         if (item.locked) {
+          return;
+        }
+
+        const selectionSet = new Set(nextSelection);
+        const dragItems = groupRef.current.items
+          .filter((entry) => selectionSet.has(entry.id) && !entry.locked)
+          .sort((left, right) => left.zIndex - right.zIndex)
+          .map((entry) => {
+            const node = itemNodeByIdRef.current.get(entry.id);
+            if (!node) {
+              return null;
+            }
+
+            return {
+              itemId: entry.id,
+              itemNode: node,
+              startPos: { x: entry.x, y: entry.y },
+              width:
+                Number.isFinite(entry.width) && entry.width > 1
+                  ? entry.width
+                  : 180,
+              height:
+                Number.isFinite(entry.height) && entry.height > 1
+                  ? entry.height
+                  : 120,
+            };
+          })
+          .filter(
+            (
+              entry,
+            ): entry is {
+              itemId: string;
+              itemNode: Container;
+              startPos: { x: number; y: number };
+              width: number;
+              height: number;
+            } => entry !== null,
+          );
+
+        if (dragItems.length === 0) {
           return;
         }
 
         activeItemDragRef.current = {
           itemId: item.id,
-          itemNode,
+          itemLayer,
           startPointer: {
             x: event.nativeEvent.clientX,
             y: event.nativeEvent.clientY,
           },
-          startPos: { x: item.x, y: item.y },
-          width: safeWidth,
-          height: safeHeight,
+          items: dragItems,
           patchBuffer: {},
         };
-      });
 
-      itemNode.on("pointermove", (event: FederatedPointerEvent) => {
-        if (item.locked || !activeItemDragRef.current) {
+        const highestZIndex = groupRef.current.items.reduce(
+          (acc, entry) => Math.max(acc, entry.zIndex),
+          -1,
+        );
+        const activeDrag = activeItemDragRef.current;
+        if (!activeDrag) {
           return;
         }
 
-        updateDraggedItemPosition(
-          event.nativeEvent.clientX,
-          event.nativeEvent.clientY,
-        );
+        dragItems.forEach((dragItem, index) => {
+          activeDrag.patchBuffer[dragItem.itemId] = {
+            zIndex: highestZIndex + index + 1,
+          };
+          activeDrag.itemLayer.addChild(dragItem.itemNode);
+        });
       });
-
-      itemNode.on("pointerup", commitDraggedItemPatch);
-      itemNode.on("pointerupoutside", commitDraggedItemPatch);
 
       itemLayer.addChild(itemNode);
     });
@@ -1149,20 +1384,37 @@ export const CanvasBoard = ({
         return;
       }
 
-      isPanningRef.current = true;
-      panStartRef.current = {
-        x: event.nativeEvent.clientX,
-        y: event.nativeEvent.clientY,
-      };
-      panOriginRef.current = { x: boardContainer.x, y: boardContainer.y };
-      board.cursor = "grabbing";
-      const currentSelection = selectionIdsRef.current;
-      if (currentSelection.length > 0) {
-        selectionIdsRef.current = [];
-        onSelectionChangeRef.current([]);
+      if (
+        event.nativeEvent.altKey ||
+        event.nativeEvent.button === 1
+      ) {
+        isPanningRef.current = true;
+        panStartRef.current = {
+          x: event.nativeEvent.clientX,
+          y: event.nativeEvent.clientY,
+        };
+        panOriginRef.current = { x: boardContainer.x, y: boardContainer.y };
+        board.cursor = "grabbing";
+        return;
       }
+
+      activeSelectionBoxRef.current = {
+        startClient: {
+          x: event.nativeEvent.clientX,
+          y: event.nativeEvent.clientY,
+        },
+        additive: event.nativeEvent.shiftKey,
+        baseSelection: selectionIdsRef.current,
+      };
+      hideSelectionMarquee();
     });
-  }, [drawBoardSurface, redrawAnnotations, startAnnotationSession, syncViewFromGroup]);
+  }, [
+    drawBoardSurface,
+    hideSelectionMarquee,
+    redrawAnnotations,
+    startAnnotationSession,
+    syncViewFromGroup,
+  ]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -1231,6 +1483,11 @@ export const CanvasBoard = ({
           return;
         }
 
+        if (activeSelectionBoxRef.current) {
+          updateSelectionMarquee(event.clientX, event.clientY);
+          return;
+        }
+
         if (activeItemDragRef.current) {
           updateDraggedItemPosition(event.clientX, event.clientY);
           return;
@@ -1247,9 +1504,28 @@ export const CanvasBoard = ({
           panOriginRef.current.y + (event.clientY - panStartRef.current.y);
       };
 
-      const onPointerUp = () => {
+      const onPointerUp = (event: PointerEvent) => {
         if (activeAnnotationSessionRef.current) {
           commitAnnotationSession();
+        }
+
+        if (activeSelectionBoxRef.current) {
+          const selectionBox = activeSelectionBoxRef.current;
+          const movedDistance = Math.hypot(
+            event.clientX - selectionBox.startClient.x,
+            event.clientY - selectionBox.startClient.y,
+          );
+
+          if (
+            movedDistance < MARQUEE_DRAG_THRESHOLD &&
+            !selectionBox.additive
+          ) {
+            selectionIdsRef.current = [];
+            onSelectionChangeRef.current([]);
+          }
+
+          activeSelectionBoxRef.current = null;
+          hideSelectionMarquee();
         }
 
         if (activeItemDragRef.current) {
@@ -1415,7 +1691,8 @@ export const CanvasBoard = ({
     if (
       isPanningRef.current ||
       activeItemDragRef.current ||
-      activeAnnotationSessionRef.current
+      activeAnnotationSessionRef.current ||
+      activeSelectionBoxRef.current
     ) {
       return;
     }
@@ -1440,6 +1717,7 @@ export const CanvasBoard = ({
           cursor: activeTool === "doodle" ? "none" : "default",
         }}
       />
+      <div className="canvas-selection-marquee" ref={selectionMarqueeRef} />
       <div className="canvas-cursor-overlay" ref={cursorOverlayRef} />
     </div>
   );

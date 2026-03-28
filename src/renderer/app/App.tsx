@@ -34,7 +34,14 @@ import type { MenuState } from "@renderer/app/types";
 import { AppMenu } from "@renderer/app/components/AppMenu";
 import { TopBar } from "@renderer/app/components/TopBar";
 import { AppInfoPanel } from "@renderer/app/components/AppInfoPanel";
+import { ConfirmCloseDialog } from "@renderer/app/components/ConfirmCloseDialog";
 import { StatusBar } from "@renderer/app/components/StatusBar";
+
+const getProjectDirtySignature = (project: Project) =>
+  JSON.stringify({
+    ...project,
+    updatedAt: undefined,
+  });
 
 export const App = () => {
   const mode = new URLSearchParams(window.location.search).get("mode");
@@ -73,7 +80,10 @@ const AppContent = () => {
     width: number;
     height: number;
   } | null>(null);
+  const [snapEnabled, setSnapEnabled] = useState(true);
   const [menuState, setMenuState] = useState<MenuState | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
   const [windowMaximized, setWindowMaximized] = useState(false);
   const [windowAlwaysOnTop, setWindowAlwaysOnTop] = useState(false);
   const [groupsOverlayOpen, setGroupsOverlayOpen] = useState(false);
@@ -81,6 +91,8 @@ const AppContent = () => {
   const centeredGroupIdsRef = useRef(new Set<string>());
   const previousActiveGroupIdRef = useRef<string | null>(null);
   const canvasStageRef = useRef<HTMLDivElement | null>(null);
+  const allowWindowCloseRef = useRef(false);
+  const lastSavedSignatureRef = useRef<string>("");
   const [viewportSize, setViewportSize] = useState<{
     width: number;
     height: number;
@@ -112,6 +124,10 @@ const AppContent = () => {
       project.groups[0],
     [project.activeGroupId, project.groups],
   );
+  const dirtySignature = useMemo(() => getProjectDirtySignature(project), [project]);
+  const hasUnsavedChanges =
+    lastSavedSignatureRef.current !== "" &&
+    dirtySignature !== lastSavedSignatureRef.current;
 
   const activeGroupId = activeGroup?.id ?? null;
 
@@ -216,6 +232,12 @@ const AppContent = () => {
   }, []);
 
   useEffect(() => {
+    if (!lastSavedSignatureRef.current) {
+      lastSavedSignatureRef.current = getProjectDirtySignature(project);
+    }
+  }, [project]);
+
+  useEffect(() => {
     void Promise.all([
       window.desktopApi.app
         .getVersion()
@@ -274,7 +296,10 @@ const AppContent = () => {
     importFromPayload,
     retryImportEntry: retryImportEntryBase,
     copySelectedImagesToClipboard,
+    duplicateSelectedItems,
+    cutSelectedItems,
     deleteSelectedItems,
+    arrangeSelectedItems,
     handleBoardViewChange,
     handleBoardItemsPatch,
     handleShellDragOver,
@@ -314,6 +339,31 @@ const AppContent = () => {
     },
     [retryImportEntryBase],
   );
+
+  const handleOpenProject = useCallback(async () => {
+    const nextProject = await openProject();
+    if (nextProject) {
+      lastSavedSignatureRef.current = getProjectDirtySignature(nextProject);
+    }
+  }, [openProject]);
+
+  const handleSaveProject = useCallback(async () => {
+    const nextProject = await saveProject();
+    if (nextProject) {
+      lastSavedSignatureRef.current = getProjectDirtySignature(nextProject);
+    }
+
+    return nextProject;
+  }, [saveProject]);
+
+  const handleSaveProjectAs = useCallback(async () => {
+    const nextProject = await saveProjectAs();
+    if (nextProject) {
+      lastSavedSignatureRef.current = getProjectDirtySignature(nextProject);
+    }
+
+    return nextProject;
+  }, [saveProjectAs]);
 
   useEffect(() => {
     if (!activeGroup || hasInitializedViewRef.current) {
@@ -357,9 +407,9 @@ const AppContent = () => {
 
   const shortcutHandlers = useMemo(
     () => ({
-      "Ctrl+O": () => void openProject(),
-      "Ctrl+S": () => void saveProject(),
-      "Ctrl+Shift+S": () => void saveProjectAs(),
+      "Ctrl+O": () => void handleOpenProject(),
+      "Ctrl+S": () => void handleSaveProject(),
+      "Ctrl+Shift+S": () => void handleSaveProjectAs(),
       "Ctrl+F": () => {
         if (!activeGroup || selectedItemIds.length === 0) {
           return;
@@ -381,12 +431,12 @@ const AppContent = () => {
       copySelectedImagesToClipboard,
       deleteSelectedItems,
       flipItems,
+      handleOpenProject,
+      handleSaveProject,
+      handleSaveProjectAs,
       openGroupDialog,
-      openProject,
       openTaskDialog,
       resetView,
-      saveProject,
-      saveProjectAs,
       toggleBlackAndWhite,
       toggleBlur,
     ],
@@ -419,16 +469,20 @@ const AppContent = () => {
   }, [importFromPayload]);
 
   useEffect(() => {
-    if (!menuState && !taskDialogOpen && !groupDialogOpen) {
+    if (!menuState && !taskDialogOpen && !groupDialogOpen && !settingsOpen) {
       return;
     }
 
-    const handlePointer = () => setMenuState(null);
+    const handlePointer = () => {
+      setMenuState(null);
+      setSettingsOpen(false);
+    };
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setMenuState(null);
         setTaskDialogOpen(false);
         setGroupDialogOpen(false);
+        setSettingsOpen(false);
       }
     };
 
@@ -439,7 +493,23 @@ const AppContent = () => {
       window.removeEventListener("pointerdown", handlePointer);
       window.removeEventListener("keydown", handleEscape);
     };
-  }, [groupDialogOpen, menuState, taskDialogOpen]);
+  }, [groupDialogOpen, menuState, settingsOpen, taskDialogOpen]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (allowWindowCloseRef.current || !hasUnsavedChanges) {
+        return;
+      }
+
+      event.preventDefault();
+      event.returnValue = false;
+      setConfirmCloseOpen(true);
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () =>
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [hasUnsavedChanges]);
 
   useShortcuts(shortcutHandlers);
 
@@ -466,6 +536,26 @@ const AppContent = () => {
     void window.desktopApi.window.minimize();
   };
 
+  const handleDiscardAndClose = useCallback(() => {
+    setConfirmCloseOpen(false);
+    allowWindowCloseRef.current = true;
+    void window.desktopApi.app.quit();
+  }, []);
+
+  const handleSaveAndClose = useCallback(async () => {
+    const nextProject = project.filePath
+      ? await handleSaveProject()
+      : await handleSaveProjectAs();
+
+    if (!nextProject) {
+      return;
+    }
+
+    setConfirmCloseOpen(false);
+    allowWindowCloseRef.current = true;
+    void window.desktopApi.app.quit();
+  }, [handleSaveProject, handleSaveProjectAs, project.filePath]);
+
   const handleToggleAlwaysOnTop = () => {
     void window.desktopApi.window
       .toggleAlwaysOnTop()
@@ -486,9 +576,15 @@ const AppContent = () => {
       .catch(() => null);
   };
 
-  const handleCloseWindow = () => {
-    void window.desktopApi.window.close();
-  };
+  const handleCloseWindow = useCallback(() => {
+    if (hasUnsavedChanges) {
+      setConfirmCloseOpen(true);
+      return;
+    }
+
+    allowWindowCloseRef.current = true;
+    void window.desktopApi.app.quit();
+  }, [hasUnsavedChanges]);
 
   const zoomLabel = activeGroup
     ? `${Math.round(activeGroup.zoom * 100)}%`
@@ -514,9 +610,23 @@ const AppContent = () => {
         <TopBar
           activeGroup={activeGroup}
           activeTool={activeTool}
+          settingsOpen={settingsOpen}
           windowMaximized={windowMaximized}
           windowAlwaysOnTop={windowAlwaysOnTop}
           onBrandClick={() => setAppInfoOpen((previous) => !previous)}
+          onToggleSettings={() => setSettingsOpen((previous) => !previous)}
+          onOpenProject={() => {
+            setSettingsOpen(false);
+            void handleOpenProject();
+          }}
+          onSaveProject={() => {
+            setSettingsOpen(false);
+            void handleSaveProject();
+          }}
+          onSaveProjectAs={() => {
+            setSettingsOpen(false);
+            void handleSaveProjectAs();
+          }}
           onToolClick={handleToolButton}
           onResetView={resetView}
           onTaskClick={openTaskDialog}
@@ -540,6 +650,7 @@ const AppContent = () => {
                 <CanvasBoard
                   group={activeGroup}
                   activeTool={activeTool}
+                  snapEnabled={snapEnabled}
                   doodleMode={doodleMode}
                   doodleColor={doodleColor}
                   doodleSize={activeDoodleSize}
@@ -649,7 +760,8 @@ const AppContent = () => {
           groupName={activeGroup?.name ?? "Main Canvas"}
           zoomLabel={zoomLabel}
           canvasLabel={canvasLabel}
-          onDelete={deleteSelectedItems}
+          snapEnabled={snapEnabled}
+          onToggleSnap={() => setSnapEnabled((previous) => !previous)}
           onAutoArrange={autoArrange}
         />
       </div>
@@ -658,18 +770,19 @@ const AppContent = () => {
         <AppMenu
           x={menuState.x}
           y={menuState.y}
+          selectedCount={selectedItemIds.length}
           onClose={() => setMenuState(null)}
           onOpen={() => {
             setMenuState(null);
-            void openProject();
+            void handleOpenProject();
           }}
           onSave={() => {
             setMenuState(null);
-            void saveProject();
+            void handleSaveProject();
           }}
           onSaveAs={() => {
             setMenuState(null);
-            void saveProjectAs();
+            void handleSaveProjectAs();
           }}
           onResetView={() => {
             setMenuState(null);
@@ -689,11 +802,23 @@ const AppContent = () => {
           }}
           onCopySelected={() => {
             setMenuState(null);
-            void copySelectedImagesToClipboard();
+            duplicateSelectedItems();
+          }}
+          onCutSelected={() => {
+            setMenuState(null);
+            cutSelectedItems();
           }}
           onDeleteSelected={() => {
             setMenuState(null);
             deleteSelectedItems();
+          }}
+          onArrangePinterest={() => {
+            setMenuState(null);
+            arrangeSelectedItems("pinterest-dynamic");
+          }}
+          onArrangeHorizontal={() => {
+            setMenuState(null);
+            arrangeSelectedItems("horizontal");
           }}
         />
       ) : null}
@@ -727,6 +852,14 @@ const AppContent = () => {
         onSelectSource={setSelectedSourceId}
         onQualityChange={setCaptureQuality}
         onConfirm={handleConfirmConnect}
+      />
+
+      <ConfirmCloseDialog
+        open={confirmCloseOpen}
+        fileName={projectFileName}
+        onSave={() => void handleSaveAndClose()}
+        onDiscard={handleDiscardAndClose}
+        onCancel={() => setConfirmCloseOpen(false)}
       />
 
       {toast ? (

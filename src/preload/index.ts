@@ -4,6 +4,7 @@ import type { DesktopApi } from "../shared/types/ipc";
 const desktopApi: DesktopApi = {
   app: {
     getVersion: () => ipcRenderer.invoke("app:get-version"),
+    quit: () => ipcRenderer.invoke("app:quit"),
   },
   project: {
     create: () => ipcRenderer.invoke("project:create"),

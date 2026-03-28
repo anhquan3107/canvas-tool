@@ -8,6 +8,7 @@ import {
 import type {
   CanvasItem,
   ImageItem,
+  LayoutMode,
   Project,
   ReferenceGroup,
 } from "@shared/types/project";
@@ -25,7 +26,7 @@ import {
 
 type ToastKind = "success" | "error" | "info";
 type ImagePatch = Partial<Omit<ImageItem, "id" | "type">>;
-const CANVAS_EXPANSION_PADDING = 140;
+const CANVAS_EXPANSION_PADDING = 24;
 const MIN_CANVAS_WIDTH = 360;
 const MIN_CANVAS_HEIGHT = 240;
 
@@ -337,12 +338,15 @@ export const useCanvasWorkspace = ({
       filePath: project.filePath,
     });
 
-    setProject({
+    const nextProject = {
       ...project,
       filePath: response.filePath,
-    });
+    };
+
+    setProject(nextProject);
     refreshRecents();
     pushToast("success", "Canvas saved.");
+    return nextProject;
   }, [project, pushToast, refreshRecents, setProject]);
 
   const saveProjectAs = useCallback(async () => {
@@ -355,12 +359,15 @@ export const useCanvasWorkspace = ({
       return;
     }
 
-    setProject({
+    const nextProject = {
       ...project,
       filePath: response.filePath,
-    });
+    };
+
+    setProject(nextProject);
     refreshRecents();
     pushToast("success", "Canvas saved to a new file.");
+    return nextProject;
   }, [project, pushToast, refreshRecents, setProject]);
 
   const openProject = useCallback(async () => {
@@ -373,6 +380,7 @@ export const useCanvasWorkspace = ({
     setSelectedItemIds([]);
     refreshRecents();
     pushToast("success", "Canvas opened.");
+    return response.project;
   }, [pushToast, refreshRecents, setProject, setSelectedItemIds]);
 
   const importFromPayload = useCallback(
@@ -415,14 +423,30 @@ export const useCanvasWorkspace = ({
           -1,
         );
 
-        const rescueUpdates = Object.fromEntries(
-          importedItems.map((item, index) => {
-            const nextX =
-              centerWorldX - item.width / 2 + (index % 4) * (item.width + 44);
-            const nextY =
-              centerWorldY -
-              item.height / 2 +
-              Math.floor(index / 4) * (item.height + 44);
+        const itemsPerRow = 4;
+        const rows = Array.from(
+          { length: Math.ceil(importedItems.length / itemsPerRow) },
+          (_, rowIndex) =>
+            importedItems.slice(
+              rowIndex * itemsPerRow,
+              rowIndex * itemsPerRow + itemsPerRow,
+            ),
+        );
+        const totalLayoutHeight = rows.reduce(
+          (sum, row) => sum + Math.max(...row.map((item) => item.height)),
+          0,
+        );
+        let cursorY = centerWorldY - totalLayoutHeight * 0.5;
+
+        const rescueEntries = rows.flatMap((row, rowIndex) => {
+          const rowWidth = row.reduce((sum, item) => sum + item.width, 0);
+          const rowHeight = Math.max(...row.map((item) => item.height));
+          let cursorX = centerWorldX - rowWidth * 0.5;
+
+          const entries = row.map((item, columnIndex) => {
+            const nextX = cursorX;
+            const nextY = cursorY + (rowHeight - item.height) * 0.5;
+            cursorX += item.width;
 
             return [
               item.id,
@@ -430,10 +454,17 @@ export const useCanvasWorkspace = ({
                 x: Math.round(nextX),
                 y: Math.round(nextY),
                 visible: true,
-                zIndex: maxExistingZ + index + 1,
+                zIndex: maxExistingZ + rowIndex * itemsPerRow + columnIndex + 1,
               },
-            ];
-          }),
+            ] as const;
+          });
+
+          cursorY += rowHeight;
+          return entries;
+        });
+
+        const rescueUpdates = Object.fromEntries(
+          rescueEntries,
         ) as Record<string, ImagePatch>;
 
         patchGroupItems(activeGroup.id, rescueUpdates);
@@ -642,6 +673,68 @@ export const useCanvasWorkspace = ({
     pushToast("error", "Unable to copy selected images.");
   }, [activeGroup, pushToast, selectedItemIds]);
 
+  const duplicateSelectedItems = useCallback(() => {
+    if (!activeGroup || selectedItemIds.length === 0) {
+      pushToast("info", "No selected items to copy.");
+      return;
+    }
+
+    const selectedItems = activeGroup.items
+      .filter((item) => selectedItemIds.includes(item.id))
+      .sort((left, right) => left.zIndex - right.zIndex);
+
+    const maxExistingZ = activeGroup.items.reduce(
+      (acc, item) => Math.max(acc, item.zIndex),
+      -1,
+    );
+
+    const duplicates = selectedItems.map((item, index) => ({
+      ...item,
+      id: crypto.randomUUID(),
+      x: item.x + 24,
+      y: item.y + 24,
+      zIndex: maxExistingZ + index + 1,
+    }));
+
+    addGroupItems(activeGroup.id, duplicates);
+    setSelectedItemIds(duplicates.map((item) => item.id));
+    ensureCanvasFitsItems(
+      activeGroup.id,
+      [...activeGroup.items, ...duplicates],
+      activeGroup.canvasSize,
+      {
+        zoom: activeGroup.zoom,
+        panX: activeGroup.panX,
+        panY: activeGroup.panY,
+      },
+    );
+    pushToast("success", `Copied ${duplicates.length} item(s).`);
+  }, [
+    activeGroup,
+    addGroupItems,
+    ensureCanvasFitsItems,
+    pushToast,
+    selectedItemIds,
+    setSelectedItemIds,
+  ]);
+
+  const cutSelectedItems = useCallback(() => {
+    if (!activeGroup || selectedItemIds.length === 0) {
+      pushToast("info", "No selected items to cut.");
+      return;
+    }
+
+    removeGroupItems(activeGroup.id, selectedItemIds);
+    setSelectedItemIds([]);
+    pushToast("success", "Selected item(s) cut.");
+  }, [
+    activeGroup,
+    pushToast,
+    removeGroupItems,
+    selectedItemIds,
+    setSelectedItemIds,
+  ]);
+
   const deleteSelectedItems = useCallback(() => {
     if (!activeGroup || selectedItemIds.length === 0) {
       pushToast("info", "No selected images to delete.");
@@ -751,6 +844,85 @@ export const useCanvasWorkspace = ({
     );
   }, [activeGroup, fitCanvasToItems, focusGroupOnItems, patchGroupItems, setGroupCanvasSize]);
 
+  const arrangeSelectedItems = useCallback(
+    (mode: LayoutMode) => {
+      if (!activeGroup || selectedItemIds.length === 0) {
+        pushToast("info", "No selected items to arrange.");
+        return;
+      }
+
+      const selectedItems = activeGroup.items
+        .filter((item) => selectedItemIds.includes(item.id))
+        .sort((left, right) => left.zIndex - right.zIndex);
+
+      if (selectedItems.length === 0) {
+        pushToast("info", "No selected items to arrange.");
+        return;
+      }
+
+      const anchorX = Math.min(...selectedItems.map((item) => item.x));
+      const anchorY = Math.min(...selectedItems.map((item) => item.y));
+      const gap = 2;
+      const updates: Record<string, ImagePatch> = {};
+
+      if (mode === "horizontal") {
+        let cursorX = anchorX;
+        selectedItems.forEach((item) => {
+          updates[item.id] = {
+            x: Math.round(cursorX),
+            y: Math.round(anchorY),
+          };
+          cursorX += item.width + gap;
+        });
+      } else {
+        const columnCount = Math.min(4, Math.max(2, Math.ceil(Math.sqrt(selectedItems.length))));
+        const columnWidth = Math.max(...selectedItems.map((item) => item.width)) + gap;
+        const columnHeights = Array.from({ length: columnCount }, () => anchorY);
+
+        selectedItems.forEach((item) => {
+          let columnIndex = 0;
+          for (let index = 1; index < columnHeights.length; index += 1) {
+            if (columnHeights[index] < columnHeights[columnIndex]) {
+              columnIndex = index;
+            }
+          }
+
+          updates[item.id] = {
+            x: Math.round(anchorX + columnIndex * columnWidth),
+            y: Math.round(columnHeights[columnIndex]),
+          };
+          columnHeights[columnIndex] += item.height + gap;
+        });
+      }
+
+      patchGroupItems(activeGroup.id, updates);
+
+      const nextItems = activeGroup.items.map((item) => ({
+        ...item,
+        ...updates[item.id],
+      }));
+      ensureCanvasFitsItems(activeGroup.id, nextItems, activeGroup.canvasSize, {
+        zoom: activeGroup.zoom,
+        panX: activeGroup.panX,
+        panY: activeGroup.panY,
+      });
+
+      pushToast(
+        "success",
+        mode === "horizontal"
+          ? "Selected items arranged horizontally."
+          : "Selected items arranged in Pinterest layout.",
+      );
+    },
+    [
+      activeGroup,
+      ensureCanvasFitsItems,
+      patchGroupItems,
+      pushToast,
+      selectedItemIds,
+    ],
+  );
+
   const autoArrange = useCallback(() => {
     if (!activeGroup) {
       return;
@@ -765,7 +937,7 @@ export const useCanvasWorkspace = ({
       return;
     }
 
-    const padding = 42;
+    const padding = 0;
     const updates: Record<string, ImagePatch> = {};
     let cursorX = padding;
     let cursorY = padding;
@@ -800,7 +972,10 @@ export const useCanvasWorkspace = ({
     importFromPayload,
     retryImportEntry,
     copySelectedImagesToClipboard,
+    duplicateSelectedItems,
+    cutSelectedItems,
     deleteSelectedItems,
+    arrangeSelectedItems,
     handleBoardViewChange,
     handleBoardItemsPatch,
     handleShellDragOver,

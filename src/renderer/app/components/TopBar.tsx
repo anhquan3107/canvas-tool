@@ -5,9 +5,14 @@ import type { ToolMode } from "@renderer/features/tools/types";
 interface TopBarProps {
   activeGroup: ReferenceGroup | null | undefined;
   activeTool: ToolMode | null;
+  settingsOpen: boolean;
   windowMaximized: boolean;
   windowAlwaysOnTop: boolean;
   onBrandClick: () => void;
+  onToggleSettings: () => void;
+  onOpenProject: () => void;
+  onSaveProject: () => void;
+  onSaveProjectAs: () => void;
   onToolClick: (tool: ToolMode) => void;
   onResetView: () => void;
   onTaskClick: () => void;
@@ -22,9 +27,14 @@ interface TopBarProps {
 export const TopBar = ({
   activeGroup,
   activeTool,
+  settingsOpen,
   windowMaximized,
   windowAlwaysOnTop,
   onBrandClick,
+  onToggleSettings,
+  onOpenProject,
+  onSaveProject,
+  onSaveProjectAs,
   onToolClick,
   onResetView,
   onTaskClick,
@@ -42,6 +52,33 @@ export const TopBar = ({
       </button>
 
       <nav className="topbar-actions">
+        <div
+          className="topbar-settings-shell"
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          <button
+            type="button"
+            className={`toolbar-button ${settingsOpen ? "active" : ""}`}
+            onClick={onToggleSettings}
+          >
+            Setting
+          </button>
+
+          {settingsOpen ? (
+            <div className="topbar-settings-menu">
+              <button type="button" onClick={onOpenProject}>
+                Open
+              </button>
+              <button type="button" onClick={onSaveProject}>
+                Save
+              </button>
+              <button type="button" onClick={onSaveProjectAs}>
+                Save As
+              </button>
+            </div>
+          ) : null}
+        </div>
+
         {TOOL_ORDER.map((tool) => (
           <button
             key={tool}

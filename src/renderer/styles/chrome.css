@@ -1,0 +1,140 @@
+.app-shell {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.desktop-frame {
+  display: grid;
+  grid-template-rows: 36px 1fr 44px;
+  width: 100%;
+  height: 100%;
+}
+
+.app-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 0 10px 0 8px;
+  background: #1f1e21;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+.app-drag-region,
+.window-cluster {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.topbar-brand,
+.toolbar-button,
+.chrome-chip,
+.window-button {
+  -webkit-app-region: no-drag;
+}
+
+.topbar-brand {
+  border: none;
+  background: transparent;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.topbar-settings-shell {
+  position: relative;
+  -webkit-app-region: no-drag;
+}
+
+.toolbar-button {
+  border: none;
+  background: transparent;
+  padding: 5px 8px;
+  border-radius: 5px;
+  font-size: 11px;
+  color: var(--text-soft);
+}
+
+.toolbar-button.active,
+.toolbar-button:hover,
+.topbar-brand:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.topbar-settings-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  min-width: 132px;
+  padding: 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: var(--bg-menu);
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.36);
+}
+
+.topbar-settings-menu button {
+  border: none;
+  background: transparent;
+  padding: 7px 10px;
+  border-radius: 5px;
+  text-align: left;
+  font-size: 11px;
+  color: var(--text);
+}
+
+.topbar-settings-menu button:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.locale-indicator {
+  font-size: 11px;
+  color: var(--text-soft);
+  margin-right: 4px;
+}
+
+.chrome-chip,
+.window-button {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 22px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-soft);
+  font-size: 12px;
+}
+
+.window-button.close:hover {
+  background: #c44848;
+  color: white;
+}
+
+.window-button.active {
+  background: rgba(240, 162, 63, 0.18);
+  color: var(--text);
+  border-color: rgba(240, 162, 63, 0.34);
+}
+
+.desktop-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 0;
+}

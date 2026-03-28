@@ -101,6 +101,9 @@ const getCaptureWindowBounds = (payload: OpenCaptureWindowRequest) => {
 
 export const setupIpcHandlers = (window: BrowserWindow) => {
   ipcMain.handle("app:get-version", () => app.getVersion());
+  ipcMain.handle("app:quit", () => {
+    app.quit();
+  });
 
   ipcMain.handle("project:create", () => createDefaultProject());
 

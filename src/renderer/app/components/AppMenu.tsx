@@ -1,6 +1,7 @@
 import type { MenuState } from "@renderer/app/types";
 
 interface AppMenuProps extends MenuState {
+  selectedCount: number;
   onClose: () => void;
   onOpen: () => void;
   onSave: () => void;
@@ -10,12 +11,16 @@ interface AppMenuProps extends MenuState {
   onCreateTask: () => void;
   onAutoArrange: () => void;
   onCopySelected: () => void;
+  onCutSelected: () => void;
   onDeleteSelected: () => void;
+  onArrangePinterest: () => void;
+  onArrangeHorizontal: () => void;
 }
 
 export const AppMenu = ({
   x,
   y,
+  selectedCount,
   onClose,
   onOpen,
   onSave,
@@ -25,7 +30,10 @@ export const AppMenu = ({
   onCreateTask,
   onAutoArrange,
   onCopySelected,
+  onCutSelected,
   onDeleteSelected,
+  onArrangePinterest,
+  onArrangeHorizontal,
 }: AppMenuProps) => (
   <div
     className="app-menu"
@@ -33,6 +41,26 @@ export const AppMenu = ({
     onPointerDown={(event) => event.stopPropagation()}
     onClick={(event) => event.stopPropagation()}
   >
+    {selectedCount > 0 ? (
+      <>
+        <button type="button" onClick={() => void onCopySelected()}>
+          Copy Selection
+        </button>
+        <button type="button" onClick={onCutSelected}>
+          Cut Selection
+        </button>
+        <button type="button" onClick={onArrangePinterest}>
+          Arrange Pinterest
+        </button>
+        <button type="button" onClick={onArrangeHorizontal}>
+          Arrange Horizontal
+        </button>
+        <button type="button" onClick={onDeleteSelected}>
+          Delete Selection
+        </button>
+        <div className="app-menu-divider" />
+      </>
+    ) : null}
     <button type="button" onClick={() => void onOpen()}>
       Open
     </button>
@@ -42,13 +70,6 @@ export const AppMenu = ({
     <button type="button" onClick={() => void onSaveAs()}>
       Save Canvas As...
     </button>
-    <button type="button" onClick={() => void onCopySelected()}>
-      Copy Selection
-    </button>
-    <button type="button" onClick={onDeleteSelected}>
-      Delete Selection
-    </button>
-    <div className="app-menu-divider" />
     <button type="button" onClick={onResetView}>
       Reset View
     </button>

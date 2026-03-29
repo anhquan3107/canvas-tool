@@ -7,117 +7,30 @@ import type {
 } from "@renderer/features/connect/types";
 import {
   CAPTURE_QUALITY_PROFILES,
-  CONSISTENT_CAPTURE_STREAM_SIZE,
+  createDesktopCaptureConstraints,
+  isWindowsDesktopCapturePlatform,
 } from "@renderer/features/connect/utils";
 import { useShortcuts } from "@renderer/hooks/use-shortcuts";
 
-const MAX_WINDOWS_NATIVE_CROP = 16;
+type PreviewCropInsets = {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+};
 
-const isWindowsPlatform = () =>
-  /win/i.test(
-    (() => {
-      if (typeof navigator === "undefined") {
-        return "";
-      }
+const NO_PREVIEW_CROP: PreviewCropInsets = {
+  top: 0,
+  right: 0,
+  bottom: 0,
+  left: 0,
+};
 
-      const navigatorWithUAData = navigator as Navigator & {
-        userAgentData?: { platform?: string };
-      };
-
-      return navigatorWithUAData.userAgentData?.platform ?? navigator.platform ?? "";
-    })(),
-  );
-
-const detectWindowsTitleBarCrop = (video: HTMLVideoElement) => {
-  if (video.videoWidth <= 0 || video.videoHeight <= 0) {
-    return 0;
-  }
-
-  const sampleRows = Math.min(
-    48,
-    Math.max(18, Math.round(video.videoHeight * 0.08)),
-  );
-  const sampleWidth = Math.min(180, Math.max(64, Math.round(video.videoWidth * 0.1)));
-  const maxCropRows = Math.min(
-    sampleRows - 2,
-    MAX_WINDOWS_NATIVE_CROP,
-  );
-  const canvas = document.createElement("canvas");
-  canvas.width = sampleWidth;
-  canvas.height = sampleRows;
-  const context = canvas.getContext("2d", { willReadFrequently: true });
-
-  if (!context) {
-    return 0;
-  }
-
-  context.drawImage(
-    video,
-    0,
-    0,
-    video.videoWidth,
-    sampleRows,
-    0,
-    0,
-    sampleWidth,
-    sampleRows,
-  );
-
-  const pixels = context.getImageData(0, 0, sampleWidth, sampleRows).data;
-  const rowVariance: number[] = [];
-  const rowLuma: number[] = [];
-
-  for (let row = 0; row < sampleRows; row += 1) {
-    let lumaTotal = 0;
-    const lumas: number[] = [];
-
-    for (let column = 0; column < sampleWidth; column += 1) {
-      const offset = (row * sampleWidth + column) * 4;
-      const red = pixels[offset];
-      const green = pixels[offset + 1];
-      const blue = pixels[offset + 2];
-      const luma = red * 0.2126 + green * 0.7152 + blue * 0.0722;
-      lumas.push(luma);
-      lumaTotal += luma;
-    }
-
-    const meanLuma = lumaTotal / sampleWidth;
-    let varianceTotal = 0;
-    lumas.forEach((value) => {
-      varianceTotal += Math.abs(value - meanLuma);
-    });
-
-    rowLuma.push(meanLuma);
-    rowVariance.push(varianceTotal / sampleWidth);
-  }
-
-  let uniformRows = 0;
-  for (let row = 0; row < maxCropRows; row += 1) {
-    const nextLuma = rowLuma[row + 1] ?? rowLuma[row];
-    const lumaDrift = Math.abs(rowLuma[row] - nextLuma);
-    if (rowVariance[row] < 5 && lumaDrift < 4) {
-      uniformRows += 1;
-      continue;
-    }
-    break;
-  }
-
-  if (uniformRows < 4) {
-    return 0;
-  }
-
-  const boundaryVariance = rowVariance[uniformRows] ?? rowVariance.at(-1) ?? 0;
-  const boundaryLuma = rowLuma[uniformRows] ?? rowLuma.at(-1) ?? 0;
-  const titlebarLuma = rowLuma[0] ?? 0;
-
-  if (boundaryVariance < 7 && Math.abs(boundaryLuma - titlebarLuma) < 10) {
-    return 0;
-  }
-
-  return Math.min(
-    MAX_WINDOWS_NATIVE_CROP,
-    Math.max(0, uniformRows),
-  );
+const WINDOWS_WINDOW_PREVIEW_CROP: PreviewCropInsets = {
+  top: 5,
+  right: 4,
+  bottom: 5,
+  left: 4,
 };
 
 const getInitialParams = () => {
@@ -157,7 +70,8 @@ export const CaptureWindowApp = () => {
   const [blurEnabled, setBlurEnabled] = useState(false);
   const [blurAmount, setBlurAmount] = useState(8);
   const [bwEnabled, setBwEnabled] = useState(false);
-  const [previewCropTop, setPreviewCropTop] = useState(0);
+  const [previewCropInsets, setPreviewCropInsets] =
+    useState<PreviewCropInsets>(NO_PREVIEW_CROP);
   const [windowMaximized, setWindowMaximized] = useState(false);
   const [windowAlwaysOnTop, setWindowAlwaysOnTop] = useState(false);
   const [shortcutBindings, setShortcutBindings] = useState(DEFAULT_SHORTCUT_BINDINGS);
@@ -229,7 +143,7 @@ export const CaptureWindowApp = () => {
   }, [quality]);
 
   useEffect(() => {
-    setPreviewCropTop(0);
+    setPreviewCropInsets(NO_PREVIEW_CROP);
   }, [quality, sourceId, sourceKind]);
 
   useEffect(() => {
@@ -243,21 +157,9 @@ export const CaptureWindowApp = () => {
 
     const startStream = async () => {
       const profile = CAPTURE_QUALITY_PROFILES[quality];
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: {
-          mandatory: {
-            chromeMediaSource: "desktop",
-            chromeMediaSourceId: sourceId,
-            minWidth: 640,
-            maxWidth: CONSISTENT_CAPTURE_STREAM_SIZE.width,
-            minHeight: 360,
-            maxHeight: CONSISTENT_CAPTURE_STREAM_SIZE.height,
-            minFrameRate: profile.frameRate,
-            maxFrameRate: profile.frameRate,
-          },
-        } as MediaTrackConstraints,
-      } as MediaStreamConstraints);
+      const stream = await navigator.mediaDevices.getUserMedia(
+        createDesktopCaptureConstraints(sourceId, profile),
+      );
 
       if (!mounted) {
         stream.getTracks().forEach((track) => track.stop());
@@ -322,37 +224,16 @@ export const CaptureWindowApp = () => {
   }, [dialogOpen]);
 
   useEffect(() => {
-    if (dialogOpen || !isWindowsPlatform() || sourceKind !== "window") {
-      setPreviewCropTop(0);
+    if (
+      dialogOpen ||
+      !isWindowsDesktopCapturePlatform() ||
+      sourceKind !== "window"
+    ) {
+      setPreviewCropInsets(NO_PREVIEW_CROP);
       return;
     }
 
-    let cancelled = false;
-    let attempts = 0;
-
-    const tryDetectCrop = () => {
-      if (cancelled) {
-        return;
-      }
-
-      const video = videoRef.current;
-      if (!video || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
-        attempts += 1;
-        if (attempts < 8) {
-          window.setTimeout(tryDetectCrop, 180);
-        }
-        return;
-      }
-
-      const nextCrop = detectWindowsTitleBarCrop(video);
-      setPreviewCropTop(nextCrop);
-    };
-
-    const timer = window.setTimeout(tryDetectCrop, 220);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
+    setPreviewCropInsets(WINDOWS_WINDOW_PREVIEW_CROP);
   }, [dialogOpen, quality, sourceId, sourceKind]);
 
   const handleConfirmSource = () => {
@@ -370,8 +251,21 @@ export const CaptureWindowApp = () => {
 
   const filterStyle = {
     filter: `blur(${blurEnabled ? blurAmount : 0}px) grayscale(${bwEnabled ? 100 : 0}%)`,
-    height: previewCropTop ? `calc(100% + ${previewCropTop}px)` : "100%",
-    transform: previewCropTop ? `translateY(-${previewCropTop}px)` : "none",
+    width:
+      previewCropInsets.left || previewCropInsets.right
+        ? `calc(100% + ${previewCropInsets.left + previewCropInsets.right}px)`
+        : "100%",
+    height:
+      previewCropInsets.top || previewCropInsets.bottom
+        ? `calc(100% + ${previewCropInsets.top + previewCropInsets.bottom}px)`
+        : "100%",
+    transform:
+      previewCropInsets.left ||
+      previewCropInsets.top ||
+      previewCropInsets.right ||
+      previewCropInsets.bottom
+        ? `translate(-${previewCropInsets.left}px, -${previewCropInsets.top}px)`
+        : "none",
   };
 
   return (

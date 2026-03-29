@@ -3,7 +3,7 @@ import { Texture } from "pixi.js";
 import type { CaptureItem } from "@shared/types/project";
 import {
   CAPTURE_QUALITY_PROFILES,
-  CONSISTENT_CAPTURE_STREAM_SIZE,
+  createDesktopCaptureConstraints,
 } from "@renderer/features/connect/utils";
 import type { CaptureSession } from "@renderer/pixi/types";
 
@@ -39,21 +39,9 @@ export const useCaptureSessions = () => {
       }
 
       const profile = CAPTURE_QUALITY_PROFILES[item.quality];
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: {
-          mandatory: {
-            chromeMediaSource: "desktop",
-            chromeMediaSourceId: item.sourceId,
-            minWidth: 640,
-            maxWidth: CONSISTENT_CAPTURE_STREAM_SIZE.width,
-            minHeight: 360,
-            maxHeight: CONSISTENT_CAPTURE_STREAM_SIZE.height,
-            minFrameRate: profile.frameRate,
-            maxFrameRate: profile.frameRate,
-          },
-        } as MediaTrackConstraints,
-      } as MediaStreamConstraints);
+      const stream = await navigator.mediaDevices.getUserMedia(
+        createDesktopCaptureConstraints(item.sourceId, profile),
+      );
 
       const video = document.createElement("video");
       video.autoplay = true;

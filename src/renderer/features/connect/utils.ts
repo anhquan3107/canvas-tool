@@ -31,3 +31,40 @@ export const CAPTURE_QUALITY_PROFILES: Record<
     refreshMs: 48,
   },
 };
+
+export const isWindowsDesktopCapturePlatform = () =>
+  /win/i.test(
+    (() => {
+      if (typeof navigator === "undefined") {
+        return "";
+      }
+
+      const navigatorWithUAData = navigator as Navigator & {
+        userAgentData?: { platform?: string };
+      };
+
+      return navigatorWithUAData.userAgentData?.platform ?? navigator.platform ?? "";
+    })(),
+  );
+
+export const createDesktopCaptureConstraints = (
+  sourceId: string,
+  profile: CaptureQualityProfile,
+) => {
+  const effectiveFrameRate = isWindowsDesktopCapturePlatform()
+    ? Math.min(profile.frameRate, 18)
+    : profile.frameRate;
+
+  return {
+    audio: false,
+    video: {
+      mandatory: {
+        chromeMediaSource: "desktop",
+        chromeMediaSourceId: sourceId,
+        maxWidth: CONSISTENT_CAPTURE_STREAM_SIZE.width,
+        maxHeight: CONSISTENT_CAPTURE_STREAM_SIZE.height,
+        maxFrameRate: effectiveFrameRate,
+      },
+    } as MediaTrackConstraints,
+  } as MediaStreamConstraints;
+};

@@ -8,7 +8,7 @@ export const drawItemFrame = (
   isSelected: boolean,
 ) => {
   frame.clear();
-  frame.roundRect(0, 0, width, height, 12);
+  frame.rect(0, 0, width, height);
   frame.fill(isCapture ? 0x3d6072 : 0x8a5e32);
   if (isSelected) {
     frame.stroke({

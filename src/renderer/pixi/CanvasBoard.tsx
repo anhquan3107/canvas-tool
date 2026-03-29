@@ -40,6 +40,7 @@ export const CanvasBoard = ({
   const hostRef = useRef<HTMLDivElement | null>(null);
   const cursorOverlayRef = useRef<HTMLDivElement | null>(null);
   const selectionMarqueeRef = useRef<HTMLDivElement | null>(null);
+  const selectedBoundsOverlayRef = useRef<HTMLDivElement | null>(null);
   const appRef = useRef<Application | null>(null);
   const boardContainerRef = useRef<Container | null>(null);
   const boardGraphicRef = useRef<Graphics | null>(null);
@@ -78,6 +79,7 @@ export const CanvasBoard = ({
   const activeSelectionBoxRef = useRef<ActiveSelectionBoxState | null>(null);
   const activeAnnotationSessionRef =
     useRef<ActiveAnnotationSessionState | null>(null);
+  const spacePanActiveRef = useRef(false);
   const lastPointerClientRef = useRef<{ x: number; y: number } | null>(null);
   const lastItemPressRef = useRef<{ itemId: string; time: number } | null>(null);
   const [appReady, setAppReady] = useState(false);
@@ -177,6 +179,7 @@ export const CanvasBoard = ({
   const {
     hideDoodleCursor,
     hideSelectionMarquee,
+    hideSelectedBoundsOverlay,
     updateDoodleCursor,
     drawBoardSurface,
     setPreviewInsets,
@@ -184,15 +187,19 @@ export const CanvasBoard = ({
     scheduleViewCommit,
     syncViewFromGroup,
     clientPointToCanvas,
+    updateSelectedBoundsOverlay,
     updateSelectionMarquee,
   } = useCanvasBoardView({
     hostRef,
     cursorOverlayRef,
     selectionMarqueeRef,
+    selectedBoundsOverlayRef,
     boardContainerRef,
     boardGraphicRef,
+    itemNodeByIdRef,
     groupRef,
     selectionIdsRef,
+    activeItemDragRef,
     activeSelectionBoxRef,
     onSelectionChangeRef,
     onViewChangeRef,
@@ -228,11 +235,14 @@ export const CanvasBoard = ({
   const { updateDraggedItemPosition, commitDraggedItemPatch } =
     useCanvasBoardDrag({
       activeItemDragRef,
+      hostRef,
       boardContainerRef,
       snapEnabledRef,
       groupRef,
       onItemsPatchRef,
       setPreviewInsets,
+      updateSelectedBoundsOverlay,
+      scheduleViewCommit,
     });
 
   const rebuildScene = useCanvasBoardScene({
@@ -253,6 +263,10 @@ export const CanvasBoard = ({
     renderTokenRef,
     activeItemDragRef,
     activeSelectionBoxRef,
+    isPanningRef,
+    panStartRef,
+    panOriginRef,
+    spacePanActiveRef,
     lastItemPressRef,
     onItemDoubleClickRef,
     ensureCaptureSession,
@@ -280,6 +294,7 @@ export const CanvasBoard = ({
     activeSelectionBoxRef,
     activeAnnotationSessionRef,
     activeToolRef,
+    spacePanActiveRef,
     selectionIdsRef,
     onSelectionChangeRef,
     hideDoodleCursor,
@@ -292,6 +307,7 @@ export const CanvasBoard = ({
     hideSelectionMarquee,
     commitView,
     scheduleViewCommit,
+    updateSelectedBoundsOverlay,
     rebuildScene,
     setAppReady,
     stopCaptureSession,
@@ -343,8 +359,32 @@ export const CanvasBoard = ({
       return;
     }
 
+    updateSelectedBoundsOverlay();
+  }, [appReady, selectedItemIds, updateSelectedBoundsOverlay]);
+
+  useEffect(() => {
+    if (!appReady) {
+      return;
+    }
+
+    updateSelectedBoundsOverlay();
+  }, [appReady, group.items, updateSelectedBoundsOverlay]);
+
+  useEffect(() => {
+    if (!appReady) {
+      return;
+    }
+
     drawBoardSurface();
-  }, [appReady, drawBoardSurface, group.canvasColor, group.canvasSize.height, group.canvasSize.width]);
+    updateSelectedBoundsOverlay();
+  }, [
+    appReady,
+    drawBoardSurface,
+    group.canvasColor,
+    group.canvasSize.height,
+    group.canvasSize.width,
+    updateSelectedBoundsOverlay,
+  ]);
 
   useEffect(() => {
     if (!appReady) {
@@ -372,14 +412,23 @@ export const CanvasBoard = ({
     }
 
     syncViewFromGroup();
-  }, [appReady, group.panX, group.panY, group.zoom, syncViewFromGroup]);
+    updateSelectedBoundsOverlay();
+  }, [
+    appReady,
+    group.panX,
+    group.panY,
+    group.zoom,
+    syncViewFromGroup,
+    updateSelectedBoundsOverlay,
+  ]);
 
   useEffect(
     () => () => {
       onCanvasSizePreviewChangeRef.current?.(null);
       onExportReadyRef.current?.(null);
+      hideSelectedBoundsOverlay();
     },
-    [],
+    [hideSelectedBoundsOverlay],
   );
 
   useEffect(() => {
@@ -441,6 +490,7 @@ export const CanvasBoard = ({
           cursor: activeTool === "doodle" ? "none" : "default",
         }}
       />
+      <div className="canvas-selected-bounds" ref={selectedBoundsOverlayRef} />
       <div className="canvas-selection-marquee" ref={selectionMarqueeRef} />
       <div className="canvas-cursor-overlay" ref={cursorOverlayRef} />
     </div>

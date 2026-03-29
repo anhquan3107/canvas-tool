@@ -8,6 +8,7 @@ import {
 import { DEFAULT_VIEW_ZOOM_BASELINE } from "@shared/project-defaults";
 import type { Project } from "@shared/types/project";
 import { useAppShortcuts } from "@renderer/app/hooks/use-app-shortcuts";
+import { useShortcutSettings } from "@renderer/app/hooks/use-shortcut-settings";
 import { useAppUiState } from "@renderer/app/hooks/use-app-ui-state";
 import { useCanvasStage } from "@renderer/app/hooks/use-canvas-stage";
 import { useExportActions } from "@renderer/app/hooks/use-export-actions";
@@ -44,6 +45,7 @@ import { AppInfoPanel } from "@renderer/app/components/AppInfoPanel";
 import { BackgroundColorDialog } from "@renderer/app/components/BackgroundColorDialog";
 import { CanvasSizeDialog } from "@renderer/app/components/CanvasSizeDialog";
 import { ConfirmCloseDialog } from "@renderer/app/components/ConfirmCloseDialog";
+import { KeyboardShortcutsDialog } from "@renderer/app/components/KeyboardShortcutsDialog";
 import { StatusBar } from "@renderer/app/components/StatusBar";
 
 export const App = () => {
@@ -129,7 +131,6 @@ const AppContent = () => {
     setGroupColors,
     setGroupLocked,
     setGroupAnnotations,
-    flipItems,
     addTask,
     addTodo,
     toggleTodo,
@@ -268,6 +269,7 @@ const AppContent = () => {
     slideshowPlaying,
     slideshowSeconds,
     openZoomOverlay,
+    closeZoomOverlay,
     handleRulerTool,
     selectNextZoomImage,
     selectPreviousZoomImage,
@@ -284,6 +286,20 @@ const AppContent = () => {
   });
   const { canvasStageRef, exportCanvasImageRef, viewportSize } =
     useCanvasStage();
+  const {
+    shortcutBindings,
+    shortcutDialogOpen,
+    shortcutDraftBindings,
+    shortcutConflicts,
+    openShortcutDialog,
+    closeShortcutDialog,
+    updateShortcutDraftBinding,
+    resetShortcutDraftBinding,
+    resetAllShortcutDraftBindings,
+    saveShortcutBindings,
+  } = useShortcutSettings({
+    pushToast,
+  });
 
   const {
     importVisibilitySnapshot,
@@ -367,6 +383,34 @@ const AppContent = () => {
     handleSaveProjectAs,
   });
 
+  const clearTransientUi = useCallback(() => {
+    setMenuState(null);
+    setTaskDialogOpen(false);
+    setGroupDialogOpen(false);
+    setSettingsOpen(false);
+    setCanvasSizeDialogOpen(false);
+    setBackgroundColorDialogOpen(false);
+    setAppInfoOpen(false);
+    setTaskDetailOpen(false);
+    setConnectDialogOpen(false);
+    setGroupsOverlayOpen(false);
+    closeShortcutDialog();
+    closeZoomOverlay();
+  }, [
+    closeShortcutDialog,
+    closeZoomOverlay,
+    setAppInfoOpen,
+    setBackgroundColorDialogOpen,
+    setCanvasSizeDialogOpen,
+    setConnectDialogOpen,
+    setGroupDialogOpen,
+    setGroupsOverlayOpen,
+    setMenuState,
+    setSettingsOpen,
+    setTaskDetailOpen,
+    setTaskDialogOpen,
+  ]);
+
   useEffect(() => {
     const fileName = project.filePath?.split(/[\\/]/).at(-1);
     void window.desktopApi.window.setTitle({
@@ -415,29 +459,6 @@ const AppContent = () => {
     });
   }, [activeGroup, resetView, viewportSize]);
 
-  useAppShortcuts({
-    activeGroupId,
-    selectedItemIds,
-    clipboardItems,
-    handleOpenProject,
-    handleSaveProject,
-    handleSaveProjectAs,
-    undo,
-    redo,
-    cutSelectedItems,
-    copySelectedItemsToClipboard,
-    pasteClipboardItems,
-    deleteSelectedItems,
-    flipItems,
-    resetView,
-    openGroupDialog,
-    openTaskDialog,
-    toggleBlur,
-    toggleBlackAndWhite,
-    autoArrange,
-    importFromPayload,
-  });
-
   useEffect(() => {
     if (
       !menuState &&
@@ -454,23 +475,11 @@ const AppContent = () => {
       setMenuState(null);
       setSettingsOpen(false);
     };
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setMenuState(null);
-        setTaskDialogOpen(false);
-        setGroupDialogOpen(false);
-        setSettingsOpen(false);
-        setCanvasSizeDialogOpen(false);
-        setBackgroundColorDialogOpen(false);
-      }
-    };
 
     window.addEventListener("pointerdown", handlePointer);
-    window.addEventListener("keydown", handleEscape);
 
     return () => {
       window.removeEventListener("pointerdown", handlePointer);
-      window.removeEventListener("keydown", handleEscape);
     };
   }, [
     canvasSizeDialogOpen,
@@ -609,6 +618,44 @@ const AppContent = () => {
     [handleRulerTool, handleToolButton],
   );
 
+  useAppShortcuts({
+    shortcutBindings,
+    activeTool,
+    selectedItemIds,
+    clipboardItems,
+    handleOpenProject,
+    handleSaveProject,
+    handleSaveProjectAs,
+    handleExportCanvasImage,
+    handleExportGroupImages,
+    handleExportAllTasksHtml,
+    undo,
+    redo,
+    cutSelectedItems,
+    copySelectedItemsToClipboard,
+    pasteClipboardItems,
+    deleteSelectedItems,
+    resetView,
+    openCanvasSizeDialog: handleOpenCanvasSizeDialog,
+    toggleCanvasLock,
+    clearTransientUi,
+    openGroupDialog,
+    openTaskDialog,
+    arrangeSelectedItems,
+    autoArrange,
+    toggleSnap: () => setSnapEnabled((previous) => !previous),
+    toggleAutoArrangeOnImport: () =>
+      setAutoArrangeOnImport((previous) => !previous),
+    openConnectDialog,
+    toggleDoodle: () => handleToolButton("doodle"),
+    setDoodleMode,
+    toggleBlur,
+    toggleBlackAndWhite,
+    toggleAlwaysOnTop: handleToggleAlwaysOnTop,
+    quitApplication: handleCloseWindow,
+    importFromPayload,
+  });
+
   return (
     <div
       className="app-shell"
@@ -688,12 +735,10 @@ const AppContent = () => {
           onResetView={resetView}
           onTaskClick={openTaskDialog}
           onCreateGroup={openGroupDialog}
-          onShowShortcuts={() =>
-            pushToast(
-              "info",
-              "CanvasTool shortcuts: Ctrl+O, Ctrl+S, Ctrl+Shift+F, Ctrl+B, Ctrl+Y.",
-            )
-          }
+          onShowShortcuts={() => {
+            setSettingsOpen(false);
+            openShortcutDialog();
+          }}
           onPaste={() => {
             setSettingsOpen(false);
             pasteClipboardItems();
@@ -1054,6 +1099,17 @@ const AppContent = () => {
           changeCanvasColors(colors.canvasColor, colors.backgroundColor);
           setBackgroundColorDialogOpen(false);
         }}
+      />
+
+      <KeyboardShortcutsDialog
+        open={shortcutDialogOpen}
+        bindings={shortcutDraftBindings}
+        conflicts={shortcutConflicts}
+        onClose={closeShortcutDialog}
+        onBindingChange={updateShortcutDraftBinding}
+        onResetAction={resetShortcutDraftBinding}
+        onResetAll={resetAllShortcutDraftBindings}
+        onSave={() => void saveShortcutBindings()}
       />
 
       <ConfirmCloseDialog

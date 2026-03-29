@@ -1,5 +1,7 @@
 import type { Project, Task } from "./project";
 import type { CaptureItem } from "./project";
+import type { AppSettings } from "./project";
+import type { ShortcutBindings } from "../shortcuts";
 
 export interface ProjectOpenResult {
   project: Project;
@@ -91,6 +93,10 @@ export interface OpenCaptureWindowRequest {
 export interface DesktopApi {
   app: {
     getVersion: () => Promise<string>;
+    getSettings: () => Promise<AppSettings>;
+    saveShortcutBindings: (
+      bindings: ShortcutBindings,
+    ) => Promise<ShortcutBindings>;
     quit: () => Promise<void>;
   };
   project: {

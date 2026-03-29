@@ -2,20 +2,61 @@ import { app } from "electron";
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { AppSettings } from "../../shared/types/project";
+import {
+  DEFAULT_SHORTCUT_BINDINGS,
+  SHORTCUT_DEFINITIONS,
+} from "../../shared/shortcuts";
 
 const SETTINGS_FILE = "settings.json";
 
 const defaultSettings = (): AppSettings => ({
   recentFiles: [],
   maxRecentFiles: 12,
+  shortcuts: { ...DEFAULT_SHORTCUT_BINDINGS },
 });
 
 const settingsPath = () => path.join(app.getPath("userData"), SETTINGS_FILE);
+
+const migrateShortcutBindings = (shortcuts: AppSettings["shortcuts"]) => {
+  if (!shortcuts) {
+    return shortcuts;
+  }
+
+  const toggleAutoArrangeOnImport = shortcuts["arrange.toggleAutoArrangeOnImport"];
+
+  return {
+    ...shortcuts,
+    "arrange.auto":
+      shortcuts["arrange.auto"] === "Ctrl+Alt+F"
+        ? "Ctrl+Alt+A"
+        : shortcuts["arrange.auto"],
+    "arrange.toggleAutoArrangeOnImport":
+      toggleAutoArrangeOnImport === "Ctrl+Alt+A" ||
+      toggleAutoArrangeOnImport === "Ctrl+Alt+I"
+        ? "Ctrl+Shift+A"
+        : toggleAutoArrangeOnImport,
+  };
+};
 
 export const readSettings = async (): Promise<AppSettings> => {
   try {
     const raw = await fs.readFile(settingsPath(), "utf8");
     const parsed = JSON.parse(raw) as Partial<AppSettings>;
+    const migratedShortcuts = migrateShortcutBindings(parsed.shortcuts);
+    const parsedShortcuts =
+      migratedShortcuts && typeof migratedShortcuts === "object"
+        ? Object.fromEntries(
+            SHORTCUT_DEFINITIONS.map((definition) => {
+              const value = migratedShortcuts?.[definition.id];
+              return [
+                definition.id,
+                typeof value === "string" && value.trim().length > 0
+                  ? value.trim()
+                  : DEFAULT_SHORTCUT_BINDINGS[definition.id],
+              ];
+            }),
+          )
+        : { ...DEFAULT_SHORTCUT_BINDINGS };
 
     return {
       recentFiles: Array.isArray(parsed.recentFiles)
@@ -31,6 +72,7 @@ export const readSettings = async (): Promise<AppSettings> => {
         typeof parsed.lastOpenedFile === "string"
           ? parsed.lastOpenedFile
           : undefined,
+      shortcuts: parsedShortcuts,
     };
   } catch {
     return defaultSettings();

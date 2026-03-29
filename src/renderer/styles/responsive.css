@@ -46,6 +46,11 @@
     padding: 0 10px;
   }
 
+  .app-toast {
+    top: 84px;
+    max-width: calc(100vw - 24px);
+  }
+
   .status-left,
   .status-right {
     gap: 8px;

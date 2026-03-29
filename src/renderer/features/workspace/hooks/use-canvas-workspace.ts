@@ -30,10 +30,11 @@ import {
   DEFAULT_GROUP_CANVAS_COLOR,
   DEFAULT_VIEW_ZOOM_BASELINE,
 } from "@shared/project-defaults";
+import { IMAGE_LAYOUT_GAP } from "@renderer/pixi/constants";
 
 type ToastKind = "success" | "error" | "info";
 type ImagePatch = Partial<Omit<ImageItem, "id" | "type">>;
-const CANVAS_EXPANSION_PADDING = 24;
+const CANVAS_EXPANSION_PADDING = IMAGE_LAYOUT_GAP;
 const MIN_CANVAS_WIDTH = 360;
 const MIN_CANVAS_HEIGHT = 240;
 
@@ -113,14 +114,32 @@ export const useCanvasWorkspace = ({
         .filter((item) => item.visible !== false)
         .sort((left, right) => left.zIndex - right.zIndex);
 
-      const padding = 0;
+      const padding = IMAGE_LAYOUT_GAP;
+      const widestItem = visibleItems.reduce(
+        (maxWidth, item) => Math.max(maxWidth, item.width),
+        0,
+      );
+      const totalWidth = visibleItems.reduce((sum, item) => sum + item.width, 0);
+      const totalArea = visibleItems.reduce(
+        (sum, item) => sum + item.width * item.height,
+        0,
+      );
+      const targetAspectRatio =
+        DEFAULT_EMPTY_GROUP_CANVAS_SIZE.width /
+        DEFAULT_EMPTY_GROUP_CANVAS_SIZE.height;
+      const wrapWidth = Math.max(
+        widestItem,
+        Math.ceil(Math.sqrt(Math.max(1, totalArea) * targetAspectRatio)),
+        canvasWidth,
+      );
+      const layoutWidth = Math.min(totalWidth, wrapWidth);
       const updates: Record<string, ImagePatch> = {};
       let cursorX = padding;
       let cursorY = padding;
       let rowHeight = 0;
 
       visibleItems.forEach((item) => {
-        if (cursorX + item.width > canvasWidth - padding) {
+        if (cursorX > padding && cursorX + item.width > layoutWidth - padding) {
           cursorX = padding;
           cursorY += rowHeight + padding;
           rowHeight = 0;
@@ -1038,7 +1057,7 @@ export const useCanvasWorkspace = ({
 
       const anchorX = Math.min(...selectedItems.map((item) => item.x));
       const anchorY = Math.min(...selectedItems.map((item) => item.y));
-      const gap = 2;
+      const gap = IMAGE_LAYOUT_GAP;
       const updates: Record<string, ImagePatch> = {};
 
       if (mode === "horizontal") {
@@ -1123,10 +1142,33 @@ export const useCanvasWorkspace = ({
 
     runHistoryBatch(() => {
       patchGroupItems(activeGroup.id, updates);
+
+      const nextItems = activeGroup.items.map((item) => ({
+        ...item,
+        ...updates[item.id],
+      }));
+
+      ensureCanvasFitsItems(
+        activeGroup.id,
+        nextItems,
+        activeGroup.canvasSize,
+        {
+          zoom: activeGroup.zoom,
+          panX: activeGroup.panX,
+          panY: activeGroup.panY,
+        },
+      );
     });
 
     pushToast("success", "Items arranged across the canvas.");
-  }, [activeGroup, buildAutoArrangeUpdates, patchGroupItems, pushToast, runHistoryBatch]);
+  }, [
+    activeGroup,
+    buildAutoArrangeUpdates,
+    ensureCanvasFitsItems,
+    patchGroupItems,
+    pushToast,
+    runHistoryBatch,
+  ]);
 
   return {
     importVisibilitySnapshot,

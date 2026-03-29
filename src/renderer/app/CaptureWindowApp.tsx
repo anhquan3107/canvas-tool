@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { DEFAULT_SHORTCUT_BINDINGS, resolveShortcutBindings } from "@shared/shortcuts";
 import { ConnectDialog } from "@renderer/features/connect/components/ConnectDialog";
 import type {
   CaptureQuality,
   CaptureSource,
 } from "@renderer/features/connect/types";
 import { CAPTURE_QUALITY_PROFILES } from "@renderer/features/connect/utils";
+import { useShortcuts } from "@renderer/hooks/use-shortcuts";
 
 const getInitialParams = () => {
   const params = new URLSearchParams(window.location.search);
@@ -38,6 +40,7 @@ export const CaptureWindowApp = () => {
   const [bwEnabled, setBwEnabled] = useState(false);
   const [windowMaximized, setWindowMaximized] = useState(false);
   const [windowAlwaysOnTop, setWindowAlwaysOnTop] = useState(false);
+  const [shortcutBindings, setShortcutBindings] = useState(DEFAULT_SHORTCUT_BINDINGS);
 
   const loadSources = useCallback(async () => {
     setLoadingSources(true);
@@ -67,6 +70,35 @@ export const CaptureWindowApp = () => {
         setWindowAlwaysOnTop(false);
       });
   }, []);
+
+  useEffect(() => {
+    void window.desktopApi.app
+      .getSettings()
+      .then((settings) => {
+        setShortcutBindings(resolveShortcutBindings(settings.shortcuts));
+      })
+      .catch(() => {
+        setShortcutBindings(DEFAULT_SHORTCUT_BINDINGS);
+      });
+  }, []);
+
+  useShortcuts(
+    useMemo(
+      () => ({
+        [shortcutBindings["window.toggleAlwaysOnTop"]]: () =>
+          void window.desktopApi.window
+            .toggleAlwaysOnTop()
+            .then((state) => {
+              setWindowMaximized(state.isMaximized);
+              setWindowAlwaysOnTop(state.isAlwaysOnTop);
+            }),
+        [shortcutBindings["app.quit"]]: () => void window.desktopApi.app.quit(),
+        [shortcutBindings["window.closeAuxiliary"]]: () =>
+          void window.desktopApi.window.close(),
+      }),
+      [shortcutBindings],
+    ),
+  );
 
   useEffect(() => {
     void window.desktopApi.window.setTitle({ title: `Capture - ${sourceName}` });

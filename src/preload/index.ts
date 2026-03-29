@@ -4,6 +4,9 @@ import type { DesktopApi } from "../shared/types/ipc";
 const desktopApi: DesktopApi = {
   app: {
     getVersion: () => ipcRenderer.invoke("app:get-version"),
+    getSettings: () => ipcRenderer.invoke("app:get-settings"),
+    saveShortcutBindings: (bindings) =>
+      ipcRenderer.invoke("app:save-shortcut-bindings", bindings),
     quit: () => ipcRenderer.invoke("app:quit"),
   },
   project: {

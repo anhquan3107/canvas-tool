@@ -25,6 +25,7 @@ interface UseCanvasBoardBootstrapOptions {
   activeSelectionBoxRef: MutableRefObject<ActiveSelectionBoxState | null>;
   activeAnnotationSessionRef: MutableRefObject<ActiveAnnotationSessionState | null>;
   activeToolRef: MutableRefObject<string | null>;
+  spacePanActiveRef: MutableRefObject<boolean>;
   selectionIdsRef: MutableRefObject<string[]>;
   onSelectionChangeRef: MutableRefObject<(itemIds: string[]) => void>;
   hideDoodleCursor: () => void;
@@ -37,6 +38,7 @@ interface UseCanvasBoardBootstrapOptions {
   hideSelectionMarquee: () => void;
   commitView: () => void;
   scheduleViewCommit: (delay?: number) => void;
+  updateSelectedBoundsOverlay: () => void;
   rebuildScene: () => void;
   setAppReady: (ready: boolean) => void;
   stopCaptureSession: (captureId: string) => void;
@@ -60,6 +62,7 @@ export const useCanvasBoardBootstrap = ({
   activeSelectionBoxRef,
   activeAnnotationSessionRef,
   activeToolRef,
+  spacePanActiveRef,
   selectionIdsRef,
   onSelectionChangeRef,
   hideDoodleCursor,
@@ -72,6 +75,7 @@ export const useCanvasBoardBootstrap = ({
   hideSelectionMarquee,
   commitView,
   scheduleViewCommit,
+  updateSelectedBoundsOverlay,
   rebuildScene,
   setAppReady,
   stopCaptureSession,
@@ -85,6 +89,19 @@ export const useCanvasBoardBootstrap = ({
 
     let mounted = true;
     let resizeObserver: ResizeObserver | null = null;
+
+    const isTypingTarget = (target: EventTarget | null) => {
+      if (!(target instanceof HTMLElement)) {
+        return false;
+      }
+
+      if (target.isContentEditable) {
+        return true;
+      }
+
+      return ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
+    };
+
     const onPointerLeave = () => {
       hideDoodleCursor();
     };
@@ -165,6 +182,7 @@ export const useCanvasBoardBootstrap = ({
           panOriginRef.current.x + (event.clientX - panStartRef.current.x);
         currentBoard.y =
           panOriginRef.current.y + (event.clientY - panStartRef.current.y);
+        updateSelectedBoundsOverlay();
       };
 
       const onPointerUp = (event: PointerEvent) => {
@@ -179,7 +197,10 @@ export const useCanvasBoardBootstrap = ({
             event.clientY - selectionBox.startClient.y,
           );
 
-          if (movedDistance < MARQUEE_DRAG_THRESHOLD && !selectionBox.additive) {
+          if (
+            movedDistance < MARQUEE_DRAG_THRESHOLD &&
+            !selectionBox.additive
+          ) {
             selectionIdsRef.current = [];
             onSelectionChangeRef.current([]);
           }
@@ -199,7 +220,9 @@ export const useCanvasBoardBootstrap = ({
         isPanningRef.current = false;
         if (boardGraphicRef.current) {
           boardGraphicRef.current.cursor =
-            activeToolRef.current === "doodle" ? "none" : "grab";
+            activeToolRef.current === "doodle" && !spacePanActiveRef.current
+              ? "none"
+              : "grab";
         }
         commitView();
       };
@@ -220,7 +243,7 @@ export const useCanvasBoardBootstrap = ({
           const worldX = (pointerX - currentBoard.x) / currentBoard.scale.x;
           const worldY = (pointerY - currentBoard.y) / currentBoard.scale.y;
           const nextZoom = clamp(
-            currentBoard.scale.x * Math.exp(-event.deltaY * 0.0015),
+            currentBoard.scale.x * Math.exp(-event.deltaY * 0.01),
             0.18,
             4,
           );
@@ -228,17 +251,48 @@ export const useCanvasBoardBootstrap = ({
           currentBoard.scale.set(nextZoom, nextZoom);
           currentBoard.x = pointerX - worldX * nextZoom;
           currentBoard.y = pointerY - worldY * nextZoom;
+          updateSelectedBoundsOverlay();
           scheduleViewCommit(100);
           return;
         }
 
         currentBoard.x -= event.deltaX;
         currentBoard.y -= event.deltaY;
+        updateSelectedBoundsOverlay();
         scheduleViewCommit(30);
+      };
+
+      const onKeyDown = (event: KeyboardEvent) => {
+        if (isTypingTarget(event.target)) {
+          return;
+        }
+
+        if (event.code !== "Space") {
+          return;
+        }
+
+        spacePanActiveRef.current = true;
+        if (boardGraphicRef.current && !isPanningRef.current) {
+          boardGraphicRef.current.cursor = "grab";
+        }
+      };
+
+      const onKeyUp = (event: KeyboardEvent) => {
+        if (event.code !== "Space") {
+          return;
+        }
+
+        spacePanActiveRef.current = false;
+        if (boardGraphicRef.current && !isPanningRef.current) {
+          boardGraphicRef.current.cursor =
+            activeToolRef.current === "doodle" ? "none" : "grab";
+        }
       };
 
       host.addEventListener("wheel", onWheel, { passive: false });
       host.addEventListener("pointerleave", onPointerLeave);
+      window.addEventListener("keydown", onKeyDown);
+      window.addEventListener("keyup", onKeyUp);
       window.addEventListener("pointermove", onPointerMove);
       window.addEventListener("pointerup", onPointerUp);
       window.addEventListener("pointercancel", onPointerUp);
@@ -252,6 +306,8 @@ export const useCanvasBoardBootstrap = ({
 
       return () => {
         host.removeEventListener("wheel", onWheel);
+        window.removeEventListener("keydown", onKeyDown);
+        window.removeEventListener("keyup", onKeyUp);
         window.removeEventListener("pointermove", onPointerMove);
         window.removeEventListener("pointerup", onPointerUp);
         window.removeEventListener("pointercancel", onPointerUp);
@@ -315,10 +371,12 @@ export const useCanvasBoardBootstrap = ({
     scheduleViewCommit,
     selectionIdsRef,
     setAppReady,
+    spacePanActiveRef,
     stopCaptureSession,
     updateAnnotationSession,
     updateDoodleCursor,
     updateDraggedItemPosition,
+    updateSelectedBoundsOverlay,
     updateSelectionMarquee,
     viewCommitTimerRef,
   ]);

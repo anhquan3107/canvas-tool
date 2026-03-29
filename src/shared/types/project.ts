@@ -1,3 +1,5 @@
+import type { ShortcutActionId } from "../shortcuts";
+
 export type LayoutMode = "pinterest-dynamic" | "horizontal";
 
 export interface Project {
@@ -17,6 +19,7 @@ export interface AppSettings {
   recentFiles: string[];
   lastOpenedFile?: string;
   maxRecentFiles: number;
+  shortcuts?: Partial<Record<ShortcutActionId, string>>;
 }
 
 export interface CanvasSize {

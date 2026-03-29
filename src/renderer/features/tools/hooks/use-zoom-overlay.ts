@@ -227,12 +227,6 @@ export const useZoomOverlay = ({
     }
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        closeZoomOverlay();
-        return;
-      }
-
       if (event.key === "ArrowRight") {
         event.preventDefault();
         selectNextZoomImage();
@@ -254,7 +248,6 @@ export const useZoomOverlay = ({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [
-    closeZoomOverlay,
     rulerEnabled,
     selectNextZoomImage,
     selectPreviousZoomImage,

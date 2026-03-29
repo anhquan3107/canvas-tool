@@ -1,4 +1,4 @@
-import { useCallback, type MutableRefObject } from "react";
+import { useCallback, useRef, type MutableRefObject } from "react";
 import type { Graphics } from "pixi.js";
 import type { AnnotationStroke, ReferenceGroup } from "@shared/types/project";
 import { MIN_STROKE_POINT_DISTANCE } from "@renderer/pixi/constants";
@@ -46,6 +46,9 @@ export const useCanvasBoardAnnotations = ({
   doodleSizeRef,
   clientPointToCanvas,
 }: UseCanvasBoardAnnotationsOptions) => {
+  const lastRenderedLayerRef = useRef<Graphics | null>(null);
+  const lastRenderedAnnotationsRef = useRef<AnnotationStroke[] | null>(null);
+
   const redrawAnnotations = useCallback(
     (annotations = groupRef.current.annotations) => {
       const annotationLayer = annotationLayerRef.current;
@@ -53,10 +56,19 @@ export const useCanvasBoardAnnotations = ({
         return;
       }
 
+      if (
+        lastRenderedLayerRef.current === annotationLayer &&
+        lastRenderedAnnotationsRef.current === annotations
+      ) {
+        return;
+      }
+
       annotationLayer.clear();
       annotations.forEach((stroke) =>
         drawAnnotationStroke(annotationLayer, stroke),
       );
+      lastRenderedLayerRef.current = annotationLayer;
+      lastRenderedAnnotationsRef.current = annotations;
     },
     [annotationLayerRef, groupRef],
   );
@@ -69,13 +81,12 @@ export const useCanvasBoardAnnotations = ({
         return;
       }
 
-      redrawAnnotations(groupRef.current.annotations);
       previewLayer.clear();
       if (stroke) {
-        drawAnnotationStroke(annotationLayer, stroke);
+        drawAnnotationStroke(previewLayer, stroke);
       }
     },
-    [annotationLayerRef, annotationPreviewLayerRef, groupRef, redrawAnnotations],
+    [annotationLayerRef, annotationPreviewLayerRef],
   );
 
   const finalizeAnnotationSession = useCallback(

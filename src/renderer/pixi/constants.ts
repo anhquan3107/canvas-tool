@@ -1,8 +1,9 @@
-export const BOARD_EXPANSION_PADDING = 24;
+export const IMAGE_LAYOUT_GAP = 8;
+export const BOARD_EXPANSION_PADDING = IMAGE_LAYOUT_GAP;
 export const BOARD_CORNER_RADIUS = 24;
 export const ZERO_INSETS = { left: 0, top: 0, right: 0, bottom: 0 };
 export const MIN_STROKE_POINT_DISTANCE = 2;
 export const SNAP_THRESHOLD = 14;
-export const SNAP_GAP = 2;
+export const SNAP_GAP = IMAGE_LAYOUT_GAP;
 export const MARQUEE_DRAG_THRESHOLD = 4;
 export const ITEM_DRAG_THRESHOLD = 3;

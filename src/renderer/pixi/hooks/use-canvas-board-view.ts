@@ -1,12 +1,10 @@
 import { useCallback, type MutableRefObject } from "react";
 import { Rectangle, type Container, type Graphics } from "pixi.js";
-import {
-  BOARD_CORNER_RADIUS,
-  ZERO_INSETS,
-} from "@renderer/pixi/constants";
+import { ZERO_INSETS } from "@renderer/pixi/constants";
 import { hexToPixiColor, hexToRgba } from "@renderer/pixi/utils/color";
 import { clamp } from "@renderer/pixi/utils/geometry";
 import type {
+  ActiveItemDragState,
   ActiveSelectionBoxState,
   CanvasInsets,
   CanvasSizePreview,
@@ -18,10 +16,13 @@ interface UseCanvasBoardViewOptions {
   hostRef: MutableRefObject<HTMLDivElement | null>;
   cursorOverlayRef: MutableRefObject<HTMLDivElement | null>;
   selectionMarqueeRef: MutableRefObject<HTMLDivElement | null>;
+  selectedBoundsOverlayRef: MutableRefObject<HTMLDivElement | null>;
   boardContainerRef: MutableRefObject<Container | null>;
   boardGraphicRef: MutableRefObject<Graphics | null>;
+  itemNodeByIdRef: MutableRefObject<Map<string, Container>>;
   groupRef: MutableRefObject<ReferenceGroup>;
   selectionIdsRef: MutableRefObject<string[]>;
+  activeItemDragRef: MutableRefObject<ActiveItemDragState | null>;
   activeSelectionBoxRef: MutableRefObject<ActiveSelectionBoxState | null>;
   onSelectionChangeRef: MutableRefObject<(itemIds: string[]) => void>;
   onViewChangeRef: MutableRefObject<(zoom: number, panX: number, panY: number) => void>;
@@ -41,10 +42,13 @@ export const useCanvasBoardView = ({
   hostRef,
   cursorOverlayRef,
   selectionMarqueeRef,
+  selectedBoundsOverlayRef,
   boardContainerRef,
   boardGraphicRef,
+  itemNodeByIdRef,
   groupRef,
   selectionIdsRef,
+  activeItemDragRef,
   activeSelectionBoxRef,
   onSelectionChangeRef,
   onViewChangeRef,
@@ -77,6 +81,18 @@ export const useCanvasBoardView = ({
     marquee.style.width = "0px";
     marquee.style.height = "0px";
   }, [selectionMarqueeRef]);
+
+  const hideSelectedBoundsOverlay = useCallback(() => {
+    const boundsOverlay = selectedBoundsOverlayRef.current;
+    if (!boundsOverlay) {
+      return;
+    }
+
+    boundsOverlay.style.opacity = "0";
+    boundsOverlay.style.transform = "translate(-9999px, -9999px)";
+    boundsOverlay.style.width = "0px";
+    boundsOverlay.style.height = "0px";
+  }, [selectedBoundsOverlayRef]);
 
   const updateDoodleCursor = useCallback(
     (clientX: number, clientY: number) => {
@@ -153,13 +169,7 @@ export const useCanvasBoardView = ({
       const height = scene.canvasSize.height + insets.top + insets.bottom;
 
       board.clear();
-      board.roundRect(
-        -insets.left,
-        -insets.top,
-        width,
-        height,
-        BOARD_CORNER_RADIUS,
-      );
+      board.rect(-insets.left, -insets.top, width, height);
       board.fill(hexToPixiColor(scene.canvasColor));
       board.stroke({ color: 0x2a2a2a, width: 2, alpha: 0.92 });
       board.hitArea = new Rectangle(-insets.left, -insets.top, width, height);
@@ -371,9 +381,95 @@ export const useCanvasBoardView = ({
     ],
   );
 
+  const updateSelectedBoundsOverlay = useCallback(() => {
+    const host = hostRef.current;
+    const boardContainer = boardContainerRef.current;
+    const boundsOverlay = selectedBoundsOverlayRef.current;
+    if (!host || !boardContainer || !boundsOverlay) {
+      return;
+    }
+
+    if (selectionIdsRef.current.length <= 1) {
+      hideSelectedBoundsOverlay();
+      return;
+    }
+
+    const selectedItems = groupRef.current.items.filter(
+      (item) => item.visible && selectionIdsRef.current.includes(item.id),
+    );
+
+    if (selectedItems.length <= 1) {
+      hideSelectedBoundsOverlay();
+      return;
+    }
+
+    const activeDrag = activeItemDragRef.current;
+    const usingLiveDragNodes = Boolean(activeDrag?.hasMoved);
+
+    const selectedBounds = selectedItems.map((item) => {
+      const itemNode = itemNodeByIdRef.current.get(item.id);
+      const width = Number.isFinite(item.width) && item.width > 1 ? item.width : 180;
+      const height =
+        Number.isFinite(item.height) && item.height > 1 ? item.height : 120;
+
+      if (usingLiveDragNodes && itemNode) {
+        const minItemX = itemNode.position.x + Math.min(0, width * itemNode.scale.x);
+        const minItemY = itemNode.position.y + Math.min(0, height * itemNode.scale.y);
+        const maxItemX = itemNode.position.x + Math.max(0, width * itemNode.scale.x);
+        const maxItemY = itemNode.position.y + Math.max(0, height * itemNode.scale.y);
+
+        return {
+          minX: minItemX,
+          minY: minItemY,
+          maxX: maxItemX,
+          maxY: maxItemY,
+        };
+      }
+
+      const scaleX =
+        Number.isFinite(item.scaleX) && item.scaleX !== 0 ? item.scaleX : 1;
+      const scaleY =
+        Number.isFinite(item.scaleY) && item.scaleY !== 0 ? item.scaleY : 1;
+      const resolvedScaleX = item.flippedX ? -scaleX : scaleX;
+
+      return {
+        minX: item.x + Math.min(0, width * resolvedScaleX),
+        minY: item.y + Math.min(0, height * scaleY),
+        maxX: item.x + Math.max(0, width * resolvedScaleX),
+        maxY: item.y + Math.max(0, height * scaleY),
+      };
+    });
+
+    const minX = Math.min(...selectedBounds.map((item) => item.minX));
+    const minY = Math.min(...selectedBounds.map((item) => item.minY));
+    const maxX = Math.max(...selectedBounds.map((item) => item.maxX));
+    const maxY = Math.max(...selectedBounds.map((item) => item.maxY));
+
+    const padding = 4;
+    const left = boardContainer.x + minX * boardContainer.scale.x - padding;
+    const top = boardContainer.y + minY * boardContainer.scale.y - padding;
+    const width = (maxX - minX) * boardContainer.scale.x + padding * 2;
+    const height = (maxY - minY) * boardContainer.scale.y + padding * 2;
+
+    boundsOverlay.style.opacity = "1";
+    boundsOverlay.style.transform = `translate(${left}px, ${top}px)`;
+    boundsOverlay.style.width = `${Math.max(0, width)}px`;
+    boundsOverlay.style.height = `${Math.max(0, height)}px`;
+  }, [
+    boardContainerRef,
+    itemNodeByIdRef,
+    groupRef,
+    hideSelectedBoundsOverlay,
+    hostRef,
+    selectedBoundsOverlayRef,
+    activeItemDragRef,
+    selectionIdsRef,
+  ]);
+
   return {
     hideDoodleCursor,
     hideSelectionMarquee,
+    hideSelectedBoundsOverlay,
     updateDoodleCursor,
     drawBoardSurface,
     setPreviewInsets,
@@ -383,5 +479,6 @@ export const useCanvasBoardView = ({
     clientPointToCanvas,
     clientPointToWorld,
     updateSelectionMarquee,
+    updateSelectedBoundsOverlay,
   };
 };

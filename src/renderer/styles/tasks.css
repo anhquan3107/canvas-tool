@@ -22,7 +22,7 @@
   padding: 0 14px;
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 8px;
-  background: rgba(31, 31, 33, 0.92);
+  background: var(--bg-chrome);
   box-shadow: var(--shadow);
   text-align: left;
 }
@@ -78,7 +78,7 @@
   margin-left: 8px;
   border: 1px solid rgba(255, 255, 255, 0.04);
   border-radius: 999px;
-  background: rgba(31, 31, 33, 0.92);
+  background: var(--bg-chrome);
   box-shadow: var(--shadow);
   font-size: 11px;
   color: var(--text-soft);
@@ -92,7 +92,7 @@
   padding: 8px;
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 8px;
-  background: rgba(31, 31, 33, 0.94);
+  background: var(--bg-chrome);
   box-shadow: var(--shadow);
 }
 
@@ -193,7 +193,7 @@
   height: 68px;
   border: 1px solid var(--line);
   border-radius: 10px 0 0 10px;
-  background: rgba(31, 31, 33, 0.94);
+  background: var(--bg-chrome);
   box-shadow: var(--shadow);
   font-size: 16px;
   color: var(--text-soft);

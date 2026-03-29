@@ -476,7 +476,7 @@ const shouldRecordHistory = (action: Action) =>
   ].includes(action.type);
 
 const pushHistoryEntry = (entries: Project[], project: Project) =>
-  [...entries, cloneProject(project)].slice(-MAX_HISTORY_ENTRIES);
+  [...entries, project].slice(-MAX_HISTORY_ENTRIES);
 
 const historyReducer = (state: HistoryState, action: Action): HistoryState => {
   switch (action.type) {
@@ -495,8 +495,8 @@ const historyReducer = (state: HistoryState, action: Action): HistoryState => {
       const previous = state.past[state.past.length - 1];
       return {
         past: state.past.slice(0, -1),
-        project: cloneProject(previous),
-        future: [cloneProject(state.project), ...state.future],
+        project: previous,
+        future: [state.project, ...state.future],
         batchBase: null,
       };
     }
@@ -508,7 +508,7 @@ const historyReducer = (state: HistoryState, action: Action): HistoryState => {
       const next = state.future[0];
       return {
         past: pushHistoryEntry(state.past, state.project),
-        project: cloneProject(next),
+        project: next,
         future: state.future.slice(1),
         batchBase: null,
       };
@@ -518,7 +518,7 @@ const historyReducer = (state: HistoryState, action: Action): HistoryState => {
         ? state
         : {
             ...state,
-            batchBase: cloneProject(state.project),
+            batchBase: state.project,
           };
     case "end-history-batch": {
       if (!state.batchBase) {

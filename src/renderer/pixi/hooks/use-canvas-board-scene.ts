@@ -44,6 +44,10 @@ interface UseCanvasBoardSceneOptions {
   renderTokenRef: MutableRefObject<number>;
   activeItemDragRef: MutableRefObject<ActiveItemDragState | null>;
   activeSelectionBoxRef: MutableRefObject<ActiveSelectionBoxState | null>;
+  isPanningRef: MutableRefObject<boolean>;
+  panStartRef: MutableRefObject<{ x: number; y: number }>;
+  panOriginRef: MutableRefObject<{ x: number; y: number }>;
+  spacePanActiveRef: MutableRefObject<boolean>;
   lastItemPressRef: MutableRefObject<{ itemId: string; time: number } | null>;
   ensureCaptureSession: (item: CaptureItem) => Promise<CaptureSession>;
   drawBoardSurface: (insets?: CanvasInsets) => void;
@@ -141,6 +145,10 @@ export const useCanvasBoardScene = ({
   renderTokenRef,
   activeItemDragRef,
   activeSelectionBoxRef,
+  isPanningRef,
+  panStartRef,
+  panOriginRef,
+  spacePanActiveRef,
   lastItemPressRef,
   ensureCaptureSession,
   drawBoardSurface,
@@ -314,6 +322,25 @@ export const useCanvasBoardScene = ({
       itemNode.on("pointerdown", (event: FederatedPointerEvent) => {
         event.stopPropagation();
 
+        const panByModifier =
+          spacePanActiveRef.current ||
+          event.nativeEvent.altKey ||
+          event.nativeEvent.button === 1;
+
+        if (panByModifier) {
+          isPanningRef.current = true;
+          panStartRef.current = {
+            x: event.nativeEvent.clientX,
+            y: event.nativeEvent.clientY,
+          };
+          panOriginRef.current = {
+            x: boardContainer.x,
+            y: boardContainer.y,
+          };
+          board.cursor = "grabbing";
+          return;
+        }
+
         const now = performance.now();
         const previousPress = lastItemPressRef.current;
         if (
@@ -406,15 +433,29 @@ export const useCanvasBoardScene = ({
     board.on("pointerdown", (event: FederatedPointerEvent) => {
       event.stopPropagation();
 
+      if (
+        spacePanActiveRef.current ||
+        event.nativeEvent.altKey ||
+        event.nativeEvent.button === 1
+      ) {
+        isPanningRef.current = true;
+        panStartRef.current = {
+          x: event.nativeEvent.clientX,
+          y: event.nativeEvent.clientY,
+        };
+        panOriginRef.current = {
+          x: boardContainer.x,
+          y: boardContainer.y,
+        };
+        board.cursor = "grabbing";
+        return;
+      }
+
       if (activeToolRef.current === "doodle") {
         startAnnotationSession(
           event.nativeEvent.clientX,
           event.nativeEvent.clientY,
         );
-        return;
-      }
-
-      if (event.nativeEvent.altKey || event.nativeEvent.button === 1) {
         return;
       }
 
@@ -444,13 +485,17 @@ export const useCanvasBoardScene = ({
     groupRef,
     hideSelectionMarquee,
     hostRef,
+    isPanningRef,
     itemLayerRef,
     itemNodeByIdRef,
     onSelectionChangeRef,
     onItemDoubleClickRef,
+    panOriginRef,
+    panStartRef,
     redrawAnnotations,
     renderTokenRef,
     selectionIdsRef,
+    spacePanActiveRef,
     startAnnotationSession,
     syncViewFromGroup,
     lastItemPressRef,

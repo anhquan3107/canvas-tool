@@ -1,4 +1,4 @@
-import { useCallback, type MutableRefObject } from "react";
+import { useCallback, useEffect, useRef, type MutableRefObject } from "react";
 import type { Container } from "pixi.js";
 import type { ReferenceGroup } from "@shared/types/project";
 import {
@@ -16,6 +16,7 @@ import type {
 
 interface UseCanvasBoardDragOptions {
   activeItemDragRef: MutableRefObject<ActiveItemDragState | null>;
+  hostRef: MutableRefObject<HTMLDivElement | null>;
   boardContainerRef: MutableRefObject<Container | null>;
   snapEnabledRef: MutableRefObject<boolean>;
   groupRef: MutableRefObject<ReferenceGroup>;
@@ -23,28 +24,122 @@ interface UseCanvasBoardDragOptions {
     (updates: Record<string, CanvasItemPatch>) => void
   >;
   setPreviewInsets: (nextInsets: CanvasInsets) => void;
+  updateSelectedBoundsOverlay: () => void;
+  scheduleViewCommit: (delay?: number) => void;
 }
 
 export const useCanvasBoardDrag = ({
   activeItemDragRef,
+  hostRef,
   boardContainerRef,
   snapEnabledRef,
   groupRef,
   onItemsPatchRef,
   setPreviewInsets,
+  updateSelectedBoundsOverlay,
+  scheduleViewCommit,
 }: UseCanvasBoardDragOptions) => {
+  const autoPanFrameRef = useRef<number | null>(null);
+  const lastDragPointerRef = useRef<{ x: number; y: number } | null>(null);
+
+  const applyPointerResistance = useCallback(
+    (value: number, min: number, max: number) => {
+      const overflowLimit = 84;
+      const overflowResistance = 0.14;
+
+      if (value < min) {
+        return min - Math.min(overflowLimit, (min - value) * overflowResistance);
+      }
+
+      if (value > max) {
+        return max + Math.min(overflowLimit, (value - max) * overflowResistance);
+      }
+
+      return value;
+    },
+    [],
+  );
+
+  const cancelAutoPanLoop = useCallback(() => {
+    if (autoPanFrameRef.current !== null) {
+      window.cancelAnimationFrame(autoPanFrameRef.current);
+      autoPanFrameRef.current = null;
+    }
+  }, []);
+
   const updateDraggedItemPosition = useCallback(
     (clientX: number, clientY: number) => {
       const activeDrag = activeItemDragRef.current;
       const boardContainer = boardContainerRef.current;
-      if (!activeDrag || !boardContainer) {
+      const host = hostRef.current;
+      if (!activeDrag || !boardContainer || !host) {
+        cancelAutoPanLoop();
         return;
       }
 
+      lastDragPointerRef.current = { x: clientX, y: clientY };
+
+      const hostRect = host.getBoundingClientRect();
+      const edgeThreshold = 52;
+      const maxAutoPanStep = 8;
+
+      const rightOverrun = clientX - (hostRect.right - edgeThreshold);
+      const leftOverrun = hostRect.left + edgeThreshold - clientX;
+      const bottomOverrun = clientY - (hostRect.bottom - edgeThreshold);
+      const topOverrun = hostRect.top + edgeThreshold - clientY;
+
+      const panDeltaX =
+        (rightOverrun > 0
+          ? -Math.min(maxAutoPanStep, rightOverrun * 0.12)
+          : 0) +
+        (leftOverrun > 0
+          ? Math.min(maxAutoPanStep, leftOverrun * 0.12)
+          : 0);
+      const panDeltaY =
+        (bottomOverrun > 0
+          ? -Math.min(maxAutoPanStep, bottomOverrun * 0.12)
+          : 0) +
+        (topOverrun > 0
+          ? Math.min(maxAutoPanStep, topOverrun * 0.12)
+          : 0);
+
+      if (panDeltaX !== 0 || panDeltaY !== 0) {
+        boardContainer.x += panDeltaX;
+        boardContainer.y += panDeltaY;
+        activeDrag.startPointer.x += panDeltaX;
+        activeDrag.startPointer.y += panDeltaY;
+        scheduleViewCommit(30);
+
+        if (autoPanFrameRef.current === null) {
+          autoPanFrameRef.current = window.requestAnimationFrame(() => {
+            autoPanFrameRef.current = null;
+            const pointer = lastDragPointerRef.current;
+            if (!pointer) {
+              return;
+            }
+
+            updateDraggedItemPosition(pointer.x, pointer.y);
+          });
+        }
+      } else {
+        cancelAutoPanLoop();
+      }
+
+      const resistedClientX = applyPointerResistance(
+        clientX,
+        hostRect.left,
+        hostRect.right,
+      );
+      const resistedClientY = applyPointerResistance(
+        clientY,
+        hostRect.top,
+        hostRect.bottom,
+      );
+
       const deltaX =
-        (clientX - activeDrag.startPointer.x) / boardContainer.scale.x;
+        (resistedClientX - activeDrag.startPointer.x) / boardContainer.scale.x;
       const deltaY =
-        (clientY - activeDrag.startPointer.y) / boardContainer.scale.y;
+        (resistedClientY - activeDrag.startPointer.y) / boardContainer.scale.y;
       const movedDistance = Math.hypot(deltaX, deltaY);
 
       if (!activeDrag.hasMoved && movedDistance < ITEM_DRAG_THRESHOLD) {
@@ -211,36 +306,61 @@ export const useCanvasBoardDrag = ({
               )
             : 0,
       });
+      updateSelectedBoundsOverlay();
     },
     [
       activeItemDragRef,
+      applyPointerResistance,
+      cancelAutoPanLoop,
+      hostRef,
       boardContainerRef,
       groupRef,
+      scheduleViewCommit,
       setPreviewInsets,
       snapEnabledRef,
+      updateSelectedBoundsOverlay,
     ],
   );
 
   const commitDraggedItemPatch = useCallback(() => {
     const activeDrag = activeItemDragRef.current;
     if (!activeDrag) {
+      cancelAutoPanLoop();
       return;
     }
 
     activeItemDragRef.current = null;
+    lastDragPointerRef.current = null;
+    cancelAutoPanLoop();
 
     if (!activeDrag.hasMoved) {
       setPreviewInsets(ZERO_INSETS);
+      updateSelectedBoundsOverlay();
       return;
     }
 
     if (Object.keys(activeDrag.patchBuffer).length > 0) {
       onItemsPatchRef.current({ ...activeDrag.patchBuffer });
+      updateSelectedBoundsOverlay();
       return;
     }
 
     setPreviewInsets(ZERO_INSETS);
-  }, [activeItemDragRef, onItemsPatchRef, setPreviewInsets]);
+    updateSelectedBoundsOverlay();
+  }, [
+    activeItemDragRef,
+    cancelAutoPanLoop,
+    onItemsPatchRef,
+    setPreviewInsets,
+    updateSelectedBoundsOverlay,
+  ]);
+
+  useEffect(
+    () => () => {
+      cancelAutoPanLoop();
+    },
+    [cancelAutoPanLoop],
+  );
 
   return {
     updateDraggedItemPosition,

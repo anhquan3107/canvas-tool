@@ -1,6 +1,16 @@
 import { app, BrowserWindow } from "electron";
 import path from "node:path";
+import { guardWindowDevTools } from "./devtools-guard";
 import { setupIpcHandlers } from "./ipc/ipc-handlers";
+
+if (
+  process.platform === "win32" &&
+  process.env.ELECTRON_ENABLE_LOGGING !== "1" &&
+  !process.env.CANVASTOOL_ENABLE_CHROMIUM_LOGS
+) {
+  // Keep noisy Windows Graphics Capture diagnostics out of the app console.
+  app.commandLine.appendSwitch("log-level", "3");
+}
 
 const createMainWindow = async () => {
   const mainWindow = new BrowserWindow({
@@ -17,6 +27,7 @@ const createMainWindow = async () => {
       nodeIntegration: false,
     },
   });
+  guardWindowDevTools(mainWindow);
 
   setupIpcHandlers(mainWindow);
 

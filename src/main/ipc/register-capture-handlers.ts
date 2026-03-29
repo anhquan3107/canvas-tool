@@ -1,5 +1,6 @@
 import { BrowserWindow, desktopCapturer, ipcMain, type BrowserWindowConstructorOptions } from "electron";
 import path from "node:path";
+import { guardWindowDevTools } from "../devtools-guard";
 import { getCaptureWindowBounds } from "./ipc-utils";
 import { ensureCaptureWindowPayload } from "./ipc-validators";
 
@@ -48,6 +49,7 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
       },
     };
     const captureWindow = new BrowserWindow(captureWindowOptions);
+    guardWindowDevTools(captureWindow);
 
     const query = new URLSearchParams({
       mode: "capture",

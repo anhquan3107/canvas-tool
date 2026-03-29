@@ -37,6 +37,7 @@ interface CanvasBoardProps {
   onCanvasSizePreviewChange?: (
     size: { width: number; height: number } | null,
   ) => void;
+  onExportReady?: (exportCanvas: (() => string | null) | null) => void;
 }
 
 const BOARD_EXPANSION_PADDING = 24;
@@ -283,6 +284,7 @@ export const CanvasBoard = ({
   onItemsPatch,
   onAnnotationsChange,
   onCanvasSizePreviewChange,
+  onExportReady,
 }: CanvasBoardProps) => {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const cursorOverlayRef = useRef<HTMLDivElement | null>(null);
@@ -307,6 +309,7 @@ export const CanvasBoard = ({
   const onViewChangeRef = useRef(onViewChange);
   const onAnnotationsChangeRef = useRef(onAnnotationsChange);
   const onCanvasSizePreviewChangeRef = useRef(onCanvasSizePreviewChange);
+  const onExportReadyRef = useRef(onExportReady);
   const activeToolRef = useRef<ToolMode | null>(activeTool);
   const snapEnabledRef = useRef(snapEnabled);
   const doodleModeRef = useRef<DoodleMode>(doodleMode);
@@ -390,6 +393,10 @@ export const CanvasBoard = ({
   useEffect(() => {
     onCanvasSizePreviewChangeRef.current = onCanvasSizePreviewChange;
   }, [onCanvasSizePreviewChange]);
+
+  useEffect(() => {
+    onExportReadyRef.current = onExportReady;
+  }, [onExportReady]);
 
   useEffect(() => {
     activeToolRef.current = activeTool;
@@ -1514,6 +1521,7 @@ export const CanvasBoard = ({
         antialias: true,
         autoDensity: true,
         background: "#232323",
+        preserveDrawingBuffer: true,
         resizeTo: host,
       });
 
@@ -1783,9 +1791,59 @@ export const CanvasBoard = ({
   useEffect(
     () => () => {
       onCanvasSizePreviewChangeRef.current?.(null);
+      onExportReadyRef.current?.(null);
     },
     [],
   );
+
+  useEffect(() => {
+    if (!appReady) {
+      onExportReadyRef.current?.(null);
+      return;
+    }
+
+    onExportReadyRef.current?.(() => {
+      const app = appRef.current;
+      const boardContainer = boardContainerRef.current;
+
+      if (!app || !boardContainer) {
+        return null;
+      }
+
+      const previousX = boardContainer.x;
+      const previousY = boardContainer.y;
+      const previousScaleX = boardContainer.scale.x;
+      const previousScaleY = boardContainer.scale.y;
+
+      try {
+        boardContainer.position.set(0, 0);
+        boardContainer.scale.set(1, 1);
+
+        const exportCanvas = app.renderer.extract.canvas({
+          target: boardContainer,
+          frame: new Rectangle(0, 0, group.canvasSize.width, group.canvasSize.height),
+          resolution: Math.max(window.devicePixelRatio || 1, 2),
+        });
+
+        if (
+          !exportCanvas ||
+          typeof (exportCanvas as HTMLCanvasElement).toDataURL !== "function"
+        ) {
+          return null;
+        }
+
+        return (exportCanvas as HTMLCanvasElement).toDataURL("image/png");
+      } finally {
+        boardContainer.position.set(previousX, previousY);
+        boardContainer.scale.set(previousScaleX, previousScaleY);
+      }
+    });
+
+    return () => {
+      const notifyExportReady = onExportReadyRef.current;
+      notifyExportReady?.(null);
+    };
+  }, [appReady, group.canvasSize.height, group.canvasSize.width]);
 
   return (
     <div className="canvas-host">

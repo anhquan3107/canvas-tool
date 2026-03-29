@@ -11,14 +11,17 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import type {
   AppWindowState,
+  CanvasImageExportRequest,
   ClipboardWriteImageRequest,
+  GroupImagesExportRequest,
   OpenCaptureWindowRequest,
   ProjectExportResult,
   ProjectSaveRequest,
   RemoteImageFetchRequest,
   SwatchExportRequest,
+  TasksHtmlExportRequest,
 } from "../../shared/types/ipc";
-import type { Project } from "../../shared/types/project";
+import type { Project, Task } from "../../shared/types/project";
 import {
   loadCanvasProject,
   saveCanvasProject,
@@ -30,6 +33,11 @@ const canvasDialogFilter = [
   { name: "CanvasTool Project", extensions: ["canvas"] },
 ];
 const acoDialogFilter = [{ name: "Adobe Color Swatch", extensions: ["aco"] }];
+const canvasImageDialogFilter = [
+  { name: "PNG Image", extensions: ["png"] },
+  { name: "JPEG Image", extensions: ["jpg", "jpeg"] },
+];
+const htmlDialogFilter = [{ name: "HTML Document", extensions: ["html"] }];
 
 const ensureProject = (value: unknown): Project => {
   if (!value || typeof value !== "object") {
@@ -86,12 +94,186 @@ const ensureSwatchExportPayload = (value: unknown): SwatchExportRequest => {
   };
 };
 
+const ensureCanvasImageExportPayload = (
+  value: unknown,
+): CanvasImageExportRequest => {
+  if (!value || typeof value !== "object") {
+    throw new Error("Invalid canvas export payload.");
+  }
+
+  const payload = value as Record<string, unknown>;
+  if (typeof payload.dataUrl !== "string" || !payload.dataUrl.startsWith("data:")) {
+    throw new Error("Canvas export requires a valid data URL.");
+  }
+
+  return {
+    dataUrl: payload.dataUrl,
+    name: typeof payload.name === "string" ? payload.name : undefined,
+  };
+};
+
+const ensureGroupImagesExportPayload = (
+  value: unknown,
+): GroupImagesExportRequest => {
+  if (!value || typeof value !== "object") {
+    throw new Error("Invalid group image export payload.");
+  }
+
+  const payload = value as Record<string, unknown>;
+  const images: GroupImagesExportRequest["images"] = Array.isArray(payload.images)
+    ? payload.images.flatMap((entry) => {
+        if (!entry || typeof entry !== "object") {
+          return [];
+        }
+
+        const record = entry as Record<string, unknown>;
+        if (typeof record.assetPath !== "string" || record.assetPath.length === 0) {
+          return [];
+        }
+
+        return [
+          {
+            assetPath: record.assetPath,
+            label: typeof record.label === "string" ? record.label : undefined,
+          },
+        ];
+      })
+    : [];
+
+  return {
+    images,
+    groupName: typeof payload.groupName === "string" ? payload.groupName : undefined,
+  };
+};
+
+const isTodoItem = (value: unknown): value is Task["todos"][number] => {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const record = value as Record<string, unknown>;
+  return (
+    typeof record.id === "string" &&
+    typeof record.text === "string" &&
+    typeof record.completed === "boolean" &&
+    typeof record.order === "number"
+  );
+};
+
+const isTask = (value: unknown): value is Task => {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const record = value as Record<string, unknown>;
+  return (
+    typeof record.id === "string" &&
+    typeof record.title === "string" &&
+    typeof record.order === "number" &&
+    (record.startDate === undefined || typeof record.startDate === "string") &&
+    (record.endDate === undefined || typeof record.endDate === "string") &&
+    Array.isArray(record.todos) &&
+    record.todos.every(isTodoItem)
+  );
+};
+
+const ensureTasksHtmlExportPayload = (
+  value: unknown,
+): TasksHtmlExportRequest => {
+  if (!value || typeof value !== "object") {
+    throw new Error("Invalid task export payload.");
+  }
+
+  const payload = value as Record<string, unknown>;
+  const tasks = Array.isArray(payload.tasks)
+    ? payload.tasks.filter(isTask)
+    : [];
+
+  return {
+    projectTitle:
+      typeof payload.projectTitle === "string" ? payload.projectTitle : "CanvasTool",
+    tasks,
+    name: typeof payload.name === "string" ? payload.name : undefined,
+  };
+};
+
 const sanitizeFileStem = (value: string) =>
   value
     .replace(/[<>:"/\\|?*\u0000-\u001f]/g, " ")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 64);
+
+const decodeDataUrl = (dataUrl: string) => {
+  const match = dataUrl.match(/^data:([^;,]+)?(?:;charset=[^;,]+)?;base64,(.+)$/);
+  if (!match) {
+    throw new Error("Invalid data URL payload.");
+  }
+
+  const mimeType = match[1] ?? "application/octet-stream";
+  return {
+    mimeType,
+    buffer: Buffer.from(match[2], "base64"),
+  };
+};
+
+const escapeHtml = (value: string) =>
+  value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+
+const renderTasksHtml = (projectTitle: string, tasks: Task[]) => {
+  const orderedTasks = [...tasks].sort((left, right) => left.order - right.order);
+  const body = orderedTasks
+    .map((task) => {
+      const orderedTodos = [...task.todos].sort((left, right) => left.order - right.order);
+      const dateBits = [task.startDate, task.endDate].filter(Boolean).join(" - ");
+      const todosHtml =
+        orderedTodos.length === 0
+          ? '<p class="empty">No todo items.</p>'
+          : `<ul>${orderedTodos
+              .map(
+                (todo) =>
+                  `<li class="${todo.completed ? "done" : "open"}"><span class="mark">${todo.completed ? "✓" : "•"}</span>${escapeHtml(todo.text)}</li>`,
+              )
+              .join("")}</ul>`;
+
+      return `<section class="task-card">
+  <h2>${escapeHtml(task.title)}</h2>
+  ${dateBits ? `<p class="date">${escapeHtml(dateBits)}</p>` : ""}
+  ${todosHtml}
+</section>`;
+    })
+    .join("\n");
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${escapeHtml(projectTitle)} Tasks</title>
+  <style>
+    body { margin: 0; padding: 32px; background: #171514; color: #f2ede7; font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    h1 { margin: 0 0 24px; font-size: 28px; }
+    .task-grid { display: grid; gap: 18px; }
+    .task-card { padding: 18px 20px; border: 1px solid #3a3632; background: #211f1d; }
+    .task-card h2 { margin: 0 0 8px; font-size: 18px; }
+    .date { margin: 0 0 12px; color: #cbbfae; font-size: 12px; }
+    ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+    li { display: flex; gap: 8px; align-items: flex-start; }
+    .mark { width: 16px; color: #f7b24d; }
+    .done { color: #a9a097; text-decoration: line-through; }
+    .empty { margin: 0; color: #9d948b; }
+  </style>
+</head>
+<body>
+  <h1>${escapeHtml(projectTitle)} Tasks</h1>
+  <div class="task-grid">${body || '<p class="empty">No tasks available.</p>'}</div>
+</body>
+</html>`;
+};
 
 const createAcoBuffer = (swatches: SwatchExportRequest["swatches"]) => {
   if (swatches.length === 0) {
@@ -220,6 +402,127 @@ export const setupIpcHandlers = (window: BrowserWindow) => {
         : `${dialogResult.filePath}.aco`;
 
       await fs.writeFile(safePath, createAcoBuffer(payload.swatches));
+      return { filePath: safePath };
+    },
+  );
+
+  ipcMain.handle(
+    "project:export-canvas-image",
+    async (event, rawPayload: unknown): Promise<ProjectExportResult | null> => {
+      const targetWindow = getSenderWindow(event.sender) ?? window;
+      const payload = ensureCanvasImageExportPayload(rawPayload);
+      const defaultStem = sanitizeFileStem(payload.name ?? "Canvas") || "Canvas";
+      const dialogResult = await dialog.showSaveDialog(targetWindow, {
+        defaultPath: path.join(app.getPath("documents"), `${defaultStem}.png`),
+        filters: canvasImageDialogFilter,
+      });
+
+      if (dialogResult.canceled || !dialogResult.filePath) {
+        return null;
+      }
+
+      const requestedExtension = path.extname(dialogResult.filePath).toLowerCase();
+      const safePath = requestedExtension
+        ? dialogResult.filePath
+        : `${dialogResult.filePath}.png`;
+      const outputExtension = path.extname(safePath).toLowerCase();
+
+      if (outputExtension === ".jpg" || outputExtension === ".jpeg") {
+        await fs.writeFile(
+          safePath,
+          nativeImage.createFromDataURL(payload.dataUrl).toJPEG(92),
+        );
+        return { filePath: safePath };
+      }
+
+      const finalPath = outputExtension === ".png" ? safePath : `${safePath}.png`;
+      const { buffer } = decodeDataUrl(payload.dataUrl);
+      await fs.writeFile(finalPath, buffer);
+      return { filePath: finalPath };
+    },
+  );
+
+  ipcMain.handle(
+    "project:export-group-images",
+    async (event, rawPayload: unknown): Promise<ProjectExportResult | null> => {
+      const targetWindow = getSenderWindow(event.sender) ?? window;
+      const payload = ensureGroupImagesExportPayload(rawPayload);
+      if (payload.images.length === 0) {
+        throw new Error("No images available to export.");
+      }
+
+      const defaultFolder =
+        sanitizeFileStem(payload.groupName ?? "Canvas Images") || "Canvas Images";
+      const dialogResult = await dialog.showOpenDialog(targetWindow, {
+        title: "Export Images to Folder",
+        defaultPath: path.join(app.getPath("documents"), defaultFolder),
+        properties: ["openDirectory", "createDirectory"],
+      });
+
+      if (dialogResult.canceled || dialogResult.filePaths.length === 0) {
+        return null;
+      }
+
+      const folderPath = dialogResult.filePaths[0];
+      await fs.mkdir(folderPath, { recursive: true });
+
+      await Promise.all(
+        payload.images.map(async (image, index) => {
+          const safeStem =
+            sanitizeFileStem(image.label ?? `Image ${index + 1}`) || `Image ${index + 1}`;
+
+          if (image.assetPath.startsWith("data:")) {
+            const { mimeType, buffer } = decodeDataUrl(image.assetPath);
+            const extension =
+              mimeType === "image/jpeg"
+                ? "jpg"
+                : mimeType === "image/webp"
+                  ? "webp"
+                  : "png";
+            await fs.writeFile(
+              path.join(folderPath, `${safeStem}.${extension}`),
+              buffer,
+            );
+            return;
+          }
+
+          const parsedExtension =
+            path.extname(image.assetPath).replace(".", "") || "png";
+          await fs.copyFile(
+            image.assetPath,
+            path.join(folderPath, `${safeStem}.${parsedExtension}`),
+          );
+        }),
+      );
+
+      return { filePath: folderPath };
+    },
+  );
+
+  ipcMain.handle(
+    "project:export-tasks-html",
+    async (event, rawPayload: unknown): Promise<ProjectExportResult | null> => {
+      const targetWindow = getSenderWindow(event.sender) ?? window;
+      const payload = ensureTasksHtmlExportPayload(rawPayload);
+      const defaultStem =
+        sanitizeFileStem(payload.name ?? `${payload.projectTitle} Tasks`) || "Tasks";
+      const dialogResult = await dialog.showSaveDialog(targetWindow, {
+        defaultPath: path.join(app.getPath("documents"), `${defaultStem}.html`),
+        filters: htmlDialogFilter,
+      });
+
+      if (dialogResult.canceled || !dialogResult.filePath) {
+        return null;
+      }
+
+      const safePath = dialogResult.filePath.endsWith(".html")
+        ? dialogResult.filePath
+        : `${dialogResult.filePath}.html`;
+      await fs.writeFile(
+        safePath,
+        renderTasksHtml(payload.projectTitle, payload.tasks),
+        "utf8",
+      );
       return { filePath: safePath };
     },
   );

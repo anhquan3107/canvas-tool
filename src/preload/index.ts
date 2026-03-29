@@ -11,6 +11,12 @@ const desktopApi: DesktopApi = {
     open: () => ipcRenderer.invoke("project:open"),
     save: (payload) => ipcRenderer.invoke("project:save", payload),
     saveAs: (payload) => ipcRenderer.invoke("project:save-as", payload),
+    exportCanvasImage: (payload) =>
+      ipcRenderer.invoke("project:export-canvas-image", payload),
+    exportGroupImages: (payload) =>
+      ipcRenderer.invoke("project:export-group-images", payload),
+    exportTasksHtml: (payload) =>
+      ipcRenderer.invoke("project:export-tasks-html", payload),
     exportSwatchAco: (payload) =>
       ipcRenderer.invoke("project:export-swatch-aco", payload),
     getRecentFiles: () => ipcRenderer.invoke("project:get-recent-files"),

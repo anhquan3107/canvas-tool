@@ -23,6 +23,23 @@ const normalizeUrlCandidate = (value: string) => {
   return trimmed;
 };
 
+const toUrlFingerprint = (value: string) => {
+  const normalized = normalizeUrlCandidate(value);
+
+  if (isDataImageUrl(normalized)) {
+    return normalized;
+  }
+
+  try {
+    const url = new URL(normalized);
+    url.search = "";
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return normalized;
+  }
+};
+
 const isDataImageUrl = (value: string) => {
   const normalized = normalizeUrlCandidate(value);
   return /^data:image\//i.test(normalized);
@@ -108,7 +125,15 @@ const parseUrlText = (input: string) => {
     .filter((part) => !part.startsWith("#"))
     .filter(isImportableImageSource);
 
-  return [...new Set(urls)];
+  const unique = new Map<string, string>();
+  urls.forEach((url) => {
+    const fingerprint = toUrlFingerprint(url);
+    if (!unique.has(fingerprint)) {
+      unique.set(fingerprint, url);
+    }
+  });
+
+  return [...unique.values()];
 };
 
 const parseSrcSet = (srcset: string) => {
@@ -121,6 +146,43 @@ const parseSrcSet = (srcset: string) => {
     .filter(isImportableImageSource);
 };
 
+const readDimensionScore = (value: string) => {
+  const normalized = normalizeUrlCandidate(value).toLowerCase();
+  let bestArea = 0;
+
+  const matches = normalized.matchAll(/(\d{2,5})x(\d{2,5})/g);
+  for (const match of matches) {
+    const width = Number.parseInt(match[1], 10);
+    const height = Number.parseInt(match[2], 10);
+    if (Number.isFinite(width) && Number.isFinite(height)) {
+      bestArea = Math.max(bestArea, width * height);
+    }
+  }
+
+  if (normalized.includes("/originals/")) {
+    bestArea = Math.max(bestArea, 50_000_000);
+  }
+
+  return bestArea;
+};
+
+const pickBestDropImageCandidate = (urls: string[]) => {
+  if (urls.length <= 1) {
+    return urls;
+  }
+
+  const ranked = [...urls].sort((left, right) => {
+    const scoreDelta = readDimensionScore(right) - readDimensionScore(left);
+    if (scoreDelta !== 0) {
+      return scoreDelta;
+    }
+
+    return right.length - left.length;
+  });
+
+  return ranked.slice(0, 1);
+};
+
 const parseUrlsFromHtml = (html: string) => {
   if (!html.trim()) {
     return [];
@@ -128,7 +190,7 @@ const parseUrlsFromHtml = (html: string) => {
 
   const parser = new DOMParser();
   const documentNode = parser.parseFromString(html, "text/html");
-  const candidates = new Set<string>();
+  const candidates = new Map<string, string>();
 
   const pushCandidate = (value: string | null) => {
     if (!value) {
@@ -137,21 +199,24 @@ const parseUrlsFromHtml = (html: string) => {
 
     const trimmed = normalizeUrlCandidate(value);
     if (isImportableImageSource(trimmed)) {
-      candidates.add(trimmed);
+      const fingerprint = toUrlFingerprint(trimmed);
+      if (!candidates.has(fingerprint)) {
+        candidates.set(fingerprint, trimmed);
+      }
     }
   };
 
   documentNode.querySelectorAll("img").forEach((element) => {
     pushCandidate(element.getAttribute("src"));
     for (const parsed of parseSrcSet(element.getAttribute("srcset") ?? "")) {
-      candidates.add(parsed);
+      pushCandidate(parsed);
     }
   });
 
   documentNode.querySelectorAll("source").forEach((element) => {
     pushCandidate(element.getAttribute("src"));
     for (const parsed of parseSrcSet(element.getAttribute("srcset") ?? "")) {
-      candidates.add(parsed);
+      pushCandidate(parsed);
     }
   });
 
@@ -163,7 +228,7 @@ const parseUrlsFromHtml = (html: string) => {
       pushCandidate(element.getAttribute("content"));
     });
 
-  return [...candidates];
+  return [...candidates.values()];
 };
 
 const dedupeFiles = (files: File[]) => {
@@ -209,7 +274,10 @@ export const collectDropPayload = (event: DragEvent): ImportPayload => {
     htmlUrls.length > 0
       ? []
       : [...parseUrlText(uriList), ...parseUrlText(plainText)];
-  const urls = [...new Set([...htmlUrls, ...fallbackUrls])];
+  const urls =
+    htmlUrls.length > 0
+      ? pickBestDropImageCandidate(htmlUrls)
+      : [...new Set([...fallbackUrls])];
 
   return {
     source: "drop",
@@ -374,5 +442,20 @@ export const buildImageItemsFromPayload = async ({
     }),
   );
 
-  return [...localItems, ...webItems.filter((item) => item !== null)];
+  const seenAssetPaths = new Set<string>();
+
+  return [...localItems, ...webItems.filter((item) => item !== null)].filter(
+    (item) => {
+      const fingerprint = item.assetPath
+        ? toUrlFingerprint(item.assetPath)
+        : `${item.type}-${item.label ?? item.id}`;
+
+      if (seenAssetPaths.has(fingerprint)) {
+        return false;
+      }
+
+      seenAssetPaths.add(fingerprint);
+      return true;
+    },
+  );
 };

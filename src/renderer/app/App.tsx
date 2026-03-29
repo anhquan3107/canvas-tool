@@ -93,6 +93,7 @@ const AppContent = () => {
   const centeredGroupIdsRef = useRef(new Set<string>());
   const previousActiveGroupIdRef = useRef<string | null>(null);
   const canvasStageRef = useRef<HTMLDivElement | null>(null);
+  const exportCanvasImageRef = useRef<(() => string | null) | null>(null);
   const allowWindowCloseRef = useRef(false);
   const lastSavedSignatureRef = useRef<string>("");
   const [viewportSize, setViewportSize] = useState<{
@@ -695,6 +696,120 @@ const AppContent = () => {
     }
   }, [pushToast, selectedImageForSwatchExport]);
 
+  const handleExportCanvasImage = useCallback(async () => {
+    const dataUrl = exportCanvasImageRef.current?.() ?? null;
+    if (!dataUrl) {
+      pushToast("error", "Canvas export is not ready yet.");
+      return;
+    }
+
+    try {
+      const result = await window.desktopApi.project.exportCanvasImage({
+        dataUrl,
+        name: activeGroup?.name ?? project.title,
+      });
+
+      if (!result) {
+        return;
+      }
+
+      pushToast("success", "Canvas exported as image.");
+    } catch (error) {
+      pushToast(
+        "error",
+        error instanceof Error ? error.message : "Canvas export failed.",
+      );
+    }
+  }, [activeGroup?.name, project.title, pushToast]);
+
+  const handleExportGroupImages = useCallback(async () => {
+    if (!activeGroup) {
+      pushToast("info", "No active canvas to export.");
+      return;
+    }
+
+    const images = activeGroup.items.flatMap((item) =>
+      item.type === "image" && item.assetPath
+        ? [{ assetPath: item.assetPath, label: item.label }]
+        : [],
+    );
+
+    if (images.length === 0) {
+      pushToast("info", "No images in this canvas to export.");
+      return;
+    }
+
+    try {
+      const result = await window.desktopApi.project.exportGroupImages({
+        images,
+        groupName: activeGroup.name,
+      });
+
+      if (!result) {
+        return;
+      }
+
+      pushToast("success", "Canvas images exported to folder.");
+    } catch (error) {
+      pushToast(
+        "error",
+        error instanceof Error ? error.message : "Image export failed.",
+      );
+    }
+  }, [activeGroup, pushToast]);
+
+  const handleExportSelectedTaskHtml = useCallback(async () => {
+    if (!selectedTask) {
+      pushToast("info", "Select a task to export.");
+      return;
+    }
+
+    try {
+      const result = await window.desktopApi.project.exportTasksHtml({
+        projectTitle: project.title,
+        tasks: [selectedTask],
+        name: `${selectedTask.title} Task`,
+      });
+
+      if (!result) {
+        return;
+      }
+
+      pushToast("success", "Task exported to HTML.");
+    } catch (error) {
+      pushToast(
+        "error",
+        error instanceof Error ? error.message : "Task export failed.",
+      );
+    }
+  }, [project.title, pushToast, selectedTask]);
+
+  const handleExportAllTasksHtml = useCallback(async () => {
+    if (project.tasks.length === 0) {
+      pushToast("info", "No tasks available to export.");
+      return;
+    }
+
+    try {
+      const result = await window.desktopApi.project.exportTasksHtml({
+        projectTitle: project.title,
+        tasks: project.tasks,
+        name: `${project.title} Tasks`,
+      });
+
+      if (!result) {
+        return;
+      }
+
+      pushToast("success", "All tasks exported to HTML.");
+    } catch (error) {
+      pushToast(
+        "error",
+        error instanceof Error ? error.message : "Task export failed.",
+      );
+    }
+  }, [project.tasks, project.title, pushToast]);
+
   return (
     <div
       className="app-shell"
@@ -758,6 +873,9 @@ const AppContent = () => {
                     setGroupAnnotations(activeGroup.id, annotations)
                   }
                   onCanvasSizePreviewChange={setCanvasSizePreview}
+                  onExportReady={(exportCanvas) => {
+                    exportCanvasImageRef.current = exportCanvas;
+                  }}
                 />
               ) : null}
 
@@ -869,6 +987,8 @@ const AppContent = () => {
           selectedCount={selectedItemIds.length}
           canExportSwatch={canExportSelectedSwatch}
           canPaste={clipboardItems.length > 0}
+          canExportSelectedTask={Boolean(selectedTask)}
+          canExportAnyTask={project.tasks.length > 0}
           canUndo={canUndo}
           canRedo={canRedo}
           onClose={() => setMenuState(null)}
@@ -907,6 +1027,22 @@ const AppContent = () => {
           onAutoArrange={() => {
             setMenuState(null);
             autoArrange();
+          }}
+          onExportCanvasImage={() => {
+            setMenuState(null);
+            void handleExportCanvasImage();
+          }}
+          onExportGroupImages={() => {
+            setMenuState(null);
+            void handleExportGroupImages();
+          }}
+          onExportSelectedTaskHtml={() => {
+            setMenuState(null);
+            void handleExportSelectedTaskHtml();
+          }}
+          onExportAllTasksHtml={() => {
+            setMenuState(null);
+            void handleExportAllTasksHtml();
           }}
           onCopySelected={() => {
             setMenuState(null);

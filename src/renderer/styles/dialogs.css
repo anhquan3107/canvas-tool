@@ -20,6 +20,39 @@
   font-size: 11px;
 }
 
+.app-menu-submenu {
+  position: relative;
+}
+
+.app-menu-submenu-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.app-menu-submenu-arrow {
+  opacity: 0.72;
+  font-size: 13px;
+}
+
+.app-menu-submenu-panel {
+  position: absolute;
+  top: -6px;
+  left: calc(100% - 2px);
+  min-width: 132px;
+  padding: 6px;
+}
+
+.app-menu-submenu-panel::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -10px;
+  width: 10px;
+}
+
 .app-menu button:disabled {
   opacity: 0.42;
   cursor: default;

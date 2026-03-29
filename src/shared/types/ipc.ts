@@ -1,4 +1,4 @@
-import type { Project } from "./project";
+import type { Project, Task } from "./project";
 import type { CaptureItem } from "./project";
 
 export interface ProjectOpenResult {
@@ -24,6 +24,25 @@ export interface SwatchExportRequest {
     colorHex: string;
     name?: string;
   }>;
+  name?: string;
+}
+
+export interface CanvasImageExportRequest {
+  dataUrl: string;
+  name?: string;
+}
+
+export interface GroupImagesExportRequest {
+  images: Array<{
+    assetPath: string;
+    label?: string;
+  }>;
+  groupName?: string;
+}
+
+export interface TasksHtmlExportRequest {
+  projectTitle: string;
+  tasks: Task[];
   name?: string;
 }
 
@@ -79,6 +98,15 @@ export interface DesktopApi {
     open: () => Promise<ProjectOpenResult | null>;
     save: (payload: ProjectSaveRequest) => Promise<ProjectSaveResult>;
     saveAs: (payload: ProjectSaveRequest) => Promise<ProjectSaveResult | null>;
+    exportCanvasImage: (
+      payload: CanvasImageExportRequest,
+    ) => Promise<ProjectExportResult | null>;
+    exportGroupImages: (
+      payload: GroupImagesExportRequest,
+    ) => Promise<ProjectExportResult | null>;
+    exportTasksHtml: (
+      payload: TasksHtmlExportRequest,
+    ) => Promise<ProjectExportResult | null>;
     exportSwatchAco: (
       payload: SwatchExportRequest,
     ) => Promise<ProjectExportResult | null>;

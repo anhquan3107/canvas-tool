@@ -1,7 +1,13 @@
 import { useLayoutEffect, useRef, useState } from "react";
+import type { ShortcutBindings } from "@shared/shortcuts";
 import type { MenuState } from "@renderer/app/types";
+import {
+  MenuItemContent,
+  formatMenuShortcut,
+} from "@renderer/app/components/MenuItemContent";
 
 interface AppMenuProps extends MenuState {
+  shortcutBindings: ShortcutBindings;
   selectedCount: number;
   canExportSwatch: boolean;
   canPaste: boolean;
@@ -43,6 +49,7 @@ interface AppMenuProps extends MenuState {
 export const AppMenu = ({
   x,
   y,
+  shortcutBindings,
   selectedCount,
   canExportSwatch,
   canPaste,
@@ -146,13 +153,25 @@ export const AppMenu = ({
       {selectedCount > 0 ? (
         <>
           <button type="button" onClick={onCopySelected}>
-            Copy
+            <MenuItemContent
+              icon="copy"
+              label="Copy"
+              shortcut={formatMenuShortcut(shortcutBindings, "edit.copy")}
+            />
           </button>
           <button type="button" onClick={onCutSelected}>
-            Cut
+            <MenuItemContent
+              icon="cut"
+              label="Cut"
+              shortcut={formatMenuShortcut(shortcutBindings, "edit.cut")}
+            />
           </button>
           <button type="button" onClick={onPaste} disabled={!canPaste}>
-            Paste
+            <MenuItemContent
+              icon="paste"
+              label="Paste"
+              shortcut={formatMenuShortcut(shortcutBindings, "edit.paste")}
+            />
           </button>
           <div
             className="app-menu-submenu"
@@ -164,23 +183,30 @@ export const AppMenu = ({
               className="app-menu-submenu-trigger"
               onClick={() => setArrangeOpen((open) => !open)}
             >
-              <span>Arrange</span>
-              <span className="app-menu-submenu-arrow">›</span>
+              <MenuItemContent icon="arrange" label="Arrange" submenu />
             </button>
             {arrangeOpen ? (
               <div className="app-menu app-menu-submenu-panel">
                 <button type="button" onClick={onArrangePinterest}>
-                  Pinterest
+                  <MenuItemContent icon="arrange" label="Pinterest" />
                 </button>
                 <button type="button" onClick={onArrangeHorizontal}>
-                  Horizontal
+                  <MenuItemContent
+                    icon="arrange"
+                    label="Horizontal"
+                    shortcut={formatMenuShortcut(shortcutBindings, "arrange.horizontal")}
+                  />
                 </button>
               </div>
             ) : null}
           </div>
           <div className="app-menu-divider" />
           <button type="button" onClick={onDeleteSelected}>
-            Delete
+            <MenuItemContent
+              icon="delete"
+              label="Delete"
+              shortcut={formatMenuShortcut(shortcutBindings, "edit.delete")}
+            />
           </button>
           <div className="app-menu-divider" />
           <button
@@ -188,19 +214,31 @@ export const AppMenu = ({
             onClick={onExportSwatch}
             disabled={!canExportSwatch}
           >
-            Export Swatches
+            <MenuItemContent icon="swatch" label="Export Swatches" />
           </button>
         </>
       ) : (
         <>
           <button type="button" onClick={() => void onOpen()}>
-            Open
+            <MenuItemContent
+              icon="open"
+              label="Open"
+              shortcut={formatMenuShortcut(shortcutBindings, "file.open")}
+            />
           </button>
           <button type="button" onClick={() => void onSave()}>
-            Save Canvas
+            <MenuItemContent
+              icon="save"
+              label="Save Canvas"
+              shortcut={formatMenuShortcut(shortcutBindings, "file.save")}
+            />
           </button>
           <button type="button" onClick={() => void onSaveAs()}>
-            Save Canvas As...
+            <MenuItemContent
+              icon="saveAs"
+              label="Save Canvas As..."
+              shortcut={formatMenuShortcut(shortcutBindings, "file.saveAs")}
+            />
           </button>
           <div
             className="app-menu-submenu"
@@ -215,16 +253,29 @@ export const AppMenu = ({
               className="app-menu-submenu-trigger"
               onClick={() => setExportOpen((open) => !open)}
             >
-              <span>Export</span>
-              <span className="app-menu-submenu-arrow">›</span>
+              <MenuItemContent icon="export" label="Export" submenu />
             </button>
             {exportOpen ? (
               <div className="app-menu app-menu-submenu-panel">
                 <button type="button" onClick={onExportCanvasImage}>
-                  Export Canvas to Images
+                  <MenuItemContent
+                    icon="export"
+                    label="Export Canvas to Images"
+                    shortcut={formatMenuShortcut(
+                      shortcutBindings,
+                      "export.canvasImage",
+                    )}
+                  />
                 </button>
                 <button type="button" onClick={onExportGroupImages}>
-                  Export Every Image to Folder
+                  <MenuItemContent
+                    icon="export"
+                    label="Export Every Image to Folder"
+                    shortcut={formatMenuShortcut(
+                      shortcutBindings,
+                      "export.groupImages",
+                    )}
+                  />
                 </button>
                 <div
                   className="app-menu-submenu"
@@ -236,8 +287,7 @@ export const AppMenu = ({
                     className="app-menu-submenu-trigger"
                     onClick={() => setTaskExportOpen((open) => !open)}
                   >
-                    <span>Export Tasks</span>
-                    <span className="app-menu-submenu-arrow">›</span>
+                    <MenuItemContent icon="task" label="Export Tasks" submenu />
                   </button>
                   {taskExportOpen ? (
                     <div className="app-menu app-menu-submenu-panel">
@@ -246,14 +296,24 @@ export const AppMenu = ({
                         onClick={onExportSelectedTaskHtml}
                         disabled={!canExportSelectedTask}
                       >
-                        Export Selected Task to HTML
+                        <MenuItemContent
+                          icon="task"
+                          label="Export Selected Task to HTML"
+                        />
                       </button>
                       <button
                         type="button"
                         onClick={onExportAllTasksHtml}
                         disabled={!canExportAnyTask}
                       >
-                        Export All Tasks to HTML
+                        <MenuItemContent
+                          icon="task"
+                          label="Export All Tasks to HTML"
+                          shortcut={formatMenuShortcut(
+                            shortcutBindings,
+                            "export.allTasks",
+                          )}
+                        />
                       </button>
                     </div>
                   ) : null}
@@ -263,20 +323,40 @@ export const AppMenu = ({
           </div>
           <div className="app-menu-divider" />
           <button type="button" onClick={onResetView}>
-            Reset View
+            <MenuItemContent
+              icon="resetView"
+              label="Reset View"
+              shortcut={formatMenuShortcut(shortcutBindings, "canvas.resetView")}
+            />
           </button>
           <button type="button" onClick={onChangeCanvasSize}>
-            Change Canvas Size...
+            <MenuItemContent
+              icon="canvasSize"
+              label="Change Canvas Size..."
+              shortcut={formatMenuShortcut(shortcutBindings, "canvas.changeSize")}
+            />
           </button>
           <button type="button" onClick={onToggleCanvasLock}>
-            {canvasLocked ? "Unlock Canvas" : "Lock Canvas"}
+            <MenuItemContent
+              icon="lock"
+              label={canvasLocked ? "Unlock Canvas" : "Lock Canvas"}
+              shortcut={formatMenuShortcut(shortcutBindings, "canvas.toggleLock")}
+            />
           </button>
           <div className="app-menu-divider" />
           <button type="button" onClick={onCreateGroup}>
-            Create Group
+            <MenuItemContent
+              icon="group"
+              label="Create Group"
+              shortcut={formatMenuShortcut(shortcutBindings, "groups.create")}
+            />
           </button>
           <button type="button" onClick={onCreateTask}>
-            Add Task
+            <MenuItemContent
+              icon="task"
+              label="Add Task"
+              shortcut={formatMenuShortcut(shortcutBindings, "tasks.add")}
+            />
           </button>
           <div className="app-menu-divider" />
           <div
@@ -289,20 +369,26 @@ export const AppMenu = ({
               className="app-menu-submenu-trigger"
               onClick={() => setCanvasArrangeOpen((open) => !open)}
             >
-              <span>Arrange</span>
-              <span className="app-menu-submenu-arrow">›</span>
+              <MenuItemContent icon="arrange" label="Arrange" submenu />
             </button>
             {canvasArrangeOpen ? (
               <div className="app-menu app-menu-submenu-panel">
                 <button type="button" onClick={onAutoArrange}>
-                  Auto Arrange
+                  <MenuItemContent
+                    icon="arrange"
+                    label="Auto Arrange"
+                    shortcut={formatMenuShortcut(shortcutBindings, "arrange.auto")}
+                  />
                 </button>
               </div>
             ) : null}
           </div>
           <div className="app-menu-divider" />
           <button type="button" onClick={onShowBackgroundColor}>
-            Change Background Color
+            <MenuItemContent
+              icon="background"
+              label="Change Background Color"
+            />
           </button>
           <div
             className="app-menu-submenu"
@@ -314,45 +400,75 @@ export const AppMenu = ({
               className="app-menu-submenu-trigger"
               onClick={() => setFilterOpen((open) => !open)}
             >
-              <span>Filter</span>
-              <span className="app-menu-submenu-arrow">›</span>
+              <MenuItemContent icon="filter" label="Filter" submenu />
             </button>
             {filterOpen ? (
               <div className="app-menu app-menu-submenu-panel">
                 <button type="button" onClick={onToggleBlackAndWhite}>
-                  B&W
+                  <MenuItemContent
+                    icon="filter"
+                    label="B&W"
+                    shortcut={formatMenuShortcut(
+                      shortcutBindings,
+                      "tools.toggleBlackAndWhite",
+                    )}
+                  />
                 </button>
                 <button type="button" onClick={onToggleBlur}>
-                  Blur
+                  <MenuItemContent
+                    icon="filter"
+                    label="Blur"
+                    shortcut={formatMenuShortcut(shortcutBindings, "tools.toggleBlur")}
+                  />
                 </button>
               </div>
             ) : null}
           </div>
           <div className="app-menu-divider" />
           <button type="button" onClick={onActivateDoodle}>
-            Doodle
+            <MenuItemContent
+              icon="doodle"
+              label="Doodle"
+              shortcut={formatMenuShortcut(shortcutBindings, "tools.toggleDoodle")}
+            />
           </button>
           <div className="app-menu-divider" />
           <button type="button" onClick={onUndo} disabled={!canUndo}>
-            Undo
+            <MenuItemContent
+              icon="undo"
+              label="Undo"
+              shortcut={formatMenuShortcut(shortcutBindings, "edit.undo")}
+            />
           </button>
           <button type="button" onClick={onRedo} disabled={!canRedo}>
-            Redo
+            <MenuItemContent
+              icon="redo"
+              label="Redo"
+              shortcut={formatMenuShortcut(shortcutBindings, "edit.redo")}
+            />
           </button>
           {canPaste ? (
             <button type="button" onClick={onPaste}>
-              Paste
+              <MenuItemContent
+                icon="paste"
+                label="Paste"
+                shortcut={formatMenuShortcut(shortcutBindings, "edit.paste")}
+              />
             </button>
           ) : null}
           <div className="app-menu-divider" />
           <button type="button" onClick={onExit}>
-            Exit
+            <MenuItemContent
+              icon="exit"
+              label="Exit"
+              shortcut={formatMenuShortcut(shortcutBindings, "app.quit")}
+            />
           </button>
         </>
       )}
       {selectedCount > 0 ? (
         <button type="button" onClick={onClose}>
-          Close Menu
+          <MenuItemContent icon="exit" label="Close Menu" />
         </button>
       ) : null}
     </div>

@@ -14,6 +14,7 @@ export const useAppUiState = () => {
   const [autoArrangeOnImport, setAutoArrangeOnImport] = useState(true);
   const [menuState, setMenuState] = useState<MenuState | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [groupsOverlayOpen, setGroupsOverlayOpen] = useState(false);
   const [canvasSizeDialogOpen, setCanvasSizeDialogOpen] = useState(false);
   const [backgroundColorDialogOpen, setBackgroundColorDialogOpen] =
@@ -46,6 +47,8 @@ export const useAppUiState = () => {
     setMenuState,
     settingsOpen,
     setSettingsOpen,
+    helpOpen,
+    setHelpOpen,
     groupsOverlayOpen,
     setGroupsOverlayOpen,
     canvasSizeDialogOpen,

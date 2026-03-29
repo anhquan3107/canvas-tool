@@ -45,6 +45,7 @@ import { AppInfoPanel } from "@renderer/app/components/AppInfoPanel";
 import { BackgroundColorDialog } from "@renderer/app/components/BackgroundColorDialog";
 import { CanvasSizeDialog } from "@renderer/app/components/CanvasSizeDialog";
 import { ConfirmCloseDialog } from "@renderer/app/components/ConfirmCloseDialog";
+import { HelpTutorialDialog } from "@renderer/app/components/HelpTutorialDialog";
 import { KeyboardShortcutsDialog } from "@renderer/app/components/KeyboardShortcutsDialog";
 import { StatusBar } from "@renderer/app/components/StatusBar";
 
@@ -96,6 +97,8 @@ const AppContent = () => {
     setMenuState,
     settingsOpen,
     setSettingsOpen,
+    helpOpen,
+    setHelpOpen,
     groupsOverlayOpen,
     setGroupsOverlayOpen,
     canvasSizeDialogOpen,
@@ -388,6 +391,7 @@ const AppContent = () => {
     setTaskDialogOpen(false);
     setGroupDialogOpen(false);
     setSettingsOpen(false);
+    setHelpOpen(false);
     setCanvasSizeDialogOpen(false);
     setBackgroundColorDialogOpen(false);
     setAppInfoOpen(false);
@@ -407,6 +411,7 @@ const AppContent = () => {
     setGroupsOverlayOpen,
     setMenuState,
     setSettingsOpen,
+    setHelpOpen,
     setTaskDetailOpen,
     setTaskDialogOpen,
   ]);
@@ -465,6 +470,7 @@ const AppContent = () => {
       !taskDialogOpen &&
       !groupDialogOpen &&
       !settingsOpen &&
+      !helpOpen &&
       !canvasSizeDialogOpen &&
       !backgroundColorDialogOpen
     ) {
@@ -485,6 +491,7 @@ const AppContent = () => {
     canvasSizeDialogOpen,
     backgroundColorDialogOpen,
     groupDialogOpen,
+    helpOpen,
     menuState,
     settingsOpen,
     taskDialogOpen,
@@ -667,7 +674,9 @@ const AppContent = () => {
         <TopBar
           activeGroup={activeGroup}
           activeTool={activeTool}
+          shortcutBindings={shortcutBindings}
           settingsOpen={settingsOpen}
+          helpOpen={helpOpen}
           canPaste={clipboardItems.length > 0}
           canExportSelectedTask={Boolean(selectedTask)}
           canExportAnyTask={project.tasks.length > 0}
@@ -676,6 +685,10 @@ const AppContent = () => {
           windowAlwaysOnTop={windowAlwaysOnTop}
           onBrandClick={() => setAppInfoOpen((previous) => !previous)}
           onToggleSettings={() => setSettingsOpen((previous) => !previous)}
+          onShowHelp={() => {
+            setSettingsOpen(false);
+            setHelpOpen((previous) => !previous);
+          }}
           onOpenProject={() => {
             setSettingsOpen(false);
             void handleOpenProject();
@@ -933,6 +946,7 @@ const AppContent = () => {
         <AppMenu
           x={menuState.x}
           y={menuState.y}
+          shortcutBindings={shortcutBindings}
           selectedCount={selectedItemIds.length}
           canExportSwatch={canExportSelectedSwatch}
           canPaste={clipboardItems.length > 0}
@@ -1110,6 +1124,11 @@ const AppContent = () => {
         onResetAction={resetShortcutDraftBinding}
         onResetAll={resetAllShortcutDraftBindings}
         onSave={() => void saveShortcutBindings()}
+      />
+
+      <HelpTutorialDialog
+        open={helpOpen}
+        onClose={() => setHelpOpen(false)}
       />
 
       <ConfirmCloseDialog

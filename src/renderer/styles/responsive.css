@@ -61,6 +61,19 @@
     padding: 28px 20px 24px;
   }
 
+  .help-dialog {
+    width: min(100vw - 24px, 980px);
+  }
+
+  .help-guide-grid {
+    grid-template-columns: 1fr;
+    padding: 18px 18px 22px;
+  }
+
+  .help-dialog-header {
+    padding: 22px 18px 18px;
+  }
+
   .dialog-grid {
     grid-template-columns: 1fr;
     gap: 0;

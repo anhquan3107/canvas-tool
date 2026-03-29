@@ -1,12 +1,19 @@
 import { useState } from "react";
 import type { ReferenceGroup } from "@shared/types/project";
+import type { ShortcutBindings } from "@shared/shortcuts";
 import { TOOL_LABELS, TOOL_ORDER } from "@renderer/features/tools/constants";
 import type { ToolMode } from "@renderer/features/tools/types";
+import {
+  MenuItemContent,
+  formatMenuShortcut,
+} from "@renderer/app/components/MenuItemContent";
 
 interface TopBarProps {
   activeGroup: ReferenceGroup | null | undefined;
   activeTool: ToolMode | null;
+  shortcutBindings: ShortcutBindings;
   settingsOpen: boolean;
+  helpOpen: boolean;
   canPaste: boolean;
   canExportSelectedTask: boolean;
   canExportAnyTask: boolean;
@@ -15,6 +22,7 @@ interface TopBarProps {
   windowAlwaysOnTop: boolean;
   onBrandClick: () => void;
   onToggleSettings: () => void;
+  onShowHelp: () => void;
   onOpenProject: () => void;
   onSaveProject: () => void;
   onSaveProjectAs: () => void;
@@ -45,7 +53,9 @@ interface TopBarProps {
 export const TopBar = ({
   activeGroup,
   activeTool,
+  shortcutBindings,
   settingsOpen,
+  helpOpen,
   canPaste,
   canExportSelectedTask,
   canExportAnyTask,
@@ -54,6 +64,7 @@ export const TopBar = ({
   windowAlwaysOnTop,
   onBrandClick,
   onToggleSettings,
+  onShowHelp,
   onOpenProject,
   onSaveProject,
   onSaveProjectAs,
@@ -108,13 +119,25 @@ export const TopBar = ({
             {settingsOpen ? (
               <div className="topbar-settings-menu">
                 <button type="button" onClick={onOpenProject}>
-                  Open
+                  <MenuItemContent
+                    icon="open"
+                    label="Open"
+                    shortcut={formatMenuShortcut(shortcutBindings, "file.open")}
+                  />
                 </button>
                 <button type="button" onClick={onSaveProject}>
-                  Save Canvas
+                  <MenuItemContent
+                    icon="save"
+                    label="Save Canvas"
+                    shortcut={formatMenuShortcut(shortcutBindings, "file.save")}
+                  />
                 </button>
                 <button type="button" onClick={onSaveProjectAs}>
-                  Save Canvas As...
+                  <MenuItemContent
+                    icon="saveAs"
+                    label="Save Canvas As..."
+                    shortcut={formatMenuShortcut(shortcutBindings, "file.saveAs")}
+                  />
                 </button>
                 <div
                   className="topbar-settings-submenu"
@@ -129,16 +152,29 @@ export const TopBar = ({
                     className="topbar-settings-submenu-trigger"
                     onClick={() => setExportOpen((open) => !open)}
                   >
-                    <span>Export</span>
-                    <span className="topbar-settings-submenu-arrow">›</span>
+                    <MenuItemContent icon="export" label="Export" submenu />
                   </button>
                   {exportOpen ? (
                     <div className="topbar-settings-menu topbar-settings-submenu-panel">
                       <button type="button" onClick={onExportCanvasImage}>
-                        Export Canvas to Images
+                        <MenuItemContent
+                          icon="export"
+                          label="Export Canvas to Images"
+                          shortcut={formatMenuShortcut(
+                            shortcutBindings,
+                            "export.canvasImage",
+                          )}
+                        />
                       </button>
                       <button type="button" onClick={onExportGroupImages}>
-                        Export Every Image to Folder
+                        <MenuItemContent
+                          icon="export"
+                          label="Export Every Image to Folder"
+                          shortcut={formatMenuShortcut(
+                            shortcutBindings,
+                            "export.groupImages",
+                          )}
+                        />
                       </button>
                       <div
                         className="topbar-settings-submenu"
@@ -150,8 +186,11 @@ export const TopBar = ({
                           className="topbar-settings-submenu-trigger"
                           onClick={() => setTaskExportOpen((open) => !open)}
                         >
-                          <span>Export Tasks</span>
-                          <span className="topbar-settings-submenu-arrow">›</span>
+                          <MenuItemContent
+                            icon="task"
+                            label="Export Tasks"
+                            submenu
+                          />
                         </button>
                         {taskExportOpen ? (
                           <div className="topbar-settings-menu topbar-settings-submenu-panel">
@@ -160,14 +199,24 @@ export const TopBar = ({
                               onClick={onExportSelectedTaskHtml}
                               disabled={!canExportSelectedTask}
                             >
-                              Export Selected Task to HTML
+                              <MenuItemContent
+                                icon="task"
+                                label="Export Selected Task to HTML"
+                              />
                             </button>
                             <button
                               type="button"
                               onClick={onExportAllTasksHtml}
                               disabled={!canExportAnyTask}
                             >
-                              Export All Tasks to HTML
+                              <MenuItemContent
+                                icon="task"
+                                label="Export All Tasks to HTML"
+                                shortcut={formatMenuShortcut(
+                                  shortcutBindings,
+                                  "export.allTasks",
+                                )}
+                              />
                             </button>
                           </div>
                         ) : null}
@@ -178,21 +227,41 @@ export const TopBar = ({
 
                 <div className="topbar-settings-divider" />
                 <button type="button" onClick={onResetView}>
-                  Reset View
+                  <MenuItemContent
+                    icon="resetView"
+                    label="Reset View"
+                    shortcut={formatMenuShortcut(shortcutBindings, "canvas.resetView")}
+                  />
                 </button>
                 <button type="button" onClick={onChangeCanvasSize}>
-                  Change Canvas Size...
+                  <MenuItemContent
+                    icon="canvasSize"
+                    label="Change Canvas Size..."
+                    shortcut={formatMenuShortcut(shortcutBindings, "canvas.changeSize")}
+                  />
                 </button>
                 <button type="button" onClick={onToggleCanvasLock}>
-                  {canvasLocked ? "Unlock Canvas" : "Lock Canvas"}
+                  <MenuItemContent
+                    icon="lock"
+                    label={canvasLocked ? "Unlock Canvas" : "Lock Canvas"}
+                    shortcut={formatMenuShortcut(shortcutBindings, "canvas.toggleLock")}
+                  />
                 </button>
 
                 <div className="topbar-settings-divider" />
                 <button type="button" onClick={onCreateGroup}>
-                  Create Group
+                  <MenuItemContent
+                    icon="group"
+                    label="Create Group"
+                    shortcut={formatMenuShortcut(shortcutBindings, "groups.create")}
+                  />
                 </button>
                 <button type="button" onClick={onTaskClick}>
-                  Add Task
+                  <MenuItemContent
+                    icon="task"
+                    label="Add Task"
+                    shortcut={formatMenuShortcut(shortcutBindings, "tasks.add")}
+                  />
                 </button>
 
                 <div className="topbar-settings-divider" />
@@ -206,13 +275,16 @@ export const TopBar = ({
                     className="topbar-settings-submenu-trigger"
                     onClick={() => setArrangeOpen((open) => !open)}
                   >
-                    <span>Arrange</span>
-                    <span className="topbar-settings-submenu-arrow">›</span>
+                    <MenuItemContent icon="arrange" label="Arrange" submenu />
                   </button>
                   {arrangeOpen ? (
                     <div className="topbar-settings-menu topbar-settings-submenu-panel">
                       <button type="button" onClick={onAutoArrange}>
-                        Auto Arrange
+                        <MenuItemContent
+                          icon="arrange"
+                          label="Auto Arrange"
+                          shortcut={formatMenuShortcut(shortcutBindings, "arrange.auto")}
+                        />
                       </button>
                     </div>
                   ) : null}
@@ -220,7 +292,10 @@ export const TopBar = ({
 
                 <div className="topbar-settings-divider" />
                 <button type="button" onClick={onShowBackgroundColor}>
-                  Change Background Color
+                  <MenuItemContent
+                    icon="background"
+                    label="Change Background Color"
+                  />
                 </button>
                 <div
                   className="topbar-settings-submenu"
@@ -232,16 +307,26 @@ export const TopBar = ({
                     className="topbar-settings-submenu-trigger"
                     onClick={() => setFilterOpen((open) => !open)}
                   >
-                    <span>Filter</span>
-                    <span className="topbar-settings-submenu-arrow">›</span>
+                    <MenuItemContent icon="filter" label="Filter" submenu />
                   </button>
                   {filterOpen ? (
                     <div className="topbar-settings-menu topbar-settings-submenu-panel">
                       <button type="button" onClick={onToggleBlackAndWhite}>
-                        B&amp;W
+                        <MenuItemContent
+                          icon="filter"
+                          label="B&W"
+                          shortcut={formatMenuShortcut(
+                            shortcutBindings,
+                            "tools.toggleBlackAndWhite",
+                          )}
+                        />
                       </button>
                       <button type="button" onClick={onToggleBlur}>
-                        Blur
+                        <MenuItemContent
+                          icon="filter"
+                          label="Blur"
+                          shortcut={formatMenuShortcut(shortcutBindings, "tools.toggleBlur")}
+                        />
                       </button>
                     </div>
                   ) : null}
@@ -249,24 +334,47 @@ export const TopBar = ({
 
                 <div className="topbar-settings-divider" />
                 <button type="button" onClick={onActivateDoodle}>
-                  Doodle
+                  <MenuItemContent
+                    icon="doodle"
+                    label="Doodle"
+                    shortcut={formatMenuShortcut(shortcutBindings, "tools.toggleDoodle")}
+                  />
                 </button>
 
                 <div className="topbar-settings-divider" />
                 <button type="button" onClick={onShowShortcuts}>
-                  Keyboard Shortcut
+                  <MenuItemContent
+                    icon="shortcuts"
+                    label="Keyboard Shortcut"
+                  />
                 </button>
                 <button type="button" disabled={!canPaste} onClick={onPaste}>
-                  Paste
+                  <MenuItemContent
+                    icon="paste"
+                    label="Paste"
+                    shortcut={formatMenuShortcut(shortcutBindings, "edit.paste")}
+                  />
                 </button>
 
                 <div className="topbar-settings-divider" />
                 <button type="button" onClick={onExit}>
-                  Exit
+                  <MenuItemContent
+                    icon="exit"
+                    label="Exit"
+                    shortcut={formatMenuShortcut(shortcutBindings, "app.quit")}
+                  />
                 </button>
               </div>
             ) : null}
           </div>
+
+          <button
+            type="button"
+            className={`toolbar-button ${helpOpen ? "active" : ""}`}
+            onClick={onShowHelp}
+          >
+            Help
+          </button>
 
           {TOOL_ORDER.map((tool) => (
             <button

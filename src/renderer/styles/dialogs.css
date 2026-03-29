@@ -3,7 +3,7 @@
   z-index: 50;
   display: flex;
   flex-direction: column;
-  min-width: 172px;
+  min-width: 256px;
   padding: 6px;
   border: 1px solid var(--line-strong);
   border-radius: 7px;
@@ -18,6 +18,64 @@
   border-radius: 5px;
   text-align: left;
   font-size: 11px;
+}
+
+.menu-item-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+}
+
+.menu-item-leading,
+.menu-item-trailing {
+  display: inline-flex;
+  align-items: center;
+}
+
+.menu-item-leading {
+  gap: 10px;
+  min-width: 0;
+}
+
+.menu-item-trailing {
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.menu-item-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  color: rgba(243, 243, 242, 0.72);
+}
+
+.menu-item-icon svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  fill: none;
+}
+
+.menu-item-label {
+  min-width: 0;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.menu-item-shortcut {
+  color: var(--text-dim);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.menu-item-chevron {
+  color: var(--text-dim);
+  font-size: 13px;
+  line-height: 1;
 }
 
 .app-menu-submenu {
@@ -40,7 +98,7 @@
   position: absolute;
   top: -6px;
   left: calc(100% - 2px);
-  min-width: 132px;
+  min-width: 256px;
   padding: 6px;
 }
 
@@ -425,6 +483,132 @@
   background: rgba(255, 255, 255, 0.03);
   color: var(--text-soft);
   font-size: 18px;
+}
+
+.help-dialog {
+  width: min(980px, calc(100vw - 48px));
+  max-height: min(86vh, 920px);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line-strong);
+  background: rgba(31, 31, 33, 0.98);
+  box-shadow: 0 30px 72px rgba(0, 0, 0, 0.52);
+  overflow: hidden;
+}
+
+.help-dialog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 26px 28px 20px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.help-dialog-title-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.help-dialog-kicker {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.help-dialog-header h2 {
+  margin: 0;
+  font-size: 28px;
+  line-height: 1.05;
+}
+
+.help-dialog-lead {
+  max-width: 620px;
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.help-guide-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  padding: 22px 28px 28px;
+  overflow-y: auto;
+}
+
+.help-section-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.help-section-header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.help-section-header strong {
+  font-size: 16px;
+  color: var(--text);
+}
+
+.help-section-header span {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.help-feature-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.help-feature-item {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.help-feature-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(240, 162, 63, 0.18);
+  border-radius: 11px;
+  background: rgba(240, 162, 63, 0.08);
+  color: #f5be71;
+}
+
+.help-feature-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.help-feature-copy h3 {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.help-feature-copy p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text-soft);
 }
 
 .shortcut-dialog-sections {

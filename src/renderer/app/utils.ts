@@ -1,3 +1,5 @@
+import type { Project } from "@shared/types/project";
+
 export const formatTimestamp = (value: string) => {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.valueOf())) {
@@ -11,3 +13,12 @@ export const formatTimestamp = (value: string) => {
     minute: "2-digit",
   }).format(parsed);
 };
+
+export const getProjectDirtySignature = (project: Project) =>
+  JSON.stringify({
+    title: project.title,
+    filePath: project.filePath ?? null,
+    activeGroupId: project.activeGroupId,
+    groups: project.groups,
+    tasks: project.tasks,
+  });

@@ -2,26 +2,27 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type MouseEvent as ReactMouseEvent,
 } from "react";
-import type { CanvasItem, ImageItem, Project } from "@shared/types/project";
+import type { Project } from "@shared/types/project";
+import { useAppShortcuts } from "@renderer/app/hooks/use-app-shortcuts";
+import { useAppUiState } from "@renderer/app/hooks/use-app-ui-state";
+import { useCanvasStage } from "@renderer/app/hooks/use-canvas-stage";
+import { useExportActions } from "@renderer/app/hooks/use-export-actions";
+import { useProjectFileActions } from "@renderer/app/hooks/use-project-file-actions";
+import { useWindowControls } from "@renderer/app/hooks/use-window-controls";
+import { getProjectDirtySignature } from "@renderer/app/utils";
 import { CanvasBoard } from "@renderer/pixi/CanvasBoard";
 import { ProjectProvider } from "@renderer/state/project-store";
 import { useProjectStore } from "@renderer/state/use-project-store";
-import { useShortcuts } from "@renderer/hooks/use-shortcuts";
 import { CaptureWindowApp } from "@renderer/app/CaptureWindowApp";
 import { ConnectDialog } from "@renderer/features/connect/components/ConnectDialog";
 import { useConnectFeature } from "@renderer/features/connect/hooks/use-connect-feature";
 import type { CaptureSource } from "@renderer/features/connect/types";
 import { CAPTURE_QUALITY_PROFILES } from "@renderer/features/connect/utils";
-import {
-  collectClipboardPayload,
-  collectDropPayload,
-} from "@renderer/features/import/image-import";
+import { collectClipboardPayload, collectDropPayload } from "@renderer/features/import/image-import";
 import { useImportQueueSession } from "@renderer/features/import/hooks/use-import-queue-session";
-import { extractImageSwatches } from "@renderer/features/import/swatches";
 import { GroupDialog } from "@renderer/features/groups/components/GroupDialog";
 import { GroupOverlay } from "@renderer/features/groups/components/GroupOverlay";
 import { useGroupFeature } from "@renderer/features/groups/hooks/use-group-feature";
@@ -34,18 +35,11 @@ import { FilterFooter } from "@renderer/features/tools/components/FilterFooter";
 import { useToolFeature } from "@renderer/features/tools/hooks/use-tool-feature";
 import { useCanvasWorkspace } from "@renderer/features/workspace/hooks/use-canvas-workspace";
 import { useToast } from "@renderer/hooks/use-toast";
-import type { MenuState } from "@renderer/app/types";
 import { AppMenu } from "@renderer/app/components/AppMenu";
 import { TopBar } from "@renderer/app/components/TopBar";
 import { AppInfoPanel } from "@renderer/app/components/AppInfoPanel";
 import { ConfirmCloseDialog } from "@renderer/app/components/ConfirmCloseDialog";
 import { StatusBar } from "@renderer/app/components/StatusBar";
-
-const getProjectDirtySignature = (project: Project) =>
-  JSON.stringify({
-    ...project,
-    updatedAt: undefined,
-  });
 
 export const App = () => {
   const mode = new URLSearchParams(window.location.search).get("mode");
@@ -74,36 +68,34 @@ export const App = () => {
 };
 
 const AppContent = () => {
-  const [version, setVersion] = useState("loading");
-  const [recentFiles, setRecentFiles] = useState<string[]>([]);
-  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
-  const [lastImportedItemIds, setLastImportedItemIds] = useState<string[]>([]);
-  const [clipboardItems, setClipboardItems] = useState<CanvasItem[]>([]);
-  const [retryingEntryId, setRetryingEntryId] = useState<string | null>(null);
-  const [appInfoOpen, setAppInfoOpen] = useState(false);
-  const [canvasSizePreview, setCanvasSizePreview] = useState<{
-    width: number;
-    height: number;
-  } | null>(null);
-  const [snapEnabled, setSnapEnabled] = useState(true);
-  const [autoArrangeOnImport, setAutoArrangeOnImport] = useState(true);
-  const [menuState, setMenuState] = useState<MenuState | null>(null);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
-  const [windowMaximized, setWindowMaximized] = useState(false);
-  const [windowAlwaysOnTop, setWindowAlwaysOnTop] = useState(false);
-  const [groupsOverlayOpen, setGroupsOverlayOpen] = useState(false);
-  const hasInitializedViewRef = useRef(false);
-  const centeredGroupIdsRef = useRef(new Set<string>());
-  const previousActiveGroupIdRef = useRef<string | null>(null);
-  const canvasStageRef = useRef<HTMLDivElement | null>(null);
-  const exportCanvasImageRef = useRef<(() => string | null) | null>(null);
-  const allowWindowCloseRef = useRef(false);
-  const lastSavedSignatureRef = useRef<string>("");
-  const [viewportSize, setViewportSize] = useState<{
-    width: number;
-    height: number;
-  } | null>(null);
+  const {
+    recentFiles,
+    setRecentFiles,
+    selectedItemIds,
+    setSelectedItemIds,
+    lastImportedItemIds,
+    setLastImportedItemIds,
+    clipboardItems,
+    setClipboardItems,
+    appInfoOpen,
+    setAppInfoOpen,
+    canvasSizePreview,
+    setCanvasSizePreview,
+    snapEnabled,
+    setSnapEnabled,
+    autoArrangeOnImport,
+    setAutoArrangeOnImport,
+    menuState,
+    setMenuState,
+    settingsOpen,
+    setSettingsOpen,
+    groupsOverlayOpen,
+    setGroupsOverlayOpen,
+    hasInitializedViewRef,
+    centeredGroupIdsRef,
+    previousActiveGroupIdRef,
+    lastSavedSignatureRef,
+  } = useAppUiState();
 
   const {
     project,
@@ -136,7 +128,10 @@ const AppContent = () => {
       project.groups[0],
     [project.activeGroupId, project.groups],
   );
-  const dirtySignature = useMemo(() => getProjectDirtySignature(project), [project]);
+  const dirtySignature = useMemo(
+    () => getProjectDirtySignature(project),
+    [project],
+  );
   const hasUnsavedChanges =
     lastSavedSignatureRef.current !== "" &&
     dirtySignature !== lastSavedSignatureRef.current;
@@ -146,8 +141,18 @@ const AppContent = () => {
   const { toast, pushToast } = useToast();
   const { importQueue, setImportQueue } = useImportQueueSession(project);
 
+  const refreshRecents = useCallback(() => {
+    window.desktopApi.project
+      .getRecentFiles()
+      .then(setRecentFiles)
+      .catch(() => setRecentFiles([]));
+  }, []);
+
   const handleConnectCapture = useCallback(
-    async (source: CaptureSource, quality: keyof typeof CAPTURE_QUALITY_PROFILES) => {
+    async (
+      source: CaptureSource,
+      quality: keyof typeof CAPTURE_QUALITY_PROFILES,
+    ) => {
       await window.desktopApi.capture.openWindow({
         sourceId: source.id,
         sourceName: source.name,
@@ -235,70 +240,8 @@ const AppContent = () => {
     pushToast,
     onConnectRequested: openConnectDialog,
   });
-
-  const refreshRecents = useCallback(() => {
-    window.desktopApi.project
-      .getRecentFiles()
-      .then(setRecentFiles)
-      .catch(() => setRecentFiles([]));
-  }, []);
-
-  useEffect(() => {
-    if (!lastSavedSignatureRef.current) {
-      lastSavedSignatureRef.current = getProjectDirtySignature(project);
-    }
-  }, [project]);
-
-  useEffect(() => {
-    void Promise.all([
-      window.desktopApi.app
-        .getVersion()
-        .then(setVersion)
-        .catch(() => setVersion("unknown")),
-      window.desktopApi.window
-        .getControlsState()
-        .then((state) => {
-          setWindowMaximized(state.isMaximized);
-          setWindowAlwaysOnTop(state.isAlwaysOnTop);
-        })
-        .catch(() => {
-          setWindowMaximized(false);
-          setWindowAlwaysOnTop(false);
-        }),
-    ]);
-    refreshRecents();
-  }, [refreshRecents]);
-
-  useEffect(() => {
-    const fileName = project.filePath?.split(/[\\/]/).at(-1);
-    void window.desktopApi.window.setTitle({
-      title: project.title,
-      fileName,
-    });
-  }, [project.filePath, project.title]);
-
-  useEffect(() => {
-    const node = canvasStageRef.current;
-    if (!node) {
-      return;
-    }
-
-    const updateViewportSize = () => {
-      setViewportSize({
-        width: Math.round(node.clientWidth),
-        height: Math.round(node.clientHeight),
-      });
-    };
-
-    updateViewportSize();
-
-    const observer = new ResizeObserver(() => {
-      updateViewportSize();
-    });
-    observer.observe(node);
-
-    return () => observer.disconnect();
-  }, []);
+  const { canvasStageRef, exportCanvasImageRef, viewportSize } =
+    useCanvasStage();
 
   const {
     importVisibilitySnapshot,
@@ -342,43 +285,48 @@ const AppContent = () => {
     runHistoryBatch,
   });
 
-  const retryImportEntry = useCallback(
-    async (entryId: string) => {
-      setRetryingEntryId(entryId);
+  const {
+    version,
+    retryingEntryId,
+    retryImportEntry,
+    handleOpenProject,
+    handleSaveProject,
+    handleSaveProjectAs,
+  } = useProjectFileActions({
+    project,
+    refreshRecents,
+    openProject,
+    saveProject,
+    saveProjectAs,
+    retryImportEntryBase,
+    lastSavedSignatureRef,
+  });
 
-      try {
-        await retryImportEntryBase(entryId);
-      } finally {
-        setRetryingEntryId(null);
-      }
-    },
-    [retryImportEntryBase],
-  );
+  const {
+    confirmCloseOpen,
+    setConfirmCloseOpen,
+    windowMaximized,
+    windowAlwaysOnTop,
+    handleMinimizeWindow,
+    handleToggleAlwaysOnTop,
+    handleToggleMaximize,
+    handleDiscardAndClose,
+    handleSaveAndClose,
+    handleCloseWindow,
+  } = useWindowControls({
+    hasUnsavedChanges,
+    projectFilePath: project.filePath,
+    handleSaveProject,
+    handleSaveProjectAs,
+  });
 
-  const handleOpenProject = useCallback(async () => {
-    const nextProject = await openProject();
-    if (nextProject) {
-      lastSavedSignatureRef.current = getProjectDirtySignature(nextProject);
-    }
-  }, [openProject]);
-
-  const handleSaveProject = useCallback(async () => {
-    const nextProject = await saveProject();
-    if (nextProject) {
-      lastSavedSignatureRef.current = getProjectDirtySignature(nextProject);
-    }
-
-    return nextProject;
-  }, [saveProject]);
-
-  const handleSaveProjectAs = useCallback(async () => {
-    const nextProject = await saveProjectAs();
-    if (nextProject) {
-      lastSavedSignatureRef.current = getProjectDirtySignature(nextProject);
-    }
-
-    return nextProject;
-  }, [saveProjectAs]);
+  useEffect(() => {
+    const fileName = project.filePath?.split(/[\\/]/).at(-1);
+    void window.desktopApi.window.setTitle({
+      title: project.title,
+      fileName,
+    });
+  }, [project.filePath, project.title]);
 
   useEffect(() => {
     if (!activeGroup || hasInitializedViewRef.current) {
@@ -420,80 +368,28 @@ const AppContent = () => {
     });
   }, [activeGroup, resetView, viewportSize]);
 
-  const shortcutHandlers = useMemo(
-    () => ({
-      "Ctrl+O": () => void handleOpenProject(),
-      "Ctrl+S": () => void handleSaveProject(),
-      "Ctrl+Shift+S": () => void handleSaveProjectAs(),
-      "Ctrl+Z": undo,
-      "Ctrl+Shift+Z": redo,
-      "Ctrl+X": cutSelectedItems,
-      "Ctrl+F": () => {
-        if (!activeGroup || selectedItemIds.length === 0) {
-          return;
-        }
-
-        flipItems(activeGroup.id, selectedItemIds);
-      },
-      "Ctrl+C": copySelectedItemsToClipboard,
-      "Ctrl+0": resetView,
-      "Ctrl+G": openGroupDialog,
-      "Ctrl+T": openTaskDialog,
-      "Ctrl+B": toggleBlur,
-      "Ctrl+Y": toggleBlackAndWhite,
-      "Ctrl+Shift+F": autoArrange,
-      Delete: deleteSelectedItems,
-    }),
-    [
-      autoArrange,
-      copySelectedItemsToClipboard,
-      cutSelectedItems,
-      deleteSelectedItems,
-      flipItems,
-      handleOpenProject,
-      handleSaveProject,
-      handleSaveProjectAs,
-      openGroupDialog,
-      openTaskDialog,
-      redo,
-      resetView,
-      toggleBlackAndWhite,
-      toggleBlur,
-      undo,
-    ],
-  );
-
-  useEffect(() => {
-    const onPaste = (event: ClipboardEvent) => {
-      if (event.target instanceof HTMLElement) {
-        if (
-          event.target.isContentEditable ||
-          event.target.tagName === "INPUT" ||
-          event.target.tagName === "TEXTAREA" ||
-          event.target.tagName === "SELECT"
-        ) {
-          return;
-        }
-      }
-
-      if (clipboardItems.length > 0) {
-        event.preventDefault();
-        pasteClipboardItems();
-        return;
-      }
-
-      const payload = collectClipboardPayload(event);
-      if (payload.files.length === 0 && payload.urls.length === 0) {
-        return;
-      }
-
-      event.preventDefault();
-      void importFromPayload(payload);
-    };
-
-    window.addEventListener("paste", onPaste);
-    return () => window.removeEventListener("paste", onPaste);
-  }, [clipboardItems.length, importFromPayload, pasteClipboardItems]);
+  useAppShortcuts({
+    activeGroupId,
+    selectedItemIds,
+    clipboardItems,
+    handleOpenProject,
+    handleSaveProject,
+    handleSaveProjectAs,
+    undo,
+    redo,
+    cutSelectedItems,
+    copySelectedItemsToClipboard,
+    pasteClipboardItems,
+    deleteSelectedItems,
+    flipItems,
+    resetView,
+    openGroupDialog,
+    openTaskDialog,
+    toggleBlur,
+    toggleBlackAndWhite,
+    autoArrange,
+    importFromPayload,
+  });
 
   useEffect(() => {
     if (!menuState && !taskDialogOpen && !groupDialogOpen && !settingsOpen) {
@@ -523,24 +419,6 @@ const AppContent = () => {
   }, [groupDialogOpen, menuState, settingsOpen, taskDialogOpen]);
 
   useEffect(() => {
-    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (allowWindowCloseRef.current || !hasUnsavedChanges) {
-        return;
-      }
-
-      event.preventDefault();
-      event.returnValue = false;
-      setConfirmCloseOpen(true);
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () =>
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [hasUnsavedChanges]);
-
-  useShortcuts(shortcutHandlers);
-
-  useEffect(() => {
     if (!activeGroupId) {
       return;
     }
@@ -550,7 +428,6 @@ const AppContent = () => {
       previousActiveGroupIdRef.current = activeGroupId;
     }
   }, [activeGroupId]);
-
   const handleShellContextMenu = (event: ReactMouseEvent<HTMLDivElement>) => {
     event.preventDefault();
     setMenuState({
@@ -558,60 +435,6 @@ const AppContent = () => {
       y: event.clientY,
     });
   };
-
-  const handleMinimizeWindow = () => {
-    void window.desktopApi.window.minimize();
-  };
-
-  const handleDiscardAndClose = useCallback(() => {
-    setConfirmCloseOpen(false);
-    allowWindowCloseRef.current = true;
-    void window.desktopApi.app.quit();
-  }, []);
-
-  const handleSaveAndClose = useCallback(async () => {
-    const nextProject = project.filePath
-      ? await handleSaveProject()
-      : await handleSaveProjectAs();
-
-    if (!nextProject) {
-      return;
-    }
-
-    setConfirmCloseOpen(false);
-    allowWindowCloseRef.current = true;
-    void window.desktopApi.app.quit();
-  }, [handleSaveProject, handleSaveProjectAs, project.filePath]);
-
-  const handleToggleAlwaysOnTop = () => {
-    void window.desktopApi.window
-      .toggleAlwaysOnTop()
-      .then((state) => {
-        setWindowMaximized(state.isMaximized);
-        setWindowAlwaysOnTop(state.isAlwaysOnTop);
-      })
-      .catch(() => null);
-  };
-
-  const handleToggleMaximize = () => {
-    void window.desktopApi.window
-      .toggleMaximize()
-      .then((state) => {
-        setWindowMaximized(state.isMaximized);
-        setWindowAlwaysOnTop(state.isAlwaysOnTop);
-      })
-      .catch(() => null);
-  };
-
-  const handleCloseWindow = useCallback(() => {
-    if (hasUnsavedChanges) {
-      setConfirmCloseOpen(true);
-      return;
-    }
-
-    allowWindowCloseRef.current = true;
-    void window.desktopApi.app.quit();
-  }, [hasUnsavedChanges]);
 
   const zoomLabel = activeGroup
     ? `${Math.round(activeGroup.zoom * 100)}%`
@@ -623,196 +446,22 @@ const AppContent = () => {
       : "0 x 0";
   const projectFileName =
     project.filePath?.split(/[\\/]/).at(-1) ?? "Untitled.canvas";
-  const activeDoodleSize =
-    doodleMode === "brush" ? brushSize : eraserSize;
-  const selectedImageForSwatchExport =
-    selectedItemIds.length === 1 && activeGroup
-      ? activeGroup.items.find(
-          (item): item is ImageItem =>
-            item.id === selectedItemIds[0] && item.type === "image",
-        )
-      : undefined;
-  const canExportSelectedSwatch = Boolean(selectedImageForSwatchExport);
-
-  const handleExportSelectedSwatch = useCallback(async () => {
-    if (!selectedImageForSwatchExport || selectedImageForSwatchExport.type !== "image") {
-      pushToast("info", "Select one image to export swatches.");
-      return;
-    }
-
-    let swatches =
-      selectedImageForSwatchExport.swatches?.length
-        ? selectedImageForSwatchExport.swatches.map((swatch) => ({
-            colorHex: swatch.colorHex,
-            name: swatch.label,
-          }))
-        : selectedImageForSwatchExport.swatchHex
-          ? [
-              {
-                colorHex: selectedImageForSwatchExport.swatchHex,
-                name: selectedImageForSwatchExport.label ?? "Swatch 1",
-              },
-            ]
-          : [];
-
-    if (swatches.length === 0 && selectedImageForSwatchExport.assetPath) {
-      let source = selectedImageForSwatchExport.assetPath;
-      if (/^https?:\/\//i.test(source)) {
-        source =
-          (await window.desktopApi.import.fetchRemoteImageDataUrl({
-            url: source,
-          })) ?? source;
-      }
-
-      const extracted = await extractImageSwatches(source);
-      swatches = extracted.map((swatch) => ({
-        colorHex: swatch.colorHex,
-        name: swatch.label,
-      }));
-    }
-
-    if (swatches.length === 0) {
-      pushToast("error", "No swatches available to export for this image.");
-      return;
-    }
-
-    if (typeof window.desktopApi.project.exportSwatchAco !== "function") {
-      pushToast("error", "Swatch export needs an app restart to load the new desktop API.");
-      return;
-    }
-
-    try {
-      const result = await window.desktopApi.project.exportSwatchAco({
-        swatches,
-        name: selectedImageForSwatchExport.label ?? "Swatch",
-      });
-
-      if (!result) {
-        return;
-      }
-
-      pushToast("success", "Swatches exported as .aco.");
-    } catch (error) {
-      pushToast(
-        "error",
-        error instanceof Error ? error.message : "Swatch export failed.",
-      );
-    }
-  }, [pushToast, selectedImageForSwatchExport]);
-
-  const handleExportCanvasImage = useCallback(async () => {
-    const dataUrl = exportCanvasImageRef.current?.() ?? null;
-    if (!dataUrl) {
-      pushToast("error", "Canvas export is not ready yet.");
-      return;
-    }
-
-    try {
-      const result = await window.desktopApi.project.exportCanvasImage({
-        dataUrl,
-        name: activeGroup?.name ?? project.title,
-      });
-
-      if (!result) {
-        return;
-      }
-
-      pushToast("success", "Canvas exported as image.");
-    } catch (error) {
-      pushToast(
-        "error",
-        error instanceof Error ? error.message : "Canvas export failed.",
-      );
-    }
-  }, [activeGroup?.name, project.title, pushToast]);
-
-  const handleExportGroupImages = useCallback(async () => {
-    if (!activeGroup) {
-      pushToast("info", "No active canvas to export.");
-      return;
-    }
-
-    const images = activeGroup.items.flatMap((item) =>
-      item.type === "image" && item.assetPath
-        ? [{ assetPath: item.assetPath, label: item.label }]
-        : [],
-    );
-
-    if (images.length === 0) {
-      pushToast("info", "No images in this canvas to export.");
-      return;
-    }
-
-    try {
-      const result = await window.desktopApi.project.exportGroupImages({
-        images,
-        groupName: activeGroup.name,
-      });
-
-      if (!result) {
-        return;
-      }
-
-      pushToast("success", "Canvas images exported to folder.");
-    } catch (error) {
-      pushToast(
-        "error",
-        error instanceof Error ? error.message : "Image export failed.",
-      );
-    }
-  }, [activeGroup, pushToast]);
-
-  const handleExportSelectedTaskHtml = useCallback(async () => {
-    if (!selectedTask) {
-      pushToast("info", "Select a task to export.");
-      return;
-    }
-
-    try {
-      const result = await window.desktopApi.project.exportTasksHtml({
-        projectTitle: project.title,
-        tasks: [selectedTask],
-        name: `${selectedTask.title} Task`,
-      });
-
-      if (!result) {
-        return;
-      }
-
-      pushToast("success", "Task exported to HTML.");
-    } catch (error) {
-      pushToast(
-        "error",
-        error instanceof Error ? error.message : "Task export failed.",
-      );
-    }
-  }, [project.title, pushToast, selectedTask]);
-
-  const handleExportAllTasksHtml = useCallback(async () => {
-    if (project.tasks.length === 0) {
-      pushToast("info", "No tasks available to export.");
-      return;
-    }
-
-    try {
-      const result = await window.desktopApi.project.exportTasksHtml({
-        projectTitle: project.title,
-        tasks: project.tasks,
-        name: `${project.title} Tasks`,
-      });
-
-      if (!result) {
-        return;
-      }
-
-      pushToast("success", "All tasks exported to HTML.");
-    } catch (error) {
-      pushToast(
-        "error",
-        error instanceof Error ? error.message : "Task export failed.",
-      );
-    }
-  }, [project.tasks, project.title, pushToast]);
+  const activeDoodleSize = doodleMode === "brush" ? brushSize : eraserSize;
+  const {
+    canExportSelectedSwatch,
+    handleExportSelectedSwatch,
+    handleExportCanvasImage,
+    handleExportGroupImages,
+    handleExportSelectedTaskHtml,
+    handleExportAllTasksHtml,
+  } = useExportActions({
+    activeGroup,
+    project,
+    pushToast,
+    selectedItemIds,
+    selectedTask: selectedTask ?? undefined,
+    exportCanvasImageRef,
+  });
 
   const handleAppShellDrop = useCallback(
     (event: React.DragEvent<HTMLDivElement>) => {

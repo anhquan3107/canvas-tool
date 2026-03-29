@@ -4,10 +4,12 @@ import { ZERO_INSETS } from "@renderer/pixi/constants";
 import { hexToPixiColor, hexToRgba } from "@renderer/pixi/utils/color";
 import { clamp } from "@renderer/pixi/utils/geometry";
 import type {
+  ActiveSelectionTransformState,
   ActiveItemDragState,
   ActiveSelectionBoxState,
   CanvasInsets,
   CanvasSizePreview,
+  CropSession,
 } from "@renderer/pixi/types";
 import type { ReferenceGroup } from "@shared/types/project";
 import type { DoodleMode, ToolMode } from "@renderer/features/tools/types";
@@ -23,7 +25,9 @@ interface UseCanvasBoardViewOptions {
   groupRef: MutableRefObject<ReferenceGroup>;
   selectionIdsRef: MutableRefObject<string[]>;
   activeItemDragRef: MutableRefObject<ActiveItemDragState | null>;
+  activeSelectionTransformRef: MutableRefObject<ActiveSelectionTransformState | null>;
   activeSelectionBoxRef: MutableRefObject<ActiveSelectionBoxState | null>;
+  cropSessionRef: MutableRefObject<CropSession | null>;
   onSelectionChangeRef: MutableRefObject<(itemIds: string[]) => void>;
   onViewChangeRef: MutableRefObject<(zoom: number, panX: number, panY: number) => void>;
   onCanvasSizePreviewChangeRef: MutableRefObject<
@@ -49,7 +53,9 @@ export const useCanvasBoardView = ({
   groupRef,
   selectionIdsRef,
   activeItemDragRef,
+  activeSelectionTransformRef,
   activeSelectionBoxRef,
+  cropSessionRef,
   onSelectionChangeRef,
   onViewChangeRef,
   onCanvasSizePreviewChangeRef,
@@ -389,7 +395,7 @@ export const useCanvasBoardView = ({
       return;
     }
 
-    if (selectionIdsRef.current.length <= 1) {
+    if (selectionIdsRef.current.length === 0) {
       hideSelectedBoundsOverlay();
       return;
     }
@@ -398,13 +404,14 @@ export const useCanvasBoardView = ({
       (item) => item.visible && selectionIdsRef.current.includes(item.id),
     );
 
-    if (selectedItems.length <= 1) {
+    if (selectedItems.length === 0) {
       hideSelectedBoundsOverlay();
       return;
     }
 
     const activeDrag = activeItemDragRef.current;
-    const usingLiveDragNodes = Boolean(activeDrag?.hasMoved);
+    const activeTransform = activeSelectionTransformRef.current;
+    const usingLiveNodes = Boolean(activeDrag?.hasMoved || activeTransform?.hasChanged);
 
     const selectedBounds = selectedItems.map((item) => {
       const itemNode = itemNodeByIdRef.current.get(item.id);
@@ -412,11 +419,17 @@ export const useCanvasBoardView = ({
       const height =
         Number.isFinite(item.height) && item.height > 1 ? item.height : 120;
 
-      if (usingLiveDragNodes && itemNode) {
-        const minItemX = itemNode.position.x + Math.min(0, width * itemNode.scale.x);
-        const minItemY = itemNode.position.y + Math.min(0, height * itemNode.scale.y);
-        const maxItemX = itemNode.position.x + Math.max(0, width * itemNode.scale.x);
-        const maxItemY = itemNode.position.y + Math.max(0, height * itemNode.scale.y);
+      if (usingLiveNodes && itemNode) {
+        const leftX = itemNode.position.x + (0 - itemNode.pivot.x) * itemNode.scale.x;
+        const rightX =
+          itemNode.position.x + (width - itemNode.pivot.x) * itemNode.scale.x;
+        const topY = itemNode.position.y + (0 - itemNode.pivot.y) * itemNode.scale.y;
+        const bottomY =
+          itemNode.position.y + (height - itemNode.pivot.y) * itemNode.scale.y;
+        const minItemX = Math.min(leftX, rightX);
+        const minItemY = Math.min(topY, bottomY);
+        const maxItemX = Math.max(leftX, rightX);
+        const maxItemY = Math.max(topY, bottomY);
 
         return {
           minX: minItemX,
@@ -430,20 +443,40 @@ export const useCanvasBoardView = ({
         Number.isFinite(item.scaleX) && item.scaleX !== 0 ? item.scaleX : 1;
       const scaleY =
         Number.isFinite(item.scaleY) && item.scaleY !== 0 ? item.scaleY : 1;
-      const resolvedScaleX = item.flippedX ? -scaleX : scaleX;
+      const visualWidth = width * Math.abs(scaleX);
+      const visualHeight = height * Math.abs(scaleY);
 
       return {
-        minX: item.x + Math.min(0, width * resolvedScaleX),
-        minY: item.y + Math.min(0, height * scaleY),
-        maxX: item.x + Math.max(0, width * resolvedScaleX),
-        maxY: item.y + Math.max(0, height * scaleY),
+        minX: item.x,
+        minY: item.y,
+        maxX: item.x + visualWidth,
+        maxY: item.y + visualHeight,
       };
     });
 
-    const minX = Math.min(...selectedBounds.map((item) => item.minX));
-    const minY = Math.min(...selectedBounds.map((item) => item.minY));
-    const maxX = Math.max(...selectedBounds.map((item) => item.maxX));
-    const maxY = Math.max(...selectedBounds.map((item) => item.maxY));
+    let minX = Math.min(...selectedBounds.map((item) => item.minX));
+    let minY = Math.min(...selectedBounds.map((item) => item.minY));
+    let maxX = Math.max(...selectedBounds.map((item) => item.maxX));
+    let maxY = Math.max(...selectedBounds.map((item) => item.maxY));
+
+    const cropSession = cropSessionRef.current;
+    if (
+      cropSession &&
+      selectedItems.length === 1 &&
+      selectedItems[0]?.type === "image" &&
+      selectedItems[0].id === cropSession.itemId
+    ) {
+      const visualWidth = maxX - minX;
+      const visualHeight = maxY - minY;
+      const cropMinX = minX + visualWidth * cropSession.rect.left;
+      const cropMinY = minY + visualHeight * cropSession.rect.top;
+      const cropMaxX = minX + visualWidth * cropSession.rect.right;
+      const cropMaxY = minY + visualHeight * cropSession.rect.bottom;
+      minX = cropMinX;
+      minY = cropMinY;
+      maxX = cropMaxX;
+      maxY = cropMaxY;
+    }
 
     const padding = 4;
     const left = boardContainer.x + minX * boardContainer.scale.x - padding;
@@ -463,6 +496,8 @@ export const useCanvasBoardView = ({
     hostRef,
     selectedBoundsOverlayRef,
     activeItemDragRef,
+    activeSelectionTransformRef,
+    cropSessionRef,
     selectionIdsRef,
   ]);
 

@@ -9,6 +9,7 @@ import {
 interface AppMenuProps extends MenuState {
   shortcutBindings: ShortcutBindings;
   selectedCount: number;
+  canCropSelected: boolean;
   canExportSwatch: boolean;
   canPaste: boolean;
   canExportSelectedTask: boolean;
@@ -40,6 +41,8 @@ interface AppMenuProps extends MenuState {
   onCutSelected: () => void;
   onPaste: () => void;
   onDeleteSelected: () => void;
+  onCropSelected: () => void;
+  onFlipSelectedHorizontally: () => void;
   onArrangePinterest: () => void;
   onArrangeHorizontal: () => void;
   onExportSwatch: () => void;
@@ -51,6 +54,7 @@ export const AppMenu = ({
   y,
   shortcutBindings,
   selectedCount,
+  canCropSelected,
   canExportSwatch,
   canPaste,
   canExportSelectedTask,
@@ -82,6 +86,8 @@ export const AppMenu = ({
   onCutSelected,
   onPaste,
   onDeleteSelected,
+  onCropSelected,
+  onFlipSelectedHorizontally,
   onArrangePinterest,
   onArrangeHorizontal,
   onExportSwatch,
@@ -200,6 +206,28 @@ export const AppMenu = ({
               </div>
             ) : null}
           </div>
+          <div className="app-menu-divider" />
+          <button
+            type="button"
+            onClick={onCropSelected}
+            disabled={!canCropSelected}
+          >
+            <MenuItemContent
+              icon="crop"
+              label="Crop"
+              shortcut={formatMenuShortcut(shortcutBindings, "edit.crop")}
+            />
+          </button>
+          <button type="button" onClick={onFlipSelectedHorizontally}>
+            <MenuItemContent
+              icon="flip"
+              label="Flip Horizontal"
+              shortcut={formatMenuShortcut(
+                shortcutBindings,
+                "edit.flipHorizontal",
+              )}
+            />
+          </button>
           <div className="app-menu-divider" />
           <button type="button" onClick={onDeleteSelected}>
             <MenuItemContent

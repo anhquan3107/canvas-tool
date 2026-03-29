@@ -78,18 +78,36 @@ const createFallbackHint = (
 const drawSwatchTray = (
   itemNode: Container,
   paletteColors: string[],
+  safeWidth: number,
   safeHeight: number,
 ) => {
-  const visibleColors = paletteColors.slice(0, 10);
-  const chipWidth = 18;
-  const chipHeight = 18;
+  if (safeWidth < 34 || safeHeight < 28) {
+    return;
+  }
+
   const chipGap = 2;
-  const stripPadding = 5;
+  const stripPadding = 4;
+  const desiredChipWidth = 12;
+  const minChipWidth = 8;
+  const maxInnerWidth = Math.max(0, safeWidth - 20);
+  const chipWidth = Math.max(
+    minChipWidth,
+    Math.min(
+      desiredChipWidth,
+      Math.floor((maxInnerWidth - chipGap * 3) / 4),
+    ),
+  );
+  const chipHeight = chipWidth;
+  const maxVisibleCount = Math.max(
+    1,
+    Math.floor((maxInnerWidth + chipGap) / (chipWidth + chipGap)),
+  );
+  const visibleColors = paletteColors.slice(0, Math.min(10, maxVisibleCount));
   const stripWidth =
     visibleColors.length * chipWidth +
     Math.max(0, visibleColors.length - 1) * chipGap;
-  const stripX = 12;
-  const stripY = safeHeight - chipHeight - 12;
+  const stripX = 8;
+  const stripY = Math.max(6, safeHeight - chipHeight - 8);
 
   const tray = new Graphics();
   tray.roundRect(
@@ -97,7 +115,7 @@ const drawSwatchTray = (
     stripY - stripPadding,
     stripWidth + stripPadding * 2,
     chipHeight + stripPadding * 2,
-    7,
+    Math.max(4, chipWidth * 0.45),
   );
   tray.fill({ color: 0x111111, alpha: 0.72 });
   tray.stroke({
@@ -114,7 +132,7 @@ const drawSwatchTray = (
       stripY,
       chipWidth,
       chipHeight,
-      2,
+      Math.max(2, chipWidth * 0.18),
     );
     swatch.fill(hexToPixiColor(colorHex));
     swatch.stroke({
@@ -256,8 +274,48 @@ export const useCanvasBoardScene = ({
             }
 
             const sprite = new Sprite(texture);
-            sprite.width = safeWidth;
-            sprite.height = safeHeight;
+            const sourceWidth =
+              item.originalWidth ??
+              Math.max(1, Math.round(texture.width || safeWidth));
+            const sourceHeight =
+              item.originalHeight ??
+              Math.max(1, Math.round(texture.height || safeHeight));
+            const cropX = Math.max(
+              0,
+              Math.min(sourceWidth - 1, Math.round(item.cropX ?? 0)),
+            );
+            const cropY = Math.max(
+              0,
+              Math.min(sourceHeight - 1, Math.round(item.cropY ?? 0)),
+            );
+            const cropWidth = Math.max(
+              1,
+              Math.min(sourceWidth - cropX, Math.round(item.cropWidth ?? sourceWidth)),
+            );
+            const cropHeight = Math.max(
+              1,
+              Math.min(sourceHeight - cropY, Math.round(item.cropHeight ?? sourceHeight)),
+            );
+
+            if (
+              cropX > 0 ||
+              cropY > 0 ||
+              cropWidth < sourceWidth ||
+              cropHeight < sourceHeight
+            ) {
+              const cropMask = new Graphics();
+              cropMask.rect(0, 0, safeWidth, safeHeight).fill(0xffffff);
+              sprite.x = -(cropX * safeWidth) / cropWidth;
+              sprite.y = -(cropY * safeHeight) / cropHeight;
+              sprite.width = (sourceWidth * safeWidth) / cropWidth;
+              sprite.height = (sourceHeight * safeHeight) / cropHeight;
+              sprite.mask = cropMask;
+              itemNode.addChild(cropMask);
+            } else {
+              sprite.width = safeWidth;
+              sprite.height = safeHeight;
+            }
+
             sprite.roundPixels = true;
             sprite.alpha = 0.96;
             itemNode.addChildAt(sprite, 1);
@@ -316,7 +374,7 @@ export const useCanvasBoardScene = ({
             : item.swatchHex
               ? [item.swatchHex]
               : [];
-        drawSwatchTray(itemNode, paletteColors, safeHeight);
+        drawSwatchTray(itemNode, paletteColors, safeWidth, safeHeight);
       }
 
       itemNode.on("pointerdown", (event: FederatedPointerEvent) => {

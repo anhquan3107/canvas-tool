@@ -17,7 +17,10 @@
     "build:main": "esbuild src/main/index.ts --bundle --platform=node --format=cjs --external:electron --outfile=dist/main/index.js",
     "build:preload": "esbuild src/preload/index.ts --bundle --platform=node --format=cjs --external:electron --outfile=dist/preload/index.js",
     "typecheck": "tsc --noEmit",
-    "package": "npm run build && electron-builder"
+    "package": "npm run build && electron-builder",
+    "package:mac": "npm run build && electron-builder --mac dmg --arm64 -c.directories.output=release_mac",
+    "package:win": "docker run --rm -t -w /project --env ELECTRON_CACHE=/root/.cache/electron --env ELECTRON_BUILDER_CACHE=/root/.cache/electron-builder -v \"$PWD\":/project -v canvastool-node-modules:/project/node_modules -v \"$HOME/.cache/electron\":/root/.cache/electron -v \"$HOME/.cache/electron-builder\":/root/.cache/electron-builder electronuserland/builder:wine /bin/bash -lc \"npm ci && npm run build && npx electron-builder --win nsis --x64 -c.directories.output=release_win\"",
+    "package:win:native": "npm run build && electron-builder --win nsis --x64 -c.directories.output=release_win"
   },
   "dependencies": {
     "jszip": "^3.10.1",
@@ -60,6 +63,10 @@
       "target": [
         "nsis"
       ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
     }
   }
 }

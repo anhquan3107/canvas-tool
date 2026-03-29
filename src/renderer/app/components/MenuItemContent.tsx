@@ -2,7 +2,9 @@ import type { ShortcutActionId, ShortcutBindings } from "@shared/shortcuts";
 import {
   ClipboardPaste,
   Copy,
+  Crop,
   Expand,
+  FlipHorizontal,
   FolderOpen,
   Keyboard,
   LayoutGrid,
@@ -45,6 +47,8 @@ export type MenuIconId =
   | "copy"
   | "cut"
   | "delete"
+  | "crop"
+  | "flip"
   | "swatch"
   | "shortcuts";
 
@@ -131,6 +135,8 @@ const MENU_ICONS: Record<MenuIconId, LucideIcon> = {
   copy: Copy,
   cut: Scissors,
   delete: Trash2,
+  crop: Crop,
+  flip: FlipHorizontal,
   swatch: SwatchBook,
   shortcuts: Keyboard,
 };

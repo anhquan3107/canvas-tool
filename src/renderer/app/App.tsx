@@ -129,6 +129,7 @@ const AppContent = () => {
     patchGroupItems,
     addGroupItems,
     removeGroupItems,
+    flipItems,
     addGroup,
     setGroupFilters,
     setGroupCanvasSize,
@@ -148,6 +149,10 @@ const AppContent = () => {
       project.groups[0],
     [project.activeGroupId, project.groups],
   );
+  const [cropSession, setCropSession] = useState<{
+    itemId: string;
+    rect: { left: number; top: number; right: number; bottom: number };
+  } | null>(null);
   const activeGroupRef = useRef(activeGroup);
   const dirtySignature = useMemo(
     () => getProjectDirtySignature(project),
@@ -317,6 +322,8 @@ const AppContent = () => {
     cutSelectedItems,
     pasteClipboardItems,
     deleteSelectedItems,
+    flipSelectedItemsHorizontally,
+    applyCropToSelectedImage,
     arrangeSelectedItems,
     handleBoardViewChange,
     handleBoardItemsPatch,
@@ -341,6 +348,7 @@ const AppContent = () => {
     patchGroupItems,
     addGroupItems,
     removeGroupItems,
+    flipItems,
     setGroupCanvasSize,
     setGroupColors,
     setGroupLocked,
@@ -400,6 +408,7 @@ const AppContent = () => {
     setTaskDetailOpen(false);
     setConnectDialogOpen(false);
     setGroupsOverlayOpen(false);
+    setCropSession(null);
     closeShortcutDialog();
     closeZoomOverlay();
   }, [
@@ -416,6 +425,7 @@ const AppContent = () => {
     setHelpOpen,
     setTaskDetailOpen,
     setTaskDialogOpen,
+    setCropSession,
   ]);
 
   useEffect(() => {
@@ -598,6 +608,38 @@ const AppContent = () => {
     [importFromPayload],
   );
 
+  useEffect(() => {
+    if (!cropSession) {
+      return;
+    }
+
+    if (selectedStatusImage?.id !== cropSession.itemId) {
+      setCropSession(null);
+    }
+  }, [cropSession, selectedStatusImage]);
+
+  const toggleCropSelectedImage = useCallback(() => {
+    if (!selectedStatusImage) {
+      pushToast("info", "Select exactly one image to crop.");
+      return;
+    }
+
+    if (cropSession?.itemId === selectedStatusImage.id) {
+      applyCropToSelectedImage(cropSession.rect);
+      setCropSession(null);
+      return;
+    }
+
+    setCropSession({
+      itemId: selectedStatusImage.id,
+      rect: { left: 0, top: 0, right: 1, bottom: 1 },
+    });
+    pushToast(
+      "info",
+      "Crop mode active. Adjust handles, then press C again to apply.",
+    );
+  }, [applyCropToSelectedImage, cropSession, pushToast, selectedStatusImage]);
+
   const handleOpenCanvasSizeDialog = useCallback(() => {
     if (!activeGroup) {
       return;
@@ -677,6 +719,8 @@ const AppContent = () => {
     copySelectedItemsToClipboard,
     pasteClipboardItems,
     deleteSelectedItems,
+    cropSelectedImage: toggleCropSelectedImage,
+    flipSelectedItemsHorizontally,
     resetView,
     openCanvasSizeDialog: handleOpenCanvasSizeDialog,
     toggleCanvasLock,
@@ -712,6 +756,8 @@ const AppContent = () => {
           shortcutBindings={shortcutBindings}
           settingsOpen={settingsOpen}
           helpOpen={helpOpen}
+          selectedCount={selectedItemIds.length}
+          canCropSelected={Boolean(selectedStatusImage)}
           canPaste={clipboardItems.length > 0}
           canExportSelectedTask={Boolean(selectedTask)}
           canExportAnyTask={project.tasks.length > 0}
@@ -791,6 +837,14 @@ const AppContent = () => {
             setSettingsOpen(false);
             pasteClipboardItems();
           }}
+          onCropSelected={() => {
+            setSettingsOpen(false);
+            toggleCropSelectedImage();
+          }}
+          onFlipSelectedHorizontally={() => {
+            setSettingsOpen(false);
+            flipSelectedItemsHorizontally();
+          }}
           onExit={() => {
             setSettingsOpen(false);
             handleCloseWindow();
@@ -819,6 +873,12 @@ const AppContent = () => {
                   doodleColor={doodleColor}
                   doodleSize={activeDoodleSize}
                   selectedItemIds={selectedItemIds}
+                  cropSession={cropSession}
+                  onCropRectChange={(rect) =>
+                    setCropSession((previous) =>
+                      previous ? { ...previous, rect } : previous,
+                    )
+                  }
                   onSelectionChange={setSelectedItemIds}
                   onViewChange={handleBoardViewChange}
                   onItemsPatch={handleBoardItemsPatch}
@@ -984,6 +1044,7 @@ const AppContent = () => {
           y={menuState.y}
           shortcutBindings={shortcutBindings}
           selectedCount={selectedItemIds.length}
+          canCropSelected={Boolean(selectedStatusImage)}
           canExportSwatch={canExportSelectedSwatch}
           canPaste={clipboardItems.length > 0}
           canExportSelectedTask={Boolean(selectedTask)}
@@ -1079,6 +1140,14 @@ const AppContent = () => {
           onDeleteSelected={() => {
             setMenuState(null);
             deleteSelectedItems();
+          }}
+          onCropSelected={() => {
+            setMenuState(null);
+            toggleCropSelectedImage();
+          }}
+          onFlipSelectedHorizontally={() => {
+            setMenuState(null);
+            flipSelectedItemsHorizontally();
           }}
           onArrangePinterest={() => {
             setMenuState(null);

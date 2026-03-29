@@ -25,6 +25,8 @@ interface UseAppShortcutsOptions {
   copySelectedItemsToClipboard: () => void;
   pasteClipboardItems: () => void;
   deleteSelectedItems: () => void;
+  cropSelectedImage: () => void;
+  flipSelectedItemsHorizontally: () => void;
   resetView: () => void;
   openCanvasSizeDialog: () => void;
   toggleCanvasLock: () => void;
@@ -62,6 +64,8 @@ export const useAppShortcuts = ({
   copySelectedItemsToClipboard,
   pasteClipboardItems,
   deleteSelectedItems,
+  cropSelectedImage,
+  flipSelectedItemsHorizontally,
   resetView,
   openCanvasSizeDialog,
   toggleCanvasLock,
@@ -95,6 +99,8 @@ export const useAppShortcuts = ({
       "edit.copy": copySelectedItemsToClipboard,
       "edit.paste": pasteClipboardItems,
       "edit.delete": deleteSelectedItems,
+      "edit.crop": cropSelectedImage,
+      "edit.flipHorizontal": flipSelectedItemsHorizontally,
       "canvas.resetView": resetView,
       "canvas.changeSize": openCanvasSizeDialog,
       "canvas.toggleLock": toggleCanvasLock,
@@ -135,8 +141,10 @@ export const useAppShortcuts = ({
       autoArrange,
       clearTransientUi,
       copySelectedItemsToClipboard,
+      cropSelectedImage,
       cutSelectedItems,
       deleteSelectedItems,
+      flipSelectedItemsHorizontally,
       handleExportAllTasksHtml,
       handleExportCanvasImage,
       handleExportGroupImages,

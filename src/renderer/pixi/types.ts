@@ -29,6 +29,8 @@ export interface CanvasBoardProps {
   doodleColor: string;
   doodleSize: number;
   selectedItemIds: string[];
+  cropSession: CropSession | null;
+  onCropRectChange?: (rect: CropRect) => void;
   onSelectionChange: (itemIds: string[]) => void;
   onViewChange: (zoom: number, panX: number, panY: number) => void;
   onItemsPatch: (updates: Record<string, CanvasItemPatch>) => void;
@@ -76,4 +78,41 @@ export interface ActiveAnnotationSessionState {
   annotations: AnnotationStroke[];
   lastPoint: { x: number; y: number };
   changed: boolean;
+}
+
+export interface CropRect {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
+export interface CropSession {
+  itemId: string;
+  rect: CropRect;
+}
+
+export type TransformHandle = "nw" | "ne" | "se" | "sw";
+
+export interface ActiveSelectionTransformState {
+  handle: TransformHandle;
+  anchor: { x: number; y: number };
+  bounds: { minX: number; minY: number; maxX: number; maxY: number };
+  items: Array<{
+    itemId: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    scaleX: number;
+    scaleY: number;
+    resolvedScaleX: number;
+    flippedX: boolean;
+    minX: number;
+    minY: number;
+    maxX: number;
+    maxY: number;
+  }>;
+  patchBuffer: Record<string, CanvasItemPatch>;
+  hasChanged: boolean;
 }

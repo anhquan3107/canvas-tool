@@ -238,8 +238,10 @@ export const useCanvasBoardBootstrap = ({
         const rect = host.getBoundingClientRect();
         const pointerX = event.clientX - rect.left;
         const pointerY = event.clientY - rect.top;
+        const isTrackpadPinch =
+          event.ctrlKey && event.deltaMode === WheelEvent.DOM_DELTA_PIXEL;
 
-        if (event.ctrlKey || event.metaKey) {
+        if (isTrackpadPinch) {
           const worldX = (pointerX - currentBoard.x) / currentBoard.scale.x;
           const worldY = (pointerY - currentBoard.y) / currentBoard.scale.y;
           const nextZoom = clamp(

@@ -20,6 +20,8 @@ export type ShortcutActionId =
   | "edit.copy"
   | "edit.paste"
   | "edit.delete"
+  | "edit.crop"
+  | "edit.flipHorizontal"
   | "canvas.resetView"
   | "canvas.changeSize"
   | "canvas.toggleLock"
@@ -89,6 +91,13 @@ export const SHORTCUT_DEFINITIONS: ShortcutDefinition[] = [
   { id: "edit.copy", section: "Edit", label: "Copy", defaultBinding: "Ctrl+C" },
   { id: "edit.paste", section: "Edit", label: "Paste", defaultBinding: "Ctrl+V" },
   { id: "edit.delete", section: "Edit", label: "Delete Selected", defaultBinding: "Delete" },
+  { id: "edit.crop", section: "Edit", label: "Crop Selected Image", defaultBinding: "C" },
+  {
+    id: "edit.flipHorizontal",
+    section: "Edit",
+    label: "Flip Horizontal",
+    defaultBinding: "Ctrl+F",
+  },
   {
     id: "canvas.resetView",
     section: "Canvas / View",

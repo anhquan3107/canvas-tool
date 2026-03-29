@@ -77,6 +77,10 @@ export interface ImageItem extends CanvasItemBase {
   originalHeight?: number;
   fileSizeBytes?: number;
   format?: string;
+  cropX?: number;
+  cropY?: number;
+  cropWidth?: number;
+  cropHeight?: number;
   previewStatus?: "ready" | "blocked";
   swatchHex?: string;
   swatches?: ColorSwatch[];

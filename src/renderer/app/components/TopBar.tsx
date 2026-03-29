@@ -14,6 +14,8 @@ interface TopBarProps {
   shortcutBindings: ShortcutBindings;
   settingsOpen: boolean;
   helpOpen: boolean;
+  selectedCount: number;
+  canCropSelected: boolean;
   canPaste: boolean;
   canExportSelectedTask: boolean;
   canExportAnyTask: boolean;
@@ -43,6 +45,8 @@ interface TopBarProps {
   onCreateGroup: () => void;
   onShowShortcuts: () => void;
   onPaste: () => void;
+  onCropSelected: () => void;
+  onFlipSelectedHorizontally: () => void;
   onExit: () => void;
   onMinimize: () => void;
   onToggleAlwaysOnTop: () => void;
@@ -56,6 +60,8 @@ export const TopBar = ({
   shortcutBindings,
   settingsOpen,
   helpOpen,
+  selectedCount,
+  canCropSelected,
   canPaste,
   canExportSelectedTask,
   canExportAnyTask,
@@ -85,6 +91,8 @@ export const TopBar = ({
   onCreateGroup,
   onShowShortcuts,
   onPaste,
+  onCropSelected,
+  onFlipSelectedHorizontally,
   onExit,
   onMinimize,
   onToggleAlwaysOnTop,
@@ -355,6 +363,33 @@ export const TopBar = ({
                     shortcut={formatMenuShortcut(shortcutBindings, "edit.paste")}
                   />
                 </button>
+
+                {selectedCount > 0 ? (
+                  <>
+                    <div className="topbar-settings-divider" />
+                    <button
+                      type="button"
+                      onClick={onCropSelected}
+                      disabled={!canCropSelected}
+                    >
+                      <MenuItemContent
+                        icon="crop"
+                        label="Crop"
+                        shortcut={formatMenuShortcut(shortcutBindings, "edit.crop")}
+                      />
+                    </button>
+                    <button type="button" onClick={onFlipSelectedHorizontally}>
+                      <MenuItemContent
+                        icon="flip"
+                        label="Flip Horizontal"
+                        shortcut={formatMenuShortcut(
+                          shortcutBindings,
+                          "edit.flipHorizontal",
+                        )}
+                      />
+                    </button>
+                  </>
+                ) : null}
 
                 <div className="topbar-settings-divider" />
                 <button type="button" onClick={onExit}>

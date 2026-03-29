@@ -11,6 +11,118 @@ import {
 } from "@renderer/features/connect/utils";
 import { useShortcuts } from "@renderer/hooks/use-shortcuts";
 
+const MAX_WINDOWS_NATIVE_CROP = 16;
+
+const isWindowsPlatform = () =>
+  /win/i.test(
+    (() => {
+      if (typeof navigator === "undefined") {
+        return "";
+      }
+
+      const navigatorWithUAData = navigator as Navigator & {
+        userAgentData?: { platform?: string };
+      };
+
+      return navigatorWithUAData.userAgentData?.platform ?? navigator.platform ?? "";
+    })(),
+  );
+
+const detectWindowsTitleBarCrop = (video: HTMLVideoElement) => {
+  if (video.videoWidth <= 0 || video.videoHeight <= 0) {
+    return 0;
+  }
+
+  const sampleRows = Math.min(
+    48,
+    Math.max(18, Math.round(video.videoHeight * 0.08)),
+  );
+  const sampleWidth = Math.min(180, Math.max(64, Math.round(video.videoWidth * 0.1)));
+  const maxCropRows = Math.min(
+    sampleRows - 2,
+    Math.max(4, Math.round((MAX_WINDOWS_NATIVE_CROP * sampleRows) / video.videoHeight)),
+  );
+  const canvas = document.createElement("canvas");
+  canvas.width = sampleWidth;
+  canvas.height = sampleRows;
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+
+  if (!context) {
+    return 0;
+  }
+
+  context.drawImage(
+    video,
+    0,
+    0,
+    video.videoWidth,
+    sampleRows,
+    0,
+    0,
+    sampleWidth,
+    sampleRows,
+  );
+
+  const pixels = context.getImageData(0, 0, sampleWidth, sampleRows).data;
+  const rowVariance: number[] = [];
+  const rowLuma: number[] = [];
+
+  for (let row = 0; row < sampleRows; row += 1) {
+    let lumaTotal = 0;
+    const lumas: number[] = [];
+
+    for (let column = 0; column < sampleWidth; column += 1) {
+      const offset = (row * sampleWidth + column) * 4;
+      const red = pixels[offset];
+      const green = pixels[offset + 1];
+      const blue = pixels[offset + 2];
+      const luma = red * 0.2126 + green * 0.7152 + blue * 0.0722;
+      lumas.push(luma);
+      lumaTotal += luma;
+    }
+
+    const meanLuma = lumaTotal / sampleWidth;
+    let varianceTotal = 0;
+    lumas.forEach((value) => {
+      varianceTotal += Math.abs(value - meanLuma);
+    });
+
+    rowLuma.push(meanLuma);
+    rowVariance.push(varianceTotal / sampleWidth);
+  }
+
+  let uniformRows = 0;
+  for (let row = 0; row < maxCropRows; row += 1) {
+    const nextLuma = rowLuma[row + 1] ?? rowLuma[row];
+    const lumaDrift = Math.abs(rowLuma[row] - nextLuma);
+    if (rowVariance[row] < 5 && lumaDrift < 4) {
+      uniformRows += 1;
+      continue;
+    }
+    break;
+  }
+
+  if (uniformRows < 4) {
+    return 0;
+  }
+
+  const boundaryVariance = rowVariance[uniformRows] ?? rowVariance.at(-1) ?? 0;
+  const boundaryLuma = rowLuma[uniformRows] ?? rowLuma.at(-1) ?? 0;
+  const titlebarLuma = rowLuma[0] ?? 0;
+
+  if (boundaryVariance < 7 && Math.abs(boundaryLuma - titlebarLuma) < 10) {
+    return 0;
+  }
+
+  return Math.min(
+    MAX_WINDOWS_NATIVE_CROP,
+    Math.max(
+      0,
+      Math.round((uniformRows * video.videoHeight) / sampleRows),
+    ),
+  );
+};
+
 const getInitialParams = () => {
   const params = new URLSearchParams(window.location.search);
   const qualityParam = params.get("quality");
@@ -48,6 +160,7 @@ export const CaptureWindowApp = () => {
   const [blurEnabled, setBlurEnabled] = useState(false);
   const [blurAmount, setBlurAmount] = useState(8);
   const [bwEnabled, setBwEnabled] = useState(false);
+  const [previewCropTop, setPreviewCropTop] = useState(0);
   const [windowMaximized, setWindowMaximized] = useState(false);
   const [windowAlwaysOnTop, setWindowAlwaysOnTop] = useState(false);
   const [shortcutBindings, setShortcutBindings] = useState(DEFAULT_SHORTCUT_BINDINGS);
@@ -117,6 +230,10 @@ export const CaptureWindowApp = () => {
   useEffect(() => {
     setSelectedQuality(quality);
   }, [quality]);
+
+  useEffect(() => {
+    setPreviewCropTop(0);
+  }, [quality, sourceId, sourceKind]);
 
   useEffect(() => {
     if (!sourceId) {
@@ -207,6 +324,40 @@ export const CaptureWindowApp = () => {
     void video.play().catch(() => undefined);
   }, [dialogOpen]);
 
+  useEffect(() => {
+    if (dialogOpen || !isWindowsPlatform() || sourceKind !== "window") {
+      setPreviewCropTop(0);
+      return;
+    }
+
+    let cancelled = false;
+    let attempts = 0;
+
+    const tryDetectCrop = () => {
+      if (cancelled) {
+        return;
+      }
+
+      const video = videoRef.current;
+      if (!video || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+        attempts += 1;
+        if (attempts < 8) {
+          window.setTimeout(tryDetectCrop, 180);
+        }
+        return;
+      }
+
+      const nextCrop = detectWindowsTitleBarCrop(video);
+      setPreviewCropTop(nextCrop);
+    };
+
+    const timer = window.setTimeout(tryDetectCrop, 220);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [dialogOpen, quality, sourceId, sourceKind]);
+
   const handleConfirmSource = () => {
     const nextSource = sources.find((source) => source.id === selectedSourceId);
     if (!nextSource) {
@@ -222,6 +373,8 @@ export const CaptureWindowApp = () => {
 
   const filterStyle = {
     filter: `blur(${blurEnabled ? blurAmount : 0}px) grayscale(${bwEnabled ? 100 : 0}%)`,
+    height: previewCropTop ? `calc(100% + ${previewCropTop}px)` : "100%",
+    transform: previewCropTop ? `translateY(-${previewCropTop}px)` : "none",
   };
 
   return (

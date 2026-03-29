@@ -19,6 +19,7 @@ interface TopBarProps {
   canPaste: boolean;
   canExportSelectedTask: boolean;
   canExportAnyTask: boolean;
+  canDeleteActiveGroup: boolean;
   canvasLocked: boolean;
   windowMaximized: boolean;
   windowAlwaysOnTop: boolean;
@@ -43,6 +44,7 @@ interface TopBarProps {
   onResetView: () => void;
   onTaskClick: () => void;
   onCreateGroup: () => void;
+  onDeleteCurrentGroup: () => void;
   onShowShortcuts: () => void;
   onPaste: () => void;
   onCropSelected: () => void;
@@ -65,6 +67,7 @@ export const TopBar = ({
   canPaste,
   canExportSelectedTask,
   canExportAnyTask,
+  canDeleteActiveGroup,
   canvasLocked,
   windowMaximized,
   windowAlwaysOnTop,
@@ -89,6 +92,7 @@ export const TopBar = ({
   onResetView,
   onTaskClick,
   onCreateGroup,
+  onDeleteCurrentGroup,
   onShowShortcuts,
   onPaste,
   onCropSelected,
@@ -262,6 +266,16 @@ export const TopBar = ({
                     icon="group"
                     label="Create Group"
                     shortcut={formatMenuShortcut(shortcutBindings, "groups.create")}
+                  />
+                </button>
+                <button
+                  type="button"
+                  onClick={onDeleteCurrentGroup}
+                  disabled={!canDeleteActiveGroup}
+                >
+                  <MenuItemContent
+                    icon="delete"
+                    label="Delete Current Group"
                   />
                 </button>
                 <button type="button" onClick={onTaskClick}>

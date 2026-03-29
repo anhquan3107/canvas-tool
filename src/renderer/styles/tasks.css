@@ -224,6 +224,31 @@
   color: var(--text);
 }
 
+.task-detail-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.task-detail-delete {
+  appearance: none;
+  border: 1px solid rgba(220, 111, 111, 0.3);
+  border-radius: 999px;
+  background: rgba(220, 111, 111, 0.12);
+  color: #f2b6b6;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.task-detail-delete:hover {
+  background: rgba(220, 111, 111, 0.18);
+  border-color: rgba(220, 111, 111, 0.45);
+}
+
 .task-detail-pin {
   font-size: 18px;
   color: var(--text-dim);

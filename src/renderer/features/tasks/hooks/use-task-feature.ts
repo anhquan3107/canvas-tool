@@ -12,12 +12,14 @@ interface UseTaskFeatureOptions {
     title: string,
     dates: Pick<Task, "startDate" | "endDate">,
   ) => string;
+  removeTask: (taskId: string) => void;
   pushToast: (kind: "success" | "error" | "info", message: string) => void;
 }
 
 export const useTaskFeature = ({
   tasks,
   addTask,
+  removeTask,
   pushToast,
 }: UseTaskFeatureOptions) => {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
@@ -62,6 +64,39 @@ export const useTaskFeature = ({
     pushToast("success", `Created ${title}.`);
   }, [addTask, draftTaskTitle, pushToast, taskDates, tasks.length]);
 
+  const handleDeleteTask = useCallback(
+    (taskId: string) => {
+      const task = orderedTasks.find((entry) => entry.id === taskId);
+      if (!task) {
+        pushToast("info", "Select a task to delete.");
+        return;
+      }
+
+      const currentIndex = orderedTasks.findIndex((entry) => entry.id === task.id);
+      const nextSelectedTask =
+        orderedTasks[currentIndex + 1] ??
+        orderedTasks[currentIndex - 1] ??
+        null;
+
+      removeTask(task.id);
+      if (selectedTaskId === task.id) {
+        setSelectedTaskId(nextSelectedTask?.id ?? null);
+        setTaskDetailOpen(Boolean(nextSelectedTask));
+      }
+      setTaskListExpanded(false);
+      pushToast("success", `Deleted ${task.title}.`);
+    },
+    [orderedTasks, pushToast, removeTask, selectedTaskId],
+  );
+
+  const handleDeleteSelectedTask = useCallback(() => {
+    if (!selectedTask) {
+      pushToast("info", "Select a task to delete.");
+      return;
+    }
+    handleDeleteTask(selectedTask.id);
+  }, [handleDeleteTask, pushToast, selectedTask]);
+
   return {
     primaryTask,
     selectedTask,
@@ -81,5 +116,7 @@ export const useTaskFeature = ({
     setTaskDates,
     openTaskDialog,
     handleCreateTask,
+    handleDeleteTask,
+    handleDeleteSelectedTask,
   };
 };

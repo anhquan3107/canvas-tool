@@ -9,6 +9,7 @@ interface TaskDetailPanelProps {
   task: Task;
   open: boolean;
   onToggleOpen: () => void;
+  onDeleteTask: () => void;
   onAddTodo: (taskId: string, text: string) => void;
   onToggleTodo: (taskId: string, todoId: string) => void;
   onRenameTodo: (taskId: string, todoId: string, text: string) => void;
@@ -23,6 +24,7 @@ export const TaskDetailPanel = ({
   task,
   open,
   onToggleOpen,
+  onDeleteTask,
   onAddTodo,
   onToggleTodo,
   onRenameTodo,
@@ -47,7 +49,16 @@ export const TaskDetailPanel = ({
           <header className="task-detail-header">
             <div className="task-detail-title-row">
               <strong>{task.title}</strong>
-              <span className="task-detail-pin">⌁</span>
+              <div className="task-detail-actions">
+                <button
+                  type="button"
+                  className="task-detail-delete"
+                  onClick={onDeleteTask}
+                >
+                  Delete
+                </button>
+                <span className="task-detail-pin">⌁</span>
+              </div>
             </div>
             <div className="task-detail-meta">
               <span>{activeCount} active</span>

@@ -14,6 +14,7 @@ interface AppMenuProps extends MenuState {
   canPaste: boolean;
   canExportSelectedTask: boolean;
   canExportAnyTask: boolean;
+  canDeleteActiveGroup: boolean;
   canUndo: boolean;
   canRedo: boolean;
   onClose: () => void;
@@ -31,6 +32,7 @@ interface AppMenuProps extends MenuState {
   onToggleCanvasLock: () => void;
   onResetView: () => void;
   onCreateGroup: () => void;
+  onDeleteCurrentGroup: () => void;
   onCreateTask: () => void;
   onAutoArrange: () => void;
   onExportCanvasImage: () => void;
@@ -59,6 +61,7 @@ export const AppMenu = ({
   canPaste,
   canExportSelectedTask,
   canExportAnyTask,
+  canDeleteActiveGroup,
   canUndo,
   canRedo,
   onClose,
@@ -76,6 +79,7 @@ export const AppMenu = ({
   onToggleCanvasLock,
   onResetView,
   onCreateGroup,
+  onDeleteCurrentGroup,
   onCreateTask,
   onAutoArrange,
   onExportCanvasImage,
@@ -378,6 +382,13 @@ export const AppMenu = ({
               label="Create Group"
               shortcut={formatMenuShortcut(shortcutBindings, "groups.create")}
             />
+          </button>
+          <button
+            type="button"
+            onClick={onDeleteCurrentGroup}
+            disabled={!canDeleteActiveGroup}
+          >
+            <MenuItemContent icon="delete" label="Delete Current Group" />
           </button>
           <button type="button" onClick={onCreateTask}>
             <MenuItemContent

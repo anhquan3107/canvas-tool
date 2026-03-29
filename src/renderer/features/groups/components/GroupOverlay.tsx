@@ -5,16 +5,20 @@ interface GroupOverlayProps {
   groups: ReferenceGroup[];
   activeGroupId: string;
   open: boolean;
+  canDeleteActiveGroup: boolean;
   onToggle: () => void;
   onSelectGroup: (groupId: string) => void;
+  onDeleteActiveGroup: () => void;
 }
 
 export const GroupOverlay = ({
   groups,
   activeGroupId,
   open,
+  canDeleteActiveGroup,
   onToggle,
   onSelectGroup,
+  onDeleteActiveGroup,
 }: GroupOverlayProps) => {
   const handleSelectGroup = (groupId: string) => {
     startTransition(() => {
@@ -32,6 +36,14 @@ export const GroupOverlay = ({
         <section className="overlay-panel group-overlay-panel">
           <div className="overlay-panel-header">
             <span>Groups</span>
+            <button
+              type="button"
+              className="overlay-action danger"
+              onClick={onDeleteActiveGroup}
+              disabled={!canDeleteActiveGroup}
+            >
+              Delete
+            </button>
           </div>
           <div className="group-dock">
             {groups.map((group) => (

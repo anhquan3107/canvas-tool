@@ -162,6 +162,98 @@
   font-weight: 700;
 }
 
+.confirm-action-dialog {
+  width: min(460px, calc(100vw - 40px));
+  padding: 28px 28px 24px;
+  border-radius: 22px;
+  border-color: rgba(255, 255, 255, 0.1);
+  background: #1c1a1b;
+  box-shadow:
+    0 28px 64px rgba(0, 0, 0, 0.44),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.confirm-action-dialog h3 {
+  margin: 0;
+  text-align: left;
+  font-family:
+    "Iowan Old Style",
+    "Palatino Linotype",
+    "Book Antiqua",
+    Georgia,
+    serif;
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+}
+
+.confirm-action-dialog-hero {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+
+.confirm-action-dialog-badge {
+  display: inline-grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border: 1px solid rgba(223, 130, 112, 0.28);
+  border-radius: 16px;
+  background: rgba(223, 130, 112, 0.12);
+  color: #f2c1b8;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.confirm-action-dialog-copyblock {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.confirm-action-dialog-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #d6a189;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.confirm-action-dialog-copy,
+.confirm-action-dialog-note {
+  margin: 0;
+}
+
+.confirm-action-dialog-copy {
+  margin-bottom: 14px;
+  color: rgba(244, 238, 234, 0.82);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.confirm-action-dialog-note {
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(226, 216, 208, 0.74);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.confirm-action-dialog-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  gap: 12px;
+  margin-top: 22px;
+}
+
 .dialog-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -425,13 +517,37 @@
 
 .dialog-button {
   min-height: 48px;
-  border-radius: 4px;
-  background: #3a3a40;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: #363539;
   font-size: 16px;
+  color: var(--text);
+  transition:
+    background 140ms ease,
+    border-color 140ms ease,
+    transform 140ms ease;
+}
+
+.dialog-button:hover {
+  background: #403f44;
+  border-color: rgba(255, 255, 255, 0.14);
+  transform: translateY(-1px);
 }
 
 .dialog-button.primary {
   font-weight: 700;
+}
+
+.dialog-button-danger {
+  background: #a54b3e;
+  border: 1px solid rgba(230, 174, 160, 0.18);
+  color: #fff4ef;
+  font-weight: 700;
+}
+
+.dialog-button-danger:hover {
+  background: #b45647;
+  border-color: rgba(255, 223, 214, 0.28);
 }
 
 .dialog-copy {

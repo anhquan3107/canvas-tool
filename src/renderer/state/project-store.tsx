@@ -49,6 +49,7 @@ type Action =
       payload: { groupId: string; itemIds: string[] };
     }
   | { type: "add-group"; payload: { name: string } }
+  | { type: "remove-group"; payload: { groupId: string } }
   | {
       type: "set-group-filters";
       payload: { groupId: string; filters: Partial<GroupFilters> };
@@ -77,6 +78,7 @@ type Action =
       type: "add-task";
       payload: { id: string; title: string; startDate: string; endDate: string };
     }
+  | { type: "remove-task"; payload: { taskId: string } }
   | { type: "add-todo"; payload: { taskId: string; text: string } }
   | { type: "toggle-todo"; payload: { taskId: string; todoId: string } }
   | {
@@ -111,6 +113,7 @@ interface Store {
   addGroupItems: (groupId: string, items: CanvasItem[]) => void;
   removeGroupItems: (groupId: string, itemIds: string[]) => void;
   addGroup: (name: string) => void;
+  removeGroup: (groupId: string) => void;
   setGroupFilters: (groupId: string, filters: Partial<GroupFilters>) => void;
   setGroupCanvasSize: (groupId: string, width: number, height: number) => void;
   setGroupColors: (
@@ -124,6 +127,7 @@ interface Store {
   ) => void;
   flipItems: (groupId: string, itemIds: string[]) => void;
   addTask: (title: string, dates: Pick<Task, "startDate" | "endDate">) => string;
+  removeTask: (taskId: string) => void;
   addTodo: (taskId: string, text: string) => void;
   toggleTodo: (taskId: string, todoId: string) => void;
   renameTodo: (taskId: string, todoId: string, text: string) => void;
@@ -272,6 +276,38 @@ const projectReducer = (project: Project, action: Action): Project => {
         groups: [...project.groups, nextGroup],
       });
     }
+    case "remove-group": {
+      if (project.groups.length <= 1) {
+        return project;
+      }
+
+      const removedIndex = project.groups.findIndex(
+        (group) => group.id === action.payload.groupId,
+      );
+      if (removedIndex < 0) {
+        return project;
+      }
+
+      const nextGroups = project.groups
+        .filter((group) => group.id !== action.payload.groupId)
+        .map((group, index) => ({
+          ...group,
+          order: index,
+        }));
+      const fallbackGroup =
+        nextGroups[removedIndex] ??
+        nextGroups[removedIndex - 1] ??
+        nextGroups[0];
+
+      return touchProject({
+        ...project,
+        activeGroupId:
+          project.activeGroupId === action.payload.groupId
+            ? fallbackGroup.id
+            : project.activeGroupId,
+        groups: nextGroups,
+      });
+    }
     case "set-group-filters":
       return touchProject({
         ...project,
@@ -383,6 +419,19 @@ const projectReducer = (project: Project, action: Action): Project => {
           },
         ],
       });
+    case "remove-task": {
+      const nextTasks = project.tasks
+        .filter((task) => task.id !== action.payload.taskId)
+        .map((task, index) => ({
+          ...task,
+          order: index,
+        }));
+
+      return touchProject({
+        ...project,
+        tasks: nextTasks,
+      });
+    }
     case "add-todo":
       return touchProject({
         ...project,
@@ -641,6 +690,10 @@ export const ProjectProvider = ({
     dispatch({ type: "add-group", payload: { name } });
   }, []);
 
+  const removeGroup = useCallback((groupId: string) => {
+    dispatch({ type: "remove-group", payload: { groupId } });
+  }, []);
+
   const setGroupFilters = useCallback(
     (groupId: string, filters: Partial<GroupFilters>) => {
       dispatch({ type: "set-group-filters", payload: { groupId, filters } });
@@ -709,6 +762,10 @@ export const ProjectProvider = ({
     [],
   );
 
+  const removeTask = useCallback((taskId: string) => {
+    dispatch({ type: "remove-task", payload: { taskId } });
+  }, []);
+
   const addTodo = useCallback((taskId: string, text: string) => {
     dispatch({ type: "add-todo", payload: { taskId, text } });
   }, []);
@@ -750,6 +807,7 @@ export const ProjectProvider = ({
       addGroupItems,
       removeGroupItems,
       addGroup,
+      removeGroup,
       setGroupFilters,
       setGroupCanvasSize,
       setGroupColors,
@@ -757,6 +815,7 @@ export const ProjectProvider = ({
       setGroupAnnotations,
       flipItems,
       addTask,
+      removeTask,
       addTodo,
       toggleTodo,
       renameTodo,
@@ -776,6 +835,7 @@ export const ProjectProvider = ({
       addGroupItems,
       removeGroupItems,
       addGroup,
+      removeGroup,
       setGroupFilters,
       setGroupCanvasSize,
       setGroupColors,
@@ -783,6 +843,7 @@ export const ProjectProvider = ({
       setGroupAnnotations,
       flipItems,
       addTask,
+      removeTask,
       addTodo,
       toggleTodo,
       renameTodo,

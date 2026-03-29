@@ -45,6 +45,7 @@ import { TopBar } from "@renderer/app/components/TopBar";
 import { AppInfoPanel } from "@renderer/app/components/AppInfoPanel";
 import { BackgroundColorDialog } from "@renderer/app/components/BackgroundColorDialog";
 import { CanvasSizeDialog } from "@renderer/app/components/CanvasSizeDialog";
+import { ConfirmActionDialog } from "@renderer/app/components/ConfirmActionDialog";
 import { ConfirmCloseDialog } from "@renderer/app/components/ConfirmCloseDialog";
 import { HelpTutorialDialog } from "@renderer/app/components/HelpTutorialDialog";
 import { KeyboardShortcutsDialog } from "@renderer/app/components/KeyboardShortcutsDialog";
@@ -131,12 +132,14 @@ const AppContent = () => {
     removeGroupItems,
     flipItems,
     addGroup,
+    removeGroup,
     setGroupFilters,
     setGroupCanvasSize,
     setGroupColors,
     setGroupLocked,
     setGroupAnnotations,
     addTask,
+    removeTask,
     addTodo,
     toggleTodo,
     renameTodo,
@@ -153,6 +156,11 @@ const AppContent = () => {
     itemId: string;
     rect: { left: number; top: number; right: number; bottom: number };
   } | null>(null);
+  const [pendingDeletion, setPendingDeletion] = useState<
+    | { kind: "task"; taskId: string; label: string }
+    | { kind: "group"; groupId: string; label: string }
+    | null
+  >(null);
   const activeGroupRef = useRef(activeGroup);
   const dirtySignature = useMemo(
     () => getProjectDirtySignature(project),
@@ -227,11 +235,70 @@ const AppContent = () => {
     setTaskDates,
     openTaskDialog,
     handleCreateTask,
+    handleDeleteTask,
+    handleDeleteSelectedTask,
   } = useTaskFeature({
     tasks: project.tasks,
     addTask,
+    removeTask,
     pushToast,
   });
+  const canDeleteActiveGroup = project.groups.length > 1;
+
+  const requestDeleteSelectedTask = useCallback(() => {
+    if (!selectedTask) {
+      pushToast("info", "Select a task to delete.");
+      return;
+    }
+
+    setPendingDeletion({
+      kind: "task",
+      taskId: selectedTask.id,
+      label: selectedTask.title,
+    });
+  }, [pushToast, selectedTask]);
+
+  const requestDeleteCurrentGroup = useCallback(() => {
+    if (!activeGroup) {
+      return;
+    }
+
+    if (project.groups.length <= 1) {
+      pushToast("info", "You need at least one group.");
+      return;
+    }
+
+    setPendingDeletion({
+      kind: "group",
+      groupId: activeGroup.id,
+      label: activeGroup.name,
+    });
+  }, [activeGroup, project.groups.length, pushToast]);
+
+  const handleConfirmDeletion = useCallback(() => {
+    if (!pendingDeletion) {
+      return;
+    }
+
+    if (pendingDeletion.kind === "task") {
+      handleDeleteTask(pendingDeletion.taskId);
+      setPendingDeletion(null);
+      return;
+    }
+
+    removeGroup(pendingDeletion.groupId);
+    setSelectedItemIds([]);
+    setGroupsOverlayOpen(false);
+    setPendingDeletion(null);
+    pushToast("success", `Deleted ${pendingDeletion.label}.`);
+  }, [
+    handleDeleteTask,
+    pendingDeletion,
+    pushToast,
+    removeGroup,
+    setGroupsOverlayOpen,
+    setSelectedItemIds,
+  ]);
 
   const {
     groupDialogOpen,
@@ -762,6 +829,7 @@ const AppContent = () => {
           canPaste={clipboardItems.length > 0}
           canExportSelectedTask={Boolean(selectedTask)}
           canExportAnyTask={project.tasks.length > 0}
+          canDeleteActiveGroup={canDeleteActiveGroup}
           canvasLocked={activeGroup?.locked ?? false}
           windowMaximized={windowMaximized}
           windowAlwaysOnTop={windowAlwaysOnTop}
@@ -830,6 +898,10 @@ const AppContent = () => {
           onResetView={resetView}
           onTaskClick={openTaskDialog}
           onCreateGroup={openGroupDialog}
+          onDeleteCurrentGroup={() => {
+            setSettingsOpen(false);
+            requestDeleteCurrentGroup();
+          }}
           onShowShortcuts={() => {
             setSettingsOpen(false);
             openShortcutDialog();
@@ -935,11 +1007,13 @@ const AppContent = () => {
                       groups={project.groups}
                       activeGroupId={project.activeGroupId}
                       open={groupsOverlayOpen}
+                      canDeleteActiveGroup={canDeleteActiveGroup}
                       onToggle={() => setGroupsOverlayOpen((previous) => !previous)}
                       onSelectGroup={(groupId) => {
                         setActiveGroup(groupId);
                         setSelectedItemIds([]);
                       }}
+                      onDeleteActiveGroup={requestDeleteCurrentGroup}
                     />
                   </div>
 
@@ -951,6 +1025,7 @@ const AppContent = () => {
                         onToggleOpen={() =>
                           setTaskDetailOpen((previous) => !previous)
                         }
+                        onDeleteTask={requestDeleteSelectedTask}
                         onAddTodo={addTodo}
                         onToggleTodo={toggleTodo}
                         onRenameTodo={renameTodo}
@@ -1050,6 +1125,7 @@ const AppContent = () => {
           canPaste={clipboardItems.length > 0}
           canExportSelectedTask={Boolean(selectedTask)}
           canExportAnyTask={project.tasks.length > 0}
+          canDeleteActiveGroup={canDeleteActiveGroup}
           canUndo={canUndo}
           canRedo={canRedo}
           onClose={() => setMenuState(null)}
@@ -1101,6 +1177,10 @@ const AppContent = () => {
           onCreateGroup={() => {
             setMenuState(null);
             openGroupDialog();
+          }}
+          onDeleteCurrentGroup={() => {
+            setMenuState(null);
+            requestDeleteCurrentGroup();
           }}
           onCreateTask={() => {
             setMenuState(null);
@@ -1168,6 +1248,25 @@ const AppContent = () => {
           }}
         />
       ) : null}
+
+      <ConfirmActionDialog
+        open={Boolean(pendingDeletion)}
+        title={
+          pendingDeletion?.kind === "group"
+            ? "Delete Group?"
+            : "Delete Task?"
+        }
+        message={
+          pendingDeletion?.kind === "group"
+            ? `Delete ${pendingDeletion.label}? This will remove the entire group and everything inside it.`
+            : pendingDeletion
+              ? `Delete ${pendingDeletion.label}? This task and all its todos will be removed.`
+              : ""
+        }
+        confirmLabel={pendingDeletion?.kind === "group" ? "Delete Group" : "Delete Task"}
+        onConfirm={handleConfirmDeletion}
+        onCancel={() => setPendingDeletion(null)}
+      />
 
       <TaskDialog
         open={taskDialogOpen}

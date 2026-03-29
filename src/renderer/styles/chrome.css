@@ -103,6 +103,38 @@
   background: rgba(255, 255, 255, 0.08);
 }
 
+.topbar-settings-menu button:disabled {
+  opacity: 0.45;
+}
+
+.topbar-settings-divider {
+  height: 1px;
+  margin: 4px 2px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.topbar-settings-submenu {
+  position: relative;
+}
+
+.topbar-settings-submenu-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+.topbar-settings-submenu-arrow {
+  color: var(--text-dim);
+}
+
+.topbar-settings-submenu-panel {
+  top: -6px;
+  left: calc(100% - 4px);
+  min-width: 182px;
+}
+
 .locale-indicator {
   font-size: 11px;
   color: var(--text-soft);

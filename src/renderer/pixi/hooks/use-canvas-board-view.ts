@@ -4,7 +4,7 @@ import {
   BOARD_CORNER_RADIUS,
   ZERO_INSETS,
 } from "@renderer/pixi/constants";
-import { hexToRgba } from "@renderer/pixi/utils/color";
+import { hexToPixiColor, hexToRgba } from "@renderer/pixi/utils/color";
 import { clamp } from "@renderer/pixi/utils/geometry";
 import type {
   ActiveSelectionBoxState,
@@ -160,7 +160,7 @@ export const useCanvasBoardView = ({
         height,
         BOARD_CORNER_RADIUS,
       );
-      board.fill(0x151515);
+      board.fill(hexToPixiColor(scene.canvasColor));
       board.stroke({ color: 0x2a2a2a, width: 2, alpha: 0.92 });
       board.hitArea = new Rectangle(-insets.left, -insets.top, width, height);
     },

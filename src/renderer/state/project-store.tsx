@@ -16,6 +16,11 @@ import type {
   Task,
   TodoItem,
 } from "@shared/types/project";
+import {
+  DEFAULT_EMPTY_GROUP_CANVAS_SIZE,
+  DEFAULT_GROUP_BACKGROUND_COLOR,
+  DEFAULT_GROUP_CANVAS_COLOR,
+} from "@shared/project-defaults";
 
 const randomUUID = () => crypto.randomUUID();
 type CanvasItemPatch = Partial<Omit<CanvasItemBase, "id" | "type">>;
@@ -51,6 +56,17 @@ type Action =
   | {
       type: "set-group-canvas-size";
       payload: { groupId: string; width: number; height: number };
+    }
+  | {
+      type: "set-group-colors";
+      payload: {
+        groupId: string;
+        colors: Partial<Pick<ReferenceGroup, "canvasColor" | "backgroundColor">>;
+      };
+    }
+  | {
+      type: "set-group-locked";
+      payload: { groupId: string; locked: boolean };
     }
   | {
       type: "set-group-annotations";
@@ -97,6 +113,11 @@ interface Store {
   addGroup: (name: string) => void;
   setGroupFilters: (groupId: string, filters: Partial<GroupFilters>) => void;
   setGroupCanvasSize: (groupId: string, width: number, height: number) => void;
+  setGroupColors: (
+    groupId: string,
+    colors: Partial<Pick<ReferenceGroup, "canvasColor" | "backgroundColor">>,
+  ) => void;
+  setGroupLocked: (groupId: string, locked: boolean) => void;
   setGroupAnnotations: (
     groupId: string,
     annotations: AnnotationStroke[],
@@ -121,10 +142,6 @@ interface HistoryState {
 }
 
 const now = () => new Date().toISOString();
-const DEFAULT_EMPTY_GROUP_CANVAS_SIZE = {
-  width: 980,
-  height: 640,
-};
 const MAX_HISTORY_ENTRIES = 100;
 const cloneProject = (project: Project) => structuredClone(project);
 const projectHistorySignature = (project: Project) =>
@@ -149,6 +166,9 @@ const createEmptyGroup = (
   id: randomUUID(),
   name,
   order,
+  locked: false,
+  canvasColor: DEFAULT_GROUP_CANVAS_COLOR,
+  backgroundColor: DEFAULT_GROUP_BACKGROUND_COLOR,
   canvasSize: { ...canvasSize },
   zoom: 1,
   panX: 0,
@@ -283,6 +303,34 @@ const projectReducer = (project: Project, action: Action): Project => {
               width: Math.max(1, Math.round(action.payload.width)),
               height: Math.max(1, Math.round(action.payload.height)),
             },
+          };
+        }),
+      });
+    case "set-group-colors":
+      return touchProject({
+        ...project,
+        groups: project.groups.map((group) => {
+          if (group.id !== action.payload.groupId) {
+            return group;
+          }
+
+          return {
+            ...group,
+            ...action.payload.colors,
+          };
+        }),
+      });
+    case "set-group-locked":
+      return touchProject({
+        ...project,
+        groups: project.groups.map((group) => {
+          if (group.id !== action.payload.groupId) {
+            return group;
+          }
+
+          return {
+            ...group,
+            locked: action.payload.locked,
           };
         }),
       });
@@ -610,6 +658,26 @@ export const ProjectProvider = ({
     [],
   );
 
+  const setGroupColors = useCallback(
+    (
+      groupId: string,
+      colors: Partial<Pick<ReferenceGroup, "canvasColor" | "backgroundColor">>,
+    ) => {
+      dispatch({
+        type: "set-group-colors",
+        payload: { groupId, colors },
+      });
+    },
+    [],
+  );
+
+  const setGroupLocked = useCallback((groupId: string, locked: boolean) => {
+    dispatch({
+      type: "set-group-locked",
+      payload: { groupId, locked },
+    });
+  }, []);
+
   const setGroupAnnotations = useCallback(
     (groupId: string, annotations: AnnotationStroke[]) => {
       dispatch({
@@ -684,6 +752,8 @@ export const ProjectProvider = ({
       addGroup,
       setGroupFilters,
       setGroupCanvasSize,
+      setGroupColors,
+      setGroupLocked,
       setGroupAnnotations,
       flipItems,
       addTask,
@@ -708,6 +778,8 @@ export const ProjectProvider = ({
       addGroup,
       setGroupFilters,
       setGroupCanvasSize,
+      setGroupColors,
+      setGroupLocked,
       setGroupAnnotations,
       flipItems,
       addTask,

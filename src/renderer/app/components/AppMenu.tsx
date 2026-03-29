@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import type { MenuState } from "@renderer/app/types";
 
 interface AppMenuProps extends MenuState {
@@ -15,6 +15,13 @@ interface AppMenuProps extends MenuState {
   onOpen: () => void;
   onSave: () => void;
   onSaveAs: () => void;
+  canvasLocked: boolean;
+  onToggleBlur: () => void;
+  onToggleBlackAndWhite: () => void;
+  onActivateDoodle: () => void;
+  onShowBackgroundColor: () => void;
+  onChangeCanvasSize: () => void;
+  onToggleCanvasLock: () => void;
   onResetView: () => void;
   onCreateGroup: () => void;
   onCreateTask: () => void;
@@ -30,6 +37,7 @@ interface AppMenuProps extends MenuState {
   onArrangePinterest: () => void;
   onArrangeHorizontal: () => void;
   onExportSwatch: () => void;
+  onExit: () => void;
 }
 
 export const AppMenu = ({
@@ -48,6 +56,13 @@ export const AppMenu = ({
   onOpen,
   onSave,
   onSaveAs,
+  canvasLocked,
+  onToggleBlur,
+  onToggleBlackAndWhite,
+  onActivateDoodle,
+  onShowBackgroundColor,
+  onChangeCanvasSize,
+  onToggleCanvasLock,
   onResetView,
   onCreateGroup,
   onCreateTask,
@@ -63,15 +78,68 @@ export const AppMenu = ({
   onArrangePinterest,
   onArrangeHorizontal,
   onExportSwatch,
+  onExit,
 }: AppMenuProps) => {
+  const menuRef = useRef<HTMLDivElement | null>(null);
   const [arrangeOpen, setArrangeOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [taskExportOpen, setTaskExportOpen] = useState(false);
+  const [canvasArrangeOpen, setCanvasArrangeOpen] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [placement, setPlacement] = useState<{
+    left: number;
+    top: number;
+    horizontal: "left" | "right";
+    vertical: "up" | "down";
+  } | null>(null);
+
+  useLayoutEffect(() => {
+    const menu = menuRef.current;
+    if (!menu) {
+      return;
+    }
+
+    const rect = menu.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const margin = 8;
+    const horizontal =
+      x > viewportWidth * 0.5 || x + rect.width > viewportWidth - margin
+        ? "left"
+        : "right";
+    const vertical =
+      y > viewportHeight * 0.5 || y + rect.height > viewportHeight - margin
+        ? "up"
+        : "down";
+
+    const unclampedLeft = horizontal === "left" ? x - rect.width : x;
+    const unclampedTop = vertical === "up" ? y - rect.height : y;
+
+    setPlacement({
+      left: Math.min(
+        viewportWidth - rect.width - margin,
+        Math.max(margin, unclampedLeft),
+      ),
+      top: Math.min(
+        viewportHeight - rect.height - margin,
+        Math.max(margin, unclampedTop),
+      ),
+      horizontal,
+      vertical,
+    });
+  }, [x, y, selectedCount, canPaste, canExportSelectedTask, canExportAnyTask]);
 
   return (
     <div
+      ref={menuRef}
       className="app-menu"
-      style={{ left: x, top: y }}
+      data-horizontal={placement?.horizontal ?? "right"}
+      data-vertical={placement?.vertical ?? "down"}
+      style={{
+        left: placement?.left ?? x,
+        top: placement?.top ?? y,
+        visibility: placement ? "visible" : "hidden",
+      }}
       onPointerDown={(event) => event.stopPropagation()}
       onClick={(event) => event.stopPropagation()}
     >
@@ -125,18 +193,15 @@ export const AppMenu = ({
         </>
       ) : (
         <>
-          <button type="button" onClick={onUndo} disabled={!canUndo}>
-            Undo
+          <button type="button" onClick={() => void onOpen()}>
+            Open
           </button>
-          <button type="button" onClick={onRedo} disabled={!canRedo}>
-            Redo
+          <button type="button" onClick={() => void onSave()}>
+            Save Canvas
           </button>
-          {canPaste ? (
-            <button type="button" onClick={onPaste}>
-              Paste
-            </button>
-          ) : null}
-          <div className="app-menu-divider" />
+          <button type="button" onClick={() => void onSaveAs()}>
+            Save Canvas As...
+          </button>
           <div
             className="app-menu-submenu"
             onPointerEnter={() => setExportOpen(true)}
@@ -197,21 +262,16 @@ export const AppMenu = ({
             ) : null}
           </div>
           <div className="app-menu-divider" />
-          <button type="button" onClick={() => void onOpen()}>
-            Open
-          </button>
-          <button type="button" onClick={() => void onSave()}>
-            Save Canvas
-          </button>
-          <button type="button" onClick={() => void onSaveAs()}>
-            Save Canvas As...
-          </button>
           <button type="button" onClick={onResetView}>
             Reset View
           </button>
-          <button type="button" onClick={onAutoArrange}>
-            Auto Arrange
+          <button type="button" onClick={onChangeCanvasSize}>
+            Change Canvas Size...
           </button>
+          <button type="button" onClick={onToggleCanvasLock}>
+            {canvasLocked ? "Unlock Canvas" : "Lock Canvas"}
+          </button>
+          <div className="app-menu-divider" />
           <button type="button" onClick={onCreateGroup}>
             Create Group
           </button>
@@ -219,11 +279,82 @@ export const AppMenu = ({
             Add Task
           </button>
           <div className="app-menu-divider" />
+          <div
+            className="app-menu-submenu"
+            onPointerEnter={() => setCanvasArrangeOpen(true)}
+            onPointerLeave={() => setCanvasArrangeOpen(false)}
+          >
+            <button
+              type="button"
+              className="app-menu-submenu-trigger"
+              onClick={() => setCanvasArrangeOpen((open) => !open)}
+            >
+              <span>Arrange</span>
+              <span className="app-menu-submenu-arrow">›</span>
+            </button>
+            {canvasArrangeOpen ? (
+              <div className="app-menu app-menu-submenu-panel">
+                <button type="button" onClick={onAutoArrange}>
+                  Auto Arrange
+                </button>
+              </div>
+            ) : null}
+          </div>
+          <div className="app-menu-divider" />
+          <button type="button" onClick={onShowBackgroundColor}>
+            Change Background Color
+          </button>
+          <div
+            className="app-menu-submenu"
+            onPointerEnter={() => setFilterOpen(true)}
+            onPointerLeave={() => setFilterOpen(false)}
+          >
+            <button
+              type="button"
+              className="app-menu-submenu-trigger"
+              onClick={() => setFilterOpen((open) => !open)}
+            >
+              <span>Filter</span>
+              <span className="app-menu-submenu-arrow">›</span>
+            </button>
+            {filterOpen ? (
+              <div className="app-menu app-menu-submenu-panel">
+                <button type="button" onClick={onToggleBlackAndWhite}>
+                  B&W
+                </button>
+                <button type="button" onClick={onToggleBlur}>
+                  Blur
+                </button>
+              </div>
+            ) : null}
+          </div>
+          <div className="app-menu-divider" />
+          <button type="button" onClick={onActivateDoodle}>
+            Doodle
+          </button>
+          <div className="app-menu-divider" />
+          <button type="button" onClick={onUndo} disabled={!canUndo}>
+            Undo
+          </button>
+          <button type="button" onClick={onRedo} disabled={!canRedo}>
+            Redo
+          </button>
+          {canPaste ? (
+            <button type="button" onClick={onPaste}>
+              Paste
+            </button>
+          ) : null}
+          <div className="app-menu-divider" />
+          <button type="button" onClick={onExit}>
+            Exit
+          </button>
         </>
       )}
-      <button type="button" onClick={onClose}>
-        Close Menu
-      </button>
+      {selectedCount > 0 ? (
+        <button type="button" onClick={onClose}>
+          Close Menu
+        </button>
+      ) : null}
     </div>
   );
 };

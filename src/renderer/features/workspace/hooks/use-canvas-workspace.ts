@@ -24,13 +24,15 @@ import {
   stripBlockedSuffix,
   type ImportQueueEntry,
 } from "@renderer/features/import/import-queue";
+import {
+  DEFAULT_EMPTY_GROUP_CANVAS_SIZE,
+  DEFAULT_GROUP_BACKGROUND_COLOR,
+  DEFAULT_GROUP_CANVAS_COLOR,
+  DEFAULT_VIEW_ZOOM_BASELINE,
+} from "@shared/project-defaults";
 
 type ToastKind = "success" | "error" | "info";
 type ImagePatch = Partial<Omit<ImageItem, "id" | "type">>;
-const DEFAULT_EMPTY_GROUP_CANVAS_SIZE = {
-  width: 980,
-  height: 640,
-};
 const CANVAS_EXPANSION_PADDING = 24;
 const MIN_CANVAS_WIDTH = 360;
 const MIN_CANVAS_HEIGHT = 240;
@@ -56,6 +58,11 @@ interface UseCanvasWorkspaceOptions {
   addGroupItems: (groupId: string, items: CanvasItem[]) => void;
   removeGroupItems: (groupId: string, itemIds: string[]) => void;
   setGroupCanvasSize: (groupId: string, width: number, height: number) => void;
+  setGroupColors: (
+    groupId: string,
+    colors: Partial<Pick<ReferenceGroup, "canvasColor" | "backgroundColor">>,
+  ) => void;
+  setGroupLocked: (groupId: string, locked: boolean) => void;
   setImportQueue: Dispatch<SetStateAction<ImportQueueEntry[]>>;
   setClipboardItems: Dispatch<SetStateAction<CanvasItem[]>>;
   setSelectedItemIds: Dispatch<SetStateAction<string[]>>;
@@ -81,6 +88,8 @@ export const useCanvasWorkspace = ({
   addGroupItems,
   removeGroupItems,
   setGroupCanvasSize,
+  setGroupColors,
+  setGroupLocked,
   setImportQueue,
   setClipboardItems,
   setSelectedItemIds,
@@ -173,15 +182,16 @@ export const useCanvasWorkspace = ({
           ),
         ),
       );
+      const baselineZoom = fitZoom * DEFAULT_VIEW_ZOOM_BASELINE;
 
       const centerX = (bounds.minX + bounds.maxX) * 0.5;
       const centerY = (bounds.minY + bounds.maxY) * 0.5;
 
-      const unclampedPanX = viewportWidth * 0.5 - centerX * fitZoom;
-      const unclampedPanY = viewportHeight * 0.5 - centerY * fitZoom;
+      const unclampedPanX = viewportWidth * 0.5 - centerX * baselineZoom;
+      const unclampedPanY = viewportHeight * 0.5 - centerY * baselineZoom;
 
-      const scaledCanvasWidth = canvasSize.width * fitZoom;
-      const scaledCanvasHeight = canvasSize.height * fitZoom;
+      const scaledCanvasWidth = canvasSize.width * baselineZoom;
+      const scaledCanvasHeight = canvasSize.height * baselineZoom;
       const panX =
         scaledCanvasWidth <= viewportWidth
           ? (viewportWidth - scaledCanvasWidth) * 0.5
@@ -200,7 +210,7 @@ export const useCanvasWorkspace = ({
               ),
             );
 
-      setGroupView(groupId, fitZoom, panX, panY);
+      setGroupView(groupId, baselineZoom, panX, panY);
     },
     [setGroupView, viewportSize.height, viewportSize.width],
   );
@@ -446,6 +456,11 @@ export const useCanvasWorkspace = ({
       },
     ) => {
       if (!activeGroup) {
+        return;
+      }
+
+      if (activeGroup.locked) {
+        pushToast("info", "Canvas is locked.");
         return;
       }
 
@@ -718,6 +733,11 @@ export const useCanvasWorkspace = ({
       return;
     }
 
+    if (activeGroup.locked) {
+      pushToast("info", "Canvas is locked.");
+      return;
+    }
+
     const selectedItems = activeGroup.items
       .filter((item) => selectedItemIds.includes(item.id))
       .sort((left, right) => left.zIndex - right.zIndex);
@@ -746,6 +766,11 @@ export const useCanvasWorkspace = ({
   const pasteClipboardItems = useCallback(() => {
     if (!activeGroup || clipboardItems.length === 0) {
       pushToast("info", "Clipboard is empty.");
+      return;
+    }
+
+    if (activeGroup.locked) {
+      pushToast("info", "Canvas is locked.");
       return;
     }
 
@@ -794,6 +819,11 @@ export const useCanvasWorkspace = ({
       return;
     }
 
+    if (activeGroup.locked) {
+      pushToast("info", "Canvas is locked.");
+      return;
+    }
+
     runHistoryBatch(() => {
       removeGroupItems(activeGroup.id, selectedItemIds);
       setSelectedItemIds([]);
@@ -822,6 +852,11 @@ export const useCanvasWorkspace = ({
   const handleBoardItemsPatch = useCallback(
     (updates: Record<string, ImagePatch>) => {
       if (!activeGroupId) {
+        return;
+      }
+
+      if (activeGroup?.locked) {
+        pushToast("info", "Canvas is locked.");
         return;
       }
 
@@ -918,6 +953,72 @@ export const useCanvasWorkspace = ({
     runHistoryBatch,
     setGroupCanvasSize,
   ]);
+
+  const changeCanvasSize = useCallback(
+    (width: number, height: number) => {
+      if (!activeGroup) {
+        return;
+      }
+
+      const nextWidth = Math.max(MIN_CANVAS_WIDTH, Math.round(width));
+      const nextHeight = Math.max(MIN_CANVAS_HEIGHT, Math.round(height));
+
+      runHistoryBatch(() => {
+        setGroupCanvasSize(activeGroup.id, nextWidth, nextHeight);
+      });
+
+      pushToast("success", `Canvas resized to ${nextWidth} x ${nextHeight}.`);
+    },
+    [activeGroup, pushToast, runHistoryBatch, setGroupCanvasSize],
+  );
+
+  const toggleCanvasLock = useCallback(() => {
+    if (!activeGroup) {
+      return;
+    }
+
+    const nextLocked = !activeGroup.locked;
+    runHistoryBatch(() => {
+      setGroupLocked(activeGroup.id, nextLocked);
+    });
+    pushToast(
+      "success",
+      nextLocked ? "Canvas locked." : "Canvas unlocked.",
+    );
+  }, [activeGroup, pushToast, runHistoryBatch, setGroupLocked]);
+
+  const changeCanvasColors = useCallback(
+    (canvasColor: string, backgroundColor: string) => {
+      if (!activeGroup) {
+        return;
+      }
+
+      runHistoryBatch(() => {
+        setGroupColors(activeGroup.id, {
+          canvasColor,
+          backgroundColor,
+        });
+      });
+
+      pushToast("success", "Canvas colors updated.");
+    },
+    [activeGroup, pushToast, runHistoryBatch, setGroupColors],
+  );
+
+  const resetCanvasColors = useCallback(() => {
+    if (!activeGroup) {
+      return;
+    }
+
+    runHistoryBatch(() => {
+      setGroupColors(activeGroup.id, {
+        canvasColor: DEFAULT_GROUP_CANVAS_COLOR,
+        backgroundColor: DEFAULT_GROUP_BACKGROUND_COLOR,
+      });
+    });
+
+    pushToast("success", "Canvas colors reset.");
+  }, [activeGroup, pushToast, runHistoryBatch, setGroupColors]);
 
   const arrangeSelectedItems = useCallback(
     (mode: LayoutMode) => {
@@ -1043,6 +1144,10 @@ export const useCanvasWorkspace = ({
     handleBoardItemsPatch,
     handleShellDragOver,
     handleShellDrop,
+    changeCanvasSize,
+    changeCanvasColors,
+    resetCanvasColors,
+    toggleCanvasLock,
     resetView,
     autoArrange,
   };

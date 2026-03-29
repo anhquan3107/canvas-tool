@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
 import type { Project, ReferenceGroup, Task } from "../../shared/types/project";
+import {
+  DEFAULT_EMPTY_GROUP_CANVAS_SIZE,
+  DEFAULT_GROUP_BACKGROUND_COLOR,
+  DEFAULT_GROUP_CANVAS_COLOR,
+} from "../../shared/project-defaults";
 
 const now = () => new Date().toISOString();
-const DEFAULT_CANVAS_SIZE = {
-  width: 980,
-  height: 640,
-};
 
 export const createDefaultTodo = (text: string, order: number) => ({
   id: randomUUID(),
@@ -31,7 +32,10 @@ export const createDefaultGroup = (
   id: randomUUID(),
   name,
   order,
-  canvasSize: { ...DEFAULT_CANVAS_SIZE },
+  locked: false,
+  canvasColor: DEFAULT_GROUP_CANVAS_COLOR,
+  backgroundColor: DEFAULT_GROUP_BACKGROUND_COLOR,
+  canvasSize: { ...DEFAULT_EMPTY_GROUP_CANVAS_SIZE },
   zoom: 1,
   panX: 0,
   panY: 0,
@@ -53,7 +57,7 @@ export const createDefaultProject = (): Project => {
     id: randomUUID(),
     version: 1,
     title: "Untitled",
-    canvasSize: { ...DEFAULT_CANVAS_SIZE },
+    canvasSize: { ...DEFAULT_EMPTY_GROUP_CANVAS_SIZE },
     activeGroupId: group.id,
     groups: [group],
     tasks: [createDefaultTask("Main task", 0)],

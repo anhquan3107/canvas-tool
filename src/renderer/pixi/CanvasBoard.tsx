@@ -33,6 +33,7 @@ export const CanvasBoard = ({
   onViewChange,
   onItemsPatch,
   onAnnotationsChange,
+  onItemDoubleClick,
   onCanvasSizePreviewChange,
   onExportReady,
 }: CanvasBoardProps) => {
@@ -59,6 +60,7 @@ export const CanvasBoard = ({
   const onItemsPatchRef = useRef(onItemsPatch);
   const onViewChangeRef = useRef(onViewChange);
   const onAnnotationsChangeRef = useRef(onAnnotationsChange);
+  const onItemDoubleClickRef = useRef(onItemDoubleClick);
   const onCanvasSizePreviewChangeRef = useRef(onCanvasSizePreviewChange);
   const onExportReadyRef = useRef(onExportReady);
   const activeToolRef = useRef(activeTool);
@@ -77,6 +79,7 @@ export const CanvasBoard = ({
   const activeAnnotationSessionRef =
     useRef<ActiveAnnotationSessionState | null>(null);
   const lastPointerClientRef = useRef<{ x: number; y: number } | null>(null);
+  const lastItemPressRef = useRef<{ itemId: string; time: number } | null>(null);
   const [appReady, setAppReady] = useState(false);
   const boardFilter = `blur(${group.filters.blur}px) grayscale(${group.filters.grayscale}%)`;
 
@@ -117,6 +120,10 @@ export const CanvasBoard = ({
   useEffect(() => {
     onAnnotationsChangeRef.current = onAnnotationsChange;
   }, [onAnnotationsChange]);
+
+  useEffect(() => {
+    onItemDoubleClickRef.current = onItemDoubleClick;
+  }, [onItemDoubleClick]);
 
   useEffect(() => {
     onCanvasSizePreviewChangeRef.current = onCanvasSizePreviewChange;
@@ -246,6 +253,8 @@ export const CanvasBoard = ({
     renderTokenRef,
     activeItemDragRef,
     activeSelectionBoxRef,
+    lastItemPressRef,
+    onItemDoubleClickRef,
     ensureCaptureSession,
     drawBoardSurface,
     syncViewFromGroup,
@@ -328,6 +337,14 @@ export const CanvasBoard = ({
 
     redrawAnnotations(group.annotations);
   }, [appReady, group.annotations, redrawAnnotations]);
+
+  useEffect(() => {
+    if (!appReady) {
+      return;
+    }
+
+    drawBoardSurface();
+  }, [appReady, drawBoardSurface, group.canvasColor, group.canvasSize.height, group.canvasSize.width]);
 
   useEffect(() => {
     if (!appReady) {

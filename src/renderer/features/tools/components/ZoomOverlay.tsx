@@ -1,0 +1,404 @@
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type WheelEvent as ReactWheelEvent,
+} from "react";
+import type { ImageItem } from "@shared/types/project";
+import type { RulerGridSettings } from "@renderer/features/tools/types";
+
+interface ZoomOverlayProps {
+  items: ImageItem[];
+  activeImageId: string;
+  rulerEnabled: boolean;
+  rulerDialogOpen: boolean;
+  rulerSettings: RulerGridSettings;
+  draftRulerSettings: RulerGridSettings;
+  filterStyle?: string;
+  showBlurControl: boolean;
+  blurAmount: number;
+  slideshowPlaying: boolean;
+  slideshowSeconds: number;
+  onBlurChange: (blur: number) => void;
+  onPrevious: () => void;
+  onNext: () => void;
+  onToggleSlideshow: () => void;
+  onSlideshowSecondsChange: (seconds: number) => void;
+  onDraftRulerSettingsChange: (settings: RulerGridSettings) => void;
+  onApplyRulerSettings: (settings: RulerGridSettings) => void;
+  onCancelRuler: () => void;
+}
+
+const GRID_COLOR_OPTIONS = [
+  { label: "Red", value: "#d24b43" },
+  { label: "Green", value: "#5fb46b" },
+  { label: "Blue", value: "#4e81d8" },
+  { label: "Cyan", value: "#47c7cf" },
+  { label: "White", value: "#f3f1e9" },
+  { label: "Black", value: "#121212" },
+];
+
+const clamp = (value: number, min: number, max: number) =>
+  Math.min(max, Math.max(min, value));
+
+export const ZoomOverlay = ({
+  items,
+  activeImageId,
+  rulerEnabled,
+  rulerDialogOpen,
+  rulerSettings,
+  draftRulerSettings,
+  filterStyle,
+  showBlurControl,
+  blurAmount,
+  slideshowPlaying,
+  slideshowSeconds,
+  onBlurChange,
+  onPrevious,
+  onNext,
+  onToggleSlideshow,
+  onSlideshowSecondsChange,
+  onDraftRulerSettingsChange,
+  onApplyRulerSettings,
+  onCancelRuler,
+}: ZoomOverlayProps) => {
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
+  const [scale, setScale] = useState(1);
+  const [fitScale, setFitScale] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [panOrigin, setPanOrigin] = useState({ x: 0, y: 0 });
+  const [slideshowBarVisible, setSlideshowBarVisible] = useState(false);
+
+  const activeImage = useMemo(
+    () => items.find((item) => item.id === activeImageId) ?? null,
+    [activeImageId, items],
+  );
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) {
+      return;
+    }
+
+    const updateSize = () => {
+      setViewportSize({
+        width: viewport.clientWidth,
+        height: viewport.clientHeight,
+      });
+    };
+
+    updateSize();
+    const observer = new ResizeObserver(updateSize);
+    observer.observe(viewport);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!activeImage || viewportSize.width <= 0 || viewportSize.height <= 0) {
+      return;
+    }
+
+    const nextFitScale =
+      Math.min(
+        viewportSize.width / activeImage.width,
+        viewportSize.height / activeImage.height,
+      ) * 0.94;
+
+    setFitScale(nextFitScale);
+    setScale(nextFitScale);
+    setPan({ x: 0, y: 0 });
+  }, [activeImage, viewportSize.height, viewportSize.width]);
+
+  if (!activeImage || !activeImage.assetPath) {
+    return null;
+  }
+
+  const maxScale = Math.max(fitScale * 8, fitScale);
+  const gridSettings =
+    rulerEnabled && rulerDialogOpen ? draftRulerSettings : rulerSettings;
+
+  const handleWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
+    event.preventDefault();
+
+    setScale((previous) =>
+      clamp(previous * Math.exp(-event.deltaY * 0.0015), fitScale * 0.6, maxScale),
+    );
+  };
+
+  const handlePointerDown = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (event.button !== 1) {
+      return;
+    }
+
+    event.preventDefault();
+    setIsPanning(true);
+    setPanOrigin({
+      x: event.clientX - pan.x,
+      y: event.clientY - pan.y,
+    });
+  };
+
+  const handlePointerMove = (event: ReactMouseEvent<HTMLDivElement>) => {
+    const viewport = viewportRef.current;
+    if (viewport && !rulerEnabled) {
+      const rect = viewport.getBoundingClientRect();
+      const centerX = rect.width * 0.5 + pan.x;
+      const centerY = rect.height * 0.5 + pan.y;
+      const displayWidth = activeImage.width * scale;
+      const displayHeight = activeImage.height * scale;
+      const imageLeft = centerX - displayWidth * 0.5;
+      const imageRight = centerX + displayWidth * 0.5;
+      const imageBottom = centerY + displayHeight * 0.5;
+      const pointerX = event.clientX - rect.left;
+      const pointerY = event.clientY - rect.top;
+      const inBottomBand =
+        pointerX >= imageLeft - 36 &&
+        pointerX <= imageRight + 36 &&
+        pointerY >= imageBottom - 180 &&
+        pointerY <= imageBottom + 56;
+      setSlideshowBarVisible(inBottomBand);
+    }
+
+    if (!isPanning) {
+      return;
+    }
+
+    event.preventDefault();
+    setPan({
+      x: event.clientX - panOrigin.x,
+      y: event.clientY - panOrigin.y,
+    });
+  };
+
+  const handlePointerUp = () => {
+    setIsPanning(false);
+  };
+
+  const stageStyle = {
+    width: `${activeImage.width}px`,
+    height: `${activeImage.height}px`,
+    transform: `translate(-50%, -50%) translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
+  };
+
+  return (
+    <div className="zoom-overlay">
+      <div
+        ref={viewportRef}
+        className="zoom-overlay-viewport"
+        onWheel={handleWheel}
+        onMouseDown={handlePointerDown}
+        onMouseMove={handlePointerMove}
+        onMouseUp={handlePointerUp}
+        onMouseLeave={() => {
+          handlePointerUp();
+          setSlideshowBarVisible(false);
+        }}
+      >
+        <div className="zoom-overlay-stage" style={stageStyle}>
+          <img
+            className="zoom-overlay-image"
+            src={activeImage.assetPath}
+            alt={activeImage.label ?? "Focused canvas image"}
+            draggable={false}
+            style={filterStyle ? { filter: filterStyle } : undefined}
+          />
+
+          {rulerEnabled ? (
+            <svg
+              className="zoom-overlay-grid"
+              viewBox={`0 0 ${activeImage.width} ${activeImage.height}`}
+              preserveAspectRatio="none"
+            >
+              {Array.from({ length: Math.max(0, gridSettings.verticalLines - 1) }).map(
+                (_, index) => {
+                  const x =
+                    (activeImage.width / gridSettings.verticalLines) * (index + 1);
+                  return (
+                    <line
+                      key={`v-${index}`}
+                      x1={x}
+                      y1={0}
+                      x2={x}
+                      y2={activeImage.height}
+                      stroke={gridSettings.gridColor}
+                      strokeWidth={1}
+                      strokeOpacity={0.82}
+                    />
+                  );
+                },
+              )}
+              {Array.from({
+                length: Math.max(0, gridSettings.horizontalLines - 1),
+              }).map((_, index) => {
+                const y =
+                  (activeImage.height / gridSettings.horizontalLines) * (index + 1);
+                return (
+                  <line
+                    key={`h-${index}`}
+                    x1={0}
+                    y1={y}
+                    x2={activeImage.width}
+                    y2={y}
+                    stroke={gridSettings.gridColor}
+                    strokeWidth={1}
+                    strokeOpacity={0.82}
+                  />
+                );
+              })}
+            </svg>
+          ) : null}
+        </div>
+      </div>
+
+      {showBlurControl ? (
+        <div className="zoom-overlay-blur-bar">
+          <label htmlFor="zoom-overlay-blur-range">Blur</label>
+          <input
+            id="zoom-overlay-blur-range"
+            type="range"
+            min={0}
+            max={32}
+            value={blurAmount}
+            onChange={(event) => onBlurChange(Number(event.target.value))}
+          />
+          <span>{blurAmount}</span>
+        </div>
+      ) : null}
+
+      {!rulerEnabled ? (
+        <div
+          className="zoom-slideshow-hotspot"
+          onMouseEnter={() => setSlideshowBarVisible(true)}
+          onMouseLeave={() => setSlideshowBarVisible(false)}
+        />
+      ) : null}
+
+      {rulerEnabled && rulerDialogOpen ? (
+        <div
+          className="zoom-ruler-panel"
+          onMouseDown={(event) => event.stopPropagation()}
+        >
+          <div className="zoom-ruler-header">
+            <div>
+              <strong>Ruler Grid</strong>
+              <p>Shape a composition grid directly on the focused image.</p>
+            </div>
+          </div>
+
+          <label className="zoom-ruler-field">
+            <span>Horizontal Lines</span>
+            <div className="zoom-ruler-slider-row">
+              <input
+                type="range"
+                min={2}
+                max={18}
+                value={draftRulerSettings.horizontalLines}
+                onChange={(event) =>
+                  onDraftRulerSettingsChange({
+                    ...draftRulerSettings,
+                    horizontalLines: Number(event.target.value),
+                  })
+                }
+              />
+              <strong>{draftRulerSettings.horizontalLines}</strong>
+            </div>
+          </label>
+
+          <label className="zoom-ruler-field">
+            <span>Vertical Lines</span>
+            <div className="zoom-ruler-slider-row">
+              <input
+                type="range"
+                min={2}
+                max={18}
+                value={draftRulerSettings.verticalLines}
+                onChange={(event) =>
+                  onDraftRulerSettingsChange({
+                    ...draftRulerSettings,
+                    verticalLines: Number(event.target.value),
+                  })
+                }
+              />
+              <strong>{draftRulerSettings.verticalLines}</strong>
+            </div>
+          </label>
+
+          <fieldset className="zoom-ruler-colors">
+            <legend>Grid Color</legend>
+            <div className="zoom-ruler-color-list">
+              {GRID_COLOR_OPTIONS.map((option) => (
+                <label key={option.value} className="zoom-ruler-color-option">
+                  <input
+                    type="radio"
+                    name="zoom-ruler-grid-color"
+                    checked={draftRulerSettings.gridColor === option.value}
+                    onChange={() =>
+                      onDraftRulerSettingsChange({
+                        ...draftRulerSettings,
+                        gridColor: option.value,
+                      })
+                    }
+                  />
+                  <span
+                    className="zoom-ruler-color-dot"
+                    style={{ backgroundColor: option.value }}
+                  />
+                  <span>{option.label}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          <div className="zoom-ruler-actions">
+            <button
+              type="button"
+              onClick={() => onApplyRulerSettings(draftRulerSettings)}
+            >
+              Apply
+            </button>
+            <button type="button" onClick={onCancelRuler}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div
+          className={`zoom-slideshow-bar ${slideshowBarVisible ? "visible" : ""}`}
+          onMouseEnter={() => setSlideshowBarVisible(true)}
+          onMouseLeave={() => setSlideshowBarVisible(false)}
+        >
+          <button type="button" onClick={onPrevious}>
+            ⏮
+          </button>
+          <button type="button" onClick={onToggleSlideshow}>
+            {slideshowPlaying ? "⏸" : "▶"}
+          </button>
+          <button type="button" onClick={onNext}>
+            ⏭
+          </button>
+
+          <label className="zoom-slideshow-timer">
+            <span>{slideshowSeconds}s</span>
+            <input
+              type="range"
+              min={1}
+              max={12}
+              value={slideshowSeconds}
+              onChange={(event) =>
+                onSlideshowSecondsChange(Number(event.target.value))
+              }
+            />
+          </label>
+        </div>
+      )}
+
+      <div className="zoom-overlay-hint">
+        Scroll to zoom • Middle-click to pan • ESC to close
+      </div>
+    </div>
+  );
+};

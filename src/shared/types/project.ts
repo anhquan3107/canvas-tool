@@ -28,6 +28,9 @@ export interface ReferenceGroup {
   id: string;
   name: string;
   order: number;
+  locked: boolean;
+  canvasColor: string;
+  backgroundColor: string;
   canvasSize: CanvasSize;
   zoom: number;
   panX: number;

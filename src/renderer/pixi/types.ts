@@ -33,6 +33,7 @@ export interface CanvasBoardProps {
   onViewChange: (zoom: number, panX: number, panY: number) => void;
   onItemsPatch: (updates: Record<string, CanvasItemPatch>) => void;
   onAnnotationsChange: (annotations: AnnotationStroke[]) => void;
+  onItemDoubleClick?: (itemId: string) => void;
   onCanvasSizePreviewChange?: (size: CanvasSizePreview | null) => void;
   onExportReady?: (exportCanvas: (() => string | null) | null) => void;
 }

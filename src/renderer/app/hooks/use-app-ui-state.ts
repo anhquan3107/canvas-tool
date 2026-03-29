@@ -15,6 +15,11 @@ export const useAppUiState = () => {
   const [menuState, setMenuState] = useState<MenuState | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [groupsOverlayOpen, setGroupsOverlayOpen] = useState(false);
+  const [canvasSizeDialogOpen, setCanvasSizeDialogOpen] = useState(false);
+  const [backgroundColorDialogOpen, setBackgroundColorDialogOpen] =
+    useState(false);
+  const [canvasWidthInput, setCanvasWidthInput] = useState("");
+  const [canvasHeightInput, setCanvasHeightInput] = useState("");
   const hasInitializedViewRef = useRef(false);
   const centeredGroupIdsRef = useRef(new Set<string>());
   const previousActiveGroupIdRef = useRef<string | null>(null);
@@ -43,6 +48,14 @@ export const useAppUiState = () => {
     setSettingsOpen,
     groupsOverlayOpen,
     setGroupsOverlayOpen,
+    canvasSizeDialogOpen,
+    setCanvasSizeDialogOpen,
+    backgroundColorDialogOpen,
+    setBackgroundColorDialogOpen,
+    canvasWidthInput,
+    setCanvasWidthInput,
+    canvasHeightInput,
+    setCanvasHeightInput,
     hasInitializedViewRef,
     centeredGroupIdsRef,
     previousActiveGroupIdRef,

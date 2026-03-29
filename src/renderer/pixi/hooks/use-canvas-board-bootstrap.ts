@@ -94,7 +94,8 @@ export const useCanvasBoardBootstrap = ({
       await app.init({
         antialias: true,
         autoDensity: true,
-        background: "#232323",
+        background: "#000000",
+        backgroundAlpha: 0,
         preserveDrawingBuffer: true,
         resizeTo: host,
       });

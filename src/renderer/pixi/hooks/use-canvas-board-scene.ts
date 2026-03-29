@@ -39,10 +39,12 @@ interface UseCanvasBoardSceneOptions {
   selectionIdsRef: MutableRefObject<string[]>;
   groupRef: MutableRefObject<ReferenceGroup>;
   onSelectionChangeRef: MutableRefObject<(itemIds: string[]) => void>;
+  onItemDoubleClickRef: MutableRefObject<((itemId: string) => void) | undefined>;
   activeToolRef: MutableRefObject<string | null>;
   renderTokenRef: MutableRefObject<number>;
   activeItemDragRef: MutableRefObject<ActiveItemDragState | null>;
   activeSelectionBoxRef: MutableRefObject<ActiveSelectionBoxState | null>;
+  lastItemPressRef: MutableRefObject<{ itemId: string; time: number } | null>;
   ensureCaptureSession: (item: CaptureItem) => Promise<CaptureSession>;
   drawBoardSurface: (insets?: CanvasInsets) => void;
   syncViewFromGroup: () => void;
@@ -134,10 +136,12 @@ export const useCanvasBoardScene = ({
   selectionIdsRef,
   groupRef,
   onSelectionChangeRef,
+  onItemDoubleClickRef,
   activeToolRef,
   renderTokenRef,
   activeItemDragRef,
   activeSelectionBoxRef,
+  lastItemPressRef,
   ensureCaptureSession,
   drawBoardSurface,
   syncViewFromGroup,
@@ -211,7 +215,12 @@ export const useCanvasBoardScene = ({
       itemNode.scale.set(item.flippedX ? -safeScaleX : safeScaleX, safeScaleY);
       itemNode.pivot.x = item.flippedX ? safeWidth : 0;
       itemNode.eventMode = doodleActive ? "none" : "static";
-      itemNode.cursor = doodleActive ? "none" : item.locked ? "default" : "move";
+      itemNode.cursor =
+        doodleActive || groupRef.current.locked
+          ? "default"
+          : item.locked
+            ? "default"
+            : "move";
       itemNode.hitArea = new Rectangle(0, 0, safeWidth, safeHeight);
 
       const frame = new Graphics();
@@ -305,6 +314,24 @@ export const useCanvasBoardScene = ({
       itemNode.on("pointerdown", (event: FederatedPointerEvent) => {
         event.stopPropagation();
 
+        const now = performance.now();
+        const previousPress = lastItemPressRef.current;
+        if (
+          event.nativeEvent instanceof MouseEvent &&
+          previousPress?.itemId === item.id &&
+          now - previousPress.time <= 320
+        ) {
+          lastItemPressRef.current = null;
+          activeItemDragRef.current = null;
+          onItemDoubleClickRef.current?.(item.id);
+          return;
+        }
+
+        lastItemPressRef.current = {
+          itemId: item.id,
+          time: now,
+        };
+
         const currentSelection = selectionIdsRef.current;
         if (event.nativeEvent.shiftKey) {
           const nextSelection = currentSelection.includes(item.id)
@@ -323,7 +350,7 @@ export const useCanvasBoardScene = ({
         selectionIdsRef.current = nextSelection;
         onSelectionChangeRef.current(nextSelection);
 
-        if (item.locked) {
+        if (groupRef.current.locked || item.locked) {
           return;
         }
 
@@ -420,10 +447,12 @@ export const useCanvasBoardScene = ({
     itemLayerRef,
     itemNodeByIdRef,
     onSelectionChangeRef,
+    onItemDoubleClickRef,
     redrawAnnotations,
     renderTokenRef,
     selectionIdsRef,
     startAnnotationSession,
     syncViewFromGroup,
+    lastItemPressRef,
   ]);
 };

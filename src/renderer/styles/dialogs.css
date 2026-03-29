@@ -53,6 +53,21 @@
   width: 10px;
 }
 
+.app-menu[data-horizontal="left"] .app-menu-submenu-panel {
+  left: auto;
+  right: calc(100% - 2px);
+}
+
+.app-menu[data-horizontal="left"] .app-menu-submenu-panel::before {
+  left: auto;
+  right: -10px;
+}
+
+.app-menu[data-vertical="up"] .app-menu-submenu-panel {
+  top: auto;
+  bottom: -6px;
+}
+
 .app-menu button:disabled {
   opacity: 0.42;
   cursor: default;
@@ -136,6 +151,104 @@
   max-width: 230px;
   margin: 0 auto;
   gap: 10px;
+}
+
+.color-picker-toggle-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.color-picker-target {
+  padding: 12px 14px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-soft);
+  font-size: 14px;
+  text-align: center;
+}
+
+.color-picker-target.active {
+  background: #527d8c;
+  color: var(--text);
+  border-color: rgba(160, 218, 237, 0.28);
+}
+
+.color-picker-body {
+  display: flex;
+  align-items: stretch;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.color-picker-square-shell,
+.color-picker-hue-shell {
+  position: relative;
+  flex: none;
+}
+
+.color-picker-square {
+  display: block;
+  width: 320px;
+  height: 320px;
+  border-radius: 2px;
+  cursor: crosshair;
+}
+
+.color-picker-hue {
+  display: block;
+  width: 22px;
+  height: 320px;
+  border-radius: 2px;
+  cursor: ns-resize;
+  background: linear-gradient(
+    180deg,
+    #ff0000 0%,
+    #ffff00 17%,
+    #00ff00 34%,
+    #00ffff 51%,
+    #0000ff 68%,
+    #ff00ff 85%,
+    #ff0000 100%
+  );
+}
+
+.color-picker-square-thumb,
+.color-picker-hue-thumb {
+  position: absolute;
+  pointer-events: none;
+}
+
+.color-picker-square-thumb {
+  width: 16px;
+  height: 16px;
+  border: 3px solid rgba(255, 255, 255, 0.92);
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+  transform: translate(-50%, -50%);
+}
+
+.color-picker-hue-thumb {
+  left: -4px;
+  right: -4px;
+  height: 8px;
+  border: 2px solid rgba(255, 255, 255, 0.92);
+  border-radius: 999px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+  transform: translateY(-50%);
+}
+
+.color-picker-meta-grid {
+  gap: 18px;
+  margin-bottom: 8px;
+}
+
+.color-picker-preview {
+  width: 100%;
+  height: 42px;
+  border: 1px solid var(--line-strong);
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .connect-dialog-section {

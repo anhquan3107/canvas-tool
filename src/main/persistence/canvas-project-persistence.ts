@@ -2,6 +2,10 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import JSZip from "jszip";
 import type { Project, ReferenceGroup } from "../../shared/types/project";
+import {
+  DEFAULT_GROUP_BACKGROUND_COLOR,
+  DEFAULT_GROUP_CANVAS_COLOR,
+} from "../../shared/project-defaults";
 
 interface CanvasManifest {
   id: string;
@@ -117,7 +121,14 @@ export const loadCanvasProject = async (
       }
 
       const groupRaw = await groupFile.async("text");
-      return JSON.parse(groupRaw) as ReferenceGroup;
+      const parsedGroup = JSON.parse(groupRaw) as ReferenceGroup;
+      return {
+        ...parsedGroup,
+        locked: parsedGroup.locked ?? false,
+        canvasColor: parsedGroup.canvasColor ?? DEFAULT_GROUP_CANVAS_COLOR,
+        backgroundColor:
+          parsedGroup.backgroundColor ?? DEFAULT_GROUP_BACKGROUND_COLOR,
+      };
     }),
   );
 

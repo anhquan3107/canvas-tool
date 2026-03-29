@@ -5,6 +5,7 @@ import {
   useState,
   type MouseEvent as ReactMouseEvent,
 } from "react";
+import { DEFAULT_VIEW_ZOOM_BASELINE } from "@shared/project-defaults";
 import type { Project } from "@shared/types/project";
 import { useAppShortcuts } from "@renderer/app/hooks/use-app-shortcuts";
 import { useAppUiState } from "@renderer/app/hooks/use-app-ui-state";
@@ -32,12 +33,16 @@ import { TaskOverlay } from "@renderer/features/tasks/components/TaskOverlay";
 import { useTaskFeature } from "@renderer/features/tasks/hooks/use-task-feature";
 import { ColorWheel } from "@renderer/features/tools/components/ColorWheel";
 import { FilterFooter } from "@renderer/features/tools/components/FilterFooter";
+import { ZoomOverlay } from "@renderer/features/tools/components/ZoomOverlay";
 import { useToolFeature } from "@renderer/features/tools/hooks/use-tool-feature";
+import { useZoomOverlay } from "@renderer/features/tools/hooks/use-zoom-overlay";
 import { useCanvasWorkspace } from "@renderer/features/workspace/hooks/use-canvas-workspace";
 import { useToast } from "@renderer/hooks/use-toast";
 import { AppMenu } from "@renderer/app/components/AppMenu";
 import { TopBar } from "@renderer/app/components/TopBar";
 import { AppInfoPanel } from "@renderer/app/components/AppInfoPanel";
+import { BackgroundColorDialog } from "@renderer/app/components/BackgroundColorDialog";
+import { CanvasSizeDialog } from "@renderer/app/components/CanvasSizeDialog";
 import { ConfirmCloseDialog } from "@renderer/app/components/ConfirmCloseDialog";
 import { StatusBar } from "@renderer/app/components/StatusBar";
 
@@ -91,6 +96,14 @@ const AppContent = () => {
     setSettingsOpen,
     groupsOverlayOpen,
     setGroupsOverlayOpen,
+    canvasSizeDialogOpen,
+    setCanvasSizeDialogOpen,
+    backgroundColorDialogOpen,
+    setBackgroundColorDialogOpen,
+    canvasWidthInput,
+    setCanvasWidthInput,
+    canvasHeightInput,
+    setCanvasHeightInput,
     hasInitializedViewRef,
     centeredGroupIdsRef,
     previousActiveGroupIdRef,
@@ -113,6 +126,8 @@ const AppContent = () => {
     addGroup,
     setGroupFilters,
     setGroupCanvasSize,
+    setGroupColors,
+    setGroupLocked,
     setGroupAnnotations,
     flipItems,
     addTask,
@@ -228,6 +243,7 @@ const AppContent = () => {
     brushSize,
     eraserSize,
     handleToolButton,
+    setActiveTool,
     setDoodleMode,
     setDoodleColor,
     setBrushSize,
@@ -239,6 +255,32 @@ const AppContent = () => {
     setGroupFilters,
     pushToast,
     onConnectRequested: openConnectDialog,
+  });
+
+  const {
+    zoomOverlayOpen,
+    zoomOverlayItems,
+    zoomOverlayItemId,
+    rulerEnabled,
+    rulerDialogOpen,
+    rulerSettings,
+    draftRulerSettings,
+    slideshowPlaying,
+    slideshowSeconds,
+    openZoomOverlay,
+    handleRulerTool,
+    selectNextZoomImage,
+    selectPreviousZoomImage,
+    setDraftRulerSettings,
+    applyRulerSettings,
+    cancelRuler,
+    setSlideshowPlaying,
+    setSlideshowSeconds,
+  } = useZoomOverlay({
+    activeGroup,
+    selectedItemIds,
+    setActiveTool,
+    pushToast,
   });
   const { canvasStageRef, exportCanvasImageRef, viewportSize } =
     useCanvasStage();
@@ -258,6 +300,9 @@ const AppContent = () => {
     handleBoardViewChange,
     handleBoardItemsPatch,
     handleShellDragOver,
+    changeCanvasSize,
+    changeCanvasColors,
+    toggleCanvasLock,
     resetView,
     autoArrange,
   } = useCanvasWorkspace({
@@ -276,6 +321,8 @@ const AppContent = () => {
     addGroupItems,
     removeGroupItems,
     setGroupCanvasSize,
+    setGroupColors,
+    setGroupLocked,
     setImportQueue,
     setClipboardItems,
     setSelectedItemIds,
@@ -392,7 +439,14 @@ const AppContent = () => {
   });
 
   useEffect(() => {
-    if (!menuState && !taskDialogOpen && !groupDialogOpen && !settingsOpen) {
+    if (
+      !menuState &&
+      !taskDialogOpen &&
+      !groupDialogOpen &&
+      !settingsOpen &&
+      !canvasSizeDialogOpen &&
+      !backgroundColorDialogOpen
+    ) {
       return;
     }
 
@@ -406,6 +460,8 @@ const AppContent = () => {
         setTaskDialogOpen(false);
         setGroupDialogOpen(false);
         setSettingsOpen(false);
+        setCanvasSizeDialogOpen(false);
+        setBackgroundColorDialogOpen(false);
       }
     };
 
@@ -416,7 +472,14 @@ const AppContent = () => {
       window.removeEventListener("pointerdown", handlePointer);
       window.removeEventListener("keydown", handleEscape);
     };
-  }, [groupDialogOpen, menuState, settingsOpen, taskDialogOpen]);
+  }, [
+    canvasSizeDialogOpen,
+    backgroundColorDialogOpen,
+    groupDialogOpen,
+    menuState,
+    settingsOpen,
+    taskDialogOpen,
+  ]);
 
   useEffect(() => {
     if (!activeGroupId) {
@@ -437,7 +500,7 @@ const AppContent = () => {
   };
 
   const zoomLabel = activeGroup
-    ? `${Math.round(activeGroup.zoom * 100)}%`
+    ? `${Math.round((activeGroup.zoom / DEFAULT_VIEW_ZOOM_BASELINE) * 100)}%`
     : "0%";
   const canvasLabel = canvasSizePreview
     ? `${canvasSizePreview.width} x ${canvasSizePreview.height}`
@@ -447,6 +510,9 @@ const AppContent = () => {
   const projectFileName =
     project.filePath?.split(/[\\/]/).at(-1) ?? "Untitled.canvas";
   const activeDoodleSize = doodleMode === "brush" ? brushSize : eraserSize;
+  const zoomOverlayFilter = activeGroup
+    ? `blur(${activeGroup.filters.blur}px) grayscale(${activeGroup.filters.grayscale}%)`
+    : undefined;
   const {
     canExportSelectedSwatch,
     handleExportSelectedSwatch,
@@ -481,6 +547,68 @@ const AppContent = () => {
     [importFromPayload],
   );
 
+  const handleOpenCanvasSizeDialog = useCallback(() => {
+    if (!activeGroup) {
+      return;
+    }
+
+    setMenuState(null);
+    setCanvasWidthInput(String(activeGroup.canvasSize.width));
+    setCanvasHeightInput(String(activeGroup.canvasSize.height));
+    setCanvasSizeDialogOpen(true);
+  }, [
+    activeGroup,
+    setCanvasHeightInput,
+    setCanvasSizeDialogOpen,
+    setCanvasWidthInput,
+  ]);
+
+  const handleConfirmCanvasSizeDialog = useCallback(() => {
+    const nextWidth = Number(canvasWidthInput);
+    const nextHeight = Number(canvasHeightInput);
+
+    if (
+      !Number.isFinite(nextWidth) ||
+      !Number.isFinite(nextHeight) ||
+      nextWidth <= 0 ||
+      nextHeight <= 0
+    ) {
+      pushToast("error", "Enter valid canvas width and height.");
+      return;
+    }
+
+    changeCanvasSize(nextWidth, nextHeight);
+    setCanvasSizeDialogOpen(false);
+  }, [
+    canvasHeightInput,
+    canvasWidthInput,
+    changeCanvasSize,
+    pushToast,
+    setCanvasSizeDialogOpen,
+  ]);
+
+  const handleOpenBackgroundColorDialog = useCallback(() => {
+    if (!activeGroup) {
+      return;
+    }
+
+    setMenuState(null);
+    setSettingsOpen(false);
+    setBackgroundColorDialogOpen(true);
+  }, [activeGroup, setBackgroundColorDialogOpen, setSettingsOpen]);
+
+  const handleToolbarToolClick = useCallback(
+    (tool: "connect" | "doodle" | "blur" | "bw" | "ruler") => {
+      if (tool === "ruler") {
+        handleRulerTool();
+        return;
+      }
+
+      handleToolButton(tool);
+    },
+    [handleRulerTool, handleToolButton],
+  );
+
   return (
     <div
       className="app-shell"
@@ -493,6 +621,10 @@ const AppContent = () => {
           activeGroup={activeGroup}
           activeTool={activeTool}
           settingsOpen={settingsOpen}
+          canPaste={clipboardItems.length > 0}
+          canExportSelectedTask={Boolean(selectedTask)}
+          canExportAnyTask={project.tasks.length > 0}
+          canvasLocked={activeGroup?.locked ?? false}
           windowMaximized={windowMaximized}
           windowAlwaysOnTop={windowAlwaysOnTop}
           onBrandClick={() => setAppInfoOpen((previous) => !previous)}
@@ -509,7 +641,50 @@ const AppContent = () => {
             setSettingsOpen(false);
             void handleSaveProjectAs();
           }}
-          onToolClick={handleToolButton}
+          onExportCanvasImage={() => {
+            setSettingsOpen(false);
+            void handleExportCanvasImage();
+          }}
+          onExportGroupImages={() => {
+            setSettingsOpen(false);
+            void handleExportGroupImages();
+          }}
+          onExportSelectedTaskHtml={() => {
+            setSettingsOpen(false);
+            void handleExportSelectedTaskHtml();
+          }}
+          onExportAllTasksHtml={() => {
+            setSettingsOpen(false);
+            void handleExportAllTasksHtml();
+          }}
+          onChangeCanvasSize={() => {
+            setSettingsOpen(false);
+            handleOpenCanvasSizeDialog();
+          }}
+          onToggleCanvasLock={() => {
+            setSettingsOpen(false);
+            toggleCanvasLock();
+          }}
+          onToolClick={handleToolbarToolClick}
+          onAutoArrange={() => {
+            setSettingsOpen(false);
+            autoArrange();
+          }}
+          onToggleBlur={() => {
+            setSettingsOpen(false);
+            toggleBlur();
+          }}
+          onToggleBlackAndWhite={() => {
+            setSettingsOpen(false);
+            toggleBlackAndWhite();
+          }}
+          onActivateDoodle={() => {
+            setSettingsOpen(false);
+            handleToolButton("doodle");
+          }}
+          onShowBackgroundColor={() => {
+            handleOpenBackgroundColorDialog();
+          }}
           onResetView={resetView}
           onTaskClick={openTaskDialog}
           onCreateGroup={openGroupDialog}
@@ -519,6 +694,14 @@ const AppContent = () => {
               "CanvasTool shortcuts: Ctrl+O, Ctrl+S, Ctrl+Shift+F, Ctrl+B, Ctrl+Y.",
             )
           }
+          onPaste={() => {
+            setSettingsOpen(false);
+            pasteClipboardItems();
+          }}
+          onExit={() => {
+            setSettingsOpen(false);
+            handleCloseWindow();
+          }}
           onMinimize={handleMinimizeWindow}
           onToggleAlwaysOnTop={handleToggleAlwaysOnTop}
           onToggleMaximize={handleToggleMaximize}
@@ -527,7 +710,13 @@ const AppContent = () => {
 
         <div className="desktop-layout">
           <main className="workspace-panel">
-            <div className="canvas-stage" ref={canvasStageRef}>
+            <div
+              className="canvas-stage"
+              ref={canvasStageRef}
+              style={{
+                backgroundColor: activeGroup?.backgroundColor ?? "#232323",
+              }}
+            >
               {activeGroup ? (
                 <CanvasBoard
                   group={activeGroup}
@@ -543,6 +732,9 @@ const AppContent = () => {
                   onAnnotationsChange={(annotations) =>
                     setGroupAnnotations(activeGroup.id, annotations)
                   }
+                  onItemDoubleClick={(itemId) => {
+                    openZoomOverlay(itemId);
+                  }}
                   onCanvasSizePreviewChange={setCanvasSizePreview}
                   onExportReady={(exportCanvas) => {
                     exportCanvasImageRef.current = exportCanvas;
@@ -550,84 +742,120 @@ const AppContent = () => {
                 />
               ) : null}
 
-              <div className="canvas-overlay-column top-left">
-                {appInfoOpen ? (
-                  <AppInfoPanel
-                    projectFileName={projectFileName}
-                    version={version}
-                    importVisibilitySnapshot={importVisibilitySnapshot}
-                    recentFiles={recentFiles}
-                    importQueue={importQueue}
-                    retryingEntryId={retryingEntryId}
-                    onClose={() => setAppInfoOpen(false)}
-                    onRetryImport={(entryId) => void retryImportEntry(entryId)}
-                  />
-                ) : null}
+              {!zoomOverlayOpen ? (
+                <>
+                  <div className="canvas-overlay-column top-left">
+                    {appInfoOpen ? (
+                      <AppInfoPanel
+                        projectFileName={projectFileName}
+                        version={version}
+                        importVisibilitySnapshot={importVisibilitySnapshot}
+                        recentFiles={recentFiles}
+                        importQueue={importQueue}
+                        retryingEntryId={retryingEntryId}
+                        onClose={() => setAppInfoOpen(false)}
+                        onRetryImport={(entryId) => void retryImportEntry(entryId)}
+                      />
+                    ) : null}
 
-                {primaryTask ? (
-                  <TaskOverlay
-                    tasks={orderedTasks}
-                    primaryTask={primaryTask}
-                    selectedTaskId={selectedTaskId}
-                    expanded={taskListExpanded}
-                    onToggleExpanded={() =>
-                      setTaskListExpanded((previous) => !previous)
-                    }
-                    onSelectTask={(taskId) => {
-                      setSelectedTaskId(taskId);
-                      setTaskDetailOpen(true);
-                      setTaskListExpanded(false);
-                    }}
-                  />
-                ) : null}
-              </div>
+                    {primaryTask ? (
+                      <TaskOverlay
+                        tasks={orderedTasks}
+                        primaryTask={primaryTask}
+                        selectedTaskId={selectedTaskId}
+                        expanded={taskListExpanded}
+                        onToggleExpanded={() =>
+                          setTaskListExpanded((previous) => !previous)
+                        }
+                        onSelectTask={(taskId) => {
+                          setSelectedTaskId(taskId);
+                          setTaskDetailOpen(true);
+                          setTaskListExpanded(false);
+                        }}
+                      />
+                    ) : null}
+                  </div>
 
-              <div className="canvas-overlay-column bottom-left">
-                <GroupOverlay
-                  groups={project.groups}
-                  activeGroupId={project.activeGroupId}
-                  open={groupsOverlayOpen}
-                  onToggle={() => setGroupsOverlayOpen((previous) => !previous)}
-                  onSelectGroup={(groupId) => {
-                    setActiveGroup(groupId);
-                    setSelectedItemIds([]);
-                  }}
-                />
-              </div>
+                  <div className="canvas-overlay-column bottom-left">
+                    <GroupOverlay
+                      groups={project.groups}
+                      activeGroupId={project.activeGroupId}
+                      open={groupsOverlayOpen}
+                      onToggle={() => setGroupsOverlayOpen((previous) => !previous)}
+                      onSelectGroup={(groupId) => {
+                        setActiveGroup(groupId);
+                        setSelectedItemIds([]);
+                      }}
+                    />
+                  </div>
 
-              {selectedTask ? (
-                <div className="canvas-overlay-column right-center">
-                  <TaskDetailPanel
-                    task={selectedTask}
-                    open={taskDetailOpen}
-                    onToggleOpen={() =>
-                      setTaskDetailOpen((previous) => !previous)
-                    }
-                    onAddTodo={addTodo}
-                    onToggleTodo={toggleTodo}
-                    onRenameTodo={renameTodo}
-                    onReorderTodo={reorderTodo}
-                  />
-                </div>
+                  {selectedTask ? (
+                    <div className="canvas-overlay-column right-center">
+                      <TaskDetailPanel
+                        task={selectedTask}
+                        open={taskDetailOpen}
+                        onToggleOpen={() =>
+                          setTaskDetailOpen((previous) => !previous)
+                        }
+                        onAddTodo={addTodo}
+                        onToggleTodo={toggleTodo}
+                        onRenameTodo={renameTodo}
+                        onReorderTodo={reorderTodo}
+                      />
+                    </div>
+                  ) : null}
+
+                  {showColorWheel ? (
+                    <div className="canvas-overlay-column top-right canvas-wheel-overlay">
+                      <ColorWheel
+                        doodleMode={doodleMode}
+                        doodleColor={doodleColor}
+                        brushSize={brushSize}
+                        eraserSize={eraserSize}
+                        onDoodleModeChange={setDoodleMode}
+                        onDoodleColorChange={setDoodleColor}
+                        onBrushSizeChange={setBrushSize}
+                        onEraserSizeChange={setEraserSize}
+                      />
+                    </div>
+                  ) : null}
+                </>
               ) : null}
 
-              {showColorWheel ? (
-                <div className="canvas-overlay-column top-right canvas-wheel-overlay">
-                  <ColorWheel
-                    doodleMode={doodleMode}
-                    doodleColor={doodleColor}
-                    brushSize={brushSize}
-                    eraserSize={eraserSize}
-                    onDoodleModeChange={setDoodleMode}
-                    onDoodleColorChange={setDoodleColor}
-                    onBrushSizeChange={setBrushSize}
-                    onEraserSizeChange={setEraserSize}
-                  />
-                </div>
+              {zoomOverlayOpen && zoomOverlayItemId ? (
+                <ZoomOverlay
+                  items={zoomOverlayItems}
+                  activeImageId={zoomOverlayItemId}
+                  rulerEnabled={rulerEnabled}
+                  rulerDialogOpen={rulerDialogOpen}
+                  rulerSettings={rulerSettings}
+                  draftRulerSettings={draftRulerSettings}
+                  filterStyle={zoomOverlayFilter}
+                  showBlurControl={activeTool === "blur"}
+                  blurAmount={activeGroup?.filters.blur ?? 0}
+                  slideshowPlaying={slideshowPlaying}
+                  slideshowSeconds={slideshowSeconds}
+                  onBlurChange={(blur) => {
+                    if (!activeGroup) {
+                      return;
+                    }
+
+                    setGroupFilters(activeGroup.id, { blur });
+                  }}
+                  onPrevious={selectPreviousZoomImage}
+                  onNext={selectNextZoomImage}
+                  onToggleSlideshow={() =>
+                    setSlideshowPlaying((previous) => !previous)
+                  }
+                  onSlideshowSecondsChange={setSlideshowSeconds}
+                  onDraftRulerSettingsChange={setDraftRulerSettings}
+                  onApplyRulerSettings={applyRulerSettings}
+                  onCancelRuler={cancelRuler}
+                />
               ) : null}
             </div>
 
-            {activeTool === "blur" && activeGroup ? (
+            {activeTool === "blur" && activeGroup && !zoomOverlayOpen ? (
               <FilterFooter
                 label="Blur"
                 htmlFor="blur-range"
@@ -640,18 +868,20 @@ const AppContent = () => {
           </main>
         </div>
 
-        <StatusBar
-          selectedCount={selectedItemIds.length}
-          groupName={activeGroup?.name ?? "Main Canvas"}
-          zoomLabel={zoomLabel}
-          canvasLabel={canvasLabel}
-          snapEnabled={snapEnabled}
-          autoArrangeEnabled={autoArrangeOnImport}
-          onToggleSnap={() => setSnapEnabled((previous) => !previous)}
-          onToggleAutoArrange={() =>
-            setAutoArrangeOnImport((previous) => !previous)
-          }
-        />
+        {!zoomOverlayOpen ? (
+          <StatusBar
+            selectedCount={selectedItemIds.length}
+            groupName={activeGroup?.name ?? "Main Canvas"}
+            zoomLabel={zoomLabel}
+            canvasLabel={canvasLabel}
+            snapEnabled={snapEnabled}
+            autoArrangeEnabled={autoArrangeOnImport}
+            onToggleSnap={() => setSnapEnabled((previous) => !previous)}
+            onToggleAutoArrange={() =>
+              setAutoArrangeOnImport((previous) => !previous)
+            }
+          />
+        ) : null}
       </div>
 
       {menuState ? (
@@ -685,6 +915,27 @@ const AppContent = () => {
           onSaveAs={() => {
             setMenuState(null);
             void handleSaveProjectAs();
+          }}
+          canvasLocked={activeGroup?.locked ?? false}
+          onToggleBlur={() => {
+            setMenuState(null);
+            toggleBlur();
+          }}
+          onToggleBlackAndWhite={() => {
+            setMenuState(null);
+            toggleBlackAndWhite();
+          }}
+          onActivateDoodle={() => {
+            setMenuState(null);
+            handleToolButton("doodle");
+          }}
+          onShowBackgroundColor={() => {
+            handleOpenBackgroundColorDialog();
+          }}
+          onChangeCanvasSize={handleOpenCanvasSizeDialog}
+          onToggleCanvasLock={() => {
+            setMenuState(null);
+            toggleCanvasLock();
           }}
           onResetView={() => {
             setMenuState(null);
@@ -746,6 +997,10 @@ const AppContent = () => {
             setMenuState(null);
             void handleExportSelectedSwatch();
           }}
+          onExit={() => {
+            setMenuState(null);
+            handleCloseWindow();
+          }}
         />
       ) : null}
 
@@ -778,6 +1033,27 @@ const AppContent = () => {
         onSelectSource={setSelectedSourceId}
         onQualityChange={setCaptureQuality}
         onConfirm={handleConfirmConnect}
+      />
+
+      <CanvasSizeDialog
+        open={canvasSizeDialogOpen}
+        widthValue={canvasWidthInput}
+        heightValue={canvasHeightInput}
+        onClose={() => setCanvasSizeDialogOpen(false)}
+        onConfirm={handleConfirmCanvasSizeDialog}
+        onWidthChange={setCanvasWidthInput}
+        onHeightChange={setCanvasHeightInput}
+      />
+
+      <BackgroundColorDialog
+        open={backgroundColorDialogOpen}
+        canvasColor={activeGroup?.canvasColor ?? "#151515"}
+        backgroundColor={activeGroup?.backgroundColor ?? "#232323"}
+        onClose={() => setBackgroundColorDialogOpen(false)}
+        onConfirm={(colors) => {
+          changeCanvasColors(colors.canvasColor, colors.backgroundColor);
+          setBackgroundColorDialogOpen(false);
+        }}
       />
 
       <ConfirmCloseDialog

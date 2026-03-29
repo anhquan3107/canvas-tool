@@ -40,7 +40,7 @@ const detectWindowsTitleBarCrop = (video: HTMLVideoElement) => {
   const sampleWidth = Math.min(180, Math.max(64, Math.round(video.videoWidth * 0.1)));
   const maxCropRows = Math.min(
     sampleRows - 2,
-    Math.max(4, Math.round((MAX_WINDOWS_NATIVE_CROP * sampleRows) / video.videoHeight)),
+    MAX_WINDOWS_NATIVE_CROP,
   );
   const canvas = document.createElement("canvas");
   canvas.width = sampleWidth;
@@ -116,10 +116,7 @@ const detectWindowsTitleBarCrop = (video: HTMLVideoElement) => {
 
   return Math.min(
     MAX_WINDOWS_NATIVE_CROP,
-    Math.max(
-      0,
-      Math.round((uniformRows * video.videoHeight) / sampleRows),
-    ),
+    Math.max(0, uniformRows),
   );
 };
 

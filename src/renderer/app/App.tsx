@@ -16,7 +16,10 @@ import { ConnectDialog } from "@renderer/features/connect/components/ConnectDial
 import { useConnectFeature } from "@renderer/features/connect/hooks/use-connect-feature";
 import type { CaptureSource } from "@renderer/features/connect/types";
 import { CAPTURE_QUALITY_PROFILES } from "@renderer/features/connect/utils";
-import { collectClipboardPayload } from "@renderer/features/import/image-import";
+import {
+  collectClipboardPayload,
+  collectDropPayload,
+} from "@renderer/features/import/image-import";
 import { useImportQueueSession } from "@renderer/features/import/hooks/use-import-queue-session";
 import { extractImageSwatches } from "@renderer/features/import/swatches";
 import { GroupDialog } from "@renderer/features/groups/components/GroupDialog";
@@ -83,6 +86,7 @@ const AppContent = () => {
     height: number;
   } | null>(null);
   const [snapEnabled, setSnapEnabled] = useState(true);
+  const [autoArrangeOnImport, setAutoArrangeOnImport] = useState(true);
   const [menuState, setMenuState] = useState<MenuState | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
@@ -311,13 +315,13 @@ const AppContent = () => {
     handleBoardViewChange,
     handleBoardItemsPatch,
     handleShellDragOver,
-    handleShellDrop,
     resetView,
     autoArrange,
   } = useCanvasWorkspace({
     project,
     activeGroup,
     activeGroupId,
+    autoArrangeOnImport,
     viewportSize: viewportSize ?? { width: 0, height: 0 },
     selectedItemIds,
     lastImportedItemIds,
@@ -810,11 +814,29 @@ const AppContent = () => {
     }
   }, [project.tasks, project.title, pushToast]);
 
+  const handleAppShellDrop = useCallback(
+    (event: React.DragEvent<HTMLDivElement>) => {
+      event.preventDefault();
+
+      const payload = collectDropPayload(event.nativeEvent);
+      const stageRect = canvasStageRef.current?.getBoundingClientRect();
+      const dropViewportPoint = stageRect
+        ? {
+            x: event.clientX - stageRect.left,
+            y: event.clientY - stageRect.top,
+          }
+        : undefined;
+
+      void importFromPayload(payload, { dropViewportPoint });
+    },
+    [importFromPayload],
+  );
+
   return (
     <div
       className="app-shell"
       onDragOver={handleShellDragOver}
-      onDrop={handleShellDrop}
+      onDrop={handleAppShellDrop}
       onContextMenu={handleShellContextMenu}
     >
       <div className="desktop-frame">
@@ -975,8 +997,11 @@ const AppContent = () => {
           zoomLabel={zoomLabel}
           canvasLabel={canvasLabel}
           snapEnabled={snapEnabled}
+          autoArrangeEnabled={autoArrangeOnImport}
           onToggleSnap={() => setSnapEnabled((previous) => !previous)}
-          onAutoArrange={autoArrange}
+          onToggleAutoArrange={() =>
+            setAutoArrangeOnImport((previous) => !previous)
+          }
         />
       </div>
 

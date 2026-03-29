@@ -27,6 +27,10 @@ import {
 
 type ToastKind = "success" | "error" | "info";
 type ImagePatch = Partial<Omit<ImageItem, "id" | "type">>;
+const DEFAULT_EMPTY_GROUP_CANVAS_SIZE = {
+  width: 980,
+  height: 640,
+};
 const CANVAS_EXPANSION_PADDING = 24;
 const MIN_CANVAS_WIDTH = 360;
 const MIN_CANVAS_HEIGHT = 240;
@@ -35,6 +39,7 @@ interface UseCanvasWorkspaceOptions {
   project: Project;
   activeGroup: ReferenceGroup | undefined;
   activeGroupId: string | null;
+  autoArrangeOnImport: boolean;
   viewportSize: { width: number; height: number };
   selectedItemIds: string[];
   lastImportedItemIds: string[];
@@ -64,6 +69,7 @@ export const useCanvasWorkspace = ({
   project,
   activeGroup,
   activeGroupId,
+  autoArrangeOnImport,
   viewportSize,
   selectedItemIds,
   lastImportedItemIds,
@@ -83,6 +89,48 @@ export const useCanvasWorkspace = ({
   refreshRecents,
   runHistoryBatch,
 }: UseCanvasWorkspaceOptions) => {
+  const buildAutoArrangeUpdates = useCallback(
+    (
+      items: Array<{
+        id: string;
+        width: number;
+        height: number;
+        zIndex: number;
+        visible?: boolean;
+      }>,
+      canvasWidth: number,
+    ) => {
+      const visibleItems = items
+        .filter((item) => item.visible !== false)
+        .sort((left, right) => left.zIndex - right.zIndex);
+
+      const padding = 0;
+      const updates: Record<string, ImagePatch> = {};
+      let cursorX = padding;
+      let cursorY = padding;
+      let rowHeight = 0;
+
+      visibleItems.forEach((item) => {
+        if (cursorX + item.width > canvasWidth - padding) {
+          cursorX = padding;
+          cursorY += rowHeight + padding;
+          rowHeight = 0;
+        }
+
+        updates[item.id] = {
+          x: cursorX,
+          y: cursorY,
+        };
+
+        cursorX += item.width + padding;
+        rowHeight = Math.max(rowHeight, item.height);
+      });
+
+      return updates;
+    },
+    [],
+  );
+
   const focusGroupOnItems = useCallback(
     (
       groupId: string,
@@ -391,7 +439,12 @@ export const useCanvasWorkspace = ({
   }, [pushToast, refreshRecents, setProject, setSelectedItemIds]);
 
   const importFromPayload = useCallback(
-    async (payload: ImportPayload) => {
+    async (
+      payload: ImportPayload,
+      options?: {
+        dropViewportPoint?: { x: number; y: number };
+      },
+    ) => {
       if (!activeGroup) {
         return;
       }
@@ -421,72 +474,65 @@ export const useCanvasWorkspace = ({
 
           const viewportWidth = Math.max(520, viewportSize.width);
           const viewportHeight = Math.max(380, viewportSize.height);
-          const centerWorldX =
-            (viewportWidth * 0.5 - activeGroup.panX) / activeGroup.zoom;
-          const centerWorldY =
-            (viewportHeight * 0.5 - activeGroup.panY) / activeGroup.zoom;
+          const anchorViewportX =
+            options?.dropViewportPoint?.x ?? viewportWidth * 0.5;
+          const anchorViewportY =
+            options?.dropViewportPoint?.y ?? viewportHeight * 0.5;
+          const anchorWorldX =
+            (anchorViewportX - activeGroup.panX) / activeGroup.zoom;
+          const anchorWorldY =
+            (anchorViewportY - activeGroup.panY) / activeGroup.zoom;
 
           const maxExistingZ = activeGroup.items.reduce(
             (acc, item) => Math.max(acc, item.zIndex),
             -1,
           );
-
-          const itemsPerRow = 4;
-          const rows = Array.from(
-            { length: Math.ceil(importedItems.length / itemsPerRow) },
-            (_, rowIndex) =>
-              importedItems.slice(
-                rowIndex * itemsPerRow,
-                rowIndex * itemsPerRow + itemsPerRow,
-              ),
-          );
-          const totalLayoutHeight = rows.reduce(
-            (sum, row) => sum + Math.max(...row.map((item) => item.height)),
-            0,
-          );
-          let cursorY = centerWorldY - totalLayoutHeight * 0.5;
-
-          const rescueEntries = rows.flatMap((row, rowIndex) => {
-            const rowWidth = row.reduce((sum, item) => sum + item.width, 0);
-            const rowHeight = Math.max(...row.map((item) => item.height));
-            let cursorX = centerWorldX - rowWidth * 0.5;
-
-            const entries = row.map((item, columnIndex) => {
-              const nextX = cursorX;
-              const nextY = cursorY + (rowHeight - item.height) * 0.5;
-              cursorX += item.width;
-
-              return [
-                item.id,
-                {
-                  x: Math.round(nextX),
-                  y: Math.round(nextY),
-                  visible: true,
-                  zIndex: maxExistingZ + rowIndex * itemsPerRow + columnIndex + 1,
-                },
-              ] as const;
-            });
-
-            cursorY += rowHeight;
-            return entries;
-          });
-
-          const rescueUpdates = Object.fromEntries(
-            rescueEntries,
-          ) as Record<string, ImagePatch>;
-
-          patchGroupItems(activeGroup.id, rescueUpdates);
-
-          const rescuedItems = importedItems.map((item) => ({
+          const importedWithRaisedZ = importedItems.map((item, index) => ({
             ...item,
-            ...rescueUpdates[item.id],
+            zIndex: maxExistingZ + index + 1,
           }));
+
+          const importUpdates: Record<string, ImagePatch> = autoArrangeOnImport
+            ? buildAutoArrangeUpdates(
+                [...activeGroup.items, ...importedWithRaisedZ],
+                activeGroup.canvasSize.width,
+              )
+            : (() => {
+                const firstItem = importedWithRaisedZ[0];
+                const shiftX = anchorWorldX - firstItem.x - firstItem.width * 0.5;
+                const shiftY = anchorWorldY - firstItem.y - firstItem.height * 0.5;
+
+                return Object.fromEntries(
+                  importedWithRaisedZ.map((item, index) => [
+                    item.id,
+                    {
+                      x: Math.round(item.x + shiftX),
+                      y: Math.round(item.y + shiftY),
+                      visible: true,
+                      zIndex: maxExistingZ + index + 1,
+                    },
+                  ]),
+                ) as Record<string, ImagePatch>;
+              })();
+
+          patchGroupItems(activeGroup.id, importUpdates);
+
+          const nextItems = [
+            ...activeGroup.items.map((item) => ({
+              ...item,
+              ...importUpdates[item.id],
+            })),
+            ...importedWithRaisedZ.map((item) => ({
+              ...item,
+              ...importUpdates[item.id],
+            })),
+          ];
 
           setLastImportedItemIds(importedItems.map((item) => item.id));
 
           ensureCanvasFitsItems(
             activeGroup.id,
-            [...activeGroup.items, ...rescuedItems],
+            nextItems,
             activeGroup.canvasSize,
             {
               zoom: activeGroup.zoom,
@@ -531,6 +577,8 @@ export const useCanvasWorkspace = ({
     [
       activeGroup,
       addGroupItems,
+      autoArrangeOnImport,
+      buildAutoArrangeUpdates,
       ensureCanvasFitsItems,
       patchGroupItems,
       pushToast,
@@ -842,19 +890,34 @@ export const useCanvasWorkspace = ({
       return;
     }
 
+    runHistoryBatch(() => {
+      setGroupCanvasSize(
+        activeGroup.id,
+        DEFAULT_EMPTY_GROUP_CANVAS_SIZE.width,
+        DEFAULT_EMPTY_GROUP_CANVAS_SIZE.height,
+      );
+    });
+
     focusGroupOnItems(
       activeGroup.id,
       [
         {
           x: 0,
           y: 0,
-          width: activeGroup.canvasSize.width,
-          height: activeGroup.canvasSize.height,
+          width: DEFAULT_EMPTY_GROUP_CANVAS_SIZE.width,
+          height: DEFAULT_EMPTY_GROUP_CANVAS_SIZE.height,
         },
       ],
-      activeGroup.canvasSize,
+      DEFAULT_EMPTY_GROUP_CANVAS_SIZE,
     );
-  }, [activeGroup, fitCanvasToItems, focusGroupOnItems, patchGroupItems, setGroupCanvasSize]);
+  }, [
+    activeGroup,
+    fitCanvasToItems,
+    focusGroupOnItems,
+    patchGroupItems,
+    runHistoryBatch,
+    setGroupCanvasSize,
+  ]);
 
   const arrangeSelectedItems = useCallback(
     (mode: LayoutMode) => {
@@ -952,32 +1015,17 @@ export const useCanvasWorkspace = ({
       return;
     }
 
-    const padding = 0;
-    const updates: Record<string, ImagePatch> = {};
-    let cursorX = padding;
-    let cursorY = padding;
-    let rowHeight = 0;
+    const updates = buildAutoArrangeUpdates(
+      visibleItems,
+      activeGroup.canvasSize.width,
+    );
 
-    visibleItems.forEach((item) => {
-      if (cursorX + item.width > activeGroup.canvasSize.width - padding) {
-        cursorX = padding;
-        cursorY += rowHeight + padding;
-        rowHeight = 0;
-      }
-
-      updates[item.id] = {
-        x: cursorX,
-        y: cursorY,
-      };
-
-      cursorX += item.width + padding;
-      rowHeight = Math.max(rowHeight, item.height);
+    runHistoryBatch(() => {
+      patchGroupItems(activeGroup.id, updates);
     });
 
-    patchGroupItems(activeGroup.id, updates);
-
     pushToast("success", "Items arranged across the canvas.");
-  }, [activeGroup, patchGroupItems, pushToast]);
+  }, [activeGroup, buildAutoArrangeUpdates, patchGroupItems, pushToast, runHistoryBatch]);
 
   return {
     importVisibilitySnapshot,

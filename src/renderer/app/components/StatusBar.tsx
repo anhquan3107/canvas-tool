@@ -4,8 +4,9 @@ interface StatusBarProps {
   zoomLabel: string;
   canvasLabel: string;
   snapEnabled: boolean;
+  autoArrangeEnabled: boolean;
   onToggleSnap: () => void;
-  onAutoArrange: () => void;
+  onToggleAutoArrange: () => void;
 }
 
 export const StatusBar = ({
@@ -14,8 +15,9 @@ export const StatusBar = ({
   zoomLabel,
   canvasLabel,
   snapEnabled,
+  autoArrangeEnabled,
   onToggleSnap,
-  onAutoArrange,
+  onToggleAutoArrange,
 }: StatusBarProps) => (
   <footer className="status-bar">
     <div className="status-left">
@@ -26,8 +28,12 @@ export const StatusBar = ({
       <button type="button" className="status-button" onClick={onToggleSnap}>
         Snap: {snapEnabled ? "On" : "Off"}
       </button>
-      <button type="button" className="status-button" onClick={onAutoArrange}>
-        Auto Arrange
+      <button
+        type="button"
+        className="status-button"
+        onClick={onToggleAutoArrange}
+      >
+        Auto Arrange: {autoArrangeEnabled ? "On" : "Off"}
       </button>
       <span>Zoom: {zoomLabel}</span>
       <span>Canvas: {canvasLabel}</span>

@@ -73,6 +73,10 @@ export interface ImageItem extends CanvasItemBase {
   assetPath?: string;
   source: "local" | "web" | "clipboard";
   label?: string;
+  originalWidth?: number;
+  originalHeight?: number;
+  fileSizeBytes?: number;
+  format?: string;
   previewStatus?: "ready" | "blocked";
   swatchHex?: string;
   swatches?: ColorSwatch[];

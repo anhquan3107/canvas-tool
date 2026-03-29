@@ -15,6 +15,8 @@ const isTypingTarget = (target: EventTarget | null) => {
 
 const normalizeShortcutKey = (key: string) => {
   switch (key) {
+    case "Backspace":
+      return "Delete";
     case " ":
     case "Spacebar":
       return "Space";
@@ -51,6 +53,8 @@ const keyFromCode = (event: KeyboardEvent) => {
   switch (code) {
     case "Space":
       return "Space";
+    case "Backspace":
+      return "Delete";
     case "Escape":
       return "Escape";
     case "Delete":

@@ -341,6 +341,7 @@
   justify-content: space-between;
   gap: 20px;
   padding: 0 18px;
+  min-height: 44px;
   background: var(--bg-chrome-solid);
   border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
@@ -349,13 +350,45 @@
 .status-right {
   display: flex;
   align-items: center;
+  min-width: 0;
   gap: 10px;
   font-size: 12px;
   color: var(--text-soft);
 }
 
+.status-left {
+  flex: 0 1 auto;
+}
+
 .status-right {
+  flex: 0 1 auto;
   justify-content: flex-end;
+}
+
+.status-selection-meta {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.88);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status-selection-meta span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status-selection-separator {
+  flex: 0 0 auto;
+  color: rgba(255, 255, 255, 0.42);
 }
 
 .status-button {

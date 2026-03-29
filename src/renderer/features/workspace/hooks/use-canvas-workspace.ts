@@ -15,6 +15,8 @@ import type {
 import {
   buildImageItemsFromPayload,
   collectDropPayload,
+  getDataUrlByteLength,
+  inferImageFormatLabel,
   type ImportPayload,
 } from "@renderer/features/import/image-import";
 import { extractImageSwatches } from "@renderer/features/import/swatches";
@@ -190,15 +192,12 @@ export const useCanvasWorkspace = ({
       const boundsWidth = Math.max(1, bounds.maxX - bounds.minX);
       const boundsHeight = Math.max(1, bounds.maxY - bounds.minY);
 
-      const fitZoom = Math.min(
-        2.2,
-        Math.max(
-          0.18,
-          Math.min(
-            viewportWidth / (boundsWidth + fitPadding * 2),
-            viewportHeight / (boundsHeight + fitPadding * 2),
-            1.45,
-          ),
+      const fitZoom = Math.max(
+        0.18,
+        Math.min(
+          viewportWidth / (boundsWidth + fitPadding * 2),
+          viewportHeight / (boundsHeight + fitPadding * 2),
+          1,
         ),
       );
       const baselineZoom = fitZoom * DEFAULT_VIEW_ZOOM_BASELINE;
@@ -676,6 +675,14 @@ export const useCanvasWorkspace = ({
           targetItem.assetPath = dataUrl;
           targetItem.previewStatus = "ready";
           targetItem.label = stripBlockedSuffix(targetItem.label);
+          targetItem.originalWidth = measured.width;
+          targetItem.originalHeight = measured.height;
+          targetItem.fileSizeBytes = getDataUrlByteLength(dataUrl) ?? undefined;
+          targetItem.format =
+            targetItem.format ??
+            inferImageFormatLabel(targetItem.assetPath) ??
+            inferImageFormatLabel(dataUrl) ??
+            undefined;
           targetItem.width = size.width;
           targetItem.height = size.height;
           targetItem.swatchHex = swatches[0]?.colorHex;

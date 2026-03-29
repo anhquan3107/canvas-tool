@@ -77,6 +77,91 @@ const isImageFile = (file: File) => {
   return fileHasSupportedExtension(file.name);
 };
 
+const normalizeFormatLabel = (value: string) => {
+  const cleaned = value.trim().toLowerCase();
+  switch (cleaned) {
+    case "jpeg":
+      return "JPG";
+    case "jpg":
+      return "JPG";
+    case "png":
+      return "PNG";
+    case "webp":
+      return "WEBP";
+    case "gif":
+      return "GIF";
+    case "bmp":
+      return "BMP";
+    case "tif":
+    case "tiff":
+      return "TIFF";
+    case "ico":
+      return "ICO";
+    case "svg+xml":
+    case "svg":
+      return "SVG";
+    case "avif":
+      return "AVIF";
+    default:
+      return cleaned ? cleaned.toUpperCase() : null;
+  }
+};
+
+export const inferImageFormatLabel = (value?: string) => {
+  if (!value) {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const dataUrlMatch = trimmed.match(/^data:image\/([^;,]+)/i);
+  if (dataUrlMatch) {
+    return normalizeFormatLabel(dataUrlMatch[1]);
+  }
+
+  const mimeTypeMatch = trimmed.match(/^image\/([^;,]+)/i);
+  if (mimeTypeMatch) {
+    return normalizeFormatLabel(mimeTypeMatch[1]);
+  }
+
+  const withoutQuery = trimmed.split(/[?#]/, 1)[0] ?? trimmed;
+  const extensionMatch = withoutQuery.match(/\.([a-z0-9+]+)$/i);
+  if (extensionMatch) {
+    return normalizeFormatLabel(extensionMatch[1]);
+  }
+
+  return null;
+};
+
+export const getDataUrlByteLength = (value?: string) => {
+  if (!value?.startsWith("data:")) {
+    return null;
+  }
+
+  const commaIndex = value.indexOf(",");
+  if (commaIndex < 0) {
+    return null;
+  }
+
+  const header = value.slice(0, commaIndex);
+  const payload = value.slice(commaIndex + 1);
+
+  if (header.includes(";base64")) {
+    const sanitized = payload.replace(/\s/g, "");
+    const padding = sanitized.endsWith("==") ? 2 : sanitized.endsWith("=") ? 1 : 0;
+    return Math.max(0, Math.floor((sanitized.length * 3) / 4) - padding);
+  }
+
+  try {
+    return new TextEncoder().encode(decodeURIComponent(payload)).length;
+  } catch {
+    return null;
+  }
+};
+
 const fileToDataUrl = (file: File) =>
   new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
@@ -360,6 +445,10 @@ export const buildImageItemsFromPayload = async ({
         source: sourceType,
         assetPath: dataUrl,
         label,
+        originalWidth: measured.width,
+        originalHeight: measured.height,
+        fileSizeBytes: file.size,
+        format: inferImageFormatLabel(file.type) ?? inferImageFormatLabel(file.name) ?? undefined,
         swatchHex: swatches[0]?.colorHex,
         swatches,
         x: Math.round(startX + (index % 4) * 46),
@@ -382,6 +471,7 @@ export const buildImageItemsFromPayload = async ({
   const webItems = await Promise.all<ImageItem | null>(
     payload.urls.map(async (url, index): Promise<ImageItem | null> => {
       let size = { width: 320, height: 220 };
+      let originalSize = size;
       let finalAssetPath: string | null = isDataImageUrl(url) ? url : null;
 
       if (!finalAssetPath && resolveRemoteUrl) {
@@ -398,6 +488,7 @@ export const buildImageItemsFromPayload = async ({
 
       try {
         const measured = await measureImage(finalAssetPath);
+        originalSize = measured;
         size = normalizeSize(measured.width, measured.height);
       } catch {
         return null;
@@ -424,6 +515,13 @@ export const buildImageItemsFromPayload = async ({
         source: "web" as const,
         assetPath: finalAssetPath,
         label: `${payload.source === "clipboard" ? "Clipboard link: " : ""}${fallbackLabel}`,
+        originalWidth: originalSize.width,
+        originalHeight: originalSize.height,
+        fileSizeBytes: getDataUrlByteLength(finalAssetPath) ?? undefined,
+        format:
+          inferImageFormatLabel(url) ??
+          inferImageFormatLabel(finalAssetPath) ??
+          undefined,
         previewStatus: "ready" as const,
         swatchHex: swatches[0]?.colorHex,
         swatches,

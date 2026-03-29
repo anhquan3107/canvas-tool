@@ -57,6 +57,11 @@
     font-size: 11px;
   }
 
+  .status-selection-meta {
+    font-size: 11px;
+    gap: 8px;
+  }
+
   .dialog-card {
     padding: 28px 20px 24px;
   }

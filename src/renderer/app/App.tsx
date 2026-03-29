@@ -2,11 +2,12 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import { DEFAULT_VIEW_ZOOM_BASELINE } from "@shared/project-defaults";
-import type { Project } from "@shared/types/project";
+import type { ImageItem, Project } from "@shared/types/project";
 import { useAppShortcuts } from "@renderer/app/hooks/use-app-shortcuts";
 import { useShortcutSettings } from "@renderer/app/hooks/use-shortcut-settings";
 import { useAppUiState } from "@renderer/app/hooks/use-app-ui-state";
@@ -147,6 +148,7 @@ const AppContent = () => {
       project.groups[0],
     [project.activeGroupId, project.groups],
   );
+  const activeGroupRef = useRef(activeGroup);
   const dirtySignature = useMemo(
     () => getProjectDirtySignature(project),
     [project],
@@ -417,6 +419,10 @@ const AppContent = () => {
   ]);
 
   useEffect(() => {
+    activeGroupRef.current = activeGroup;
+  }, [activeGroup]);
+
+  useEffect(() => {
     const fileName = project.filePath?.split(/[\\/]/).at(-1);
     void window.desktopApi.window.setTitle({
       title: project.title,
@@ -435,6 +441,13 @@ const AppContent = () => {
 
     hasInitializedViewRef.current = true;
     requestAnimationFrame(() => {
+      if (
+        activeGroupRef.current?.id !== activeGroup.id ||
+        (activeGroupRef.current?.items.length ?? 0) > 0
+      ) {
+        return;
+      }
+
       resetView();
     });
   }, [activeGroup, resetView, viewportSize]);
@@ -459,6 +472,13 @@ const AppContent = () => {
     centeredGroupIdsRef.current.add(activeGroup.id);
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
+        if (
+          activeGroupRef.current?.id !== activeGroup.id ||
+          (activeGroupRef.current?.items.length ?? 0) > 0
+        ) {
+          return;
+        }
+
         resetView();
       });
     });
@@ -518,6 +538,21 @@ const AppContent = () => {
   const zoomLabel = activeGroup
     ? `${Math.round((activeGroup.zoom / DEFAULT_VIEW_ZOOM_BASELINE) * 100)}%`
     : "0%";
+  const selectedStatusImage = useMemo(() => {
+    if (!activeGroup || selectedItemIds.length !== 1) {
+      return null;
+    }
+
+    const selectedItem = activeGroup.items.find(
+      (item) => item.id === selectedItemIds[0],
+    );
+
+    if (!selectedItem || selectedItem.type !== "image") {
+      return null;
+    }
+
+    return selectedItem as ImageItem;
+  }, [activeGroup, selectedItemIds]);
   const canvasLabel = canvasSizePreview
     ? `${canvasSizePreview.width} x ${canvasSizePreview.height}`
     : activeGroup
@@ -929,6 +964,7 @@ const AppContent = () => {
         {!zoomOverlayOpen ? (
           <StatusBar
             selectedCount={selectedItemIds.length}
+            selectedImage={selectedStatusImage}
             groupName={activeGroup?.name ?? "Main Canvas"}
             zoomLabel={zoomLabel}
             canvasLabel={canvasLabel}

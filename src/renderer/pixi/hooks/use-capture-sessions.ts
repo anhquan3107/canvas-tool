@@ -1,7 +1,10 @@
 import { useCallback, useRef } from "react";
 import { Texture } from "pixi.js";
 import type { CaptureItem } from "@shared/types/project";
-import { CAPTURE_QUALITY_PROFILES } from "@renderer/features/connect/utils";
+import {
+  CAPTURE_QUALITY_PROFILES,
+  CONSISTENT_CAPTURE_STREAM_SIZE,
+} from "@renderer/features/connect/utils";
 import type { CaptureSession } from "@renderer/pixi/types";
 
 export const useCaptureSessions = () => {
@@ -43,9 +46,9 @@ export const useCaptureSessions = () => {
             chromeMediaSource: "desktop",
             chromeMediaSourceId: item.sourceId,
             minWidth: 640,
-            maxWidth: profile.width,
+            maxWidth: CONSISTENT_CAPTURE_STREAM_SIZE.width,
             minHeight: 360,
-            maxHeight: profile.height,
+            maxHeight: CONSISTENT_CAPTURE_STREAM_SIZE.height,
             minFrameRate: profile.frameRate,
             maxFrameRate: profile.frameRate,
           },

@@ -4,6 +4,7 @@ import { CAPTURE_QUALITY_PROFILES } from "@renderer/features/connect/utils";
 
 interface ConnectDialogProps {
   open: boolean;
+  embedded?: boolean;
   loading: boolean;
   sources: CaptureSource[];
   selectedSourceId: string | null;
@@ -16,6 +17,7 @@ interface ConnectDialogProps {
 
 export const ConnectDialog = ({
   open,
+  embedded = false,
   loading,
   sources,
   selectedSourceId,
@@ -29,8 +31,8 @@ export const ConnectDialog = ({
     return null;
   }
 
-  return (
-    <DialogFrame title="Connect Capture" onClose={onClose}>
+  const content = (
+    <>
       <div className="connect-dialog-section">
         <p className="connect-dialog-copy">
           Capture a window or screen into the canvas. Blur and B&amp;W filters stay
@@ -108,6 +110,16 @@ export const ConnectDialog = ({
           Cancel
         </button>
       </div>
+    </>
+  );
+
+  if (embedded) {
+    return <div className="connect-dialog-embedded">{content}</div>;
+  }
+
+  return (
+    <DialogFrame title="Connect Capture" onClose={onClose}>
+      {content}
     </DialogFrame>
   );
 };

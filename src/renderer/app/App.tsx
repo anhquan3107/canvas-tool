@@ -182,6 +182,7 @@ const AppContent = () => {
       await window.desktopApi.capture.openWindow({
         sourceId: source.id,
         sourceName: source.name,
+        sourceKind: source.kind,
         quality,
         sourceWidth: source.thumbnailWidth,
         sourceHeight: source.thumbnailHeight,

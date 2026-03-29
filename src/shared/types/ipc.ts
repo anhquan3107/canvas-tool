@@ -85,6 +85,7 @@ export interface DesktopCaptureStreamRequest {
 export interface OpenCaptureWindowRequest {
   sourceId: string;
   sourceName: string;
+  sourceKind?: DesktopCaptureSource["kind"];
   quality: CaptureItem["quality"];
   sourceWidth?: number;
   sourceHeight?: number;

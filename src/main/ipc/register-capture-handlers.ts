@@ -53,6 +53,7 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
       mode: "capture",
       sourceId: payload.sourceId,
       sourceName: payload.sourceName,
+      sourceKind: payload.sourceKind ?? "window",
       quality: payload.quality,
     }).toString();
 
@@ -67,6 +68,7 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
             mode: "capture",
             sourceId: payload.sourceId,
             sourceName: payload.sourceName,
+            sourceKind: payload.sourceKind ?? "window",
             quality: payload.quality,
           },
         },

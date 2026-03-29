@@ -188,6 +188,9 @@ export const ensureCaptureWindowPayload = (
     typeof rawPayload !== "object" ||
     typeof rawPayload.sourceId !== "string" ||
     typeof rawPayload.sourceName !== "string" ||
+    (rawPayload.sourceKind !== undefined &&
+      rawPayload.sourceKind !== "window" &&
+      rawPayload.sourceKind !== "screen") ||
     typeof rawPayload.quality !== "string"
   ) {
     throw new Error("Invalid capture window payload.");

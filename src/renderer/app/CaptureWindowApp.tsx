@@ -5,7 +5,10 @@ import type {
   CaptureQuality,
   CaptureSource,
 } from "@renderer/features/connect/types";
-import { CAPTURE_QUALITY_PROFILES } from "@renderer/features/connect/utils";
+import {
+  CAPTURE_QUALITY_PROFILES,
+  CONSISTENT_CAPTURE_STREAM_SIZE,
+} from "@renderer/features/connect/utils";
 import { useShortcuts } from "@renderer/hooks/use-shortcuts";
 
 const getInitialParams = () => {
@@ -13,10 +16,16 @@ const getInitialParams = () => {
   const qualityParam = params.get("quality");
   const quality: CaptureQuality =
     qualityParam === "low" || qualityParam === "high" ? qualityParam : "medium";
+  const sourceKindParam = params.get("sourceKind");
+  const sourceKind: "window" | "screen" =
+    sourceKindParam === "screen" || sourceKindParam === "window"
+      ? sourceKindParam
+      : "window";
 
   return {
     sourceId: params.get("sourceId") ?? "",
     sourceName: params.get("sourceName") ?? "Capture",
+    sourceKind,
     quality,
   };
 };
@@ -27,6 +36,7 @@ export const CaptureWindowApp = () => {
   const streamRef = useRef<MediaStream | null>(null);
   const [sourceId, setSourceId] = useState(initial.sourceId);
   const [sourceName, setSourceName] = useState(initial.sourceName);
+  const [sourceKind, setSourceKind] = useState<"window" | "screen">(initial.sourceKind);
   const [quality, setQuality] = useState<CaptureQuality>(initial.quality);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -126,9 +136,9 @@ export const CaptureWindowApp = () => {
             chromeMediaSource: "desktop",
             chromeMediaSourceId: sourceId,
             minWidth: 640,
-            maxWidth: profile.width,
+            maxWidth: CONSISTENT_CAPTURE_STREAM_SIZE.width,
             minHeight: 360,
-            maxHeight: profile.height,
+            maxHeight: CONSISTENT_CAPTURE_STREAM_SIZE.height,
             minFrameRate: profile.frameRate,
             maxFrameRate: profile.frameRate,
           },
@@ -179,6 +189,24 @@ export const CaptureWindowApp = () => {
     [],
   );
 
+  useEffect(() => {
+    if (dialogOpen) {
+      return;
+    }
+
+    const video = videoRef.current;
+    const stream = streamRef.current;
+    if (!video || !stream) {
+      return;
+    }
+
+    if (video.srcObject !== stream) {
+      video.srcObject = stream;
+    }
+
+    void video.play().catch(() => undefined);
+  }, [dialogOpen]);
+
   const handleConfirmSource = () => {
     const nextSource = sources.find((source) => source.id === selectedSourceId);
     if (!nextSource) {
@@ -187,6 +215,7 @@ export const CaptureWindowApp = () => {
 
     setSourceId(nextSource.id);
     setSourceName(nextSource.name);
+    setSourceKind(nextSource.kind);
     setQuality(selectedQuality);
     setDialogOpen(false);
   };
@@ -310,38 +339,43 @@ export const CaptureWindowApp = () => {
       </header>
 
       <main className="capture-window-body">
-        <div className="capture-preview-frame">
-          <video
-            ref={videoRef}
-            className="capture-preview-video"
-            muted
-            playsInline
-            autoPlay
-            style={filterStyle}
-          />
+        {dialogOpen ? (
+          <div className="capture-window-picker">
+            <ConnectDialog
+              open={dialogOpen}
+              embedded
+              loading={loadingSources}
+              sources={sources}
+              selectedSourceId={selectedSourceId}
+              quality={selectedQuality}
+              onClose={() => setDialogOpen(false)}
+              onSelectSource={setSelectedSourceId}
+              onQualityChange={setSelectedQuality}
+              onConfirm={handleConfirmSource}
+            />
+          </div>
+        ) : (
+          <div className="capture-preview-frame">
+            <video
+              ref={videoRef}
+              className="capture-preview-video"
+              muted
+              playsInline
+              autoPlay
+              style={filterStyle}
+            />
 
-          {loading ? (
-            <div className="capture-preview-message">Starting live preview…</div>
-          ) : null}
-          {errorMessage ? (
-            <div className="capture-preview-message capture-preview-error">
-              {errorMessage}
-            </div>
-          ) : null}
-        </div>
+            {loading ? (
+              <div className="capture-preview-message">Starting live preview…</div>
+            ) : null}
+            {errorMessage ? (
+              <div className="capture-preview-message capture-preview-error">
+                {errorMessage}
+              </div>
+            ) : null}
+          </div>
+        )}
       </main>
-
-      <ConnectDialog
-        open={dialogOpen}
-        loading={loadingSources}
-        sources={sources}
-        selectedSourceId={selectedSourceId}
-        quality={selectedQuality}
-        onClose={() => setDialogOpen(false)}
-        onSelectSource={setSelectedSourceId}
-        onQualityChange={setSelectedQuality}
-        onConfirm={handleConfirmSource}
-      />
     </div>
   );
 };

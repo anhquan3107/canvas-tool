@@ -101,6 +101,22 @@
     #151516;
 }
 
+.capture-window-picker {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: #171719;
+  box-shadow: var(--shadow);
+}
+
+.connect-dialog-embedded {
+  width: 100%;
+  min-height: 100%;
+  padding: 18px;
+}
+
 .capture-preview-frame {
   position: relative;
   width: 100%;

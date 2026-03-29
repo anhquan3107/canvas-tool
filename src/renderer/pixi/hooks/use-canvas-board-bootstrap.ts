@@ -154,6 +154,47 @@ export const useCanvasBoardBootstrap = ({
       annotationPreviewLayer.eventMode = "none";
       boardContainer.addChild(annotationPreviewLayer);
       annotationPreviewLayerRef.current = annotationPreviewLayer;
+      let wheelZoomAnimationFrame: number | null = null;
+      const wheelZoomTarget = {
+        scale: boardContainer.scale.x,
+        x: boardContainer.x,
+        y: boardContainer.y,
+      };
+
+      const animateWheelZoom = () => {
+        const activeBoard = boardContainerRef.current;
+        if (!activeBoard) {
+          wheelZoomAnimationFrame = null;
+          return;
+        }
+
+        const interpolate = (current: number, target: number) =>
+          current + (target - current) * 0.22;
+
+        activeBoard.scale.set(
+          interpolate(activeBoard.scale.x, wheelZoomTarget.scale),
+          interpolate(activeBoard.scale.y, wheelZoomTarget.scale),
+        );
+        activeBoard.x = interpolate(activeBoard.x, wheelZoomTarget.x);
+        activeBoard.y = interpolate(activeBoard.y, wheelZoomTarget.y);
+        updateSelectedBoundsOverlay();
+
+        const settled =
+          Math.abs(activeBoard.scale.x - wheelZoomTarget.scale) < 0.0015 &&
+          Math.abs(activeBoard.x - wheelZoomTarget.x) < 0.75 &&
+          Math.abs(activeBoard.y - wheelZoomTarget.y) < 0.75;
+
+        if (settled) {
+          activeBoard.scale.set(wheelZoomTarget.scale, wheelZoomTarget.scale);
+          activeBoard.x = wheelZoomTarget.x;
+          activeBoard.y = wheelZoomTarget.y;
+          updateSelectedBoundsOverlay();
+          wheelZoomAnimationFrame = null;
+          return;
+        }
+
+        wheelZoomAnimationFrame = window.requestAnimationFrame(animateWheelZoom);
+      };
 
       const onPointerMove = (event: PointerEvent) => {
         updateDoodleCursor(event.clientX, event.clientY);
@@ -238,30 +279,38 @@ export const useCanvasBoardBootstrap = ({
         const rect = host.getBoundingClientRect();
         const pointerX = event.clientX - rect.left;
         const pointerY = event.clientY - rect.top;
-        const isTrackpadPinch =
-          event.ctrlKey && event.deltaMode === WheelEvent.DOM_DELTA_PIXEL;
+        const baseScale =
+          wheelZoomAnimationFrame !== null
+            ? wheelZoomTarget.scale
+            : currentBoard.scale.x;
+        const baseX =
+          wheelZoomAnimationFrame !== null ? wheelZoomTarget.x : currentBoard.x;
+        const baseY =
+          wheelZoomAnimationFrame !== null ? wheelZoomTarget.y : currentBoard.y;
+        const worldX = (pointerX - baseX) / baseScale;
+        const worldY = (pointerY - baseY) / baseScale;
+        const normalizedDelta =
+          event.deltaY *
+          (event.deltaMode === WheelEvent.DOM_DELTA_LINE
+            ? 8
+            : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
+              ? 28
+              : 1);
+        const nextZoom = clamp(
+          baseScale * Math.exp(-normalizedDelta * 0.0024),
+          0.18,
+          4,
+        );
 
-        if (isTrackpadPinch) {
-          const worldX = (pointerX - currentBoard.x) / currentBoard.scale.x;
-          const worldY = (pointerY - currentBoard.y) / currentBoard.scale.y;
-          const nextZoom = clamp(
-            currentBoard.scale.x * Math.exp(-event.deltaY * 0.01),
-            0.18,
-            4,
-          );
+        wheelZoomTarget.scale = nextZoom;
+        wheelZoomTarget.x = pointerX - worldX * nextZoom;
+        wheelZoomTarget.y = pointerY - worldY * nextZoom;
 
-          currentBoard.scale.set(nextZoom, nextZoom);
-          currentBoard.x = pointerX - worldX * nextZoom;
-          currentBoard.y = pointerY - worldY * nextZoom;
-          updateSelectedBoundsOverlay();
-          scheduleViewCommit(100);
-          return;
+        if (wheelZoomAnimationFrame === null) {
+          wheelZoomAnimationFrame = window.requestAnimationFrame(animateWheelZoom);
         }
 
-        currentBoard.x -= event.deltaX;
-        currentBoard.y -= event.deltaY;
-        updateSelectedBoundsOverlay();
-        scheduleViewCommit(30);
+        scheduleViewCommit(120);
       };
 
       const onKeyDown = (event: KeyboardEvent) => {
@@ -307,6 +356,10 @@ export const useCanvasBoardBootstrap = ({
       setAppReady(true);
 
       return () => {
+        if (wheelZoomAnimationFrame !== null) {
+          window.cancelAnimationFrame(wheelZoomAnimationFrame);
+          wheelZoomAnimationFrame = null;
+        }
         host.removeEventListener("wheel", onWheel);
         window.removeEventListener("keydown", onKeyDown);
         window.removeEventListener("keyup", onKeyUp);

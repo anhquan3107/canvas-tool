@@ -7,6 +7,10 @@ const desktopApi: DesktopApi = {
     getSettings: () => ipcRenderer.invoke("app:get-settings"),
     saveShortcutBindings: (bindings) =>
       ipcRenderer.invoke("app:save-shortcut-bindings", bindings),
+    markTitleBarTooltipSeen: (tooltipId) =>
+      ipcRenderer.invoke("app:mark-title-bar-tooltip-seen", tooltipId),
+    resetTitleBarTooltips: () =>
+      ipcRenderer.invoke("app:reset-title-bar-tooltips"),
     quit: () => ipcRenderer.invoke("app:quit"),
   },
   project: {

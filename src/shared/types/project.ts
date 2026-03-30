@@ -20,6 +20,7 @@ export interface AppSettings {
   lastOpenedFile?: string;
   maxRecentFiles: number;
   shortcuts?: Partial<Record<ShortcutActionId, string>>;
+  seenTitleBarTooltips?: string[];
 }
 
 export interface CanvasSize {

@@ -43,6 +43,7 @@ export const useShortcutSettings = ({
   const [shortcutDialogOpen, setShortcutDialogOpen] = useState(false);
   const [shortcutDraftBindings, setShortcutDraftBindings] =
     useState<ShortcutBindings>(DEFAULT_SHORTCUT_BINDINGS);
+  const [seenTitleBarTooltips, setSeenTitleBarTooltips] = useState<string[]>([]);
 
   useEffect(() => {
     void window.desktopApi.app
@@ -51,10 +52,12 @@ export const useShortcutSettings = ({
         const nextBindings = resolveShortcutBindings(settings.shortcuts);
         setShortcutBindings(nextBindings);
         setShortcutDraftBindings(nextBindings);
+        setSeenTitleBarTooltips(settings.seenTitleBarTooltips ?? []);
       })
       .catch(() => {
         setShortcutBindings(DEFAULT_SHORTCUT_BINDINGS);
         setShortcutDraftBindings(DEFAULT_SHORTCUT_BINDINGS);
+        setSeenTitleBarTooltips([]);
       });
   }, []);
 
@@ -94,6 +97,54 @@ export const useShortcutSettings = ({
     setShortcutDraftBindings(DEFAULT_SHORTCUT_BINDINGS);
   }, []);
 
+  const markTitleBarTooltipSeen = useCallback((tooltipId: string) => {
+    const nextTooltipId = tooltipId.trim();
+    if (!nextTooltipId) {
+      return;
+    }
+
+    let shouldPersist = false;
+    setSeenTitleBarTooltips((previous) => {
+      if (previous.includes(nextTooltipId)) {
+        return previous;
+      }
+
+      shouldPersist = true;
+      return [...previous, nextTooltipId];
+    });
+
+    if (!shouldPersist) {
+      return;
+    }
+
+    void window.desktopApi.app.markTitleBarTooltipSeen(nextTooltipId).catch(() => {
+      setSeenTitleBarTooltips((previous) =>
+        previous.filter((item) => item !== nextTooltipId),
+      );
+    });
+  }, []);
+
+  const resetTitleBarTooltips = useCallback(async () => {
+    setSeenTitleBarTooltips([]);
+
+    try {
+      await window.desktopApi.app.resetTitleBarTooltips();
+      pushToast("success", "Title bar tooltips reset.");
+      return true;
+    } catch {
+      pushToast("error", "Couldn't reset title bar tooltips.");
+      void window.desktopApi.app
+        .getSettings()
+        .then((settings) => {
+          setSeenTitleBarTooltips(settings.seenTitleBarTooltips ?? []);
+        })
+        .catch(() => {
+          setSeenTitleBarTooltips([]);
+        });
+      return false;
+    }
+  }, [pushToast]);
+
   const saveShortcutBindings = useCallback(async () => {
     const hasConflicts = Object.keys(shortcutConflicts).length > 0;
     if (hasConflicts) {
@@ -117,12 +168,15 @@ export const useShortcutSettings = ({
     shortcutDialogOpen,
     shortcutDraftBindings,
     shortcutConflicts,
+    seenTitleBarTooltips,
     setShortcutDialogOpen,
     openShortcutDialog,
     closeShortcutDialog,
     updateShortcutDraftBinding,
     resetShortcutDraftBinding,
     resetAllShortcutDraftBindings,
+    markTitleBarTooltipSeen,
+    resetTitleBarTooltips,
     saveShortcutBindings,
   };
 };

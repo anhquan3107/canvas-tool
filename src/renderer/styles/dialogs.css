@@ -254,6 +254,131 @@
   margin-top: 22px;
 }
 
+.titlebar-tooltip-dialog-scrim {
+  background: rgba(8, 8, 10, 0.62);
+}
+
+.titlebar-tooltip-dialog {
+  width: min(440px, calc(100vw - 40px));
+  padding: 28px 28px 24px;
+  border-radius: 22px;
+  border-color: rgba(255, 255, 255, 0.1);
+  background: #1b1a1c;
+  box-shadow:
+    0 26px 60px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.titlebar-tooltip-dialog h3 {
+  margin: 0;
+  text-align: left;
+  font-family:
+    "Iowan Old Style",
+    "Palatino Linotype",
+    "Book Antiqua",
+    Georgia,
+    serif;
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+}
+
+.titlebar-tooltip-dialog-head {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+
+.titlebar-tooltip-dialog-eyebrow {
+  color: #d6a189;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.titlebar-tooltip-dialog-head p {
+  margin: 0;
+  color: rgba(233, 228, 222, 0.78);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.titlebar-tooltip-dialog-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.titlebar-tooltip-dialog-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 15px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.titlebar-tooltip-dialog-label {
+  color: rgba(214, 214, 210, 0.56);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.titlebar-tooltip-dialog-value {
+  color: rgba(247, 244, 239, 0.95);
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+.titlebar-tooltip-dialog-keycaps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.titlebar-tooltip-dialog-keycap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  padding: 5px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.24);
+  color: rgba(245, 241, 233, 0.88);
+  font-family:
+    "Avenir Next",
+    "Segoe UI",
+    sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.titlebar-tooltip-dialog-empty {
+  color: rgba(212, 212, 208, 0.76);
+  font-size: 13px;
+}
+
+.titlebar-tooltip-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.titlebar-tooltip-dialog-confirm {
+  min-width: 104px;
+}
+
 .dialog-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -852,6 +977,7 @@
   background: rgba(0, 0, 0, 0.12);
 }
 
+.shortcut-dialog-footer-tools,
 .shortcut-dialog-footer-actions {
   display: flex;
   align-items: center;

@@ -13,6 +13,7 @@ const defaultSettings = (): AppSettings => ({
   recentFiles: [],
   maxRecentFiles: 12,
   shortcuts: { ...DEFAULT_SHORTCUT_BINDINGS },
+  seenTitleBarTooltips: [],
 });
 
 const settingsPath = () => path.join(app.getPath("userData"), SETTINGS_FILE);
@@ -73,6 +74,11 @@ export const readSettings = async (): Promise<AppSettings> => {
           ? parsed.lastOpenedFile
           : undefined,
       shortcuts: parsedShortcuts,
+      seenTitleBarTooltips: Array.isArray(parsed.seenTitleBarTooltips)
+        ? parsed.seenTitleBarTooltips.filter(
+            (item): item is string => typeof item === "string" && item.length > 0,
+          )
+        : [],
     };
   } catch {
     return defaultSettings();
@@ -99,4 +105,33 @@ export const addRecentFile = async (filePath: string) => {
 
   await writeSettings(next);
   return next.recentFiles;
+};
+
+export const markTitleBarTooltipSeen = async (tooltipId: string) => {
+  const nextTooltipId = tooltipId.trim();
+  const settings = await readSettings();
+
+  if (!nextTooltipId) {
+    return settings.seenTitleBarTooltips ?? [];
+  }
+
+  const nextSeen = Array.from(
+    new Set([...(settings.seenTitleBarTooltips ?? []), nextTooltipId]),
+  );
+
+  await writeSettings({
+    ...settings,
+    seenTitleBarTooltips: nextSeen,
+  });
+
+  return nextSeen;
+};
+
+export const resetTitleBarTooltips = async () => {
+  const settings = await readSettings();
+  await writeSettings({
+    ...settings,
+    seenTitleBarTooltips: [],
+  });
+  return [];
 };

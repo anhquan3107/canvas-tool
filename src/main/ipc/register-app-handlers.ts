@@ -1,6 +1,11 @@
 import { app, ipcMain, type BrowserWindow } from "electron";
 import { createDefaultProject } from "../services/project-service";
-import { readSettings, writeSettings } from "../services/app-settings-service";
+import {
+  markTitleBarTooltipSeen,
+  readSettings,
+  resetTitleBarTooltips,
+  writeSettings,
+} from "../services/app-settings-service";
 import { resolveShortcutBindings, type ShortcutBindings } from "../../shared/shortcuts";
 
 export const registerAppHandlers = (_window: BrowserWindow) => {
@@ -18,6 +23,10 @@ export const registerAppHandlers = (_window: BrowserWindow) => {
       return nextShortcuts;
     },
   );
+  ipcMain.handle("app:mark-title-bar-tooltip-seen", (_event, tooltipId: string) =>
+    markTitleBarTooltipSeen(tooltipId),
+  );
+  ipcMain.handle("app:reset-title-bar-tooltips", () => resetTitleBarTooltips());
   ipcMain.handle("app:quit", () => {
     app.quit();
   });

@@ -15,6 +15,7 @@ interface KeyboardShortcutsDialogProps {
   onBindingChange: (actionId: ShortcutActionId, binding: string) => void;
   onResetAction: (actionId: ShortcutActionId) => void;
   onResetAll: () => void;
+  onResetTooltips: () => void;
   onSave: () => void;
 }
 
@@ -36,6 +37,7 @@ export const KeyboardShortcutsDialog = ({
   onBindingChange,
   onResetAction,
   onResetAll,
+  onResetTooltips,
   onSave,
 }: KeyboardShortcutsDialogProps) => {
   const [capturingActionId, setCapturingActionId] = useState<ShortcutActionId | null>(
@@ -156,16 +158,28 @@ export const KeyboardShortcutsDialog = ({
         </div>
 
         <footer className="shortcut-dialog-footer">
-          <button
-            type="button"
-            className="ghost-button"
-            onClick={() => {
-              onResetAll();
-              setCapturingActionId(null);
-            }}
-          >
-            Reset All
-          </button>
+          <div className="shortcut-dialog-footer-tools">
+            <button
+              type="button"
+              className="ghost-button"
+              onClick={() => {
+                onResetAll();
+                setCapturingActionId(null);
+              }}
+            >
+              Reset All
+            </button>
+            <button
+              type="button"
+              className="ghost-button"
+              onClick={() => {
+                setCapturingActionId(null);
+                onResetTooltips();
+              }}
+            >
+              Reset Tooltips
+            </button>
+          </div>
           <div className="shortcut-dialog-footer-actions">
             <button type="button" className="ghost-button" onClick={onClose}>
               Cancel

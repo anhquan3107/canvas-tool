@@ -98,6 +98,8 @@ export interface DesktopApi {
     saveShortcutBindings: (
       bindings: ShortcutBindings,
     ) => Promise<ShortcutBindings>;
+    markTitleBarTooltipSeen: (tooltipId: string) => Promise<string[]>;
+    resetTitleBarTooltips: () => Promise<string[]>;
     quit: () => Promise<void>;
   };
   project: {

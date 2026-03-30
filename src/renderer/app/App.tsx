@@ -384,11 +384,14 @@ const AppContent = () => {
     shortcutDialogOpen,
     shortcutDraftBindings,
     shortcutConflicts,
+    seenTitleBarTooltips,
     openShortcutDialog,
     closeShortcutDialog,
     updateShortcutDraftBinding,
     resetShortcutDraftBinding,
     resetAllShortcutDraftBindings,
+    markTitleBarTooltipSeen,
+    resetTitleBarTooltips,
     saveShortcutBindings,
   } = useShortcutSettings({
     pushToast,
@@ -841,6 +844,7 @@ const AppContent = () => {
           activeGroup={activeGroup}
           activeTool={activeTool}
           shortcutBindings={shortcutBindings}
+          seenTitleBarTooltips={seenTitleBarTooltips}
           settingsOpen={settingsOpen}
           helpOpen={helpOpen}
           selectedCount={selectedItemIds.length}
@@ -945,6 +949,7 @@ const AppContent = () => {
           onToggleAlwaysOnTop={handleToggleAlwaysOnTop}
           onToggleMaximize={handleToggleMaximize}
           onCloseWindow={handleCloseWindow}
+          onMarkTitleBarTooltipSeen={markTitleBarTooltipSeen}
         />
 
         <div className="desktop-layout">
@@ -1356,6 +1361,7 @@ const AppContent = () => {
         onBindingChange={updateShortcutDraftBinding}
         onResetAction={resetShortcutDraftBinding}
         onResetAll={resetAllShortcutDraftBindings}
+        onResetTooltips={() => void resetTitleBarTooltips()}
         onSave={() => void saveShortcutBindings()}
       />
 

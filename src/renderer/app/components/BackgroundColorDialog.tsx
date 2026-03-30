@@ -16,6 +16,7 @@ interface BackgroundColorDialogProps {
   canvasColor: string;
   backgroundColor: string;
   onClose: () => void;
+  onPreviewChange: (colors: { canvasColor: string; backgroundColor: string }) => void;
   onConfirm: (colors: { canvasColor: string; backgroundColor: string }) => void;
 }
 
@@ -106,10 +107,12 @@ export const BackgroundColorDialog = ({
   canvasColor,
   backgroundColor,
   onClose,
+  onPreviewChange,
   onConfirm,
 }: BackgroundColorDialogProps) => {
   const squareCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const hueTrackRef = useRef<HTMLDivElement | null>(null);
+  const previousOpenRef = useRef(false);
   const [target, setTarget] = useState<ColorTarget>("canvas");
   const [draftCanvasColor, setDraftCanvasColor] = useState(canvasColor);
   const [draftBackgroundColor, setDraftBackgroundColor] = useState(backgroundColor);
@@ -123,6 +126,12 @@ export const BackgroundColorDialog = ({
 
   useEffect(() => {
     if (!open) {
+      setDraftCanvasColor(canvasColor);
+      setDraftBackgroundColor(backgroundColor);
+      return;
+    }
+
+    if (previousOpenRef.current) {
       return;
     }
 
@@ -130,6 +139,10 @@ export const BackgroundColorDialog = ({
     setDraftCanvasColor(canvasColor);
     setDraftBackgroundColor(backgroundColor);
   }, [backgroundColor, canvasColor, open]);
+
+  useEffect(() => {
+    previousOpenRef.current = open;
+  }, [open]);
 
   useEffect(() => {
     if (!open) {
@@ -178,7 +191,18 @@ export const BackgroundColorDialog = ({
     blackGradient.addColorStop(1, "rgba(0,0,0,1)");
     context.fillStyle = blackGradient;
     context.fillRect(0, 0, pixelSize, pixelSize);
-  }, [hue]);
+  }, [hue, open]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    onPreviewChange({
+      canvasColor: draftCanvasColor,
+      backgroundColor: draftBackgroundColor,
+    });
+  }, [draftBackgroundColor, draftCanvasColor, onPreviewChange, open]);
 
   const squarePointer = (clientX: number, clientY: number) => {
     const canvas = squareCanvasRef.current;

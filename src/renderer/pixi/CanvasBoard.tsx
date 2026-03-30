@@ -31,6 +31,9 @@ import type {
 } from "@renderer/pixi/types";
 import { drawItemFrame } from "@renderer/pixi/utils/item-frame";
 
+const SELECTION_DIM_ALPHA = 0.34;
+const SELECTION_HIGHLIGHT_NAME = "selection-highlight";
+
 export const CanvasBoard = ({
   group,
   activeTool,
@@ -408,6 +411,22 @@ export const CanvasBoard = ({
         meta.isCapture,
         selectedItemIds.includes(id),
       );
+    });
+
+    itemNodeByIdRef.current.forEach((itemNode, id) => {
+      const hasSelection = selectedItemIds.length > 0;
+      const isSelected = selectedItemIds.includes(id);
+      itemNode.alpha = hasSelection ? (isSelected ? 1 : SELECTION_DIM_ALPHA) : 1;
+
+      const highlightOverlay = itemNode.getChildByName(
+        SELECTION_HIGHLIGHT_NAME,
+      ) as Graphics | null;
+      if (!highlightOverlay) {
+        return;
+      }
+
+      highlightOverlay.alpha = hasSelection && isSelected ? 0.08 : 0;
+      highlightOverlay.visible = !hasSelection || isSelected;
     });
   }, [selectedItemIds]);
 

@@ -25,6 +25,31 @@ interface FrameMeta {
   isCapture: boolean;
 }
 
+const SELECTION_DIM_ALPHA = 0.34;
+const SELECTION_HIGHLIGHT_ALPHA = 0.08;
+const SELECTION_HIGHLIGHT_NAME = "selection-highlight";
+
+const applySelectionVisualState = (
+  itemNode: Container,
+  itemId: string,
+  selectionIds: string[],
+) => {
+  const hasSelection = selectionIds.length > 0;
+  const isSelected = selectionIds.includes(itemId);
+  itemNode.alpha = hasSelection ? (isSelected ? 1 : SELECTION_DIM_ALPHA) : 1;
+
+  const highlightOverlay = itemNode.getChildByName(
+    SELECTION_HIGHLIGHT_NAME,
+  ) as Graphics | null;
+  if (!highlightOverlay) {
+    return;
+  }
+
+  highlightOverlay.alpha =
+    hasSelection && isSelected ? SELECTION_HIGHLIGHT_ALPHA : 0;
+  highlightOverlay.visible = !hasSelection || isSelected;
+};
+
 interface UseCanvasBoardSceneOptions {
   hostRef: MutableRefObject<HTMLDivElement | null>;
   boardContainerRef: MutableRefObject<Container | null>;
@@ -266,6 +291,16 @@ export const useCanvasBoardScene = ({
       );
       itemNode.addChild(frame);
 
+      const selectionHighlight = new Graphics();
+      selectionHighlight.name = SELECTION_HIGHLIGHT_NAME;
+      selectionHighlight.rect(0, 0, safeWidth, safeHeight).fill({
+        color: 0xffffff,
+        alpha: SELECTION_HIGHLIGHT_ALPHA,
+      });
+      selectionHighlight.alpha = 0;
+      selectionHighlight.eventMode = "none";
+      itemNode.addChild(selectionHighlight);
+
       if (item.type === "image" && item.assetPath) {
         void loadTextureForAssetPath(item.assetPath)
           .then((texture) => {
@@ -376,6 +411,8 @@ export const useCanvasBoardScene = ({
               : [];
         drawSwatchTray(itemNode, paletteColors, safeWidth, safeHeight);
       }
+
+      applySelectionVisualState(itemNode, item.id, selectionIdsRef.current);
 
       itemNode.on("pointerdown", (event: FederatedPointerEvent) => {
         event.stopPropagation();

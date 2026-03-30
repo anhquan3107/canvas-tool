@@ -156,6 +156,10 @@ const AppContent = () => {
     itemId: string;
     rect: { left: number; top: number; right: number; bottom: number };
   } | null>(null);
+  const [backgroundColorPreview, setBackgroundColorPreview] = useState<{
+    canvasColor: string;
+    backgroundColor: string;
+  } | null>(null);
   const [pendingDeletion, setPendingDeletion] = useState<
     | { kind: "task"; taskId: string; label: string }
     | { kind: "group"; groupId: string; label: string }
@@ -171,6 +175,17 @@ const AppContent = () => {
     dirtySignature !== lastSavedSignatureRef.current;
 
   const activeGroupId = activeGroup?.id ?? null;
+  const displayGroup = useMemo(() => {
+    if (!activeGroup || !backgroundColorPreview) {
+      return activeGroup;
+    }
+
+    return {
+      ...activeGroup,
+      canvasColor: backgroundColorPreview.canvasColor,
+      backgroundColor: backgroundColorPreview.backgroundColor,
+    };
+  }, [activeGroup, backgroundColorPreview]);
 
   const { toast, pushToast } = useToast();
   const { importQueue, setImportQueue } = useImportQueueSession(project);
@@ -755,6 +770,10 @@ const AppContent = () => {
 
     setMenuState(null);
     setSettingsOpen(false);
+    setBackgroundColorPreview({
+      canvasColor: activeGroup.canvasColor,
+      backgroundColor: activeGroup.backgroundColor,
+    });
     setBackgroundColorDialogOpen(true);
   }, [activeGroup, setBackgroundColorDialogOpen, setSettingsOpen]);
 
@@ -934,12 +953,12 @@ const AppContent = () => {
               className="canvas-stage"
               ref={canvasStageRef}
               style={{
-                backgroundColor: activeGroup?.backgroundColor ?? "#232323",
+                backgroundColor: displayGroup?.backgroundColor ?? "#232323",
               }}
             >
-              {activeGroup ? (
+              {displayGroup ? (
                 <CanvasBoard
-                  group={activeGroup}
+                  group={displayGroup}
                   activeTool={activeTool}
                   snapEnabled={snapEnabled}
                   doodleMode={doodleMode}
@@ -956,7 +975,7 @@ const AppContent = () => {
                   onViewChange={handleBoardViewChange}
                   onItemsPatch={handleBoardItemsPatch}
                   onAnnotationsChange={(annotations) =>
-                    setGroupAnnotations(activeGroup.id, annotations)
+                    setGroupAnnotations(displayGroup.id, annotations)
                   }
                   onItemDoubleClick={(itemId) => {
                     openZoomOverlay(itemId);
@@ -1311,10 +1330,19 @@ const AppContent = () => {
 
       <BackgroundColorDialog
         open={backgroundColorDialogOpen}
-        canvasColor={activeGroup?.canvasColor ?? "#151515"}
-        backgroundColor={activeGroup?.backgroundColor ?? "#232323"}
-        onClose={() => setBackgroundColorDialogOpen(false)}
+        canvasColor={backgroundColorPreview?.canvasColor ?? activeGroup?.canvasColor ?? "#151515"}
+        backgroundColor={
+          backgroundColorPreview?.backgroundColor ??
+          activeGroup?.backgroundColor ??
+          "#232323"
+        }
+        onClose={() => {
+          setBackgroundColorPreview(null);
+          setBackgroundColorDialogOpen(false);
+        }}
+        onPreviewChange={setBackgroundColorPreview}
         onConfirm={(colors) => {
+          setBackgroundColorPreview(null);
           changeCanvasColors(colors.canvasColor, colors.backgroundColor);
           setBackgroundColorDialogOpen(false);
         }}

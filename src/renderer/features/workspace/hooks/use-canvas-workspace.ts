@@ -32,7 +32,7 @@ import {
   DEFAULT_GROUP_CANVAS_COLOR,
   DEFAULT_VIEW_ZOOM_BASELINE,
 } from "@shared/project-defaults";
-import { IMAGE_LAYOUT_GAP } from "@renderer/pixi/constants";
+import { IMAGE_LAYOUT_GAP, SNAP_GAP } from "@renderer/pixi/constants";
 
 type ToastKind = "success" | "error" | "info";
 type ImagePatch = Partial<Omit<ImageItem, "id" | "type">>;
@@ -118,7 +118,7 @@ export const useCanvasWorkspace = ({
         .filter((item) => item.visible !== false)
         .sort((left, right) => left.zIndex - right.zIndex);
 
-      const padding = IMAGE_LAYOUT_GAP;
+      const padding = SNAP_GAP;
       const widestItem = visibleItems.reduce(
         (maxWidth, item) => Math.max(maxWidth, item.width),
         0,
@@ -1179,7 +1179,7 @@ export const useCanvasWorkspace = ({
 
       const anchorX = Math.min(...selectedItems.map((item) => item.x));
       const anchorY = Math.min(...selectedItems.map((item) => item.y));
-      const gap = IMAGE_LAYOUT_GAP;
+      const gap = SNAP_GAP;
       const updates: Record<string, ImagePatch> = {};
 
       if (mode === "horizontal") {

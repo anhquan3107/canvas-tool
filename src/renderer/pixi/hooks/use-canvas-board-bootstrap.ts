@@ -38,6 +38,7 @@ interface UseCanvasBoardBootstrapOptions {
   hideSelectionMarquee: () => void;
   commitView: () => void;
   scheduleViewCommit: (delay?: number) => void;
+  drawBoardSurface: () => void;
   updateSelectedBoundsOverlay: () => void;
   rebuildScene: () => void;
   setAppReady: (ready: boolean) => void;
@@ -75,6 +76,7 @@ export const useCanvasBoardBootstrap = ({
   hideSelectionMarquee,
   commitView,
   scheduleViewCommit,
+  drawBoardSurface,
   updateSelectedBoundsOverlay,
   rebuildScene,
   setAppReady,
@@ -177,6 +179,7 @@ export const useCanvasBoardBootstrap = ({
         );
         activeBoard.x = interpolate(activeBoard.x, wheelZoomTarget.x);
         activeBoard.y = interpolate(activeBoard.y, wheelZoomTarget.y);
+        drawBoardSurface();
         updateSelectedBoundsOverlay();
 
         const settled =
@@ -188,6 +191,7 @@ export const useCanvasBoardBootstrap = ({
           activeBoard.scale.set(wheelZoomTarget.scale, wheelZoomTarget.scale);
           activeBoard.x = wheelZoomTarget.x;
           activeBoard.y = wheelZoomTarget.y;
+          drawBoardSurface();
           updateSelectedBoundsOverlay();
           wheelZoomAnimationFrame = null;
           return;
@@ -223,6 +227,7 @@ export const useCanvasBoardBootstrap = ({
           panOriginRef.current.x + (event.clientX - panStartRef.current.x);
         currentBoard.y =
           panOriginRef.current.y + (event.clientY - panStartRef.current.y);
+        drawBoardSurface();
         updateSelectedBoundsOverlay();
       };
 
@@ -413,6 +418,7 @@ export const useCanvasBoardBootstrap = ({
     commitAnnotationSession,
     commitDraggedItemPatch,
     commitView,
+    drawBoardSurface,
     gridGraphicRef,
     hideDoodleCursor,
     hideSelectionMarquee,

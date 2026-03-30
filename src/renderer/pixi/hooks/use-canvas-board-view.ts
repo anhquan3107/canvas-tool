@@ -166,6 +166,8 @@ export const useCanvasBoardView = ({
   const drawBoardSurface = useCallback(
     (insets = previewInsetsRef.current) => {
       const board = boardGraphicRef.current;
+      const boardContainer = boardContainerRef.current;
+      const host = hostRef.current;
       if (!board) {
         return;
       }
@@ -178,9 +180,47 @@ export const useCanvasBoardView = ({
       board.rect(-insets.left, -insets.top, width, height);
       board.fill(hexToPixiColor(scene.canvasColor));
       board.stroke({ color: 0x2a2a2a, width: 2, alpha: 0.92 });
-      board.hitArea = new Rectangle(-insets.left, -insets.top, width, height);
+
+      const surfaceMinX = -insets.left;
+      const surfaceMinY = -insets.top;
+      const surfaceMaxX = scene.canvasSize.width + insets.right;
+      const surfaceMaxY = scene.canvasSize.height + insets.bottom;
+
+      if (!boardContainer || !host) {
+        board.hitArea = new Rectangle(
+          surfaceMinX,
+          surfaceMinY,
+          width,
+          height,
+        );
+        return;
+      }
+
+      const scaleX =
+        Number.isFinite(boardContainer.scale.x) && boardContainer.scale.x !== 0
+          ? boardContainer.scale.x
+          : 1;
+      const scaleY =
+        Number.isFinite(boardContainer.scale.y) && boardContainer.scale.y !== 0
+          ? boardContainer.scale.y
+          : 1;
+      const viewportMinX = (-boardContainer.x) / scaleX;
+      const viewportMinY = (-boardContainer.y) / scaleY;
+      const viewportMaxX = (host.clientWidth - boardContainer.x) / scaleX;
+      const viewportMaxY = (host.clientHeight - boardContainer.y) / scaleY;
+      const hitMinX = Math.min(surfaceMinX, viewportMinX);
+      const hitMinY = Math.min(surfaceMinY, viewportMinY);
+      const hitMaxX = Math.max(surfaceMaxX, viewportMaxX);
+      const hitMaxY = Math.max(surfaceMaxY, viewportMaxY);
+
+      board.hitArea = new Rectangle(
+        hitMinX,
+        hitMinY,
+        Math.max(1, hitMaxX - hitMinX),
+        Math.max(1, hitMaxY - hitMinY),
+      );
     },
-    [boardGraphicRef, groupRef, previewInsetsRef],
+    [boardContainerRef, boardGraphicRef, groupRef, hostRef, previewInsetsRef],
   );
 
   const setPreviewInsets = useCallback(
@@ -272,7 +312,8 @@ export const useCanvasBoardView = ({
     boardContainer.x = scene.panX;
     boardContainer.y = scene.panY;
     boardContainer.scale.set(scene.zoom, scene.zoom);
-  }, [boardContainerRef, groupRef]);
+    drawBoardSurface();
+  }, [boardContainerRef, drawBoardSurface, groupRef]);
 
   const clientPointToCanvas = useCallback(
     (clientX: number, clientY: number) => {

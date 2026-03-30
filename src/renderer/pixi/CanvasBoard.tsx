@@ -768,6 +768,7 @@ export const CanvasBoard = ({
     hideSelectionMarquee,
     commitView,
     scheduleViewCommit,
+    drawBoardSurface,
     updateSelectedBoundsOverlay,
     rebuildScene,
     setAppReady,

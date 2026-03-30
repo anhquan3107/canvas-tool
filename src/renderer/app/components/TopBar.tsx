@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Settings } from "lucide-react";
 import type { ReferenceGroup } from "@shared/types/project";
 import type { ShortcutBindings } from "@shared/shortcuts";
 import { TOOL_LABELS, TOOL_ORDER } from "@renderer/features/tools/constants";
@@ -460,8 +461,14 @@ export const TopBar = ({
 
       <div className="window-cluster">
         <span className="locale-indicator">ENG</span>
-        <button type="button" className="chrome-chip" onClick={onShowShortcuts}>
-          ?
+        <button
+          type="button"
+          className="chrome-chip"
+          onClick={onShowShortcuts}
+          aria-label="Settings shortcuts"
+          title="Settings shortcuts"
+        >
+          <Settings size={13} strokeWidth={1.9} />
         </button>
         <button
           type="button"

@@ -134,7 +134,10 @@ export const KeyboardShortcutsDialog = ({
                         <button
                           type="button"
                           className="shortcut-reset-button"
-                          onClick={() => onResetAction(definition.id)}
+                          onClick={() => {
+                            onResetAction(definition.id);
+                            setCapturingActionId(null);
+                          }}
                         >
                           Reset
                         </button>
@@ -153,7 +156,14 @@ export const KeyboardShortcutsDialog = ({
         </div>
 
         <footer className="shortcut-dialog-footer">
-          <button type="button" className="ghost-button" onClick={onResetAll}>
+          <button
+            type="button"
+            className="ghost-button"
+            onClick={() => {
+              onResetAll();
+              setCapturingActionId(null);
+            }}
+          >
             Reset All
           </button>
           <div className="shortcut-dialog-footer-actions">

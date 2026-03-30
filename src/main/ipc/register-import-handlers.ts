@@ -1,7 +1,9 @@
 import { clipboard, ipcMain, nativeImage } from "electron";
 import { MAX_FETCH_SIZE_BYTES, isHttpUrl, toDataUrl } from "./ipc-utils";
+import { extractImageSwatchesFromSource } from "../services/image-swatch-extractor";
 import {
   ensureClipboardWriteImagePayload,
+  ensureImageSwatchExtractPayload,
   ensureRemoteImageFetchPayload,
 } from "./ipc-validators";
 
@@ -63,5 +65,21 @@ export const registerImportHandlers = () => {
     }
 
     return toDataUrl(contentType, bytes);
+  });
+
+  ipcMain.handle("import:extract-image-swatches", async (_, rawPayload) => {
+    const payload = ensureImageSwatchExtractPayload(rawPayload);
+    if (!payload) {
+      return [];
+    }
+
+    try {
+      return await extractImageSwatchesFromSource(
+        payload.source,
+        payload.colorCount,
+      );
+    } catch {
+      return [];
+    }
   });
 };

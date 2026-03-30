@@ -1,6 +1,7 @@
 import type {
   CanvasImageExportRequest,
   GroupImagesExportRequest,
+  ImageSwatchExtractRequest,
   OpenCaptureWindowRequest,
   ProjectSaveRequest,
   RemoteImageFetchRequest,
@@ -225,4 +226,25 @@ export const ensureRemoteImageFetchPayload = (
   }
 
   return { url: payload.url };
+};
+
+export const ensureImageSwatchExtractPayload = (
+  value: unknown,
+): ImageSwatchExtractRequest | null => {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const payload = value as Record<string, unknown>;
+  if (typeof payload.source !== "string" || payload.source.length === 0) {
+    return null;
+  }
+
+  return {
+    source: payload.source,
+    colorCount:
+      typeof payload.colorCount === "number" && Number.isFinite(payload.colorCount)
+        ? payload.colorCount
+        : undefined,
+  };
 };

@@ -43,6 +43,8 @@ const desktopApi: DesktopApi = {
   import: {
     fetchRemoteImageDataUrl: (payload) =>
       ipcRenderer.invoke("import:fetch-remote-image-data-url", payload),
+    extractImageSwatches: (payload) =>
+      ipcRenderer.invoke("import:extract-image-swatches", payload),
   },
   capture: {
     listSources: () => ipcRenderer.invoke("capture:list-sources"),

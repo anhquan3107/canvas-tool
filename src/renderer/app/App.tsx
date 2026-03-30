@@ -6,7 +6,11 @@ import {
   useState,
   type MouseEvent as ReactMouseEvent,
 } from "react";
-import { DEFAULT_VIEW_ZOOM_BASELINE } from "@shared/project-defaults";
+import {
+  DEFAULT_GROUP_BACKGROUND_COLOR,
+  DEFAULT_GROUP_CANVAS_COLOR,
+  DEFAULT_VIEW_ZOOM_BASELINE,
+} from "@shared/project-defaults";
 import type { ImageItem, Project } from "@shared/types/project";
 import { useAppShortcuts } from "@renderer/app/hooks/use-app-shortcuts";
 import { useShortcutSettings } from "@renderer/app/hooks/use-shortcut-settings";
@@ -238,16 +242,21 @@ const AppContent = () => {
     orderedTasks,
     taskListExpanded,
     taskDetailOpen,
+    taskDetailPinned,
     taskDialogOpen,
     draftTaskTitle,
     taskDates,
     taskDuration,
-    setSelectedTaskId,
-    setTaskListExpanded,
     setTaskDetailOpen,
     setTaskDialogOpen,
     setDraftTaskTitle,
     setTaskDates,
+    selectTask,
+    toggleTaskListExpanded,
+    collapseTaskList,
+    toggleTaskDetailPinned,
+    registerTaskOverlayInteraction,
+    registerTaskDetailInteraction,
     openTaskDialog,
     handleCreateTask,
     handleDeleteTask,
@@ -835,6 +844,10 @@ const AppContent = () => {
   return (
     <div
       className="app-shell"
+      style={{
+        backgroundColor:
+          displayGroup?.backgroundColor ?? DEFAULT_GROUP_BACKGROUND_COLOR,
+      }}
       onDragOver={handleShellDragOver}
       onDrop={handleAppShellDrop}
       onContextMenu={handleShellContextMenu}
@@ -958,7 +971,9 @@ const AppContent = () => {
               className="canvas-stage"
               ref={canvasStageRef}
               style={{
-                backgroundColor: displayGroup?.backgroundColor ?? "#232323",
+                backgroundColor:
+                  displayGroup?.backgroundColor ??
+                  DEFAULT_GROUP_BACKGROUND_COLOR,
               }}
             >
               {displayGroup ? (
@@ -1014,14 +1029,13 @@ const AppContent = () => {
                         primaryTask={primaryTask}
                         selectedTaskId={selectedTaskId}
                         expanded={taskListExpanded}
-                        onToggleExpanded={() =>
-                          setTaskListExpanded((previous) => !previous)
-                        }
+                        onToggleExpanded={toggleTaskListExpanded}
                         onSelectTask={(taskId) => {
-                          setSelectedTaskId(taskId);
+                          selectTask(taskId);
                           setTaskDetailOpen(true);
-                          setTaskListExpanded(false);
+                          collapseTaskList();
                         }}
+                        onInteract={registerTaskOverlayInteraction}
                       />
                     ) : null}
                   </div>
@@ -1046,10 +1060,14 @@ const AppContent = () => {
                       <TaskDetailPanel
                         task={selectedTask}
                         open={taskDetailOpen}
-                        onToggleOpen={() =>
-                          setTaskDetailOpen((previous) => !previous)
-                        }
+                        pinned={taskDetailPinned}
+                        onReveal={() => {
+                          registerTaskDetailInteraction();
+                          setTaskDetailOpen(true);
+                        }}
+                        onTogglePinned={toggleTaskDetailPinned}
                         onDeleteTask={requestDeleteSelectedTask}
+                        onInteract={registerTaskDetailInteraction}
                         onAddTodo={addTodo}
                         onToggleTodo={toggleTodo}
                         onRenameTodo={renameTodo}
@@ -1125,7 +1143,9 @@ const AppContent = () => {
           <StatusBar
             selectedCount={selectedItemIds.length}
             selectedImage={selectedStatusImage}
-            groupName={activeGroup?.name ?? "Main Canvas"}
+            backgroundColor={
+              displayGroup?.backgroundColor ?? DEFAULT_GROUP_BACKGROUND_COLOR
+            }
             zoomLabel={zoomLabel}
             canvasLabel={canvasLabel}
             snapEnabled={snapEnabled}
@@ -1335,11 +1355,15 @@ const AppContent = () => {
 
       <BackgroundColorDialog
         open={backgroundColorDialogOpen}
-        canvasColor={backgroundColorPreview?.canvasColor ?? activeGroup?.canvasColor ?? "#151515"}
+        canvasColor={
+          backgroundColorPreview?.canvasColor ??
+          activeGroup?.canvasColor ??
+          DEFAULT_GROUP_CANVAS_COLOR
+        }
         backgroundColor={
           backgroundColorPreview?.backgroundColor ??
           activeGroup?.backgroundColor ??
-          "#232323"
+          DEFAULT_GROUP_BACKGROUND_COLOR
         }
         onClose={() => {
           setBackgroundColorPreview(null);

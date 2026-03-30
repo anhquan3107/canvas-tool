@@ -10,14 +10,23 @@
   flex-direction: column;
   align-items: flex-start;
   gap: 8px;
+  max-width: min(360px, calc(100vw - 44px));
   pointer-events: auto;
+}
+
+.task-summary-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .task-summary-card {
   display: grid;
-  grid-template-columns: 12px minmax(0, 1fr) auto;
+  grid-template-columns: 12px minmax(0, 1fr);
   align-items: center;
   gap: 12px;
+  width: fit-content;
+  max-width: min(220px, calc(100vw - 132px));
   min-height: 42px;
   padding: 0 14px;
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -64,7 +73,41 @@
   color: var(--text-soft);
 }
 
-.task-summary-remaining {
+.task-summary-detail-bubble {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+  max-width: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 999px;
+  background: rgba(27, 28, 30, 0.94);
+  box-shadow: var(--shadow);
+  opacity: 0;
+  transform: translateX(-8px);
+  transition:
+    max-width 220ms ease,
+    padding 220ms ease,
+    opacity 180ms ease,
+    transform 220ms ease;
+  white-space: nowrap;
+}
+
+.task-summary-detail-bubble-visible {
+  max-width: 280px;
+  padding: 0 14px;
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.task-summary-detail-bubble span {
+  font-size: 12px;
+  color: var(--text-soft);
+}
+
+.task-summary-detail-bubble strong {
   font-size: 12px;
   font-weight: 700;
   color: #d8a24e;
@@ -75,7 +118,6 @@
   place-items: center;
   width: 22px;
   height: 22px;
-  margin-left: 8px;
   border: 1px solid rgba(255, 255, 255, 0.04);
   border-radius: 999px;
   background: var(--bg-chrome);
@@ -88,7 +130,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  min-width: 180px;
+  width: min(240px, calc(100vw - 44px));
   padding: 8px;
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 8px;
@@ -96,16 +138,56 @@
   box-shadow: var(--shadow);
 }
 
+.task-overlay-shell-open .task-list-popover,
+.task-list-popover.open {
+  animation: task-overlay-drop-in 180ms ease-out;
+}
+
+.task-list-popover.closing {
+  animation: task-overlay-drop-out 180ms ease-in forwards;
+}
+
 .task-list-item {
   display: flex;
   align-items: center;
   gap: 10px;
-  min-height: 38px;
+  min-height: 42px;
   padding: 0 12px;
   border-radius: 6px;
+  border: 1px solid transparent;
   background: rgba(255, 255, 255, 0.02);
   color: var(--text);
   text-align: left;
+}
+
+.task-list-item-active {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.task-list-item-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.task-list-item-copy strong,
+.task-list-item-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-list-item-copy strong {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.task-list-item-copy small {
+  font-size: 11px;
+  color: var(--text-dim);
 }
 
 .task-chip {
@@ -171,36 +253,52 @@
 }
 
 .task-detail-panel {
-  width: min(276px, calc(100vw - 44px));
+  width: var(--task-detail-width);
   max-height: min(56vh, calc(100% - 32px));
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
+  flex-shrink: 0;
+  transition:
+    transform 220ms ease,
+    opacity 180ms ease,
+    visibility 180ms ease;
 }
 
 .task-detail-shell {
+  --task-detail-width: min(276px, calc(100vw - 44px));
   position: relative;
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  width: 100%;
+  width: var(--task-detail-width);
   min-height: 42px;
   pointer-events: auto;
+  overflow: visible;
 }
 
-.task-detail-handle {
-  display: inline-grid;
-  place-items: center;
-  width: 24px;
-  height: 68px;
-  border: 1px solid var(--line);
-  border-radius: 10px 0 0 10px;
-  background: var(--bg-chrome);
-  box-shadow: var(--shadow);
-  font-size: 16px;
-  color: var(--text-soft);
+.task-detail-hover-zone {
+  position: fixed;
+  top: 50%;
+  right: 0;
+  width: 18px;
+  height: min(56vh, calc(100vh - 72px));
+  transform: translateY(-50%);
+  pointer-events: auto;
+  z-index: 9;
 }
 
-.task-detail-shell.open .task-detail-handle {
-  margin-right: 8px;
+.task-detail-panel.closed {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateX(calc(100% + 16px));
+}
+
+.task-detail-panel.open {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(0);
 }
 
 .task-detail-header {
@@ -230,8 +328,35 @@
   gap: 10px;
 }
 
+.task-detail-pin-button,
 .task-detail-delete {
   appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.task-detail-pin-button {
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-dim);
+}
+
+.task-detail-pin-button.active {
+  border-color: rgba(255, 244, 232, 0.18);
+  background: rgba(255, 244, 232, 0.12);
+  color: var(--text);
+}
+
+.task-detail-pin-button svg {
+  transform: rotate(28deg);
+}
+
+.task-detail-delete {
   border: 1px solid rgba(220, 111, 111, 0.3);
   border-radius: 999px;
   background: rgba(220, 111, 111, 0.12);
@@ -247,11 +372,6 @@
 .task-detail-delete:hover {
   background: rgba(220, 111, 111, 0.18);
   border-color: rgba(220, 111, 111, 0.45);
-}
-
-.task-detail-pin {
-  font-size: 18px;
-  color: var(--text-dim);
 }
 
 .task-detail-meta,
@@ -337,4 +457,28 @@
 .todo-add button {
   min-width: 58px;
   border-radius: 4px;
+}
+
+@keyframes task-overlay-drop-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes task-overlay-drop-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
 }

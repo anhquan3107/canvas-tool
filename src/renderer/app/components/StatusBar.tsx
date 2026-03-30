@@ -7,7 +7,7 @@ import {
 interface StatusBarProps {
   selectedCount: number;
   selectedImage: ImageItem | null;
-  groupName: string;
+  backgroundColor: string;
   zoomLabel: string;
   canvasLabel: string;
   snapEnabled: boolean;
@@ -19,7 +19,7 @@ interface StatusBarProps {
 export const StatusBar = ({
   selectedCount,
   selectedImage,
-  groupName,
+  backgroundColor,
   zoomLabel,
   canvasLabel,
   snapEnabled,
@@ -46,35 +46,51 @@ export const StatusBar = ({
     : null;
 
   return (
-    <footer className="status-bar">
-      <div className="status-left">
-        <span>{selectedCount} selected</span>
-        <span>{groupName}</span>
-      </div>
-      {selectedImage && dimensionLabel ? (
-        <div className="status-selection-meta" aria-label="Selected image information">
-          <span>{dimensionLabel}</span>
-          {fileSizeLabel ? <span className="status-selection-separator">•</span> : null}
-          {fileSizeLabel ? <span>{fileSizeLabel}</span> : null}
-          {formatLabel ? <span className="status-selection-separator">•</span> : null}
-          {formatLabel ? <span>{formatLabel}</span> : null}
-        </div>
-      ) : (
-        <div className="status-selection-meta" />
-      )}
+    <footer className="status-bar" style={{ backgroundColor }}>
       <div className="status-right">
-        <button type="button" className="status-button" onClick={onToggleSnap}>
-          Snap: {snapEnabled ? "On" : "Off"}
+        {selectedImage && dimensionLabel ? (
+          <div
+            className="status-pill status-pill-meta"
+            aria-label="Selected image information"
+          >
+            <span>{dimensionLabel}</span>
+            {fileSizeLabel ? (
+              <span className="status-selection-separator">•</span>
+            ) : null}
+            {fileSizeLabel ? <span>{fileSizeLabel}</span> : null}
+            {formatLabel ? (
+              <span className="status-selection-separator">•</span>
+            ) : null}
+            {formatLabel ? <span>{formatLabel}</span> : null}
+          </div>
+        ) : (
+          <div className="status-pill status-pill-count">{selectedCount} selected</div>
+        )}
+        <button
+          type="button"
+          className={`status-toggle ${snapEnabled ? "is-active" : ""}`}
+          onClick={onToggleSnap}
+          aria-pressed={snapEnabled}
+        >
+          <span className="status-checkbox" aria-hidden="true" />
+          <span>Snap</span>
         </button>
         <button
           type="button"
-          className="status-button"
+          className={`status-toggle ${autoArrangeEnabled ? "is-active" : ""}`}
           onClick={onToggleAutoArrange}
+          aria-pressed={autoArrangeEnabled}
         >
-          Auto Arrange: {autoArrangeEnabled ? "On" : "Off"}
+          <span className="status-checkbox" aria-hidden="true" />
+          <span>Auto Arrange</span>
         </button>
-        <span>Zoom: {zoomLabel}</span>
-        <span>Canvas: {canvasLabel}</span>
+        <div className="status-pill status-pill-metrics" aria-label="Zoom and canvas">
+          <span className="status-pill-label">Zoom</span>
+          <strong>{zoomLabel}</strong>
+          <span className="status-pill-divider" aria-hidden="true" />
+          <span className="status-pill-label">Canvas</span>
+          <strong>{canvasLabel}</strong>
+        </div>
       </div>
     </footer>
   );

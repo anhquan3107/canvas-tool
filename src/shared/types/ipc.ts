@@ -66,6 +66,11 @@ export interface RemoteImageFetchRequest {
   url: string;
 }
 
+export interface ImageSwatchExtractRequest {
+  source: string;
+  colorCount?: number;
+}
+
 export interface DesktopCaptureSource {
   id: string;
   name: string;
@@ -138,6 +143,16 @@ export interface DesktopApi {
     fetchRemoteImageDataUrl: (
       payload: RemoteImageFetchRequest,
     ) => Promise<string | null>;
+    extractImageSwatches: (
+      payload: ImageSwatchExtractRequest,
+    ) => Promise<
+      Array<{
+        id: string;
+        colorHex: string;
+        origin: "image";
+        label?: string;
+      }>
+    >;
   };
   capture: {
     listSources: () => Promise<DesktopCaptureSource[]>;

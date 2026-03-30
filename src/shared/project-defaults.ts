@@ -4,5 +4,5 @@ export const DEFAULT_EMPTY_GROUP_CANVAS_SIZE = {
 } as const;
 
 export const DEFAULT_VIEW_ZOOM_BASELINE = 0.7;
-export const DEFAULT_GROUP_CANVAS_COLOR = "#151515";
-export const DEFAULT_GROUP_BACKGROUND_COLOR = "#232323";
+export const DEFAULT_GROUP_CANVAS_COLOR = "#1a1a1a";
+export const DEFAULT_GROUP_BACKGROUND_COLOR = "#1e1e1e";

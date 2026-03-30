@@ -110,60 +110,138 @@ const drawSwatchTray = (
     return;
   }
 
-  const chipGap = 2;
-  const stripPadding = 4;
+  const chipGap = 0.5;
+  const stripPadding = 0.5;
   const desiredChipWidth = 12;
-  const minChipWidth = 8;
+  const minChipWidth = 6;
+  const borderColor = 0xffffff;
+  const borderAlpha = 0.18;
+  const borderWidth = 0.06;
   const maxInnerWidth = Math.max(0, safeWidth - 20);
-  const chipWidth = Math.max(
-    minChipWidth,
-    Math.min(
-      desiredChipWidth,
-      Math.floor((maxInnerWidth - chipGap * 3) / 4),
-    ),
-  );
-  const chipHeight = chipWidth;
-  const maxVisibleCount = Math.max(
+  const maxInnerHeight = Math.max(0, safeHeight - 20);
+
+  let chipWidth = desiredChipWidth;
+  let chipHeight = chipWidth;
+  let visibleColors = [...paletteColors];
+  let columns = Math.max(
     1,
     Math.floor((maxInnerWidth + chipGap) / (chipWidth + chipGap)),
   );
-  const visibleColors = paletteColors.slice(0, Math.min(10, maxVisibleCount));
+  let rows = Math.max(1, Math.ceil(visibleColors.length / columns));
+
+  while (chipWidth > minChipWidth) {
+    columns = Math.max(
+      1,
+      Math.floor((maxInnerWidth + chipGap) / (chipWidth + chipGap)),
+    );
+    rows = Math.max(1, Math.ceil(visibleColors.length / columns));
+    const stripHeight =
+      rows * chipHeight + Math.max(0, rows - 1) * chipGap;
+
+    if (stripHeight <= maxInnerHeight) {
+      break;
+    }
+
+    chipWidth -= 1;
+    chipHeight = chipWidth;
+  }
+
+  columns = Math.max(
+    1,
+    Math.floor((maxInnerWidth + chipGap) / (chipWidth + chipGap)),
+  );
+  const maxRows = Math.max(
+    1,
+    Math.floor((maxInnerHeight + chipGap) / (chipHeight + chipGap)),
+  );
+  const maxVisibleCount = Math.max(1, columns * maxRows);
+  visibleColors = visibleColors.slice(0, maxVisibleCount);
+  rows = Math.max(1, Math.ceil(visibleColors.length / columns));
+  const colorsInLastRow =
+    visibleColors.length - Math.max(0, rows - 1) * columns;
   const stripWidth =
-    visibleColors.length * chipWidth +
-    Math.max(0, visibleColors.length - 1) * chipGap;
-  const stripX = 8;
-  const stripY = Math.max(6, safeHeight - chipHeight - 8);
+    Math.min(columns, visibleColors.length) * chipWidth +
+    Math.max(0, Math.min(columns, visibleColors.length) - 1) * chipGap;
+  const lastRowWidth =
+    colorsInLastRow * chipWidth +
+    Math.max(0, colorsInLastRow - 1) * chipGap;
+  const trayWidth = Math.max(stripWidth, lastRowWidth);
+  const stripHeight =
+    rows * chipHeight + Math.max(0, rows - 1) * chipGap;
+  const edgeInset = 1;
+  const stripX = edgeInset;
+  const stripY = Math.max(edgeInset, safeHeight - stripHeight - edgeInset);
 
   const tray = new Graphics();
-  tray.roundRect(
+  tray.rect(
     stripX - stripPadding,
     stripY - stripPadding,
-    stripWidth + stripPadding * 2,
-    chipHeight + stripPadding * 2,
-    Math.max(4, chipWidth * 0.45),
+    trayWidth + stripPadding * 2,
+    stripHeight + stripPadding * 2,
   );
   tray.fill({ color: 0x111111, alpha: 0.72 });
   tray.stroke({
-    color: 0xffffff,
-    width: 1,
-    alpha: 0.16,
+    color: borderColor,
+    width: borderWidth,
+    alpha: borderAlpha,
   });
   itemNode.addChild(tray);
 
+  const tooltip = new Container();
+  tooltip.visible = false;
+  tooltip.eventMode = "none";
+  tooltip.zIndex = 5;
+
+  const tooltipLabel = new Text({
+    text: "",
+    style: new TextStyle({
+      fill: "#fff7ef",
+      fontSize: Math.max(4, chipWidth * 0.5),
+      fontWeight: "700",
+      fontFamily: "Aptos",
+      stroke: {
+        color: "#1a1715",
+        width: 1,
+        join: "round",
+      },
+    }),
+  });
+  tooltipLabel.resolution = 3;
+  tooltipLabel.roundPixels = true;
+  tooltip.addChild(tooltipLabel);
+  itemNode.addChild(tooltip);
+
   visibleColors.forEach((colorHex, index) => {
+    const column = index % columns;
+    const row = Math.floor(index / columns);
+    const swatchX = stripX + column * (chipWidth + chipGap);
+    const swatchY = stripY + row * (chipHeight + chipGap);
     const swatch = new Graphics();
-    swatch.roundRect(
-      stripX + index * (chipWidth + chipGap),
-      stripY,
+    swatch.rect(
+      swatchX,
+      swatchY,
       chipWidth,
       chipHeight,
-      Math.max(2, chipWidth * 0.18),
     );
     swatch.fill(hexToPixiColor(colorHex));
     swatch.stroke({
-      color: 0xffffff,
-      width: 1,
-      alpha: 0.18,
+      color: borderColor,
+      width: borderWidth,
+      alpha: borderAlpha,
+    });
+    swatch.eventMode = "static";
+    swatch.cursor = "pointer";
+    swatch.on("pointerover", () => {
+      tooltipLabel.text = colorHex.toUpperCase();
+      tooltipLabel.position.set(0, 0);
+      tooltip.position.set(
+        Math.max(0, swatchX - 4),
+        Math.max(0, swatchY - tooltipLabel.height - 8),
+      );
+      tooltip.visible = true;
+    });
+    swatch.on("pointerout", () => {
+      tooltip.visible = false;
     });
     itemNode.addChild(swatch);
   });
@@ -352,7 +430,7 @@ export const useCanvasBoardScene = ({
             }
 
             sprite.roundPixels = true;
-            sprite.alpha = 0.96;
+            sprite.alpha = 1;
             itemNode.addChildAt(sprite, 1);
           })
           .catch(() => {

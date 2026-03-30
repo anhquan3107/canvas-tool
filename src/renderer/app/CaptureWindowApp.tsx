@@ -119,6 +119,10 @@ export const CaptureWindowApp = () => {
   useShortcuts(
     useMemo(
       () => ({
+        [shortcutBindings["tools.toggleBlur"]]: () =>
+          setBlurEnabled((previous) => !previous),
+        [shortcutBindings["tools.toggleBlackAndWhite"]]: () =>
+          setBwEnabled((previous) => !previous),
         [shortcutBindings["window.toggleAlwaysOnTop"]]: () =>
           void window.desktopApi.window
             .toggleAlwaysOnTop()
@@ -306,28 +310,15 @@ export const CaptureWindowApp = () => {
               type="button"
               className={`toolbar-button ${blurEnabled ? "active" : ""}`}
               onClick={() => setBlurEnabled((previous) => !previous)}
+              title="Blur"
             >
               Blur
             </button>
-            {blurEnabled ? (
-              <label className="capture-blur-control">
-                <span>Blur</span>
-                <input
-                  type="range"
-                  min={0}
-                  max={32}
-                  value={blurAmount}
-                  onChange={(event) =>
-                    setBlurAmount(Number(event.target.value))
-                  }
-                />
-                <strong>{blurAmount}</strong>
-              </label>
-            ) : null}
             <button
               type="button"
               className={`toolbar-button ${bwEnabled ? "active" : ""}`}
               onClick={() => setBwEnabled((previous) => !previous)}
+              title="B&W"
             >
               B&amp;W
             </button>
@@ -408,6 +399,23 @@ export const CaptureWindowApp = () => {
               autoPlay
               style={filterStyle}
             />
+            {blurEnabled ? (
+              <div className="capture-preview-footer">
+                <label className="capture-blur-control">
+                  <span>Blur</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={32}
+                    value={blurAmount}
+                    onChange={(event) =>
+                      setBlurAmount(Number(event.target.value))
+                    }
+                  />
+                  <strong>{blurAmount}</strong>
+                </label>
+              </div>
+            ) : null}
 
             {loading ? (
               <div className="capture-preview-message">Starting live preview…</div>

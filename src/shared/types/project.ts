@@ -31,6 +31,7 @@ export interface CanvasSize {
 export interface ReferenceGroup {
   id: string;
   name: string;
+  kind: "canvas" | "group";
   order: number;
   locked: boolean;
   canvasColor: string;

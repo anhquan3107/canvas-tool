@@ -136,6 +136,7 @@ const AppContent = () => {
     removeGroupItems,
     flipItems,
     addGroup,
+    renameGroup,
     removeGroup,
     setGroupFilters,
     setGroupCanvasSize,
@@ -267,7 +268,11 @@ const AppContent = () => {
     removeTask,
     pushToast,
   });
-  const canDeleteActiveGroup = project.groups.length > 1;
+  const savedGroups = useMemo(
+    () => project.groups.filter((group) => group.kind === "group"),
+    [project.groups],
+  );
+  const canDeleteActiveGroup = activeGroup?.kind === "group";
 
   const requestDeleteSelectedTask = useCallback(() => {
     if (!selectedTask) {
@@ -287,8 +292,8 @@ const AppContent = () => {
       return;
     }
 
-    if (project.groups.length <= 1) {
-      pushToast("info", "You need at least one group.");
+    if (activeGroup.kind !== "group") {
+      pushToast("info", "Canvas cannot be deleted.");
       return;
     }
 
@@ -297,7 +302,28 @@ const AppContent = () => {
       groupId: activeGroup.id,
       label: activeGroup.name,
     });
-  }, [activeGroup, project.groups.length, pushToast]);
+  }, [activeGroup, pushToast]);
+
+  const requestDeleteGroupById = useCallback(
+    (groupId: string) => {
+      const targetGroup = project.groups.find((group) => group.id === groupId);
+      if (!targetGroup) {
+        return;
+      }
+
+      if (targetGroup.kind !== "group") {
+        pushToast("info", "Canvas cannot be deleted.");
+        return;
+      }
+
+      setPendingDeletion({
+        kind: "group",
+        groupId: targetGroup.id,
+        label: targetGroup.name,
+      });
+    },
+    [project.groups, pushToast],
+  );
 
   const handleConfirmDeletion = useCallback(() => {
     if (!pendingDeletion) {
@@ -327,13 +353,24 @@ const AppContent = () => {
   const {
     groupDialogOpen,
     draftGroupName,
+    editingGroup,
     setGroupDialogOpen,
     setDraftGroupName,
     openGroupDialog,
+    openRenameGroupDialog,
     handleCreateGroup,
+    closeGroupDialog,
   } = useGroupFeature({
-    groupCount: project.groups.length,
-    addGroup,
+    groupCount: savedGroups.length,
+    addGroup: (name) => {
+      const canvasGroup = project.groups.find((group) => group.kind === "canvas");
+      if (canvasGroup) {
+        centeredGroupIdsRef.current.delete(canvasGroup.id);
+      }
+
+      addGroup(name);
+    },
+    renameGroup,
     setSelectedItemIds,
     pushToast,
   });
@@ -1045,13 +1082,22 @@ const AppContent = () => {
                       groups={project.groups}
                       activeGroupId={project.activeGroupId}
                       open={groupsOverlayOpen}
-                      canDeleteActiveGroup={canDeleteActiveGroup}
-                      onToggle={() => setGroupsOverlayOpen((previous) => !previous)}
+                      onOpenChange={setGroupsOverlayOpen}
                       onSelectGroup={(groupId) => {
                         setActiveGroup(groupId);
                         setSelectedItemIds([]);
                       }}
-                      onDeleteActiveGroup={requestDeleteCurrentGroup}
+                      onRenameGroup={(groupId) => {
+                        const targetGroup = project.groups.find(
+                          (group) => group.id === groupId,
+                        );
+                        if (!targetGroup || targetGroup.kind !== "group") {
+                          return;
+                        }
+
+                        openRenameGroupDialog(targetGroup.id, targetGroup.name);
+                      }}
+                      onDeleteGroup={requestDeleteGroupById}
                     />
                   </div>
 
@@ -1143,9 +1189,6 @@ const AppContent = () => {
           <StatusBar
             selectedCount={selectedItemIds.length}
             selectedImage={selectedStatusImage}
-            backgroundColor={
-              displayGroup?.backgroundColor ?? DEFAULT_GROUP_BACKGROUND_COLOR
-            }
             zoomLabel={zoomLabel}
             canvasLabel={canvasLabel}
             snapEnabled={snapEnabled}
@@ -1326,7 +1369,8 @@ const AppContent = () => {
       <GroupDialog
         open={groupDialogOpen}
         draftGroupName={draftGroupName}
-        onClose={() => setGroupDialogOpen(false)}
+        mode={editingGroup ? "rename" : "create"}
+        onClose={closeGroupDialog}
         onCreateGroup={handleCreateGroup}
         onDraftGroupNameChange={setDraftGroupName}
       />

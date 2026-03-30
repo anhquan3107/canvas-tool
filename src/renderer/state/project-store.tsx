@@ -49,6 +49,7 @@ type Action =
       payload: { groupId: string; itemIds: string[] };
     }
   | { type: "add-group"; payload: { name: string } }
+  | { type: "rename-group"; payload: { groupId: string; name: string } }
   | { type: "remove-group"; payload: { groupId: string } }
   | {
       type: "set-group-filters";
@@ -113,6 +114,7 @@ interface Store {
   addGroupItems: (groupId: string, items: CanvasItem[]) => void;
   removeGroupItems: (groupId: string, itemIds: string[]) => void;
   addGroup: (name: string) => void;
+  renameGroup: (groupId: string, name: string) => void;
   removeGroup: (groupId: string) => void;
   setGroupFilters: (groupId: string, filters: Partial<GroupFilters>) => void;
   setGroupCanvasSize: (groupId: string, width: number, height: number) => void;
@@ -166,9 +168,11 @@ const createEmptyGroup = (
   name: string,
   order: number,
   canvasSize: Project["canvasSize"],
+  kind: ReferenceGroup["kind"] = "group",
 ): ReferenceGroup => ({
   id: randomUUID(),
   name,
+  kind,
   order,
   locked: false,
   canvasColor: DEFAULT_GROUP_CANVAS_COLOR,
@@ -185,6 +189,18 @@ const createEmptyGroup = (
   items: [],
   annotations: [],
   extractedSwatches: [],
+});
+
+const cloneGroupSnapshot = (
+  sourceGroup: ReferenceGroup,
+  name: string,
+  order: number,
+): ReferenceGroup => ({
+  ...structuredClone(sourceGroup),
+  id: randomUUID(),
+  name,
+  kind: "group",
+  order,
 });
 
 const projectReducer = (project: Project, action: Action): Project => {
@@ -264,20 +280,58 @@ const projectReducer = (project: Project, action: Action): Project => {
       });
     }
     case "add-group": {
-      const nextGroup = createEmptyGroup(
-        action.payload.name || `Group ${project.groups.length + 1}`,
+      const canvasGroup =
+        project.groups.find((group) => group.kind === "canvas") ?? project.groups[0];
+      const sourceGroup =
+        project.groups.find((group) => group.id === project.activeGroupId) ??
+        canvasGroup;
+      if (!canvasGroup || !sourceGroup) {
+        return project;
+      }
+
+      const snapshotGroup = cloneGroupSnapshot(
+        sourceGroup,
+        action.payload.name ||
+          `Group ${project.groups.filter((group) => group.kind === "group").length + 1}`,
         project.groups.length,
-        DEFAULT_EMPTY_GROUP_CANVAS_SIZE,
       );
+      const resetCanvasGroup = createEmptyGroup(
+        canvasGroup.name,
+        canvasGroup.order,
+        DEFAULT_EMPTY_GROUP_CANVAS_SIZE,
+        "canvas",
+      );
+      resetCanvasGroup.id = canvasGroup.id;
 
       return touchProject({
         ...project,
-        activeGroupId: nextGroup.id,
-        groups: [...project.groups, nextGroup],
+        activeGroupId: canvasGroup.id,
+        groups: project.groups
+          .map((group) => (group.id === canvasGroup.id ? resetCanvasGroup : group))
+          .concat(snapshotGroup)
+          .map((group, index) => ({
+            ...group,
+            order: index,
+          })),
       });
     }
+    case "rename-group":
+      return touchProject({
+        ...project,
+        groups: project.groups.map((group) =>
+          group.id === action.payload.groupId
+            ? {
+                ...group,
+                name: action.payload.name,
+              }
+            : group,
+        ),
+      });
     case "remove-group": {
-      if (project.groups.length <= 1) {
+      const targetGroup = project.groups.find(
+        (group) => group.id === action.payload.groupId,
+      );
+      if (!targetGroup || targetGroup.kind === "canvas") {
         return project;
       }
 
@@ -294,16 +348,14 @@ const projectReducer = (project: Project, action: Action): Project => {
           ...group,
           order: index,
         }));
-      const fallbackGroup =
-        nextGroups[removedIndex] ??
-        nextGroups[removedIndex - 1] ??
-        nextGroups[0];
+      const canvasGroup =
+        nextGroups.find((group) => group.kind === "canvas") ?? nextGroups[0];
 
       return touchProject({
         ...project,
         activeGroupId:
           project.activeGroupId === action.payload.groupId
-            ? fallbackGroup.id
+            ? canvasGroup.id
             : project.activeGroupId,
         groups: nextGroups,
       });
@@ -690,6 +742,10 @@ export const ProjectProvider = ({
     dispatch({ type: "add-group", payload: { name } });
   }, []);
 
+  const renameGroup = useCallback((groupId: string, name: string) => {
+    dispatch({ type: "rename-group", payload: { groupId, name } });
+  }, []);
+
   const removeGroup = useCallback((groupId: string) => {
     dispatch({ type: "remove-group", payload: { groupId } });
   }, []);
@@ -807,6 +863,7 @@ export const ProjectProvider = ({
       addGroupItems,
       removeGroupItems,
       addGroup,
+      renameGroup,
       removeGroup,
       setGroupFilters,
       setGroupCanvasSize,
@@ -835,6 +892,7 @@ export const ProjectProvider = ({
       addGroupItems,
       removeGroupItems,
       addGroup,
+      renameGroup,
       removeGroup,
       setGroupFilters,
       setGroupCanvasSize,

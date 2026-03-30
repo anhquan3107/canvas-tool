@@ -4,6 +4,7 @@ import { DialogFrame } from "@renderer/ui/DialogFrame";
 interface GroupDialogProps {
   open: boolean;
   draftGroupName: string;
+  mode: "create" | "rename";
   onClose: () => void;
   onCreateGroup: () => void;
   onDraftGroupNameChange: Dispatch<SetStateAction<string>>;
@@ -12,6 +13,7 @@ interface GroupDialogProps {
 export const GroupDialog = ({
   open,
   draftGroupName,
+  mode,
   onClose,
   onCreateGroup,
   onDraftGroupNameChange,
@@ -21,7 +23,7 @@ export const GroupDialog = ({
   }
 
   return (
-    <DialogFrame title="Create Group" onClose={onClose}>
+    <DialogFrame title={mode === "rename" ? "Rename Group" : "Create Group"} onClose={onClose}>
       <div className="dialog-field">
         <label htmlFor="group-name">Enter group name:</label>
         <input
@@ -37,7 +39,7 @@ export const GroupDialog = ({
           className="dialog-button primary"
           onClick={onCreateGroup}
         >
-          OK
+          {mode === "rename" ? "Rename" : "OK"}
         </button>
         <button type="button" className="dialog-button" onClick={onClose}>
           Cancel

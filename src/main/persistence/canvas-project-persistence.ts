@@ -110,7 +110,7 @@ export const loadCanvasProject = async (
   }
 
   const groups = await Promise.all(
-    parsedManifest.groupFiles.map(async (groupFilePath) => {
+    parsedManifest.groupFiles.map(async (groupFilePath, index) => {
       if (typeof groupFilePath !== "string") {
         throw new Error("Invalid .canvas package: malformed group file entry");
       }
@@ -124,6 +124,7 @@ export const loadCanvasProject = async (
       const parsedGroup = JSON.parse(groupRaw) as ReferenceGroup;
       return {
         ...parsedGroup,
+        kind: parsedGroup.kind ?? (index === 0 ? "canvas" : "group"),
         locked: parsedGroup.locked ?? false,
         canvasColor: parsedGroup.canvasColor ?? DEFAULT_GROUP_CANVAS_COLOR,
         backgroundColor:

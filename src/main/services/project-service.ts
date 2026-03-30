@@ -28,9 +28,11 @@ export const createDefaultTask = (title: string, order: number): Task => ({
 export const createDefaultGroup = (
   name: string,
   order: number,
+  kind: ReferenceGroup["kind"] = "group",
 ): ReferenceGroup => ({
   id: randomUUID(),
   name,
+  kind,
   order,
   locked: false,
   canvasColor: DEFAULT_GROUP_CANVAS_COLOR,
@@ -50,7 +52,7 @@ export const createDefaultGroup = (
 });
 
 export const createDefaultProject = (): Project => {
-  const group = createDefaultGroup("Group 1", 0);
+  const group = createDefaultGroup("Canvas", 0, "canvas");
   const createdAt = now();
 
   return {

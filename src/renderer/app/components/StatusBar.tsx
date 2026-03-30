@@ -7,7 +7,6 @@ import {
 interface StatusBarProps {
   selectedCount: number;
   selectedImage: ImageItem | null;
-  backgroundColor: string;
   zoomLabel: string;
   canvasLabel: string;
   snapEnabled: boolean;
@@ -19,7 +18,6 @@ interface StatusBarProps {
 export const StatusBar = ({
   selectedCount,
   selectedImage,
-  backgroundColor,
   zoomLabel,
   canvasLabel,
   snapEnabled,
@@ -46,8 +44,9 @@ export const StatusBar = ({
     : null;
 
   return (
-    <footer className="status-bar" style={{ backgroundColor }}>
+    <footer className="status-bar">
       <div className="status-right">
+        <div className="status-pill status-pill-count">Selected: {selectedCount}</div>
         {selectedImage && dimensionLabel ? (
           <div
             className="status-pill status-pill-meta"
@@ -63,9 +62,7 @@ export const StatusBar = ({
             ) : null}
             {formatLabel ? <span>{formatLabel}</span> : null}
           </div>
-        ) : (
-          <div className="status-pill status-pill-count">{selectedCount} selected</div>
-        )}
+        ) : null}
         <button
           type="button"
           className={`status-toggle ${snapEnabled ? "is-active" : ""}`}
@@ -85,10 +82,10 @@ export const StatusBar = ({
           <span>Auto Arrange</span>
         </button>
         <div className="status-pill status-pill-metrics" aria-label="Zoom and canvas">
-          <span className="status-pill-label">Zoom</span>
+          <span className="status-pill-inline-label">Zoom:</span>
           <strong>{zoomLabel}</strong>
           <span className="status-pill-divider" aria-hidden="true" />
-          <span className="status-pill-label">Canvas</span>
+          <span className="status-pill-inline-label">Canvas:</span>
           <strong>{canvasLabel}</strong>
         </div>
       </div>

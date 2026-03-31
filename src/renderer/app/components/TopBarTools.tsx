@@ -35,17 +35,7 @@ export const TopBarTools = ({
     <button
       type="button"
       className={`toolbar-button ${helpOpen ? "active" : ""}`}
-      onClick={() =>
-        runTitleBarAction(
-          {
-            id: "topbar.help",
-            label: "Open Help Tutorial",
-            description:
-              "Open the built-in tutorial that explains the main workflow, tools, and features of the app.",
-          },
-          onShowHelp,
-        )
-      }
+      onClick={onShowHelp}
     >
       Help
     </button>

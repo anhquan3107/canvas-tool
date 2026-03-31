@@ -163,17 +163,7 @@ export const TopBar = ({
               canExportAnyTask={canExportAnyTask}
               canDeleteActiveGroup={canDeleteActiveGroup}
               canvasLocked={canvasLocked}
-              onToggleSettings={() =>
-                runTitleBarAction(
-                  {
-                    id: "topbar.settings",
-                    label: "Open Settings Menu",
-                    description:
-                      "Open the main command menu for file actions, export, arrange, filters, shortcuts, and app-level tools.",
-                  },
-                  onToggleSettings,
-                )
-              }
+              onToggleSettings={onToggleSettings}
               onOpenProject={onOpenProject}
               onSaveProject={onSaveProject}
               onSaveProjectAs={onSaveProjectAs}

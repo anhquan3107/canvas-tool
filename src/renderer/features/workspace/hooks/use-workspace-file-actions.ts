@@ -17,23 +17,6 @@ export const useWorkspaceFileActions = ({
   pushToast,
   setSelectedItemIds,
 }: UseWorkspaceFileActionsOptions) => {
-  const saveProject = useCallback(async () => {
-    const response = await window.desktopApi.project.save({
-      project,
-      filePath: project.filePath,
-    });
-
-    const nextProject = {
-      ...project,
-      filePath: response.filePath,
-    };
-
-    setProject(nextProject);
-    refreshRecents();
-    pushToast("success", "Canvas saved.");
-    return nextProject;
-  }, [project, pushToast, refreshRecents, setProject]);
-
   const saveProjectAs = useCallback(async () => {
     const response = await window.desktopApi.project.saveAs({
       project,
@@ -54,6 +37,27 @@ export const useWorkspaceFileActions = ({
     pushToast("success", "Canvas saved to a new file.");
     return nextProject;
   }, [project, pushToast, refreshRecents, setProject]);
+
+  const saveProject = useCallback(async () => {
+    if (!project.filePath) {
+      return saveProjectAs();
+    }
+
+    const response = await window.desktopApi.project.save({
+      project,
+      filePath: project.filePath,
+    });
+
+    const nextProject = {
+      ...project,
+      filePath: response.filePath,
+    };
+
+    setProject(nextProject);
+    refreshRecents();
+    pushToast("success", "Canvas saved.");
+    return nextProject;
+  }, [project, pushToast, refreshRecents, saveProjectAs, setProject]);
 
   const openProject = useCallback(async () => {
     const response = await window.desktopApi.project.open();

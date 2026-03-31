@@ -4,16 +4,18 @@ interface DialogFrameProps {
   title: string;
   children: ReactNode;
   onClose: () => void;
+  className?: string;
 }
 
 export const DialogFrame = ({
   title,
   children,
   onClose,
+  className,
 }: DialogFrameProps) => (
   <div className="dialog-scrim" onClick={onClose}>
     <div
-      className="dialog-card"
+      className={`dialog-card${className ? ` ${className}` : ""}`}
       onClick={(event) => event.stopPropagation()}
       role="dialog"
       aria-modal="true"

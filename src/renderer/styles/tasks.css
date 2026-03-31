@@ -78,6 +78,10 @@
 
 .task-summary-card-expanded {
   max-width: min(620px, calc(100vw - 64px));
+  min-height: 36px;
+  height: auto;
+  padding-top: 6px;
+  padding-bottom: 6px;
   padding-right: 14px;
   border-color: rgba(255, 255, 255, 0.12);
   background: rgba(36, 36, 39, 0.98);
@@ -87,20 +91,28 @@
   flex-direction: row;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 .task-summary-card-expanded .task-summary-copy strong {
   flex: 0 1 auto;
   min-width: 0;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .task-list-item {
   min-height: 48px;
+  height: auto;
+  padding-top: 6px;
+  padding-bottom: 6px;
 }
 
 .task-list-item-active {
-  border-color: rgba(255, 255, 255, 0.08);
-  background: rgba(72, 72, 76, 0.78);
+  border-color: rgba(255, 255, 255, 0.05);
+  background: rgba(21, 21, 23, 0.92);
 }
 
 .task-summary-copy,
@@ -117,6 +129,7 @@
   gap: 10px;
   min-width: 0;
   flex: 1 1 auto;
+  flex-wrap: wrap;
   opacity: 0;
   transform: translateX(-4px);
   animation: task-summary-meta-in 180ms ease-out forwards;
@@ -138,6 +151,19 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-style: normal;
+}
+
+.task-summary-card-expanded .task-summary-copy small,
+.task-summary-card-expanded .task-summary-copy em,
+.task-summary-card-expanded .task-summary-meta small,
+.task-summary-card-expanded .task-summary-meta em,
+.task-list-item-copy strong,
+.task-list-item-copy small,
+.task-list-item-copy em {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .task-summary-copy strong,
@@ -829,4 +855,108 @@
     opacity: 0;
     transform: translateY(-8px);
   }
+}
+
+.task-dialog-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.task-dialog-field {
+  gap: 10px;
+  margin-bottom: 0;
+}
+
+.task-dialog-field label {
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.task-dialog-field input {
+  min-height: 52px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: #34333a;
+  color: rgba(255, 255, 255, 0.96);
+  font-size: 16px;
+}
+
+.task-dialog-grid {
+  gap: 20px;
+}
+
+.task-dialog-actions {
+  margin-top: 2px;
+  gap: 18px;
+}
+
+.task-deadline-dialog {
+  width: min(620px, calc(100vw - 40px));
+  padding: 30px 38px 34px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: #1f1f20;
+}
+
+.task-deadline-dialog h3 {
+  margin-bottom: 24px;
+  color: rgba(255, 255, 255, 0.96);
+  font-size: 22px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.task-deadline-dialog .dialog-date-preview {
+  display: none;
+}
+
+.task-dialog-date-input-shell {
+  cursor: pointer;
+}
+
+.task-deadline-dialog .task-dialog-date-input {
+  min-height: 46px;
+  border-color: rgba(16, 16, 18, 0.18);
+  background: #f4f4f4;
+  color: #17171a;
+  text-align: center;
+  font-size: 18px;
+  line-height: 1.1;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.task-deadline-dialog .task-dialog-date-input::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.88;
+}
+
+.task-deadline-dialog .dialog-button {
+  min-height: 54px;
+  border-radius: 0;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: #34333a;
+  color: rgba(255, 255, 255, 0.98);
+  font-size: 16px;
+  font-weight: 500;
+  transform: none;
+}
+
+.task-deadline-dialog .dialog-button:hover {
+  background: #3a3940;
+  border-color: rgba(255, 255, 255, 0.08);
+  transform: none;
+}
+
+.task-deadline-dialog .dialog-button.primary {
+  font-weight: 700;
+}
+
+.task-dialog-duration {
+  margin: 2px 0 0;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 14px;
+  text-align: center;
 }

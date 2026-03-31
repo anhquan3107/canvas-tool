@@ -627,7 +627,6 @@ const AppContent = () => {
     }
 
     if (previousActiveGroupIdRef.current !== activeGroupId) {
-      setGroupsOverlayOpen(false);
       previousActiveGroupIdRef.current = activeGroupId;
     }
   }, [activeGroupId]);

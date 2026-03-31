@@ -321,7 +321,7 @@ export const GroupOverlay = ({
               showCount={open}
               onClick={() => {
                 handleSelectGroup(group.id);
-                onOpenChange(false);
+                registerInteraction();
               }}
             />
           </div>

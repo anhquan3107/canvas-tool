@@ -128,7 +128,7 @@
 }
 
 .group-overlay-shell {
-  --group-preview-width: min(232px, calc(100vw - 40px));
+  --group-preview-width: min(220px, calc(100vw - 40px));
   --group-preview-handle: 12px;
   position: relative;
   display: block;
@@ -142,8 +142,8 @@
   opacity: 1;
   max-height: min(50vh, calc(100vh - 120px));
   overflow-y: auto;
-  overflow-x: hidden;
-  padding-right: 6px;
+  overflow-x: visible;
+  padding: 4px 6px 4px 4px;
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
 }
@@ -344,7 +344,7 @@
 .group-preview-stack {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 5px;
   width: var(--group-preview-width);
   max-height: none;
   overflow: visible;
@@ -382,6 +382,12 @@
   overflow: hidden;
   text-align: left;
   box-shadow: 0 10px 20px rgba(0, 0, 0, 0.16);
+  transform-origin: center center;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .group-preview-row-canvas {
@@ -389,13 +395,23 @@
 }
 
 .group-preview-row:hover {
+  transform: scale(1.035);
   border-color: rgba(255, 255, 255, 0.14);
   background: rgba(255, 255, 255, 0.03);
+  box-shadow: 0 14px 26px rgba(0, 0, 0, 0.2);
+  z-index: 1;
 }
 
 .group-preview-row-active {
   border-color: rgba(116, 191, 255, 0.62);
   box-shadow: 0 0 0 1px rgba(116, 191, 255, 0.18);
+}
+
+.group-preview-row-active:hover {
+  border-color: rgba(116, 191, 255, 0.62);
+  box-shadow:
+    0 0 0 1px rgba(116, 191, 255, 0.18),
+    0 14px 26px rgba(0, 0, 0, 0.2);
 }
 
 .group-preview-row-collapsed,
@@ -404,10 +420,14 @@
   box-shadow: 0 10px 20px rgba(0, 0, 0, 0.16);
 }
 
+.group-preview-row-collapsed:hover {
+  transform: scale(1.045);
+}
+
 .group-preview-row-visual {
   position: relative;
   width: 100%;
-  height: 78px;
+  height: 72px;
   overflow: hidden;
   background: #1e1e1e;
 }
@@ -465,7 +485,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 0 12px;
+  padding: 0 11px;
   pointer-events: none;
 }
 
@@ -476,7 +496,7 @@
 
 .group-preview-title {
   color: rgba(255, 255, 255, 0.96);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.01em;
 }
@@ -486,7 +506,7 @@
   min-width: 18px;
   text-align: center;
   color: rgba(255, 255, 255, 0.74);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
 }
 

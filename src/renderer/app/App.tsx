@@ -775,6 +775,36 @@ const AppContent = () => {
     [handleRulerTool, handleToolButton],
   );
 
+  const exitDoodle = useCallback(() => {
+    setActiveTool((previous) => (previous === "doodle" ? null : previous));
+  }, [setActiveTool]);
+
+  const clearDoodles = useCallback(() => {
+    if (!displayGroup) {
+      return;
+    }
+
+    setGroupAnnotations(displayGroup.id, []);
+  }, [displayGroup, setGroupAnnotations]);
+
+  const adjustDoodleSize = useCallback(
+    (delta: number) => {
+      if (activeTool !== "doodle") {
+        return;
+      }
+
+      const clampSize = (value: number) => Math.max(6, Math.min(48, value));
+
+      if (doodleMode === "brush") {
+        setBrushSize((previous) => clampSize(previous + delta));
+        return;
+      }
+
+      setEraserSize((previous) => clampSize(previous + delta));
+    },
+    [activeTool, doodleMode, setBrushSize, setEraserSize],
+  );
+
   useAppShortcuts({
     shortcutBindings,
     activeTool,
@@ -792,12 +822,14 @@ const AppContent = () => {
     copySelectedItemsToClipboard,
     pasteClipboardItems,
     deleteSelectedItems,
+    clearDoodles,
     cropSelectedImage: toggleCropSelectedImage,
     flipSelectedItemsHorizontally,
     resetView,
     openCanvasSizeDialog: handleOpenCanvasSizeDialog,
     toggleCanvasLock,
     clearTransientUi,
+    exitDoodle,
     openGroupDialog,
     openTaskDialog,
     arrangeSelectedItems,
@@ -808,6 +840,8 @@ const AppContent = () => {
     openConnectDialog,
     toggleDoodle: () => handleToolButton("doodle"),
     setDoodleMode,
+    adjustDoodleSize,
+    toggleRuler: handleRulerTool,
     toggleBlur,
     toggleBlackAndWhite,
     toggleAlwaysOnTop: handleToggleAlwaysOnTop,

@@ -10,25 +10,24 @@
   border: 1px solid;
   border-radius: 999px;
   background: var(--bg-chrome);
+  color: #ffffff;
   font-size: 12px;
   text-align: center;
   box-shadow: var(--shadow);
   pointer-events: none;
+  border-color: rgba(255, 255, 255, 0.14);
 }
 
 .app-toast-success {
-  border-color: rgba(135, 221, 166, 0.56);
-  color: #8ce0ac;
+  color: #ffffff;
 }
 
 .app-toast-error {
-  border-color: rgba(239, 123, 123, 0.56);
-  color: #f29999;
+  color: #ffffff;
 }
 
 .app-toast-info {
-  border-color: rgba(112, 181, 235, 0.56);
-  color: #86c2f3;
+  color: #ffffff;
 }
 
 .todo-list::-webkit-scrollbar,

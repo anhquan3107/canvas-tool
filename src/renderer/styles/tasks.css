@@ -960,3 +960,16 @@
   font-size: 14px;
   text-align: center;
 }
+
+.group-name-dialog {
+  width: min(560px, calc(100vw - 40px));
+}
+
+.group-name-dialog .task-dialog-shell {
+  gap: 24px;
+}
+
+.group-name-dialog .group-dialog-input {
+  min-height: 58px;
+  font-size: 18px;
+}

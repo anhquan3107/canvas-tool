@@ -62,7 +62,7 @@ export const createDefaultProject = (): Project => {
     canvasSize: { ...DEFAULT_EMPTY_GROUP_CANVAS_SIZE },
     activeGroupId: group.id,
     groups: [group],
-    tasks: [createDefaultTask("Main task", 0)],
+    tasks: [],
     createdAt,
     updatedAt: createdAt,
   };

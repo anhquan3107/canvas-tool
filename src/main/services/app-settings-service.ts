@@ -73,6 +73,10 @@ export const readSettings = async (): Promise<AppSettings> => {
         typeof parsed.lastOpenedFile === "string"
           ? parsed.lastOpenedFile
           : undefined,
+      lastExportPath:
+        typeof parsed.lastExportPath === "string"
+          ? parsed.lastExportPath
+          : undefined,
       shortcuts: parsedShortcuts,
       seenTitleBarTooltips: Array.isArray(parsed.seenTitleBarTooltips)
         ? parsed.seenTitleBarTooltips.filter(
@@ -134,4 +138,20 @@ export const resetTitleBarTooltips = async () => {
     seenTitleBarTooltips: [],
   });
   return [];
+};
+
+export const setLastExportPath = async (exportPath: string) => {
+  const nextExportPath = exportPath.trim();
+  const settings = await readSettings();
+
+  if (!nextExportPath) {
+    return settings.lastExportPath;
+  }
+
+  await writeSettings({
+    ...settings,
+    lastExportPath: nextExportPath,
+  });
+
+  return nextExportPath;
 };

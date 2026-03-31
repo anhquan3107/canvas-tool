@@ -37,6 +37,9 @@ export type ShortcutActionId =
   | "tools.toggleDoodle"
   | "tools.doodleBrush"
   | "tools.doodleEraser"
+  | "tools.doodleDecreaseSize"
+  | "tools.doodleIncreaseSize"
+  | "tools.toggleRuler"
   | "tools.toggleBlur"
   | "tools.toggleBlackAndWhite"
   | "window.toggleAlwaysOnTop"
@@ -188,6 +191,24 @@ export const SHORTCUT_DEFINITIONS: ShortcutDefinition[] = [
     section: "Tools",
     label: "Eraser (inside Doodle)",
     defaultBinding: "E",
+  },
+  {
+    id: "tools.doodleDecreaseSize",
+    section: "Tools",
+    label: "Decrease Brush / Eraser Size (inside Doodle)",
+    defaultBinding: "[",
+  },
+  {
+    id: "tools.doodleIncreaseSize",
+    section: "Tools",
+    label: "Increase Brush / Eraser Size (inside Doodle)",
+    defaultBinding: "]",
+  },
+  {
+    id: "tools.toggleRuler",
+    section: "Tools",
+    label: "Ruler",
+    defaultBinding: "Ctrl+R",
   },
   {
     id: "tools.toggleBlur",

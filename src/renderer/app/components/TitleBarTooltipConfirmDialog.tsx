@@ -62,9 +62,6 @@ export const TitleBarTooltipConfirmDialog = ({
           </div>
 
           <div className="titlebar-tooltip-dialog-copy">
-            <p className="titlebar-tooltip-dialog-shortcut-line">
-              <strong>{shortcutLabel}</strong>
-            </p>
             {descriptionBlocks.map((block) => (
               <p key={block}>{block}</p>
             ))}

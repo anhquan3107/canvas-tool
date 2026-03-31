@@ -18,6 +18,7 @@ export interface Project {
 export interface AppSettings {
   recentFiles: string[];
   lastOpenedFile?: string;
+  lastExportPath?: string;
   maxRecentFiles: number;
   shortcuts?: Partial<Record<ShortcutActionId, string>>;
   seenTitleBarTooltips?: string[];

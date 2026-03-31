@@ -25,12 +25,14 @@ interface UseAppShortcutsOptions {
   copySelectedItemsToClipboard: () => void;
   pasteClipboardItems: () => void;
   deleteSelectedItems: () => void;
+  clearDoodles: () => void;
   cropSelectedImage: () => void;
   flipSelectedItemsHorizontally: () => void;
   resetView: () => void;
   openCanvasSizeDialog: () => void;
   toggleCanvasLock: () => void;
   clearTransientUi: () => void;
+  exitDoodle: () => void;
   openGroupDialog: () => void;
   openTaskDialog: () => void;
   arrangeSelectedItems: (mode: LayoutMode) => void;
@@ -40,6 +42,8 @@ interface UseAppShortcutsOptions {
   openConnectDialog: () => void;
   toggleDoodle: () => void;
   setDoodleMode: (mode: DoodleMode) => void;
+  adjustDoodleSize: (delta: number) => void;
+  toggleRuler: () => void;
   toggleBlur: () => void;
   toggleBlackAndWhite: () => void;
   toggleAlwaysOnTop: () => void;
@@ -64,12 +68,14 @@ export const useAppShortcuts = ({
   copySelectedItemsToClipboard,
   pasteClipboardItems,
   deleteSelectedItems,
+  clearDoodles,
   cropSelectedImage,
   flipSelectedItemsHorizontally,
   resetView,
   openCanvasSizeDialog,
   toggleCanvasLock,
   clearTransientUi,
+  exitDoodle,
   openGroupDialog,
   openTaskDialog,
   arrangeSelectedItems,
@@ -79,6 +85,8 @@ export const useAppShortcuts = ({
   openConnectDialog,
   toggleDoodle,
   setDoodleMode,
+  adjustDoodleSize,
+  toggleRuler,
   toggleBlur,
   toggleBlackAndWhite,
   toggleAlwaysOnTop,
@@ -98,13 +106,27 @@ export const useAppShortcuts = ({
       "edit.cut": cutSelectedItems,
       "edit.copy": copySelectedItemsToClipboard,
       "edit.paste": pasteClipboardItems,
-      "edit.delete": deleteSelectedItems,
+      "edit.delete": () => {
+        if (activeTool === "doodle") {
+          clearDoodles();
+          return;
+        }
+
+        deleteSelectedItems();
+      },
       "edit.crop": cropSelectedImage,
       "edit.flipHorizontal": flipSelectedItemsHorizontally,
       "canvas.resetView": resetView,
       "canvas.changeSize": openCanvasSizeDialog,
       "canvas.toggleLock": toggleCanvasLock,
-      "canvas.clearTransientUi": clearTransientUi,
+      "canvas.clearTransientUi": () => {
+        if (activeTool === "doodle") {
+          exitDoodle();
+          return;
+        }
+
+        clearTransientUi();
+      },
       "groups.create": openGroupDialog,
       "tasks.add": openTaskDialog,
       "arrange.auto": autoArrange,
@@ -127,6 +149,21 @@ export const useAppShortcuts = ({
 
         setDoodleMode("erase-line");
       },
+      "tools.doodleDecreaseSize": () => {
+        if (activeTool !== "doodle") {
+          return;
+        }
+
+        adjustDoodleSize(-2);
+      },
+      "tools.doodleIncreaseSize": () => {
+        if (activeTool !== "doodle") {
+          return;
+        }
+
+        adjustDoodleSize(2);
+      },
+      "tools.toggleRuler": toggleRuler,
       "tools.toggleBlur": toggleBlur,
       "tools.toggleBlackAndWhite": toggleBlackAndWhite,
       "window.toggleAlwaysOnTop": toggleAlwaysOnTop,
@@ -137,8 +174,10 @@ export const useAppShortcuts = ({
     }),
     [
       activeTool,
+      adjustDoodleSize,
       arrangeSelectedItems,
       autoArrange,
+      clearDoodles,
       clearTransientUi,
       copySelectedItemsToClipboard,
       cropSelectedImage,
@@ -153,6 +192,7 @@ export const useAppShortcuts = ({
       handleSaveProjectAs,
       openCanvasSizeDialog,
       openConnectDialog,
+      exitDoodle,
       openGroupDialog,
       openTaskDialog,
       pasteClipboardItems,
@@ -160,6 +200,7 @@ export const useAppShortcuts = ({
       redo,
       resetView,
       setDoodleMode,
+      toggleRuler,
       toggleAlwaysOnTop,
       toggleAutoArrangeOnImport,
       toggleBlackAndWhite,

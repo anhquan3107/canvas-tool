@@ -285,6 +285,7 @@ export const CanvasBoard = ({
     startAnnotationSession,
     updateAnnotationSession,
     commitAnnotationSession,
+    cancelAnnotationSession,
   } = useCanvasBoardAnnotations({
     annotationLayerRef,
     annotationPreviewLayerRef,
@@ -419,8 +420,12 @@ export const CanvasBoard = ({
       return;
     }
 
+    if (group.annotations.length === 0) {
+      cancelAnnotationSession();
+    }
+
     redrawAnnotations(group.annotations);
-  }, [appReady, group.annotations, redrawAnnotations]);
+  }, [appReady, cancelAnnotationSession, group.annotations, redrawAnnotations]);
 
   useEffect(() => {
     if (!appReady) {

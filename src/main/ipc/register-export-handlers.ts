@@ -2,6 +2,7 @@ import { dialog, ipcMain, nativeImage, type BrowserWindow } from "electron";
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { ProjectExportResult } from "../../shared/types/ipc";
+import { readSettings, setLastExportPath } from "../services/app-settings-service";
 import { createAcoBuffer, renderTasksHtml } from "./export-utils";
 import {
   acoDialogFilter,
@@ -19,6 +20,13 @@ import {
   ensureTasksHtmlExportPayload,
 } from "./ipc-validators";
 
+const getExportDefaultPath = async (fileName: string) => {
+  const settings = await readSettings();
+  return settings.lastExportPath
+    ? path.join(settings.lastExportPath, fileName)
+    : getDefaultDocumentsPath(fileName);
+};
+
 export const registerExportHandlers = (window: BrowserWindow) => {
   ipcMain.handle(
     "project:export-swatch-aco",
@@ -32,15 +40,16 @@ export const registerExportHandlers = (window: BrowserWindow) => {
         sanitizeFileStem(payload.name ?? "Swatch") || "Swatch";
       const defaultFileName = `${defaultStem}.aco`;
       let dialogResult;
+      const defaultPath = await getExportDefaultPath(defaultFileName);
 
       try {
         dialogResult = await dialog.showSaveDialog(targetWindow, {
-          defaultPath: getDefaultDocumentsPath(defaultFileName),
+          defaultPath,
           filters: acoDialogFilter,
         });
       } catch {
         dialogResult = await dialog.showSaveDialog({
-          defaultPath: getDefaultDocumentsPath("Swatch.aco"),
+          defaultPath,
           filters: acoDialogFilter,
         });
       }
@@ -54,6 +63,7 @@ export const registerExportHandlers = (window: BrowserWindow) => {
         : `${dialogResult.filePath}.aco`;
 
       await fs.writeFile(safePath, createAcoBuffer(payload.swatches));
+      await setLastExportPath(path.dirname(safePath));
       return { filePath: safePath };
     },
   );
@@ -65,8 +75,9 @@ export const registerExportHandlers = (window: BrowserWindow) => {
       const payload = ensureCanvasImageExportPayload(rawPayload);
       const defaultStem =
         sanitizeFileStem(payload.name ?? "Canvas") || "Canvas";
+      const defaultPath = await getExportDefaultPath(`${defaultStem}.png`);
       const dialogResult = await dialog.showSaveDialog(targetWindow, {
-        defaultPath: getDefaultDocumentsPath(`${defaultStem}.png`),
+        defaultPath,
         filters: canvasImageDialogFilter,
       });
 
@@ -87,6 +98,7 @@ export const registerExportHandlers = (window: BrowserWindow) => {
           safePath,
           nativeImage.createFromDataURL(payload.dataUrl).toJPEG(92),
         );
+        await setLastExportPath(path.dirname(safePath));
         return { filePath: safePath };
       }
 
@@ -94,6 +106,7 @@ export const registerExportHandlers = (window: BrowserWindow) => {
         outputExtension === ".png" ? safePath : `${safePath}.png`;
       const { buffer } = decodeDataUrl(payload.dataUrl);
       await fs.writeFile(finalPath, buffer);
+      await setLastExportPath(path.dirname(finalPath));
       return { filePath: finalPath };
     },
   );
@@ -110,9 +123,10 @@ export const registerExportHandlers = (window: BrowserWindow) => {
       const defaultFolder =
         sanitizeFileStem(payload.groupName ?? "Canvas Images") ||
         "Canvas Images";
+      const defaultPath = await getExportDefaultPath(defaultFolder);
       const dialogResult = await dialog.showOpenDialog(targetWindow, {
         title: "Export Images to Folder",
-        defaultPath: getDefaultDocumentsPath(defaultFolder),
+        defaultPath,
         properties: ["openDirectory", "createDirectory"],
       });
 
@@ -153,6 +167,7 @@ export const registerExportHandlers = (window: BrowserWindow) => {
         }),
       );
 
+      await setLastExportPath(folderPath);
       return { filePath: folderPath };
     },
   );
@@ -164,8 +179,9 @@ export const registerExportHandlers = (window: BrowserWindow) => {
       const payload = ensureTasksHtmlExportPayload(rawPayload);
       const defaultStem =
         sanitizeFileStem(payload.name ?? `${payload.projectTitle}`) || "Tasks";
+      const defaultPath = await getExportDefaultPath(`${defaultStem}.html`);
       const dialogResult = await dialog.showSaveDialog(targetWindow, {
-        defaultPath: getDefaultDocumentsPath(`${defaultStem}.html`),
+        defaultPath,
         filters: htmlDialogFilter,
       });
 
@@ -181,6 +197,7 @@ export const registerExportHandlers = (window: BrowserWindow) => {
         renderTasksHtml(payload.projectTitle, payload.tasks),
         "utf8",
       );
+      await setLastExportPath(path.dirname(safePath));
       return { filePath: safePath };
     },
   );

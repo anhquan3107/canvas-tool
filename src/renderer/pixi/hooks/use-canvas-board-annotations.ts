@@ -276,10 +276,16 @@ export const useCanvasBoardAnnotations = ({
     finalizeAnnotationSession(session);
   }, [activeAnnotationSessionRef, finalizeAnnotationSession]);
 
+  const cancelAnnotationSession = useCallback(() => {
+    activeAnnotationSessionRef.current = null;
+    redrawDraftAnnotation(null);
+  }, [activeAnnotationSessionRef, redrawDraftAnnotation]);
+
   return {
     redrawAnnotations,
     startAnnotationSession,
     updateAnnotationSession,
     commitAnnotationSession,
+    cancelAnnotationSession,
   };
 };

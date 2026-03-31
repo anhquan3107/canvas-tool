@@ -23,17 +23,23 @@ export const GroupDialog = ({
   }
 
   return (
-    <DialogFrame title={mode === "rename" ? "Rename Group" : "Create Group"} onClose={onClose}>
-      <div className="dialog-field">
+    <DialogFrame
+      className="task-deadline-dialog group-name-dialog"
+      title={mode === "rename" ? "Rename Group" : "Create Group"}
+      onClose={onClose}
+    >
+      <div className="task-dialog-shell">
+      <div className="dialog-field task-dialog-field group-dialog-field">
         <label htmlFor="group-name">Enter group name:</label>
         <input
+          className="group-dialog-input"
           id="group-name"
           value={draftGroupName}
           onChange={(event) => onDraftGroupNameChange(event.target.value)}
         />
       </div>
 
-      <div className="dialog-actions compact">
+      <div className="dialog-actions task-dialog-actions">
         <button
           type="button"
           className="dialog-button primary"
@@ -44,6 +50,7 @@ export const GroupDialog = ({
         <button type="button" className="dialog-button" onClick={onClose}>
           Cancel
         </button>
+      </div>
       </div>
     </DialogFrame>
   );

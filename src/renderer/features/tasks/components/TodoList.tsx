@@ -1,9 +1,11 @@
+import { GripVertical, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import type { Task } from "@shared/types/project";
 
 interface TodoListProps {
   task: Task;
   onAddTodo: (taskId: string, text: string) => void;
+  onRemoveTodo: (taskId: string, todoId: string) => void;
   onToggleTodo: (taskId: string, todoId: string) => void;
   onRenameTodo: (taskId: string, todoId: string, text: string) => void;
   onReorderTodo: (
@@ -11,14 +13,17 @@ interface TodoListProps {
     sourceIndex: number,
     targetIndex: number,
   ) => void;
+  onShowGuide: () => void;
 }
 
 export const TodoList = ({
   task,
   onAddTodo,
+  onRemoveTodo,
   onToggleTodo,
   onRenameTodo,
   onReorderTodo,
+  onShowGuide,
 }: TodoListProps) => {
   const [newTodoText, setNewTodoText] = useState("");
   const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
@@ -29,17 +34,50 @@ export const TodoList = ({
     [task.todos],
   );
 
+  const submitNewTodo = () => {
+    const trimmed = newTodoText.trim();
+    if (!trimmed) {
+      return;
+    }
+
+    onAddTodo(task.id, trimmed);
+    setNewTodoText("");
+    onShowGuide();
+  };
+
   return (
-    <section className="task-card">
+    <section className="todo-panel-card">
+      <form
+        className="todo-add"
+        onSubmit={(event) => {
+          event.preventDefault();
+          submitNewTodo();
+        }}
+      >
+        <input
+          value={newTodoText}
+          onChange={(event) => setNewTodoText(event.target.value)}
+          placeholder="Add a new task... (Ctrl+Enter to save)"
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+              event.preventDefault();
+              submitNewTodo();
+            }
+          }}
+        />
+        <button type="submit">Add</button>
+      </form>
+
       <ol className="todo-list">
         {sortedTodos.map((todo, index) => (
           <li
             key={todo.id}
-            className="todo-item"
+            className={`todo-item ${todo.completed ? "todo-item-completed" : ""}`}
             draggable
             onDragStart={() => {
               setDragTodoId(todo.id);
             }}
+            onDragEnd={() => setDragTodoId(null)}
             onDragOver={(event) => {
               event.preventDefault();
             }}
@@ -51,22 +89,25 @@ export const TodoList = ({
               const sourceIndex = sortedTodos.findIndex(
                 (entry) => entry.id === dragTodoId,
               );
-              const targetIndex = index;
-
-              if (sourceIndex >= 0 && targetIndex >= 0) {
-                onReorderTodo(task.id, sourceIndex, targetIndex);
+              if (sourceIndex >= 0) {
+                onReorderTodo(task.id, sourceIndex, index);
               }
 
               setDragTodoId(null);
             }}
           >
-            <span className="todo-index">{index + 1}</span>
+            <span className="todo-drag-handle" aria-hidden="true">
+              <GripVertical size={14} strokeWidth={1.7} />
+            </span>
 
-            <input
-              type="checkbox"
-              checked={todo.completed}
-              onChange={() => onToggleTodo(task.id, todo.id)}
-            />
+            <label className="todo-checkbox">
+              <input
+                type="checkbox"
+                checked={todo.completed}
+                onChange={() => onToggleTodo(task.id, todo.id)}
+              />
+              <span className="todo-checkbox-ui" aria-hidden="true" />
+            </label>
 
             {editingTodoId === todo.id ? (
               <input
@@ -89,45 +130,22 @@ export const TodoList = ({
                 className={`todo-text ${todo.completed ? "todo-complete" : ""}`}
                 onDoubleClick={() => setEditingTodoId(todo.id)}
               >
-                {todo.text}
+                <span className="todo-index">{index + 1}.</span>
+                <span>{todo.text}</span>
               </button>
             )}
+
+            <button
+              type="button"
+              className="todo-delete"
+              onClick={() => onRemoveTodo(task.id, todo.id)}
+              aria-label={`Delete ${todo.text}`}
+            >
+              <Trash2 size={14} strokeWidth={1.8} />
+            </button>
           </li>
         ))}
       </ol>
-
-      <form
-        className="todo-add"
-        onSubmit={(event) => {
-          event.preventDefault();
-          const trimmed = newTodoText.trim();
-          if (!trimmed) {
-            return;
-          }
-
-          onAddTodo(task.id, trimmed);
-          setNewTodoText("");
-        }}
-      >
-        <input
-          value={newTodoText}
-          onChange={(event) => setNewTodoText(event.target.value)}
-          placeholder="Add a new task... (Ctrl+Enter to save)"
-          onKeyDown={(event) => {
-            if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-              event.preventDefault();
-              const trimmed = newTodoText.trim();
-              if (!trimmed) {
-                return;
-              }
-
-              onAddTodo(task.id, trimmed);
-              setNewTodoText("");
-            }
-          }}
-        />
-        <button type="submit">Add</button>
-      </form>
     </section>
   );
 };

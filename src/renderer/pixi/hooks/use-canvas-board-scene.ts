@@ -4,14 +4,15 @@ import {
   FederatedPointerEvent,
   Graphics,
   Rectangle,
-  Sprite,
-  Text,
-  TextStyle,
 } from "pixi.js";
 import type { CaptureItem, ReferenceGroup } from "@shared/types/project";
 import { drawItemFrame } from "@renderer/pixi/utils/item-frame";
-import { loadTextureForAssetPath } from "@renderer/pixi/utils/textures";
-import { hexToPixiColor } from "@renderer/pixi/utils/color";
+import {
+  applySelectionVisualState,
+  SELECTION_HIGHLIGHT_ALPHA,
+  SELECTION_HIGHLIGHT_NAME,
+} from "@renderer/pixi/hooks/use-board-selection-visuals";
+import { renderBoardItemVisuals } from "@renderer/pixi/hooks/use-board-item-render";
 import type {
   ActiveItemDragState,
   ActiveSelectionBoxState,
@@ -24,31 +25,6 @@ interface FrameMeta {
   height: number;
   isCapture: boolean;
 }
-
-const SELECTION_DIM_ALPHA = 0.34;
-const SELECTION_HIGHLIGHT_ALPHA = 0.08;
-const SELECTION_HIGHLIGHT_NAME = "selection-highlight";
-
-const applySelectionVisualState = (
-  itemNode: Container,
-  itemId: string,
-  selectionIds: string[],
-) => {
-  const hasSelection = selectionIds.length > 0;
-  const isSelected = selectionIds.includes(itemId);
-  itemNode.alpha = hasSelection ? (isSelected ? 1 : SELECTION_DIM_ALPHA) : 1;
-
-  const highlightOverlay = itemNode.getChildByName(
-    SELECTION_HIGHLIGHT_NAME,
-  ) as Graphics | null;
-  if (!highlightOverlay) {
-    return;
-  }
-
-  highlightOverlay.alpha =
-    hasSelection && isSelected ? SELECTION_HIGHLIGHT_ALPHA : 0;
-  highlightOverlay.visible = !hasSelection || isSelected;
-};
 
 interface UseCanvasBoardSceneOptions {
   hostRef: MutableRefObject<HTMLDivElement | null>;
@@ -81,171 +57,6 @@ interface UseCanvasBoardSceneOptions {
   redrawAnnotations: (annotations?: ReferenceGroup["annotations"]) => void;
   startAnnotationSession: (clientX: number, clientY: number) => void;
 }
-
-const createFallbackHint = (
-  itemNode: Container,
-  message: string,
-  safeHeight: number,
-) => {
-  const fallbackHint = new Text({
-    text: message,
-    style: new TextStyle({
-      fill: "#d7d0c8",
-      fontSize: 13,
-      fontFamily: "Aptos",
-    }),
-  });
-  fallbackHint.position.set(10, safeHeight - 24);
-  fallbackHint.alpha = 0.9;
-  itemNode.addChild(fallbackHint);
-};
-
-const drawSwatchTray = (
-  itemNode: Container,
-  paletteColors: string[],
-  safeWidth: number,
-  safeHeight: number,
-) => {
-  if (safeWidth < 34 || safeHeight < 28) {
-    return;
-  }
-
-  const chipGap = 0.5;
-  const stripPadding = 0.5;
-  const desiredChipWidth = 12;
-  const minChipWidth = 6;
-  const borderColor = 0xffffff;
-  const borderAlpha = 0.18;
-  const borderWidth = 0.06;
-  const maxInnerWidth = Math.max(0, safeWidth - 20);
-  const maxInnerHeight = Math.max(0, safeHeight - 20);
-
-  let chipWidth = desiredChipWidth;
-  let chipHeight = chipWidth;
-  let visibleColors = [...paletteColors];
-  let columns = Math.max(
-    1,
-    Math.floor((maxInnerWidth + chipGap) / (chipWidth + chipGap)),
-  );
-  let rows = Math.max(1, Math.ceil(visibleColors.length / columns));
-
-  while (chipWidth > minChipWidth) {
-    columns = Math.max(
-      1,
-      Math.floor((maxInnerWidth + chipGap) / (chipWidth + chipGap)),
-    );
-    rows = Math.max(1, Math.ceil(visibleColors.length / columns));
-    const stripHeight =
-      rows * chipHeight + Math.max(0, rows - 1) * chipGap;
-
-    if (stripHeight <= maxInnerHeight) {
-      break;
-    }
-
-    chipWidth -= 1;
-    chipHeight = chipWidth;
-  }
-
-  columns = Math.max(
-    1,
-    Math.floor((maxInnerWidth + chipGap) / (chipWidth + chipGap)),
-  );
-  const maxRows = Math.max(
-    1,
-    Math.floor((maxInnerHeight + chipGap) / (chipHeight + chipGap)),
-  );
-  const maxVisibleCount = Math.max(1, columns * maxRows);
-  visibleColors = visibleColors.slice(0, maxVisibleCount);
-  rows = Math.max(1, Math.ceil(visibleColors.length / columns));
-  const colorsInLastRow =
-    visibleColors.length - Math.max(0, rows - 1) * columns;
-  const stripWidth =
-    Math.min(columns, visibleColors.length) * chipWidth +
-    Math.max(0, Math.min(columns, visibleColors.length) - 1) * chipGap;
-  const lastRowWidth =
-    colorsInLastRow * chipWidth +
-    Math.max(0, colorsInLastRow - 1) * chipGap;
-  const trayWidth = Math.max(stripWidth, lastRowWidth);
-  const stripHeight =
-    rows * chipHeight + Math.max(0, rows - 1) * chipGap;
-  const edgeInset = 1;
-  const stripX = edgeInset;
-  const stripY = Math.max(edgeInset, safeHeight - stripHeight - edgeInset);
-
-  const tray = new Graphics();
-  tray.rect(
-    stripX - stripPadding,
-    stripY - stripPadding,
-    trayWidth + stripPadding * 2,
-    stripHeight + stripPadding * 2,
-  );
-  tray.fill({ color: 0x111111, alpha: 0.72 });
-  tray.stroke({
-    color: borderColor,
-    width: borderWidth,
-    alpha: borderAlpha,
-  });
-  itemNode.addChild(tray);
-
-  const tooltip = new Container();
-  tooltip.visible = false;
-  tooltip.eventMode = "none";
-  tooltip.zIndex = 5;
-
-  const tooltipLabel = new Text({
-    text: "",
-    style: new TextStyle({
-      fill: "#fff7ef",
-      fontSize: Math.max(4, chipWidth * 0.5),
-      fontWeight: "700",
-      fontFamily: "Aptos",
-      stroke: {
-        color: "#1a1715",
-        width: 1,
-        join: "round",
-      },
-    }),
-  });
-  tooltipLabel.resolution = 3;
-  tooltipLabel.roundPixels = true;
-  tooltip.addChild(tooltipLabel);
-  itemNode.addChild(tooltip);
-
-  visibleColors.forEach((colorHex, index) => {
-    const column = index % columns;
-    const row = Math.floor(index / columns);
-    const swatchX = stripX + column * (chipWidth + chipGap);
-    const swatchY = stripY + row * (chipHeight + chipGap);
-    const swatch = new Graphics();
-    swatch.rect(
-      swatchX,
-      swatchY,
-      chipWidth,
-      chipHeight,
-    );
-    swatch.fill(hexToPixiColor(colorHex));
-    swatch.stroke({
-      color: borderColor,
-      width: borderWidth,
-      alpha: borderAlpha,
-    });
-    swatch.eventMode = "static";
-    swatch.cursor = "pointer";
-    swatch.on("pointerover", () => {
-      tooltipLabel.text = colorHex.toUpperCase();
-      tooltipLabel.position.set(0, 0);
-      tooltip.position.set(
-        Math.max(0, swatchX - 4),
-        Math.max(0, swatchY - tooltipLabel.height - 8),
-      );
-      tooltip.visible = true;
-    });
-    swatch.on("pointerout", () => {
-      tooltip.visible = false;
-    });
-    itemNode.addChild(swatch);
-  });
-};
 
 export const useCanvasBoardScene = ({
   hostRef,
@@ -379,116 +190,15 @@ export const useCanvasBoardScene = ({
       selectionHighlight.eventMode = "none";
       itemNode.addChild(selectionHighlight);
 
-      if (item.type === "image" && item.assetPath) {
-        void loadTextureForAssetPath(item.assetPath)
-          .then((texture) => {
-            if (renderTokenRef.current !== renderToken) {
-              return;
-            }
-
-            const sprite = new Sprite(texture);
-            const sourceWidth =
-              item.originalWidth ??
-              Math.max(1, Math.round(texture.width || safeWidth));
-            const sourceHeight =
-              item.originalHeight ??
-              Math.max(1, Math.round(texture.height || safeHeight));
-            const cropX = Math.max(
-              0,
-              Math.min(sourceWidth - 1, Math.round(item.cropX ?? 0)),
-            );
-            const cropY = Math.max(
-              0,
-              Math.min(sourceHeight - 1, Math.round(item.cropY ?? 0)),
-            );
-            const cropWidth = Math.max(
-              1,
-              Math.min(sourceWidth - cropX, Math.round(item.cropWidth ?? sourceWidth)),
-            );
-            const cropHeight = Math.max(
-              1,
-              Math.min(sourceHeight - cropY, Math.round(item.cropHeight ?? sourceHeight)),
-            );
-
-            if (
-              cropX > 0 ||
-              cropY > 0 ||
-              cropWidth < sourceWidth ||
-              cropHeight < sourceHeight
-            ) {
-              const cropMask = new Graphics();
-              cropMask.rect(0, 0, safeWidth, safeHeight).fill(0xffffff);
-              sprite.x = -(cropX * safeWidth) / cropWidth;
-              sprite.y = -(cropY * safeHeight) / cropHeight;
-              sprite.width = (sourceWidth * safeWidth) / cropWidth;
-              sprite.height = (sourceHeight * safeHeight) / cropHeight;
-              sprite.mask = cropMask;
-              itemNode.addChild(cropMask);
-            } else {
-              sprite.width = safeWidth;
-              sprite.height = safeHeight;
-            }
-
-            sprite.roundPixels = true;
-            sprite.alpha = 1;
-            itemNode.addChildAt(sprite, 1);
-          })
-          .catch(() => {
-            if (renderTokenRef.current !== renderToken) {
-              return;
-            }
-
-            createFallbackHint(
-              itemNode,
-              item.previewStatus === "blocked"
-                ? "Preview blocked by remote source"
-                : "Preview unavailable",
-              safeHeight,
-            );
-          });
-      }
-
-      if (item.type === "capture") {
-        void ensureCaptureSession(item)
-          .then((session) => {
-            if (renderTokenRef.current !== renderToken) {
-              return;
-            }
-
-            const sprite = new Sprite(session.texture);
-            sprite.width = safeWidth;
-            sprite.height = safeHeight;
-            sprite.alpha = 0.98;
-            itemNode.addChildAt(sprite, 1);
-          })
-          .catch((error) => {
-            if (renderTokenRef.current !== renderToken) {
-              return;
-            }
-
-            createFallbackHint(
-              itemNode,
-              error instanceof Error &&
-                error.message.toLowerCase().includes("permission")
-                ? "Screen recording permission required"
-                : "Capture preview unavailable",
-              safeHeight,
-            );
-          });
-      }
-
-      if (
-        item.type === "image" &&
-        ((item.swatches?.length ?? 0) > 0 || item.swatchHex)
-      ) {
-        const paletteColors =
-          item.swatches?.length
-            ? item.swatches.map((swatch) => swatch.colorHex)
-            : item.swatchHex
-              ? [item.swatchHex]
-              : [];
-        drawSwatchTray(itemNode, paletteColors, safeWidth, safeHeight);
-      }
+      renderBoardItemVisuals({
+        item,
+        itemNode,
+        safeWidth,
+        safeHeight,
+        renderToken,
+        renderTokenRef,
+        ensureCaptureSession,
+      });
 
       applySelectionVisualState(itemNode, item.id, selectionIdsRef.current);
 

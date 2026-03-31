@@ -1,10 +1,8 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import type { ShortcutBindings } from "@shared/shortcuts";
 import type { MenuState } from "@renderer/app/types";
-import {
-  MenuItemContent,
-  formatMenuShortcut,
-} from "@renderer/app/components/MenuItemContent";
+import { MenuItemContent } from "@renderer/app/components/MenuItemContent";
+import { getMenuActionContentProps } from "@renderer/app/menu/menu-action-config";
 
 interface AppMenuProps extends MenuState {
   shortcutBindings: ShortcutBindings;
@@ -163,25 +161,13 @@ export const AppMenu = ({
       {selectedCount > 0 ? (
         <>
           <button type="button" onClick={onCopySelected}>
-            <MenuItemContent
-              icon="copy"
-              label="Copy"
-              shortcut={formatMenuShortcut(shortcutBindings, "edit.copy")}
-            />
+            <MenuItemContent {...getMenuActionContentProps(shortcutBindings, "copy")} />
           </button>
           <button type="button" onClick={onCutSelected}>
-            <MenuItemContent
-              icon="cut"
-              label="Cut"
-              shortcut={formatMenuShortcut(shortcutBindings, "edit.cut")}
-            />
+            <MenuItemContent {...getMenuActionContentProps(shortcutBindings, "cut")} />
           </button>
           <button type="button" onClick={onPaste} disabled={!canPaste}>
-            <MenuItemContent
-              icon="paste"
-              label="Paste"
-              shortcut={formatMenuShortcut(shortcutBindings, "edit.paste")}
-            />
+            <MenuItemContent {...getMenuActionContentProps(shortcutBindings, "paste")} />
           </button>
           <div
             className="app-menu-submenu"
@@ -198,13 +184,13 @@ export const AppMenu = ({
             {arrangeOpen ? (
               <div className="app-menu app-menu-submenu-panel">
                 <button type="button" onClick={onArrangePinterest}>
-                  <MenuItemContent icon="arrange" label="Pinterest" />
+                  <MenuItemContent
+                    {...getMenuActionContentProps(shortcutBindings, "arrangePinterest")}
+                  />
                 </button>
                 <button type="button" onClick={onArrangeHorizontal}>
                   <MenuItemContent
-                    icon="arrange"
-                    label="Horizontal"
-                    shortcut={formatMenuShortcut(shortcutBindings, "arrange.horizontal")}
+                    {...getMenuActionContentProps(shortcutBindings, "arrangeHorizontal")}
                   />
                 </button>
               </div>
@@ -216,29 +202,16 @@ export const AppMenu = ({
             onClick={onCropSelected}
             disabled={!canCropSelected}
           >
-            <MenuItemContent
-              icon="crop"
-              label="Crop"
-              shortcut={formatMenuShortcut(shortcutBindings, "edit.crop")}
-            />
+            <MenuItemContent {...getMenuActionContentProps(shortcutBindings, "crop")} />
           </button>
           <button type="button" onClick={onFlipSelectedHorizontally}>
             <MenuItemContent
-              icon="flip"
-              label="Flip Horizontal"
-              shortcut={formatMenuShortcut(
-                shortcutBindings,
-                "edit.flipHorizontal",
-              )}
+              {...getMenuActionContentProps(shortcutBindings, "flipHorizontal")}
             />
           </button>
           <div className="app-menu-divider" />
           <button type="button" onClick={onDeleteSelected}>
-            <MenuItemContent
-              icon="delete"
-              label="Delete"
-              shortcut={formatMenuShortcut(shortcutBindings, "edit.delete")}
-            />
+            <MenuItemContent {...getMenuActionContentProps(shortcutBindings, "delete")} />
           </button>
           <div className="app-menu-divider" />
           <button
@@ -246,30 +219,24 @@ export const AppMenu = ({
             onClick={onExportSwatch}
             disabled={!canExportSwatch}
           >
-            <MenuItemContent icon="swatch" label="Export Swatches" />
+            <MenuItemContent
+              {...getMenuActionContentProps(shortcutBindings, "exportSwatches")}
+            />
           </button>
         </>
       ) : (
         <>
           <button type="button" onClick={() => void onOpen()}>
-            <MenuItemContent
-              icon="open"
-              label="Open"
-              shortcut={formatMenuShortcut(shortcutBindings, "file.open")}
-            />
+            <MenuItemContent {...getMenuActionContentProps(shortcutBindings, "open")} />
           </button>
           <button type="button" onClick={() => void onSave()}>
             <MenuItemContent
-              icon="save"
-              label="Save Canvas"
-              shortcut={formatMenuShortcut(shortcutBindings, "file.save")}
+              {...getMenuActionContentProps(shortcutBindings, "saveCanvas")}
             />
           </button>
           <button type="button" onClick={() => void onSaveAs()}>
             <MenuItemContent
-              icon="saveAs"
-              label="Save Canvas As..."
-              shortcut={formatMenuShortcut(shortcutBindings, "file.saveAs")}
+              {...getMenuActionContentProps(shortcutBindings, "saveCanvasAs")}
             />
           </button>
           <div
@@ -291,22 +258,12 @@ export const AppMenu = ({
               <div className="app-menu app-menu-submenu-panel">
                 <button type="button" onClick={onExportCanvasImage}>
                   <MenuItemContent
-                    icon="export"
-                    label="Export Canvas to Images"
-                    shortcut={formatMenuShortcut(
-                      shortcutBindings,
-                      "export.canvasImage",
-                    )}
+                    {...getMenuActionContentProps(shortcutBindings, "exportCanvasImage")}
                   />
                 </button>
                 <button type="button" onClick={onExportGroupImages}>
                   <MenuItemContent
-                    icon="export"
-                    label="Export Every Image to Folder"
-                    shortcut={formatMenuShortcut(
-                      shortcutBindings,
-                      "export.groupImages",
-                    )}
+                    {...getMenuActionContentProps(shortcutBindings, "exportGroupImages")}
                   />
                 </button>
                 <div
@@ -329,8 +286,10 @@ export const AppMenu = ({
                         disabled={!canExportSelectedTask}
                       >
                         <MenuItemContent
-                          icon="task"
-                          label="Export Selected Task to HTML"
+                          {...getMenuActionContentProps(
+                            shortcutBindings,
+                            "exportSelectedTaskHtml",
+                          )}
                         />
                       </button>
                       <button
@@ -339,11 +298,9 @@ export const AppMenu = ({
                         disabled={!canExportAnyTask}
                       >
                         <MenuItemContent
-                          icon="task"
-                          label="Export All Tasks to HTML"
-                          shortcut={formatMenuShortcut(
+                          {...getMenuActionContentProps(
                             shortcutBindings,
-                            "export.allTasks",
+                            "exportAllTasksHtml",
                           )}
                         />
                       </button>
@@ -356,31 +313,28 @@ export const AppMenu = ({
           <div className="app-menu-divider" />
           <button type="button" onClick={onResetView}>
             <MenuItemContent
-              icon="resetView"
-              label="Reset View"
-              shortcut={formatMenuShortcut(shortcutBindings, "canvas.resetView")}
+              {...getMenuActionContentProps(shortcutBindings, "resetView")}
             />
           </button>
           <button type="button" onClick={onChangeCanvasSize}>
             <MenuItemContent
-              icon="canvasSize"
-              label="Change Canvas Size..."
-              shortcut={formatMenuShortcut(shortcutBindings, "canvas.changeSize")}
+              {...getMenuActionContentProps(shortcutBindings, "changeCanvasSize")}
             />
           </button>
           <button type="button" onClick={onToggleCanvasLock}>
             <MenuItemContent
               icon="lock"
               label={canvasLocked ? "Unlock Canvas" : "Lock Canvas"}
-              shortcut={formatMenuShortcut(shortcutBindings, "canvas.toggleLock")}
+              shortcut={
+                getMenuActionContentProps(shortcutBindings, "toggleCanvasLock")
+                  .shortcut
+              }
             />
           </button>
           <div className="app-menu-divider" />
           <button type="button" onClick={onCreateGroup}>
             <MenuItemContent
-              icon="group"
-              label="Create Group"
-              shortcut={formatMenuShortcut(shortcutBindings, "groups.create")}
+              {...getMenuActionContentProps(shortcutBindings, "createGroup")}
             />
           </button>
           <button
@@ -388,14 +342,12 @@ export const AppMenu = ({
             onClick={onDeleteCurrentGroup}
             disabled={!canDeleteActiveGroup}
           >
-            <MenuItemContent icon="delete" label="Delete Current Group" />
+            <MenuItemContent
+              {...getMenuActionContentProps(shortcutBindings, "deleteCurrentGroup")}
+            />
           </button>
           <button type="button" onClick={onCreateTask}>
-            <MenuItemContent
-              icon="task"
-              label="Add Task"
-              shortcut={formatMenuShortcut(shortcutBindings, "tasks.add")}
-            />
+            <MenuItemContent {...getMenuActionContentProps(shortcutBindings, "addTask")} />
           </button>
           <div className="app-menu-divider" />
           <div
@@ -414,9 +366,7 @@ export const AppMenu = ({
               <div className="app-menu app-menu-submenu-panel">
                 <button type="button" onClick={onAutoArrange}>
                   <MenuItemContent
-                    icon="arrange"
-                    label="Auto Arrange"
-                    shortcut={formatMenuShortcut(shortcutBindings, "arrange.auto")}
+                    {...getMenuActionContentProps(shortcutBindings, "autoArrange")}
                   />
                 </button>
               </div>
@@ -425,8 +375,10 @@ export const AppMenu = ({
           <div className="app-menu-divider" />
           <button type="button" onClick={onShowBackgroundColor}>
             <MenuItemContent
-              icon="background"
-              label="Change Background Color"
+              {...getMenuActionContentProps(
+                shortcutBindings,
+                "changeBackgroundColor",
+              )}
             />
           </button>
           <div
@@ -445,19 +397,15 @@ export const AppMenu = ({
               <div className="app-menu app-menu-submenu-panel">
                 <button type="button" onClick={onToggleBlackAndWhite}>
                   <MenuItemContent
-                    icon="filter"
-                    label="B&W"
-                    shortcut={formatMenuShortcut(
+                    {...getMenuActionContentProps(
                       shortcutBindings,
-                      "tools.toggleBlackAndWhite",
+                      "filterBlackAndWhite",
                     )}
                   />
                 </button>
                 <button type="button" onClick={onToggleBlur}>
                   <MenuItemContent
-                    icon="filter"
-                    label="Blur"
-                    shortcut={formatMenuShortcut(shortcutBindings, "tools.toggleBlur")}
+                    {...getMenuActionContentProps(shortcutBindings, "filterBlur")}
                   />
                 </button>
               </div>
@@ -465,43 +413,23 @@ export const AppMenu = ({
           </div>
           <div className="app-menu-divider" />
           <button type="button" onClick={onActivateDoodle}>
-            <MenuItemContent
-              icon="doodle"
-              label="Doodle"
-              shortcut={formatMenuShortcut(shortcutBindings, "tools.toggleDoodle")}
-            />
+            <MenuItemContent {...getMenuActionContentProps(shortcutBindings, "doodle")} />
           </button>
           <div className="app-menu-divider" />
           <button type="button" onClick={onUndo} disabled={!canUndo}>
-            <MenuItemContent
-              icon="undo"
-              label="Undo"
-              shortcut={formatMenuShortcut(shortcutBindings, "edit.undo")}
-            />
+            <MenuItemContent {...getMenuActionContentProps(shortcutBindings, "undo")} />
           </button>
           <button type="button" onClick={onRedo} disabled={!canRedo}>
-            <MenuItemContent
-              icon="redo"
-              label="Redo"
-              shortcut={formatMenuShortcut(shortcutBindings, "edit.redo")}
-            />
+            <MenuItemContent {...getMenuActionContentProps(shortcutBindings, "redo")} />
           </button>
           {canPaste ? (
             <button type="button" onClick={onPaste}>
-              <MenuItemContent
-                icon="paste"
-                label="Paste"
-                shortcut={formatMenuShortcut(shortcutBindings, "edit.paste")}
-              />
+              <MenuItemContent {...getMenuActionContentProps(shortcutBindings, "paste")} />
             </button>
           ) : null}
           <div className="app-menu-divider" />
           <button type="button" onClick={onExit}>
-            <MenuItemContent
-              icon="exit"
-              label="Exit"
-              shortcut={formatMenuShortcut(shortcutBindings, "app.quit")}
-            />
+            <MenuItemContent {...getMenuActionContentProps(shortcutBindings, "exit")} />
           </button>
         </>
       )}

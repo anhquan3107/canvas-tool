@@ -1,80 +1,14 @@
+import { useCallback } from "react";
+import type { UseCanvasWorkspaceOptions } from "@renderer/features/workspace/types";
 import {
-  useCallback,
-  useMemo,
-  type Dispatch,
-  type DragEvent,
-  type SetStateAction,
-} from "react";
-import type {
-  CanvasItem,
-  ImageItem,
-  LayoutMode,
-  Project,
-  ReferenceGroup,
-} from "@shared/types/project";
-import {
-  buildImageItemsFromPayload,
-  collectDropPayload,
-  getDataUrlByteLength,
-  inferImageFormatLabel,
-  type ImportPayload,
-} from "@renderer/features/import/image-import";
-import { extractImageSwatches } from "@renderer/features/import/swatches";
-import {
-  measureImageSize,
-  normalizePreviewSize,
-  stripBlockedSuffix,
-  type ImportQueueEntry,
-} from "@renderer/features/import/import-queue";
-import {
-  DEFAULT_EMPTY_GROUP_CANVAS_SIZE,
-  DEFAULT_GROUP_BACKGROUND_COLOR,
-  DEFAULT_GROUP_CANVAS_COLOR,
-  DEFAULT_VIEW_ZOOM_BASELINE,
-} from "@shared/project-defaults";
-import { IMAGE_LAYOUT_GAP, SNAP_GAP } from "@renderer/pixi/constants";
-
-type ToastKind = "success" | "error" | "info";
-type ImagePatch = Partial<Omit<ImageItem, "id" | "type">>;
-const CANVAS_EXPANSION_PADDING = IMAGE_LAYOUT_GAP;
-const MIN_CANVAS_WIDTH = 360;
-const MIN_CANVAS_HEIGHT = 240;
-
-interface UseCanvasWorkspaceOptions {
-  project: Project;
-  activeGroup: ReferenceGroup | undefined;
-  activeGroupId: string | null;
-  autoArrangeOnImport: boolean;
-  viewportSize: { width: number; height: number };
-  selectedItemIds: string[];
-  lastImportedItemIds: string[];
-  importQueue: ImportQueueEntry[];
-  clipboardItems: CanvasItem[];
-  setProject: (project: Project) => void;
-  setGroupView: (
-    groupId: string,
-    zoom: number,
-    panX: number,
-    panY: number,
-  ) => void;
-  patchGroupItems: (groupId: string, updates: Record<string, ImagePatch>) => void;
-  addGroupItems: (groupId: string, items: CanvasItem[]) => void;
-  removeGroupItems: (groupId: string, itemIds: string[]) => void;
-  flipItems: (groupId: string, itemIds: string[]) => void;
-  setGroupCanvasSize: (groupId: string, width: number, height: number) => void;
-  setGroupColors: (
-    groupId: string,
-    colors: Partial<Pick<ReferenceGroup, "canvasColor" | "backgroundColor">>,
-  ) => void;
-  setGroupLocked: (groupId: string, locked: boolean) => void;
-  setImportQueue: Dispatch<SetStateAction<ImportQueueEntry[]>>;
-  setClipboardItems: Dispatch<SetStateAction<CanvasItem[]>>;
-  setSelectedItemIds: Dispatch<SetStateAction<string[]>>;
-  setLastImportedItemIds: Dispatch<SetStateAction<string[]>>;
-  pushToast: (kind: ToastKind, message: string) => void;
-  refreshRecents: () => void;
-  runHistoryBatch: (callback: () => void) => void;
-}
+  getCanvasExpansionPlan,
+  getFocusedGroupView,
+} from "@renderer/features/workspace/utils/layout";
+import { useWorkspaceFileActions } from "@renderer/features/workspace/hooks/use-workspace-file-actions";
+import { useWorkspaceImportActions } from "@renderer/features/workspace/hooks/use-workspace-import-actions";
+import { useWorkspaceClipboardActions } from "@renderer/features/workspace/hooks/use-workspace-clipboard-actions";
+import { useWorkspaceViewActions } from "@renderer/features/workspace/hooks/use-workspace-view-actions";
+import { useWorkspaceLayoutActions } from "@renderer/features/workspace/hooks/use-workspace-layout-actions";
 
 export const useCanvasWorkspace = ({
   project,
@@ -103,179 +37,20 @@ export const useCanvasWorkspace = ({
   refreshRecents,
   runHistoryBatch,
 }: UseCanvasWorkspaceOptions) => {
-  const buildAutoArrangeUpdates = useCallback(
-    (
-      items: Array<{
-        id: string;
-        width: number;
-        height: number;
-        zIndex: number;
-        visible?: boolean;
-      }>,
-      canvasWidth: number,
-    ) => {
-      const visibleItems = items
-        .filter((item) => item.visible !== false)
-        .sort((left, right) => left.zIndex - right.zIndex);
-
-      const padding = SNAP_GAP;
-      const widestItem = visibleItems.reduce(
-        (maxWidth, item) => Math.max(maxWidth, item.width),
-        0,
-      );
-      const totalWidth = visibleItems.reduce((sum, item) => sum + item.width, 0);
-      const totalArea = visibleItems.reduce(
-        (sum, item) => sum + item.width * item.height,
-        0,
-      );
-      const targetAspectRatio =
-        DEFAULT_EMPTY_GROUP_CANVAS_SIZE.width /
-        DEFAULT_EMPTY_GROUP_CANVAS_SIZE.height;
-      const wrapWidth = Math.max(
-        widestItem,
-        Math.ceil(Math.sqrt(Math.max(1, totalArea) * targetAspectRatio)),
-        canvasWidth,
-      );
-      const layoutWidth = Math.min(totalWidth, wrapWidth);
-      const updates: Record<string, ImagePatch> = {};
-      let cursorX = padding;
-      let cursorY = padding;
-      let rowHeight = 0;
-
-      visibleItems.forEach((item) => {
-        if (cursorX > padding && cursorX + item.width > layoutWidth - padding) {
-          cursorX = padding;
-          cursorY += rowHeight + padding;
-          rowHeight = 0;
-        }
-
-        updates[item.id] = {
-          x: cursorX,
-          y: cursorY,
-        };
-
-        cursorX += item.width + padding;
-        rowHeight = Math.max(rowHeight, item.height);
-      });
-
-      return updates;
-    },
-    [],
-  );
-
   const focusGroupOnItems = useCallback(
     (
       groupId: string,
       items: Array<{ x: number; y: number; width: number; height: number }>,
       canvasSize: { width: number; height: number },
     ) => {
-      if (items.length === 0) {
+      const nextView = getFocusedGroupView(items, canvasSize, viewportSize);
+      if (!nextView) {
         return;
       }
-
-      const bounds = items.reduce(
-        (acc, item) => ({
-          minX: Math.min(acc.minX, item.x),
-          minY: Math.min(acc.minY, item.y),
-          maxX: Math.max(acc.maxX, item.x + item.width),
-          maxY: Math.max(acc.maxY, item.y + item.height),
-        }),
-        {
-          minX: Number.POSITIVE_INFINITY,
-          minY: Number.POSITIVE_INFINITY,
-          maxX: Number.NEGATIVE_INFINITY,
-          maxY: Number.NEGATIVE_INFINITY,
-        },
-      );
-
-      const viewportWidth = Math.max(420, viewportSize.width);
-      const viewportHeight = Math.max(320, viewportSize.height);
-      const fitPadding = 64;
-      const boundsWidth = Math.max(1, bounds.maxX - bounds.minX);
-      const boundsHeight = Math.max(1, bounds.maxY - bounds.minY);
-
-      const fitZoom = Math.max(
-        0.18,
-        Math.min(
-          viewportWidth / (boundsWidth + fitPadding * 2),
-          viewportHeight / (boundsHeight + fitPadding * 2),
-          1,
-        ),
-      );
-      const baselineZoom = fitZoom * DEFAULT_VIEW_ZOOM_BASELINE;
-
-      const centerX = (bounds.minX + bounds.maxX) * 0.5;
-      const centerY = (bounds.minY + bounds.maxY) * 0.5;
-
-      const unclampedPanX = viewportWidth * 0.5 - centerX * baselineZoom;
-      const unclampedPanY = viewportHeight * 0.5 - centerY * baselineZoom;
-
-      const scaledCanvasWidth = canvasSize.width * baselineZoom;
-      const scaledCanvasHeight = canvasSize.height * baselineZoom;
-      const panX =
-        scaledCanvasWidth <= viewportWidth
-          ? (viewportWidth - scaledCanvasWidth) * 0.5
-          : Math.min(
-              24,
-              Math.max(viewportWidth - scaledCanvasWidth - 24, unclampedPanX),
-            );
-      const panY =
-        scaledCanvasHeight <= viewportHeight
-          ? (viewportHeight - scaledCanvasHeight) * 0.5
-          : Math.min(
-              24,
-              Math.max(
-                viewportHeight - scaledCanvasHeight - 24,
-                unclampedPanY,
-              ),
-            );
-
-      setGroupView(groupId, baselineZoom, panX, panY);
+      setGroupView(groupId, nextView.zoom, nextView.panX, nextView.panY);
     },
-    [setGroupView, viewportSize.height, viewportSize.width],
+    [setGroupView, viewportSize],
   );
-
-  const importVisibilitySnapshot = useMemo(() => {
-    if (!activeGroup || lastImportedItemIds.length === 0) {
-      return null;
-    }
-
-    const importedSet = new Set(lastImportedItemIds);
-    const importedItems = activeGroup.items.filter(
-      (item): item is ImageItem =>
-        item.type === "image" && importedSet.has(item.id),
-    );
-
-    if (importedItems.length === 0) {
-      return {
-        total: 0,
-        visible: 0,
-        ready: 0,
-        blocked: 0,
-        offCanvas: 0,
-      };
-    }
-
-    const offCanvas = importedItems.filter((item) => {
-      const right = item.x + item.width;
-      const bottom = item.y + item.height;
-      return (
-        right < 0 ||
-        bottom < 0 ||
-        item.x > activeGroup.canvasSize.width ||
-        item.y > activeGroup.canvasSize.height
-      );
-    }).length;
-
-    return {
-      total: importedItems.length,
-      visible: importedItems.filter((item) => item.visible).length,
-      ready: importedItems.filter((item) => item.previewStatus === "ready").length,
-      blocked: importedItems.filter((item) => item.previewStatus === "blocked")
-        .length,
-      offCanvas,
-    };
-  }, [activeGroup, lastImportedItemIds]);
 
   const ensureCanvasFitsItems = useCallback(
     (
@@ -291,1006 +66,122 @@ export const useCanvasWorkspace = ({
       currentSize: { width: number; height: number },
       currentView?: { zoom: number; panX: number; panY: number },
     ) => {
-      const visibleItems = items.filter((item) => item.visible !== false);
-      if (visibleItems.length === 0) {
+      const expansionPlan = getCanvasExpansionPlan(items, currentSize);
+      if (!expansionPlan) {
         return;
       }
-
-      const expandLeft = Math.max(
-        0,
-        Math.ceil(
-          Math.max(0, -Math.min(...visibleItems.map((item) => item.x))) +
-            (Math.min(...visibleItems.map((item) => item.x)) < 0
-              ? CANVAS_EXPANSION_PADDING
-              : 0),
-        ),
-      );
-      const expandTop = Math.max(
-        0,
-        Math.ceil(
-          Math.max(0, -Math.min(...visibleItems.map((item) => item.y))) +
-            (Math.min(...visibleItems.map((item) => item.y)) < 0
-              ? CANVAS_EXPANSION_PADDING
-              : 0),
-        ),
-      );
-
-      const normalizedItems =
-        expandLeft > 0 || expandTop > 0
-          ? items.map((item) => ({
-              ...item,
-              x: item.x + expandLeft,
-              y: item.y + expandTop,
-            }))
-          : items;
-      const normalizedVisibleItems = normalizedItems.filter(
-        (item) => item.visible !== false,
-      );
-
-      const requiredWidth = Math.max(
-        currentSize.width + expandLeft,
-        ...normalizedVisibleItems.map((item) =>
-          Math.ceil(item.x + item.width + CANVAS_EXPANSION_PADDING),
-        ),
-      );
-      const requiredHeight = Math.max(
-        currentSize.height + expandTop,
-        ...normalizedVisibleItems.map((item) =>
-          Math.ceil(item.y + item.height + CANVAS_EXPANSION_PADDING),
-        ),
-      );
-
-      if (expandLeft > 0 || expandTop > 0) {
-        const shiftedUpdates = Object.fromEntries(
-          normalizedItems.map((item) => [
-            item.id,
-            {
-              x: Math.round(item.x),
-              y: Math.round(item.y),
-            },
-          ]),
-        ) as Record<string, ImagePatch>;
-
-        patchGroupItems(groupId, shiftedUpdates);
+      if (expansionPlan.shiftedUpdates) {
+        patchGroupItems(groupId, expansionPlan.shiftedUpdates);
 
         if (currentView) {
           setGroupView(
             groupId,
             currentView.zoom,
-            currentView.panX - expandLeft * currentView.zoom,
-            currentView.panY - expandTop * currentView.zoom,
+            currentView.panX - expansionPlan.expandLeft * currentView.zoom,
+            currentView.panY - expansionPlan.expandTop * currentView.zoom,
           );
         }
       }
 
       if (
-        requiredWidth > currentSize.width ||
-        requiredHeight > currentSize.height ||
-        expandLeft > 0 ||
-        expandTop > 0
+        expansionPlan.requiredWidth > currentSize.width ||
+        expansionPlan.requiredHeight > currentSize.height ||
+        expansionPlan.expandLeft > 0 ||
+        expansionPlan.expandTop > 0
       ) {
-        setGroupCanvasSize(groupId, requiredWidth, requiredHeight);
+        setGroupCanvasSize(
+          groupId,
+          expansionPlan.requiredWidth,
+          expansionPlan.requiredHeight,
+        );
       }
     },
     [patchGroupItems, setGroupCanvasSize, setGroupView],
   );
-
-  const fitCanvasToItems = useCallback(
-    (group: ReferenceGroup) => {
-      const visibleItems = group.items.filter((item) => item.visible !== false);
-      if (visibleItems.length === 0) {
-        return null;
-      }
-
-      const minX = Math.min(...visibleItems.map((item) => item.x));
-      const minY = Math.min(...visibleItems.map((item) => item.y));
-      const maxX = Math.max(...visibleItems.map((item) => item.x + item.width));
-      const maxY = Math.max(...visibleItems.map((item) => item.y + item.height));
-      const shiftX = Math.round(CANVAS_EXPANSION_PADDING - minX);
-      const shiftY = Math.round(CANVAS_EXPANSION_PADDING - minY);
-      const nextWidth = Math.max(
-        MIN_CANVAS_WIDTH,
-        Math.ceil(maxX - minX + CANVAS_EXPANSION_PADDING * 2),
-      );
-      const nextHeight = Math.max(
-        MIN_CANVAS_HEIGHT,
-        Math.ceil(maxY - minY + CANVAS_EXPANSION_PADDING * 2),
-      );
-      const updates = Object.fromEntries(
-        group.items.map((item) => [
-          item.id,
-          {
-            x: Math.round(item.x + shiftX),
-            y: Math.round(item.y + shiftY),
-          },
-        ]),
-      ) as Record<string, ImagePatch>;
-
-      return {
-        canvasSize: {
-          width: nextWidth,
-          height: nextHeight,
-        },
-        updates,
-      };
-    },
-    [],
-  );
-
-  const saveProject = useCallback(async () => {
-    const response = await window.desktopApi.project.save({
-      project,
-      filePath: project.filePath,
-    });
-
-    const nextProject = {
-      ...project,
-      filePath: response.filePath,
-    };
-
-    setProject(nextProject);
-    refreshRecents();
-    pushToast("success", "Canvas saved.");
-    return nextProject;
-  }, [project, pushToast, refreshRecents, setProject]);
-
-  const saveProjectAs = useCallback(async () => {
-    const response = await window.desktopApi.project.saveAs({
-      project,
-      filePath: project.filePath,
-    });
-
-    if (!response) {
-      return;
-    }
-
-    const nextProject = {
-      ...project,
-      filePath: response.filePath,
-    };
-
-    setProject(nextProject);
-    refreshRecents();
-    pushToast("success", "Canvas saved to a new file.");
-    return nextProject;
-  }, [project, pushToast, refreshRecents, setProject]);
-
-  const openProject = useCallback(async () => {
-    const response = await window.desktopApi.project.open();
-    if (!response) {
-      return;
-    }
-
-    setProject(response.project);
-    setSelectedItemIds([]);
-    refreshRecents();
-    pushToast("success", "Canvas opened.");
-    return response.project;
-  }, [pushToast, refreshRecents, setProject, setSelectedItemIds]);
-
-  const importFromPayload = useCallback(
-    async (
-      payload: ImportPayload,
-      options?: {
-        dropViewportPoint?: { x: number; y: number };
-      },
-    ) => {
-      if (!activeGroup) {
-        return;
-      }
-
-      if (activeGroup.locked) {
-        pushToast("info", "Canvas is locked.");
-        return;
-      }
-
-      if (payload.files.length === 0 && payload.urls.length === 0) {
-        return;
-      }
-
-      try {
-        const importedItems = await buildImageItemsFromPayload({
-          payload,
-          group: activeGroup,
-          viewportWidth: window.innerWidth,
-          viewportHeight: window.innerHeight,
-          resolveRemoteUrl: async (url) =>
-            window.desktopApi.import.fetchRemoteImageDataUrl({ url }),
-        });
-
-        if (importedItems.length === 0) {
-          pushToast("info", "No importable images found.");
-          return;
-        }
-
-        runHistoryBatch(() => {
-          addGroupItems(activeGroup.id, importedItems);
-          setSelectedItemIds(importedItems.map((item) => item.id));
-
-          const viewportWidth = Math.max(520, viewportSize.width);
-          const viewportHeight = Math.max(380, viewportSize.height);
-          const anchorViewportX =
-            options?.dropViewportPoint?.x ?? viewportWidth * 0.5;
-          const anchorViewportY =
-            options?.dropViewportPoint?.y ?? viewportHeight * 0.5;
-          const anchorWorldX =
-            (anchorViewportX - activeGroup.panX) / activeGroup.zoom;
-          const anchorWorldY =
-            (anchorViewportY - activeGroup.panY) / activeGroup.zoom;
-
-          const maxExistingZ = activeGroup.items.reduce(
-            (acc, item) => Math.max(acc, item.zIndex),
-            -1,
-          );
-          const importedWithRaisedZ = importedItems.map((item, index) => ({
-            ...item,
-            zIndex: maxExistingZ + index + 1,
-          }));
-
-          const importUpdates: Record<string, ImagePatch> = autoArrangeOnImport
-            ? buildAutoArrangeUpdates(
-                [...activeGroup.items, ...importedWithRaisedZ],
-                activeGroup.canvasSize.width,
-              )
-            : (() => {
-                const firstItem = importedWithRaisedZ[0];
-                const shiftX = anchorWorldX - firstItem.x - firstItem.width * 0.5;
-                const shiftY = anchorWorldY - firstItem.y - firstItem.height * 0.5;
-
-                return Object.fromEntries(
-                  importedWithRaisedZ.map((item, index) => [
-                    item.id,
-                    {
-                      x: Math.round(item.x + shiftX),
-                      y: Math.round(item.y + shiftY),
-                      visible: true,
-                      zIndex: maxExistingZ + index + 1,
-                    },
-                  ]),
-                ) as Record<string, ImagePatch>;
-              })();
-
-          patchGroupItems(activeGroup.id, importUpdates);
-
-          const nextItems = [
-            ...activeGroup.items.map((item) => ({
-              ...item,
-              ...importUpdates[item.id],
-            })),
-            ...importedWithRaisedZ.map((item) => ({
-              ...item,
-              ...importUpdates[item.id],
-            })),
-          ];
-
-          setLastImportedItemIds(importedItems.map((item) => item.id));
-
-          ensureCanvasFitsItems(
-            activeGroup.id,
-            nextItems,
-            activeGroup.canvasSize,
-            {
-              zoom: activeGroup.zoom,
-              panX: activeGroup.panX,
-              panY: activeGroup.panY,
-            },
-          );
-        });
-
-        const blockedItemIds = importedItems
-          .filter((item) => item.previewStatus === "blocked")
-          .map((item) => item.id);
-        const blockedCount = blockedItemIds.length;
-
-        setImportQueue((previous) =>
-          [
-            {
-              id: crypto.randomUUID(),
-              source: payload.source,
-              groupId: activeGroup.id,
-              importedCount: importedItems.length,
-              blockedItemIds,
-              createdAt: new Date().toISOString(),
-            },
-            ...previous,
-          ].slice(0, 12),
-        );
-
-        if (blockedCount > 0) {
-          pushToast(
-            "info",
-            `Imported ${importedItems.length} item(s); ${blockedCount} remote preview(s) blocked.`,
-          );
-        } else {
-          pushToast("success", `Imported ${importedItems.length} image item(s).`);
-        }
-      } catch (error) {
-        console.error("Image import failed", error);
-        pushToast("error", "Image import failed.");
-      }
-    },
-    [
-      activeGroup,
-      addGroupItems,
-      autoArrangeOnImport,
-      buildAutoArrangeUpdates,
-      ensureCanvasFitsItems,
-      patchGroupItems,
-      pushToast,
-      setImportQueue,
-      setLastImportedItemIds,
-      setSelectedItemIds,
-      viewportSize.height,
-      viewportSize.width,
-      runHistoryBatch,
-    ],
-  );
-
-  const retryImportEntry = useCallback(
-    async (entryId: string) => {
-      const entry = importQueue.find((candidate) => candidate.id === entryId);
-
-      if (!entry || entry.blockedItemIds.length === 0) {
-        pushToast("info", "No blocked previews to retry.");
-        return;
-      }
-
-      const nextProject = structuredClone(project);
-      const targetGroup = nextProject.groups.find(
-        (group) => group.id === entry.groupId,
-      );
-
-      if (!targetGroup) {
-        pushToast("error", "Target group not found for retry.");
-        return;
-      }
-
-      let recoveredCount = 0;
-
-      for (const itemId of entry.blockedItemIds) {
-        const targetItem = targetGroup.items.find(
-          (item): item is ImageItem =>
-            item.type === "image" && item.id === itemId,
-        );
-
-        if (!targetItem || targetItem.previewStatus !== "blocked") {
-          continue;
-        }
-
-        if (!targetItem.assetPath || !/^https?:\/\//i.test(targetItem.assetPath)) {
-          continue;
-        }
-
-        const dataUrl = await window.desktopApi.import.fetchRemoteImageDataUrl({
-          url: targetItem.assetPath,
-        });
-
-        if (!dataUrl) {
-          continue;
-        }
-
-        try {
-          const measured = await measureImageSize(dataUrl);
-          const size = normalizePreviewSize(measured.width, measured.height);
-          const swatches = await extractImageSwatches(dataUrl);
-
-          targetItem.assetPath = dataUrl;
-          targetItem.previewStatus = "ready";
-          targetItem.label = stripBlockedSuffix(targetItem.label);
-          targetItem.originalWidth = measured.width;
-          targetItem.originalHeight = measured.height;
-          targetItem.fileSizeBytes = getDataUrlByteLength(dataUrl) ?? undefined;
-          targetItem.format =
-            targetItem.format ??
-            inferImageFormatLabel(targetItem.assetPath) ??
-            inferImageFormatLabel(dataUrl) ??
-            undefined;
-          targetItem.width = size.width;
-          targetItem.height = size.height;
-          targetItem.swatchHex = swatches[0]?.colorHex;
-          targetItem.swatches = swatches;
-          recoveredCount += 1;
-        } catch {
-          continue;
-        }
-      }
-
-      if (recoveredCount > 0) {
-        nextProject.updatedAt = new Date().toISOString();
-        setProject(nextProject);
-      }
-
-      const refreshedGroup = nextProject.groups.find(
-        (group) => group.id === entry.groupId,
-      );
-
-      const remainingBlockedIds =
-        refreshedGroup?.items
-          .filter(
-            (item): item is ImageItem =>
-              item.type === "image" &&
-              entry.blockedItemIds.includes(item.id) &&
-              item.previewStatus === "blocked",
-          )
-          .map((item) => item.id) ?? [];
-
-      setImportQueue((previous) =>
-        previous.map((candidate) =>
-          candidate.id === entryId
-            ? { ...candidate, blockedItemIds: remainingBlockedIds }
-            : candidate,
-        ),
-      );
-
-      if (recoveredCount > 0) {
-        pushToast("success", `Recovered ${recoveredCount} blocked preview(s).`);
-      } else {
-        pushToast("info", "Retry complete. No additional previews recovered.");
-      }
-    },
-    [importQueue, project, pushToast, setProject, setImportQueue],
-  );
-
-  const copySelectedItemsToClipboard = useCallback(() => {
-    if (!activeGroup || selectedItemIds.length === 0) {
-      pushToast("info", "No selected items to copy.");
-      return;
-    }
-
-    const selectedItems = activeGroup.items
-      .filter((item) => selectedItemIds.includes(item.id))
-      .sort((left, right) => left.zIndex - right.zIndex);
-
-    if (selectedItems.length === 0) {
-      pushToast("info", "No selected items to copy.");
-      return;
-    }
-
-    setClipboardItems(structuredClone(selectedItems));
-    pushToast("success", `Copied ${selectedItems.length} item(s) to clipboard.`);
-  }, [
-    activeGroup,
+  const { saveProject, saveProjectAs, openProject } = useWorkspaceFileActions({
+    project,
+    setProject,
+    refreshRecents,
     pushToast,
-    selectedItemIds,
-    setClipboardItems,
-  ]);
-
-  const cutSelectedItems = useCallback(() => {
-    if (!activeGroup || selectedItemIds.length === 0) {
-      pushToast("info", "No selected items to cut.");
-      return;
-    }
-
-    if (activeGroup.locked) {
-      pushToast("info", "Canvas is locked.");
-      return;
-    }
-
-    const selectedItems = activeGroup.items
-      .filter((item) => selectedItemIds.includes(item.id))
-      .sort((left, right) => left.zIndex - right.zIndex);
-
-    if (selectedItems.length === 0) {
-      pushToast("info", "No selected items to cut.");
-      return;
-    }
-
-    setClipboardItems(structuredClone(selectedItems));
-    runHistoryBatch(() => {
-      removeGroupItems(activeGroup.id, selectedItemIds);
-      setSelectedItemIds([]);
-    });
-    pushToast("success", "Selected item(s) cut.");
-  }, [
-    activeGroup,
-    pushToast,
-    removeGroupItems,
-    runHistoryBatch,
-    selectedItemIds,
-    setClipboardItems,
     setSelectedItemIds,
-  ]);
+  });
 
-  const pasteClipboardItems = useCallback(() => {
-    if (!activeGroup || clipboardItems.length === 0) {
-      pushToast("info", "Clipboard is empty.");
-      return;
-    }
-
-    if (activeGroup.locked) {
-      pushToast("info", "Canvas is locked.");
-      return;
-    }
-
-    const maxExistingZ = activeGroup.items.reduce(
-      (acc, item) => Math.max(acc, item.zIndex),
-      -1,
-    );
-
-    const duplicates = clipboardItems.map((item, index) => ({
-      ...structuredClone(item),
-      id: crypto.randomUUID(),
-      x: item.x + 24,
-      y: item.y + 24,
-      zIndex: maxExistingZ + index + 1,
-    }));
-
-    runHistoryBatch(() => {
-      addGroupItems(activeGroup.id, duplicates);
-      setSelectedItemIds(duplicates.map((item) => item.id));
-      ensureCanvasFitsItems(
-        activeGroup.id,
-        [...activeGroup.items, ...duplicates],
-        activeGroup.canvasSize,
-        {
-          zoom: activeGroup.zoom,
-          panX: activeGroup.panX,
-          panY: activeGroup.panY,
-        },
-      );
-    });
-
-    pushToast("success", `Pasted ${duplicates.length} item(s).`);
-  }, [
+  const {
+    importVisibilitySnapshot,
+    importFromPayload,
+    retryImportEntry,
+    handleShellDragOver,
+    handleShellDrop,
+  } = useWorkspaceImportActions({
+    project,
     activeGroup,
+    autoArrangeOnImport,
+    viewportSize,
+    lastImportedItemIds,
+    importQueue,
     addGroupItems,
+    patchGroupItems,
+    setProject,
+    setImportQueue,
+    setSelectedItemIds,
+    setLastImportedItemIds,
+    pushToast,
+    runHistoryBatch,
+    ensureCanvasFitsItems,
+  });
+
+  const {
+    copySelectedItemsToClipboard,
+    cutSelectedItems,
+    pasteClipboardItems,
+    deleteSelectedItems,
+    flipSelectedItemsHorizontally,
+    applyCropToSelectedImage,
+  } = useWorkspaceClipboardActions({
+    activeGroup,
     clipboardItems,
-    ensureCanvasFitsItems,
-    pushToast,
-    runHistoryBatch,
-    setSelectedItemIds,
-  ]);
-
-  const deleteSelectedItems = useCallback(() => {
-    if (!activeGroup || selectedItemIds.length === 0) {
-      pushToast("info", "No selected images to delete.");
-      return;
-    }
-
-    if (activeGroup.locked) {
-      pushToast("info", "Canvas is locked.");
-      return;
-    }
-
-    runHistoryBatch(() => {
-      removeGroupItems(activeGroup.id, selectedItemIds);
-      setSelectedItemIds([]);
-    });
-    pushToast("success", "Selected image(s) deleted.");
-  }, [
-    activeGroup,
-    pushToast,
-    removeGroupItems,
-    runHistoryBatch,
     selectedItemIds,
-    setSelectedItemIds,
-  ]);
-
-  const flipSelectedItemsHorizontally = useCallback(() => {
-    if (!activeGroup || selectedItemIds.length === 0) {
-      pushToast("info", "No selected images to flip.");
-      return;
-    }
-
-    if (activeGroup.locked) {
-      pushToast("info", "Canvas is locked.");
-      return;
-    }
-
-    runHistoryBatch(() => {
-      flipItems(activeGroup.id, selectedItemIds);
-    });
-    pushToast("success", "Selected image(s) flipped horizontally.");
-  }, [activeGroup, flipItems, pushToast, runHistoryBatch, selectedItemIds]);
-
-  const applyCropToSelectedImage = useCallback(
-    (cropRect: { left: number; top: number; right: number; bottom: number }) => {
-      if (!activeGroup || selectedItemIds.length !== 1) {
-        pushToast("info", "Select exactly one image to crop.");
-        return;
-      }
-
-      if (activeGroup.locked) {
-        pushToast("info", "Canvas is locked.");
-        return;
-      }
-
-      const targetItem = activeGroup.items.find(
-        (item): item is ImageItem =>
-          item.id === selectedItemIds[0] && item.type === "image",
-      );
-
-      if (!targetItem) {
-        pushToast("info", "Select exactly one image to crop.");
-        return;
-      }
-
-      const safeScaleX =
-        Number.isFinite(targetItem.scaleX) && targetItem.scaleX !== 0
-          ? Math.abs(targetItem.scaleX)
-          : 1;
-      const safeScaleY =
-        Number.isFinite(targetItem.scaleY) && targetItem.scaleY !== 0
-          ? Math.abs(targetItem.scaleY)
-          : 1;
-      const currentCropX = targetItem.cropX ?? 0;
-      const currentCropY = targetItem.cropY ?? 0;
-      const currentCropWidth =
-        targetItem.cropWidth ?? targetItem.originalWidth ?? targetItem.width;
-      const currentCropHeight =
-        targetItem.cropHeight ?? targetItem.originalHeight ?? targetItem.height;
-      const normalizedLeft = Math.max(0, Math.min(cropRect.left, 0.98));
-      const normalizedTop = Math.max(0, Math.min(cropRect.top, 0.98));
-      const normalizedRight = Math.max(
-        normalizedLeft + 0.02,
-        Math.min(1, cropRect.right),
-      );
-      const normalizedBottom = Math.max(
-        normalizedTop + 0.02,
-        Math.min(1, cropRect.bottom),
-      );
-      const nextCropWidth = Math.max(
-        1,
-        Math.round((normalizedRight - normalizedLeft) * currentCropWidth),
-      );
-      const nextCropHeight = Math.max(
-        1,
-        Math.round((normalizedBottom - normalizedTop) * currentCropHeight),
-      );
-      const nextCropX = Math.round(
-        currentCropX +
-          (targetItem.flippedX ? 1 - normalizedRight : normalizedLeft) *
-            currentCropWidth,
-      );
-      const nextCropY = Math.round(currentCropY + normalizedTop * currentCropHeight);
-
-      const visualWidth = targetItem.width * safeScaleX;
-      const visualHeight = targetItem.height * safeScaleY;
-      const visualMinX = targetItem.x;
-      const visualMinY = targetItem.y;
-      const nextVisualMinX = visualMinX + normalizedLeft * visualWidth;
-      const nextVisualMinY = visualMinY + normalizedTop * visualHeight;
-      const nextVisualWidth = (normalizedRight - normalizedLeft) * visualWidth;
-      const nextWidth = Math.max(12, Math.round(nextVisualWidth / safeScaleX));
-      const nextHeight = Math.max(
-        12,
-        Math.round(((normalizedBottom - normalizedTop) * visualHeight) / safeScaleY),
-      );
-      const nextX = Math.round(nextVisualMinX);
-      const nextY = Math.round(nextVisualMinY);
-
-      runHistoryBatch(() => {
-        patchGroupItems(activeGroup.id, {
-          [targetItem.id]: {
-            x: nextX,
-            y: nextY,
-            width: nextWidth,
-            height: nextHeight,
-            cropX: nextCropX,
-            cropY: nextCropY,
-            cropWidth: nextCropWidth,
-            cropHeight: nextCropHeight,
-          },
-        });
-      });
-
-      pushToast("success", "Image cropped.");
-    },
-    [activeGroup, patchGroupItems, pushToast, runHistoryBatch, selectedItemIds],
-  );
-
-  const handleBoardViewChange = useCallback(
-    (zoom: number, panX: number, panY: number) => {
-      if (!activeGroupId) {
-        return;
-      }
-
-      setGroupView(activeGroupId, zoom, panX, panY);
-    },
-    [activeGroupId, setGroupView],
-  );
-
-  const handleBoardItemsPatch = useCallback(
-    (updates: Record<string, ImagePatch>) => {
-      if (!activeGroupId) {
-        return;
-      }
-
-      if (activeGroup?.locked) {
-        pushToast("info", "Canvas is locked.");
-        return;
-      }
-
-      runHistoryBatch(() => {
-        patchGroupItems(activeGroupId, updates);
-
-        if (activeGroup) {
-          const nextItems = activeGroup.items.map((item) => ({
-            ...item,
-            ...updates[item.id],
-          }));
-          ensureCanvasFitsItems(activeGroupId, nextItems, activeGroup.canvasSize, {
-            zoom: activeGroup.zoom,
-            panX: activeGroup.panX,
-            panY: activeGroup.panY,
-          });
-        }
-      });
-    },
-    [activeGroup, activeGroupId, ensureCanvasFitsItems, patchGroupItems, runHistoryBatch],
-  );
-
-  const handleShellDragOver = useCallback((event: DragEvent) => {
-    event.preventDefault();
-  }, []);
-
-  const handleShellDrop = useCallback(
-    (event: DragEvent) => {
-      event.preventDefault();
-      const payload = collectDropPayload(event.nativeEvent);
-      void importFromPayload(payload);
-    },
-    [importFromPayload],
-  );
-
-  const resetView = useCallback(() => {
-    if (!activeGroup) {
-      return;
-    }
-
-    const fittedCanvas = fitCanvasToItems(activeGroup);
-    if (fittedCanvas) {
-      runHistoryBatch(() => {
-        patchGroupItems(activeGroup.id, fittedCanvas.updates);
-        setGroupCanvasSize(
-          activeGroup.id,
-          fittedCanvas.canvasSize.width,
-          fittedCanvas.canvasSize.height,
-        );
-      });
-
-      requestAnimationFrame(() => {
-        focusGroupOnItems(
-          activeGroup.id,
-          [
-            {
-              x: 0,
-              y: 0,
-              width: fittedCanvas.canvasSize.width,
-              height: fittedCanvas.canvasSize.height,
-            },
-          ],
-          fittedCanvas.canvasSize,
-        );
-      });
-      return;
-    }
-
-    runHistoryBatch(() => {
-      setGroupCanvasSize(
-        activeGroup.id,
-        DEFAULT_EMPTY_GROUP_CANVAS_SIZE.width,
-        DEFAULT_EMPTY_GROUP_CANVAS_SIZE.height,
-      );
-    });
-
-    focusGroupOnItems(
-      activeGroup.id,
-      [
-        {
-          x: 0,
-          y: 0,
-          width: DEFAULT_EMPTY_GROUP_CANVAS_SIZE.width,
-          height: DEFAULT_EMPTY_GROUP_CANVAS_SIZE.height,
-        },
-      ],
-      DEFAULT_EMPTY_GROUP_CANVAS_SIZE,
-    );
-  }, [
-    activeGroup,
-    fitCanvasToItems,
-    focusGroupOnItems,
+    addGroupItems,
+    removeGroupItems,
     patchGroupItems,
+    flipItems,
+    setClipboardItems,
+    setSelectedItemIds,
+    pushToast,
     runHistoryBatch,
-    setGroupCanvasSize,
-  ]);
-
-  const changeCanvasSize = useCallback(
-    (width: number, height: number) => {
-      if (!activeGroup) {
-        return;
-      }
-
-      const nextWidth = Math.max(MIN_CANVAS_WIDTH, Math.round(width));
-      const nextHeight = Math.max(MIN_CANVAS_HEIGHT, Math.round(height));
-
-      runHistoryBatch(() => {
-        setGroupCanvasSize(activeGroup.id, nextWidth, nextHeight);
-      });
-
-      pushToast("success", `Canvas resized to ${nextWidth} x ${nextHeight}.`);
-    },
-    [activeGroup, pushToast, runHistoryBatch, setGroupCanvasSize],
-  );
-
-  const toggleCanvasLock = useCallback(() => {
-    if (!activeGroup) {
-      return;
-    }
-
-    const nextLocked = !activeGroup.locked;
-    runHistoryBatch(() => {
-      setGroupLocked(activeGroup.id, nextLocked);
-    });
-    pushToast(
-      "success",
-      nextLocked ? "Canvas locked." : "Canvas unlocked.",
-    );
-  }, [activeGroup, pushToast, runHistoryBatch, setGroupLocked]);
-
-  const changeCanvasColors = useCallback(
-    (canvasColor: string, backgroundColor: string) => {
-      if (!activeGroup) {
-        return;
-      }
-
-      runHistoryBatch(() => {
-        setGroupColors(activeGroup.id, {
-          canvasColor,
-          backgroundColor,
-        });
-      });
-
-      pushToast("success", "Canvas colors updated.");
-    },
-    [activeGroup, pushToast, runHistoryBatch, setGroupColors],
-  );
-
-  const resetCanvasColors = useCallback(() => {
-    if (!activeGroup) {
-      return;
-    }
-
-    runHistoryBatch(() => {
-      setGroupColors(activeGroup.id, {
-        canvasColor: DEFAULT_GROUP_CANVAS_COLOR,
-        backgroundColor: DEFAULT_GROUP_BACKGROUND_COLOR,
-      });
-    });
-
-    pushToast("success", "Canvas colors reset.");
-  }, [activeGroup, pushToast, runHistoryBatch, setGroupColors]);
-
-  const arrangeSelectedItems = useCallback(
-    (mode: LayoutMode) => {
-      if (!activeGroup || selectedItemIds.length === 0) {
-        pushToast("info", "No selected items to arrange.");
-        return;
-      }
-
-      const selectedItems = activeGroup.items
-        .filter((item) => selectedItemIds.includes(item.id))
-        .sort((left, right) => left.zIndex - right.zIndex);
-
-      if (selectedItems.length === 0) {
-        pushToast("info", "No selected items to arrange.");
-        return;
-      }
-
-      const anchorX = Math.min(...selectedItems.map((item) => item.x));
-      const anchorY = Math.min(...selectedItems.map((item) => item.y));
-      const gap = SNAP_GAP;
-      const updates: Record<string, ImagePatch> = {};
-
-      if (mode === "horizontal") {
-        let cursorX = anchorX;
-        selectedItems.forEach((item) => {
-          updates[item.id] = {
-            x: Math.round(cursorX),
-            y: Math.round(anchorY),
-          };
-          cursorX += item.width + gap;
-        });
-      } else {
-        const columnCount = Math.min(4, Math.max(2, Math.ceil(Math.sqrt(selectedItems.length))));
-        const columnWidth = Math.max(...selectedItems.map((item) => item.width)) + gap;
-        const columnHeights = Array.from({ length: columnCount }, () => anchorY);
-
-        selectedItems.forEach((item) => {
-          let columnIndex = 0;
-          for (let index = 1; index < columnHeights.length; index += 1) {
-            if (columnHeights[index] < columnHeights[columnIndex]) {
-              columnIndex = index;
-            }
-          }
-
-          updates[item.id] = {
-            x: Math.round(anchorX + columnIndex * columnWidth),
-            y: Math.round(columnHeights[columnIndex]),
-          };
-          columnHeights[columnIndex] += item.height + gap;
-        });
-      }
-
-      runHistoryBatch(() => {
-        patchGroupItems(activeGroup.id, updates);
-
-        const nextItems = activeGroup.items.map((item) => ({
-          ...item,
-          ...updates[item.id],
-        }));
-        ensureCanvasFitsItems(activeGroup.id, nextItems, activeGroup.canvasSize, {
-          zoom: activeGroup.zoom,
-          panX: activeGroup.panX,
-          panY: activeGroup.panY,
-        });
-      });
-
-      pushToast(
-        "success",
-        mode === "horizontal"
-          ? "Selected items arranged horizontally."
-          : "Selected items arranged in Pinterest layout.",
-      );
-    },
-    [
-      activeGroup,
-      ensureCanvasFitsItems,
-      patchGroupItems,
-      pushToast,
-      runHistoryBatch,
-      selectedItemIds,
-    ],
-  );
-
-  const autoArrange = useCallback(() => {
-    if (!activeGroup) {
-      return;
-    }
-
-    const visibleItems = activeGroup.items
-      .filter((item) => item.visible)
-      .sort((left, right) => left.zIndex - right.zIndex);
-
-    if (visibleItems.length === 0) {
-      pushToast("info", "Nothing to arrange.");
-      return;
-    }
-
-    const updates = buildAutoArrangeUpdates(
-      visibleItems,
-      activeGroup.canvasSize.width,
-    );
-
-    runHistoryBatch(() => {
-      patchGroupItems(activeGroup.id, updates);
-
-      const nextItems = activeGroup.items.map((item) => ({
-        ...item,
-        ...updates[item.id],
-      }));
-
-      ensureCanvasFitsItems(
-        activeGroup.id,
-        nextItems,
-        activeGroup.canvasSize,
-        {
-          zoom: activeGroup.zoom,
-          panX: activeGroup.panX,
-          panY: activeGroup.panY,
-        },
-      );
-    });
-
-    pushToast("success", "Items arranged across the canvas.");
-  }, [
-    activeGroup,
-    buildAutoArrangeUpdates,
     ensureCanvasFitsItems,
+  });
+
+  const {
+    handleBoardViewChange,
+    handleBoardItemsPatch,
+    resetView,
+    changeCanvasSize,
+    toggleCanvasLock,
+    changeCanvasColors,
+    resetCanvasColors,
+  } = useWorkspaceViewActions({
+    activeGroup,
+    activeGroupId,
+    setGroupView,
+    patchGroupItems,
+    setGroupCanvasSize,
+    setGroupColors,
+    setGroupLocked,
+    pushToast,
+    runHistoryBatch,
+    focusGroupOnItems,
+    ensureCanvasFitsItems,
+  });
+
+  const { arrangeSelectedItems, autoArrange } = useWorkspaceLayoutActions({
+    activeGroup,
+    selectedItemIds,
     patchGroupItems,
     pushToast,
     runHistoryBatch,
-  ]);
+    ensureCanvasFitsItems,
+  });
 
   return {
     importVisibilitySnapshot,

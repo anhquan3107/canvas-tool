@@ -5,22 +5,24 @@ import { formatDateLabel } from "@renderer/features/tasks/utils";
 
 interface TaskDialogProps {
   open: boolean;
+  mode?: "create" | "edit";
   draftTaskTitle: string;
   taskDates: TaskDateRange;
   taskDuration: number;
   onClose: () => void;
-  onCreateTask: () => void;
+  onSubmitTask: () => void;
   onDraftTaskTitleChange: Dispatch<SetStateAction<string>>;
   onTaskDatesChange: Dispatch<SetStateAction<TaskDateRange>>;
 }
 
 export const TaskDialog = ({
   open,
+  mode = "create",
   draftTaskTitle,
   taskDates,
   taskDuration,
   onClose,
-  onCreateTask,
+  onSubmitTask,
   onDraftTaskTitleChange,
   onTaskDatesChange,
 }: TaskDialogProps) => {
@@ -29,7 +31,10 @@ export const TaskDialog = ({
   }
 
   return (
-    <DialogFrame title="Set Deadline" onClose={onClose}>
+    <DialogFrame
+      title={mode === "edit" ? "Edit Task Deadline" : "Set Deadline"}
+      onClose={onClose}
+    >
       <div className="dialog-field">
         <label htmlFor="task-title">Task Title:</label>
         <input
@@ -83,9 +88,9 @@ export const TaskDialog = ({
         <button
           type="button"
           className="dialog-button primary"
-          onClick={onCreateTask}
+          onClick={onSubmitTask}
         >
-          OK
+          {mode === "edit" ? "Save" : "OK"}
         </button>
         <button type="button" className="dialog-button" onClick={onClose}>
           Cancel

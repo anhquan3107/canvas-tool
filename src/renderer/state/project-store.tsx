@@ -3,676 +3,20 @@ import {
   useCallback,
   useMemo,
   useReducer,
-  type Dispatch,
   type ReactNode,
 } from "react";
 import type {
   AnnotationStroke,
   CanvasItem,
-  CanvasItemBase,
   GroupFilters,
   Project,
   ReferenceGroup,
   Task,
-  TodoItem,
 } from "@shared/types/project";
-import {
-  DEFAULT_EMPTY_GROUP_CANVAS_SIZE,
-  DEFAULT_GROUP_BACKGROUND_COLOR,
-  DEFAULT_GROUP_CANVAS_COLOR,
-} from "@shared/project-defaults";
+import { historyReducer } from "@renderer/state/project-store-reducer";
+import type { CanvasItemPatch, Store } from "@renderer/state/project-store-types";
 
 const randomUUID = () => crypto.randomUUID();
-type CanvasItemPatch = Partial<Omit<CanvasItemBase, "id" | "type">>;
-
-type Action =
-  | { type: "set-project"; payload: Project }
-  | { type: "undo" }
-  | { type: "redo" }
-  | { type: "begin-history-batch" }
-  | { type: "end-history-batch" }
-  | { type: "set-active-group"; payload: string }
-  | {
-      type: "set-group-view";
-      payload: { groupId: string; zoom: number; panX: number; panY: number };
-    }
-  | {
-      type: "patch-group-items";
-      payload: { groupId: string; updates: Record<string, CanvasItemPatch> };
-    }
-  | {
-      type: "add-group-items";
-      payload: { groupId: string; items: CanvasItem[] };
-    }
-  | {
-      type: "remove-group-items";
-      payload: { groupId: string; itemIds: string[] };
-    }
-  | { type: "add-group"; payload: { name: string } }
-  | { type: "rename-group"; payload: { groupId: string; name: string } }
-  | { type: "remove-group"; payload: { groupId: string } }
-  | {
-      type: "set-group-filters";
-      payload: { groupId: string; filters: Partial<GroupFilters> };
-    }
-  | {
-      type: "set-group-canvas-size";
-      payload: { groupId: string; width: number; height: number };
-    }
-  | {
-      type: "set-group-colors";
-      payload: {
-        groupId: string;
-        colors: Partial<Pick<ReferenceGroup, "canvasColor" | "backgroundColor">>;
-      };
-    }
-  | {
-      type: "set-group-locked";
-      payload: { groupId: string; locked: boolean };
-    }
-  | {
-      type: "set-group-annotations";
-      payload: { groupId: string; annotations: AnnotationStroke[] };
-    }
-  | { type: "flip-items"; payload: { groupId: string; itemIds: string[] } }
-  | {
-      type: "add-task";
-      payload: { id: string; title: string; startDate: string; endDate: string };
-    }
-  | { type: "remove-task"; payload: { taskId: string } }
-  | { type: "add-todo"; payload: { taskId: string; text: string } }
-  | { type: "toggle-todo"; payload: { taskId: string; todoId: string } }
-  | {
-      type: "rename-todo";
-      payload: { taskId: string; todoId: string; text: string };
-    }
-  | {
-      type: "reorder-todo";
-      payload: { taskId: string; sourceIndex: number; targetIndex: number };
-    };
-
-interface Store {
-  project: Project;
-  canUndo: boolean;
-  canRedo: boolean;
-  dispatch: Dispatch<Action>;
-  setProject: (project: Project) => void;
-  undo: () => void;
-  redo: () => void;
-  runHistoryBatch: (callback: () => void) => void;
-  setActiveGroup: (groupId: string) => void;
-  setGroupView: (
-    groupId: string,
-    zoom: number,
-    panX: number,
-    panY: number,
-  ) => void;
-  patchGroupItems: (
-    groupId: string,
-    updates: Record<string, CanvasItemPatch>,
-  ) => void;
-  addGroupItems: (groupId: string, items: CanvasItem[]) => void;
-  removeGroupItems: (groupId: string, itemIds: string[]) => void;
-  addGroup: (name: string) => void;
-  renameGroup: (groupId: string, name: string) => void;
-  removeGroup: (groupId: string) => void;
-  setGroupFilters: (groupId: string, filters: Partial<GroupFilters>) => void;
-  setGroupCanvasSize: (groupId: string, width: number, height: number) => void;
-  setGroupColors: (
-    groupId: string,
-    colors: Partial<Pick<ReferenceGroup, "canvasColor" | "backgroundColor">>,
-  ) => void;
-  setGroupLocked: (groupId: string, locked: boolean) => void;
-  setGroupAnnotations: (
-    groupId: string,
-    annotations: AnnotationStroke[],
-  ) => void;
-  flipItems: (groupId: string, itemIds: string[]) => void;
-  addTask: (title: string, dates: Pick<Task, "startDate" | "endDate">) => string;
-  removeTask: (taskId: string) => void;
-  addTodo: (taskId: string, text: string) => void;
-  toggleTodo: (taskId: string, todoId: string) => void;
-  renameTodo: (taskId: string, todoId: string, text: string) => void;
-  reorderTodo: (
-    taskId: string,
-    sourceIndex: number,
-    targetIndex: number,
-  ) => void;
-}
-
-interface HistoryState {
-  past: Project[];
-  project: Project;
-  future: Project[];
-  batchBase: Project | null;
-}
-
-const now = () => new Date().toISOString();
-const MAX_HISTORY_ENTRIES = 100;
-const cloneProject = (project: Project) => structuredClone(project);
-const projectHistorySignature = (project: Project) =>
-  JSON.stringify({
-    ...project,
-    updatedAt: undefined,
-  });
-
-const touchProject = (project: Project): Project => ({
-  ...project,
-  updatedAt: now(),
-});
-
-const reorderTodos = (todos: TodoItem[]) =>
-  todos.map((todo, index) => ({ ...todo, order: index }));
-
-const createEmptyGroup = (
-  name: string,
-  order: number,
-  canvasSize: Project["canvasSize"],
-  kind: ReferenceGroup["kind"] = "group",
-): ReferenceGroup => ({
-  id: randomUUID(),
-  name,
-  kind,
-  order,
-  locked: false,
-  canvasColor: DEFAULT_GROUP_CANVAS_COLOR,
-  backgroundColor: DEFAULT_GROUP_BACKGROUND_COLOR,
-  canvasSize: { ...canvasSize },
-  zoom: 1,
-  panX: 0,
-  panY: 0,
-  layoutMode: "pinterest-dynamic",
-  filters: {
-    blur: 0,
-    grayscale: 0,
-  },
-  items: [],
-  annotations: [],
-  extractedSwatches: [],
-});
-
-const cloneGroupSnapshot = (
-  sourceGroup: ReferenceGroup,
-  name: string,
-  order: number,
-): ReferenceGroup => ({
-  ...structuredClone(sourceGroup),
-  id: randomUUID(),
-  name,
-  kind: "group",
-  order,
-});
-
-const projectReducer = (project: Project, action: Action): Project => {
-  switch (action.type) {
-    case "set-project":
-      return action.payload;
-    case "undo":
-    case "redo":
-    case "begin-history-batch":
-    case "end-history-batch":
-      return project;
-    case "set-active-group":
-      return touchProject({
-        ...project,
-        activeGroupId: action.payload,
-      });
-    case "set-group-view":
-      return touchProject({
-        ...project,
-        groups: project.groups.map((group) =>
-          group.id === action.payload.groupId
-            ? {
-                ...group,
-                zoom: action.payload.zoom,
-                panX: action.payload.panX,
-                panY: action.payload.panY,
-              }
-            : group,
-        ),
-      });
-    case "patch-group-items":
-      return touchProject({
-        ...project,
-        groups: project.groups.map((group) => {
-          if (group.id !== action.payload.groupId) {
-            return group;
-          }
-
-          return {
-            ...group,
-            items: group.items.map((item) => {
-              const patch = action.payload.updates[item.id];
-              return patch ? { ...item, ...patch } : item;
-            }),
-          };
-        }),
-      });
-    case "add-group-items":
-      return touchProject({
-        ...project,
-        groups: project.groups.map((group) => {
-          if (group.id !== action.payload.groupId) {
-            return group;
-          }
-
-          return {
-            ...group,
-            items: [...group.items, ...action.payload.items],
-          };
-        }),
-      });
-    case "remove-group-items": {
-      const removed = new Set(action.payload.itemIds);
-
-      return touchProject({
-        ...project,
-        groups: project.groups.map((group) => {
-          if (group.id !== action.payload.groupId) {
-            return group;
-          }
-
-          return {
-            ...group,
-            items: group.items.filter((item) => !removed.has(item.id)),
-          };
-        }),
-      });
-    }
-    case "add-group": {
-      const canvasGroup =
-        project.groups.find((group) => group.kind === "canvas") ?? project.groups[0];
-      const sourceGroup =
-        project.groups.find((group) => group.id === project.activeGroupId) ??
-        canvasGroup;
-      if (!canvasGroup || !sourceGroup) {
-        return project;
-      }
-
-      const snapshotGroup = cloneGroupSnapshot(
-        sourceGroup,
-        action.payload.name ||
-          `Group ${project.groups.filter((group) => group.kind === "group").length + 1}`,
-        project.groups.length,
-      );
-      const resetCanvasGroup = createEmptyGroup(
-        canvasGroup.name,
-        canvasGroup.order,
-        DEFAULT_EMPTY_GROUP_CANVAS_SIZE,
-        "canvas",
-      );
-      resetCanvasGroup.id = canvasGroup.id;
-
-      return touchProject({
-        ...project,
-        activeGroupId: canvasGroup.id,
-        groups: project.groups
-          .map((group) => (group.id === canvasGroup.id ? resetCanvasGroup : group))
-          .concat(snapshotGroup)
-          .map((group, index) => ({
-            ...group,
-            order: index,
-          })),
-      });
-    }
-    case "rename-group":
-      return touchProject({
-        ...project,
-        groups: project.groups.map((group) =>
-          group.id === action.payload.groupId
-            ? {
-                ...group,
-                name: action.payload.name,
-              }
-            : group,
-        ),
-      });
-    case "remove-group": {
-      const targetGroup = project.groups.find(
-        (group) => group.id === action.payload.groupId,
-      );
-      if (!targetGroup || targetGroup.kind === "canvas") {
-        return project;
-      }
-
-      const removedIndex = project.groups.findIndex(
-        (group) => group.id === action.payload.groupId,
-      );
-      if (removedIndex < 0) {
-        return project;
-      }
-
-      const nextGroups = project.groups
-        .filter((group) => group.id !== action.payload.groupId)
-        .map((group, index) => ({
-          ...group,
-          order: index,
-        }));
-      const canvasGroup =
-        nextGroups.find((group) => group.kind === "canvas") ?? nextGroups[0];
-
-      return touchProject({
-        ...project,
-        activeGroupId:
-          project.activeGroupId === action.payload.groupId
-            ? canvasGroup.id
-            : project.activeGroupId,
-        groups: nextGroups,
-      });
-    }
-    case "set-group-filters":
-      return touchProject({
-        ...project,
-        groups: project.groups.map((group) => {
-          if (group.id !== action.payload.groupId) {
-            return group;
-          }
-
-          return {
-            ...group,
-            filters: {
-              ...group.filters,
-              ...action.payload.filters,
-            },
-          };
-        }),
-      });
-    case "set-group-canvas-size":
-      return touchProject({
-        ...project,
-        groups: project.groups.map((group) => {
-          if (group.id !== action.payload.groupId) {
-            return group;
-          }
-
-          return {
-            ...group,
-            canvasSize: {
-              width: Math.max(1, Math.round(action.payload.width)),
-              height: Math.max(1, Math.round(action.payload.height)),
-            },
-          };
-        }),
-      });
-    case "set-group-colors":
-      return touchProject({
-        ...project,
-        groups: project.groups.map((group) => {
-          if (group.id !== action.payload.groupId) {
-            return group;
-          }
-
-          return {
-            ...group,
-            ...action.payload.colors,
-          };
-        }),
-      });
-    case "set-group-locked":
-      return touchProject({
-        ...project,
-        groups: project.groups.map((group) => {
-          if (group.id !== action.payload.groupId) {
-            return group;
-          }
-
-          return {
-            ...group,
-            locked: action.payload.locked,
-          };
-        }),
-      });
-    case "set-group-annotations":
-      return touchProject({
-        ...project,
-        groups: project.groups.map((group) => {
-          if (group.id !== action.payload.groupId) {
-            return group;
-          }
-
-          return {
-            ...group,
-            annotations: action.payload.annotations,
-          };
-        }),
-      });
-    case "flip-items":
-      return touchProject({
-        ...project,
-        groups: project.groups.map((group) => {
-          if (group.id !== action.payload.groupId) {
-            return group;
-          }
-
-          const itemSet = new Set(action.payload.itemIds);
-
-          return {
-            ...group,
-            items: group.items.map((item) =>
-              itemSet.has(item.id)
-                ? { ...item, flippedX: !item.flippedX }
-                : item,
-            ),
-          };
-        }),
-      });
-    case "add-task":
-      return touchProject({
-        ...project,
-        tasks: [
-          ...project.tasks,
-          {
-            id: action.payload.id,
-            title: action.payload.title || `Task ${project.tasks.length + 1}`,
-            order: project.tasks.length,
-            startDate: action.payload.startDate,
-            endDate: action.payload.endDate,
-            todos: [],
-          },
-        ],
-      });
-    case "remove-task": {
-      const nextTasks = project.tasks
-        .filter((task) => task.id !== action.payload.taskId)
-        .map((task, index) => ({
-          ...task,
-          order: index,
-        }));
-
-      return touchProject({
-        ...project,
-        tasks: nextTasks,
-      });
-    }
-    case "add-todo":
-      return touchProject({
-        ...project,
-        tasks: project.tasks.map((task) => {
-          if (task.id !== action.payload.taskId) {
-            return task;
-          }
-
-          return {
-            ...task,
-            todos: [
-              ...task.todos,
-              {
-                id: randomUUID(),
-                text: action.payload.text,
-                completed: false,
-                order: task.todos.length,
-              },
-            ],
-          };
-        }),
-      });
-    case "toggle-todo":
-      return touchProject({
-        ...project,
-        tasks: project.tasks.map((task) => {
-          if (task.id !== action.payload.taskId) {
-            return task;
-          }
-
-          return {
-            ...task,
-            todos: task.todos.map((todo) =>
-              todo.id === action.payload.todoId
-                ? { ...todo, completed: !todo.completed }
-                : todo,
-            ),
-          };
-        }),
-      });
-    case "rename-todo":
-      return touchProject({
-        ...project,
-        tasks: project.tasks.map((task) => {
-          if (task.id !== action.payload.taskId) {
-            return task;
-          }
-
-          return {
-            ...task,
-            todos: task.todos.map((todo) =>
-              todo.id === action.payload.todoId
-                ? { ...todo, text: action.payload.text }
-                : todo,
-            ),
-          };
-        }),
-      });
-    case "reorder-todo":
-      return touchProject({
-        ...project,
-        tasks: project.tasks.map((task) => {
-          if (task.id !== action.payload.taskId) {
-            return task;
-          }
-
-          const nextTodos = [...task.todos];
-          const [moved] = nextTodos.splice(action.payload.sourceIndex, 1);
-          nextTodos.splice(action.payload.targetIndex, 0, moved);
-
-          return {
-            ...task,
-            todos: reorderTodos(nextTodos),
-          };
-        }),
-      });
-    default:
-      return project;
-  }
-};
-
-const shouldRecordHistory = (action: Action) =>
-  ![
-    "set-project",
-    "set-active-group",
-    "set-group-view",
-    "undo",
-    "redo",
-    "begin-history-batch",
-    "end-history-batch",
-  ].includes(action.type);
-
-const pushHistoryEntry = (entries: Project[], project: Project) =>
-  [...entries, project].slice(-MAX_HISTORY_ENTRIES);
-
-const historyReducer = (state: HistoryState, action: Action): HistoryState => {
-  switch (action.type) {
-    case "set-project":
-      return {
-        past: [],
-        project: cloneProject(action.payload),
-        future: [],
-        batchBase: null,
-      };
-    case "undo": {
-      if (state.past.length === 0) {
-        return state;
-      }
-
-      const previous = state.past[state.past.length - 1];
-      return {
-        past: state.past.slice(0, -1),
-        project: previous,
-        future: [state.project, ...state.future],
-        batchBase: null,
-      };
-    }
-    case "redo": {
-      if (state.future.length === 0) {
-        return state;
-      }
-
-      const next = state.future[0];
-      return {
-        past: pushHistoryEntry(state.past, state.project),
-        project: next,
-        future: state.future.slice(1),
-        batchBase: null,
-      };
-    }
-    case "begin-history-batch":
-      return state.batchBase
-        ? state
-        : {
-            ...state,
-            batchBase: state.project,
-          };
-    case "end-history-batch": {
-      if (!state.batchBase) {
-        return state;
-      }
-
-      if (
-        projectHistorySignature(state.batchBase) ===
-        projectHistorySignature(state.project)
-      ) {
-        return {
-          ...state,
-          batchBase: null,
-        };
-      }
-
-      return {
-        past: pushHistoryEntry(state.past, state.batchBase),
-        project: state.project,
-        future: [],
-        batchBase: null,
-      };
-    }
-    default: {
-      const nextProject = projectReducer(state.project, action);
-      if (nextProject === state.project) {
-        return state;
-      }
-
-      if (!shouldRecordHistory(action)) {
-        return {
-          ...state,
-          project: nextProject,
-        };
-      }
-
-      if (state.batchBase) {
-        return {
-          ...state,
-          project: nextProject,
-          future: [],
-        };
-      }
-
-      return {
-        past: pushHistoryEntry(state.past, state.project),
-        project: nextProject,
-        future: [],
-        batchBase: null,
-      };
-    }
-  }
-};
 
 export const ProjectContext = createContext<Store | null>(null);
 
@@ -818,12 +162,34 @@ export const ProjectProvider = ({
     [],
   );
 
+  const updateTask = useCallback(
+    (
+      taskId: string,
+      updates: Partial<Pick<Task, "title" | "startDate" | "endDate">>,
+    ) => {
+      dispatch({ type: "update-task", payload: { taskId, ...updates } });
+    },
+    [],
+  );
+
+  const completeTask = useCallback((taskId: string, completed: boolean) => {
+    dispatch({ type: "complete-task", payload: { taskId, completed } });
+  }, []);
+
+  const linkTaskToGroup = useCallback((taskId: string, groupId?: string) => {
+    dispatch({ type: "link-task-group", payload: { taskId, groupId } });
+  }, []);
+
   const removeTask = useCallback((taskId: string) => {
     dispatch({ type: "remove-task", payload: { taskId } });
   }, []);
 
   const addTodo = useCallback((taskId: string, text: string) => {
     dispatch({ type: "add-todo", payload: { taskId, text } });
+  }, []);
+
+  const removeTodo = useCallback((taskId: string, todoId: string) => {
+    dispatch({ type: "remove-todo", payload: { taskId, todoId } });
   }, []);
 
   const toggleTodo = useCallback((taskId: string, todoId: string) => {
@@ -872,8 +238,12 @@ export const ProjectProvider = ({
       setGroupAnnotations,
       flipItems,
       addTask,
+      updateTask,
+      completeTask,
+      linkTaskToGroup,
       removeTask,
       addTodo,
+      removeTodo,
       toggleTodo,
       renameTodo,
       reorderTodo,
@@ -901,8 +271,12 @@ export const ProjectProvider = ({
       setGroupAnnotations,
       flipItems,
       addTask,
+      updateTask,
+      completeTask,
+      linkTaskToGroup,
       removeTask,
       addTodo,
+      removeTodo,
       toggleTodo,
       renameTodo,
       reorderTodo,

@@ -14,6 +14,7 @@ interface TitleBarTooltipConfirmDialogProps {
   label: string;
   description: string;
   shortcut?: string;
+  confirmLabel?: string;
   onConfirm: () => void;
   onClose: () => void;
 }
@@ -23,6 +24,7 @@ export const TitleBarTooltipConfirmDialog = ({
   label,
   description,
   shortcut,
+  confirmLabel = "Got it",
   onConfirm,
   onClose,
 }: TitleBarTooltipConfirmDialogProps) => {
@@ -31,6 +33,11 @@ export const TitleBarTooltipConfirmDialog = ({
   }
 
   const tokens = shortcutTokens(shortcut);
+  const shortcutLabel = tokens.length > 0 ? tokens.join(" + ") : "No shortcut assigned";
+  const descriptionBlocks = description
+    .split("\n\n")
+    .map((block) => block.trim())
+    .filter(Boolean);
 
   return (
     <div
@@ -45,17 +52,24 @@ export const TitleBarTooltipConfirmDialog = ({
         aria-label={`${label} shortcut guide`}
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="titlebar-tooltip-dialog-head">
-          <span className="titlebar-tooltip-dialog-eyebrow">Title Bar Guide</span>
-          <h3>{label}</h3>
-          <p>{description}</p>
+        <div className="titlebar-tooltip-dialog-topbar">
+          <span className="titlebar-tooltip-dialog-topbar-label">Tool Guide</span>
         </div>
 
-        <div className="titlebar-tooltip-dialog-grid">
-          <div className="titlebar-tooltip-dialog-block">
-            <span className="titlebar-tooltip-dialog-label">Function</span>
-            <strong className="titlebar-tooltip-dialog-value">{label}</strong>
+        <div className="titlebar-tooltip-dialog-body">
+          <div className="titlebar-tooltip-dialog-head">
+            <h3>{label}</h3>
           </div>
+
+          <div className="titlebar-tooltip-dialog-copy">
+            <p className="titlebar-tooltip-dialog-shortcut-line">
+              <strong>{shortcutLabel}</strong>
+            </p>
+            {descriptionBlocks.map((block) => (
+              <p key={block}>{block}</p>
+            ))}
+          </div>
+
           <div className="titlebar-tooltip-dialog-block">
             <span className="titlebar-tooltip-dialog-label">Keyboard Shortcut</span>
             {tokens.length > 0 ? (
@@ -78,7 +92,7 @@ export const TitleBarTooltipConfirmDialog = ({
             className="primary-button titlebar-tooltip-dialog-confirm"
             onClick={onConfirm}
           >
-            OK
+            {confirmLabel}
           </button>
         </div>
       </div>

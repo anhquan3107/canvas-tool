@@ -1,0 +1,248 @@
+.dialog-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(10, 10, 12, 0.56);
+}
+
+.dialog-card {
+  width: min(588px, 100%);
+  padding: 36px 44px 32px;
+  border: 1px solid var(--line-strong);
+  background: rgba(31, 31, 33, 0.98);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+}
+
+.dialog-card h3 {
+  margin-bottom: 26px;
+  font-size: 24px;
+  text-align: center;
+  font-weight: 700;
+}
+
+.confirm-action-dialog {
+  width: min(460px, calc(100vw - 40px));
+  padding: 28px 28px 24px;
+  border-radius: 22px;
+  border-color: rgba(255, 255, 255, 0.1);
+  background: #1c1a1b;
+  box-shadow:
+    0 28px 64px rgba(0, 0, 0, 0.44),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.confirm-action-dialog h3 {
+  margin: 0;
+  text-align: left;
+  font-family:
+    "Iowan Old Style",
+    "Palatino Linotype",
+    "Book Antiqua",
+    Georgia,
+    serif;
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+}
+
+.confirm-action-dialog-hero {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+
+.confirm-action-dialog-badge {
+  display: inline-grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border: 1px solid rgba(223, 130, 112, 0.28);
+  border-radius: 16px;
+  background: rgba(223, 130, 112, 0.12);
+  color: #f2c1b8;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.confirm-action-dialog-copyblock {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.confirm-action-dialog-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #d6a189;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.confirm-action-dialog-copy,
+.confirm-action-dialog-note {
+  margin: 0;
+}
+
+.confirm-action-dialog-copy {
+  margin-bottom: 14px;
+  color: rgba(244, 238, 234, 0.82);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.confirm-action-dialog-note {
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(226, 216, 208, 0.74);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.confirm-action-dialog-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.titlebar-tooltip-dialog-scrim {
+  background: rgba(8, 8, 10, 0.62);
+}
+
+.titlebar-tooltip-dialog {
+  width: min(430px, calc(100vw - 40px));
+  padding: 0;
+  border-radius: 0;
+  border-color: rgba(255, 255, 255, 0.08);
+  background: #1f1f21;
+  box-shadow: 0 22px 52px rgba(0, 0, 0, 0.46);
+}
+
+.titlebar-tooltip-dialog h3 {
+  margin: 0;
+  text-align: center;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.titlebar-tooltip-dialog-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 0 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: #2a2930;
+}
+
+.titlebar-tooltip-dialog-topbar-label {
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.titlebar-tooltip-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px 20px 14px;
+}
+
+.titlebar-tooltip-dialog-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.titlebar-tooltip-dialog-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.titlebar-tooltip-dialog-copy p {
+  margin: 0;
+  color: rgba(238, 238, 236, 0.76);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-line;
+}
+
+.titlebar-tooltip-dialog-shortcut-line strong,
+.titlebar-tooltip-dialog-copy strong {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.titlebar-tooltip-dialog-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.titlebar-tooltip-dialog-label {
+  color: rgba(214, 214, 210, 0.52);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.titlebar-tooltip-dialog-keycaps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.titlebar-tooltip-dialog-keycap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  padding: 4px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(245, 241, 233, 0.84);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.titlebar-tooltip-dialog-empty {
+  color: rgba(212, 212, 208, 0.76);
+  font-size: 12px;
+}
+
+.titlebar-tooltip-dialog-footer {
+  display: flex;
+  justify-content: center;
+  padding: 0 20px 18px;
+}
+
+.titlebar-tooltip-dialog-confirm {
+  min-width: 90px;
+  min-height: 28px;
+  padding: 0 16px;
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.84);
+  font-size: 11px;
+}

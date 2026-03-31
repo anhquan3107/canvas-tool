@@ -1,0 +1,138 @@
+.app-menu {
+  position: fixed;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  min-width: 256px;
+  padding: 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: var(--bg-menu);
+  box-shadow: 0 22px 48px rgba(0, 0, 0, 0.42);
+}
+
+.app-menu button {
+  border: none;
+  background: transparent;
+  padding: 7px 10px;
+  border-radius: 5px;
+  text-align: left;
+  font-size: 11px;
+}
+
+.menu-item-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+}
+
+.menu-item-leading,
+.menu-item-trailing {
+  display: inline-flex;
+  align-items: center;
+}
+
+.menu-item-leading {
+  gap: 10px;
+  min-width: 0;
+}
+
+.menu-item-trailing {
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.menu-item-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  color: rgba(243, 243, 242, 0.72);
+}
+
+.menu-item-icon svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  fill: none;
+}
+
+.menu-item-label {
+  min-width: 0;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.menu-item-shortcut {
+  color: var(--text-dim);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.menu-item-chevron {
+  color: var(--text-dim);
+  font-size: 13px;
+  line-height: 1;
+}
+
+.app-menu-submenu {
+  position: relative;
+}
+
+.app-menu-submenu-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.app-menu-submenu-arrow {
+  opacity: 0.72;
+  font-size: 13px;
+}
+
+.app-menu-submenu-panel {
+  position: absolute;
+  top: -6px;
+  left: calc(100% - 2px);
+  min-width: 256px;
+  padding: 6px;
+}
+
+.app-menu-submenu-panel::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -10px;
+  width: 10px;
+}
+
+.app-menu[data-horizontal="left"] .app-menu-submenu-panel {
+  left: auto;
+  right: calc(100% - 2px);
+}
+
+.app-menu[data-horizontal="left"] .app-menu-submenu-panel::before {
+  left: auto;
+  right: -10px;
+}
+
+.app-menu[data-vertical="up"] .app-menu-submenu-panel {
+  top: auto;
+  bottom: -6px;
+}
+
+.app-menu button:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+
+.app-menu-divider {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--line);
+}

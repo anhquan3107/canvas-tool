@@ -12,6 +12,10 @@ interface UseTaskFeatureOptions {
     title: string,
     dates: Pick<Task, "startDate" | "endDate">,
   ) => string;
+  updateTask: (
+    taskId: string,
+    updates: Partial<Pick<Task, "title" | "startDate" | "endDate">>,
+  ) => void;
   removeTask: (taskId: string) => void;
   pushToast: (kind: "success" | "error" | "info", message: string) => void;
 }
@@ -21,6 +25,7 @@ const TASK_IDLE_TIMEOUT_MS = 5000;
 export const useTaskFeature = ({
   tasks,
   addTask,
+  updateTask,
   removeTask,
   pushToast,
 }: UseTaskFeatureOptions) => {
@@ -30,6 +35,7 @@ export const useTaskFeature = ({
   const [taskDetailPinned, setTaskDetailPinned] = useState(false);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [draftTaskTitle, setDraftTaskTitle] = useState("New Task");
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [taskDates, setTaskDates] = useState<TaskDateRange>(
     createDefaultTaskDates(),
   );
@@ -102,13 +108,45 @@ export const useTaskFeature = ({
   }, [registerTaskDetailInteraction]);
 
   const openTaskDialog = useCallback(() => {
+    setEditingTaskId(null);
     setDraftTaskTitle(`New Task ${tasks.length + 1}`);
     setTaskDates(createDefaultTaskDates());
     setTaskDialogOpen(true);
   }, [tasks.length]);
 
-  const handleCreateTask = useCallback(() => {
+  const openEditTaskDialog = useCallback(
+    (taskId: string) => {
+      const task = orderedTasks.find((entry) => entry.id === taskId);
+      if (!task) {
+        return;
+      }
+
+      setEditingTaskId(task.id);
+      setDraftTaskTitle(task.title);
+      setTaskDates({
+        startDate: task.startDate ?? createDefaultTaskDates().startDate,
+        endDate: task.endDate ?? createDefaultTaskDates().endDate,
+      });
+      setTaskDialogOpen(true);
+    },
+    [orderedTasks],
+  );
+
+  const handleSubmitTask = useCallback(() => {
     const title = draftTaskTitle.trim() || `Task ${tasks.length + 1}`;
+
+    if (editingTaskId) {
+      updateTask(editingTaskId, {
+        title,
+        startDate: taskDates.startDate,
+        endDate: taskDates.endDate,
+      });
+      setTaskDialogOpen(false);
+      setEditingTaskId(null);
+      pushToast("success", `Updated ${title}.`);
+      return;
+    }
+
     const nextTaskId = addTask(title, taskDates);
     setSelectedTaskId(nextTaskId);
     setTaskListExpanded(true);
@@ -123,11 +161,13 @@ export const useTaskFeature = ({
   }, [
     addTask,
     draftTaskTitle,
+    editingTaskId,
     pushToast,
     registerTaskDetailInteraction,
     registerTaskOverlayInteraction,
     taskDates,
     tasks.length,
+    updateTask,
   ]);
 
   useEffect(() => {
@@ -226,6 +266,7 @@ export const useTaskFeature = ({
     taskDetailOpen,
     taskDetailPinned,
     taskDialogOpen,
+    editingTaskId,
     draftTaskTitle,
     taskDates,
     taskDuration,
@@ -243,7 +284,8 @@ export const useTaskFeature = ({
     registerTaskOverlayInteraction,
     registerTaskDetailInteraction,
     openTaskDialog,
-    handleCreateTask,
+    openEditTaskDialog,
+    handleSubmitTask,
     handleDeleteTask,
     handleDeleteSelectedTask,
   };

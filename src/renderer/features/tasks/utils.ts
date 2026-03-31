@@ -15,6 +15,24 @@ const toDateAtEndOfDay = (value: string) => {
   return parsed;
 };
 
+export const getTaskRemainingDays = (endDate?: string) => {
+  if (!endDate) {
+    return null;
+  }
+
+  const deadline = toDateAtEndOfDay(endDate);
+  if (!deadline) {
+    return null;
+  }
+
+  const diffMs = deadline.getTime() - Date.now();
+  if (diffMs <= 0) {
+    return 0;
+  }
+
+  return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+};
+
 export const formatDateLabel = (value: string) => {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.valueOf())) {
@@ -93,4 +111,26 @@ export const getTaskRemainingLabel = (endDate?: string) => {
   }
 
   return `${days}d ${hours}h remaining`;
+};
+
+export const isTaskComplete = (
+  todos: Array<{ completed: boolean }>,
+) => todos.length > 0 && todos.every((todo) => todo.completed);
+
+export const getTaskDeadlineTone = (endDate?: string) => {
+  const remainingDays = getTaskRemainingDays(endDate);
+
+  if (remainingDays === null) {
+    return "neutral" as const;
+  }
+
+  if (remainingDays >= 11) {
+    return "green" as const;
+  }
+
+  if (remainingDays >= 4) {
+    return "orange" as const;
+  }
+
+  return "red" as const;
 };

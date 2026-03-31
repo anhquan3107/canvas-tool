@@ -1,7 +1,6 @@
 import {
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
   type MouseEvent as ReactMouseEvent,
@@ -11,29 +10,29 @@ import {
   DEFAULT_GROUP_CANVAS_COLOR,
   DEFAULT_VIEW_ZOOM_BASELINE,
 } from "@shared/project-defaults";
-import type { ImageItem, Project } from "@shared/types/project";
+import type { Project } from "@shared/types/project";
+import { AppDialogs } from "@renderer/app/components/AppDialogs";
 import { useAppShortcuts } from "@renderer/app/hooks/use-app-shortcuts";
+import { useAppDeletion } from "@renderer/app/hooks/use-app-deletion";
+import { useAppDerivedState } from "@renderer/app/hooks/use-app-derived-state";
+import { useAppFeatureGuide } from "@renderer/app/hooks/use-app-feature-guide";
 import { useShortcutSettings } from "@renderer/app/hooks/use-shortcut-settings";
 import { useAppUiState } from "@renderer/app/hooks/use-app-ui-state";
 import { useCanvasStage } from "@renderer/app/hooks/use-canvas-stage";
 import { useExportActions } from "@renderer/app/hooks/use-export-actions";
 import { useProjectFileActions } from "@renderer/app/hooks/use-project-file-actions";
 import { useWindowControls } from "@renderer/app/hooks/use-window-controls";
-import { getProjectDirtySignature } from "@renderer/app/utils";
 import { CanvasBoard } from "@renderer/pixi/CanvasBoard";
 import { ProjectProvider } from "@renderer/state/project-store";
 import { useProjectStore } from "@renderer/state/use-project-store";
 import { CaptureWindowApp } from "@renderer/app/CaptureWindowApp";
-import { ConnectDialog } from "@renderer/features/connect/components/ConnectDialog";
 import { useConnectFeature } from "@renderer/features/connect/hooks/use-connect-feature";
 import type { CaptureSource } from "@renderer/features/connect/types";
 import { CAPTURE_QUALITY_PROFILES } from "@renderer/features/connect/utils";
 import { collectClipboardPayload, collectDropPayload } from "@renderer/features/import/image-import";
 import { useImportQueueSession } from "@renderer/features/import/hooks/use-import-queue-session";
-import { GroupDialog } from "@renderer/features/groups/components/GroupDialog";
 import { GroupOverlay } from "@renderer/features/groups/components/GroupOverlay";
 import { useGroupFeature } from "@renderer/features/groups/hooks/use-group-feature";
-import { TaskDialog } from "@renderer/features/tasks/components/TaskDialog";
 import { TaskDetailPanel } from "@renderer/features/tasks/components/TaskDetailPanel";
 import { TaskOverlay } from "@renderer/features/tasks/components/TaskOverlay";
 import { useTaskFeature } from "@renderer/features/tasks/hooks/use-task-feature";
@@ -47,12 +46,6 @@ import { useToast } from "@renderer/hooks/use-toast";
 import { AppMenu } from "@renderer/app/components/AppMenu";
 import { TopBar } from "@renderer/app/components/TopBar";
 import { AppInfoPanel } from "@renderer/app/components/AppInfoPanel";
-import { BackgroundColorDialog } from "@renderer/app/components/BackgroundColorDialog";
-import { CanvasSizeDialog } from "@renderer/app/components/CanvasSizeDialog";
-import { ConfirmActionDialog } from "@renderer/app/components/ConfirmActionDialog";
-import { ConfirmCloseDialog } from "@renderer/app/components/ConfirmCloseDialog";
-import { HelpTutorialDialog } from "@renderer/app/components/HelpTutorialDialog";
-import { KeyboardShortcutsDialog } from "@renderer/app/components/KeyboardShortcutsDialog";
 import { StatusBar } from "@renderer/app/components/StatusBar";
 
 export const App = () => {
@@ -144,19 +137,17 @@ const AppContent = () => {
     setGroupLocked,
     setGroupAnnotations,
     addTask,
+    updateTask,
+    completeTask,
+    linkTaskToGroup,
     removeTask,
     addTodo,
+    removeTodo,
     toggleTodo,
     renameTodo,
     reorderTodo,
   } = useProjectStore();
 
-  const activeGroup = useMemo(
-    () =>
-      project.groups.find((group) => group.id === project.activeGroupId) ??
-      project.groups[0],
-    [project.activeGroupId, project.groups],
-  );
   const [cropSession, setCropSession] = useState<{
     itemId: string;
     rect: { left: number; top: number; right: number; bottom: number };
@@ -165,32 +156,6 @@ const AppContent = () => {
     canvasColor: string;
     backgroundColor: string;
   } | null>(null);
-  const [pendingDeletion, setPendingDeletion] = useState<
-    | { kind: "task"; taskId: string; label: string }
-    | { kind: "group"; groupId: string; label: string }
-    | null
-  >(null);
-  const activeGroupRef = useRef(activeGroup);
-  const dirtySignature = useMemo(
-    () => getProjectDirtySignature(project),
-    [project],
-  );
-  const hasUnsavedChanges =
-    lastSavedSignatureRef.current !== "" &&
-    dirtySignature !== lastSavedSignatureRef.current;
-
-  const activeGroupId = activeGroup?.id ?? null;
-  const displayGroup = useMemo(() => {
-    if (!activeGroup || !backgroundColorPreview) {
-      return activeGroup;
-    }
-
-    return {
-      ...activeGroup,
-      canvasColor: backgroundColorPreview.canvasColor,
-      backgroundColor: backgroundColorPreview.backgroundColor,
-    };
-  }, [activeGroup, backgroundColorPreview]);
 
   const { toast, pushToast } = useToast();
   const { importQueue, setImportQueue } = useImportQueueSession(project);
@@ -245,6 +210,7 @@ const AppContent = () => {
     taskDetailOpen,
     taskDetailPinned,
     taskDialogOpen,
+    editingTaskId,
     draftTaskTitle,
     taskDates,
     taskDuration,
@@ -259,96 +225,84 @@ const AppContent = () => {
     registerTaskOverlayInteraction,
     registerTaskDetailInteraction,
     openTaskDialog,
-    handleCreateTask,
+    openEditTaskDialog,
+    handleSubmitTask,
     handleDeleteTask,
     handleDeleteSelectedTask,
   } = useTaskFeature({
     tasks: project.tasks,
     addTask,
+    updateTask,
     removeTask,
     pushToast,
   });
-  const savedGroups = useMemo(
-    () => project.groups.filter((group) => group.kind === "group"),
-    [project.groups],
-  );
-  const canDeleteActiveGroup = activeGroup?.kind === "group";
+  const {
+    activeGroup,
+    activeGroupId,
+    appShellBackgroundColor,
+    canDeleteActiveGroup,
+    canvasLabel,
+    dirtySignature,
+    displayGroup,
+    hasUnsavedChanges,
+    linkedSelectedTaskGroupName,
+    projectFileName,
+    savedGroups,
+    selectedStatusImage,
+    zoomLabel,
+    zoomOverlayFilter,
+  } = useAppDerivedState({
+    project,
+    selectedItemIds,
+    selectedTask,
+    backgroundColorPreview,
+    canvasSizePreview,
+    lastSavedSignature: lastSavedSignatureRef.current,
+  });
+  const activeGroupRef = useRef(activeGroup);
+  const {
+    handleConfirmDeletion,
+    pendingDeletion,
+    requestDeleteCurrentGroup,
+    requestDeleteGroupById,
+    requestDeleteSelectedTask,
+    requestDeleteTaskById,
+    setPendingDeletion,
+  } = useAppDeletion({
+    activeGroup,
+    groups: project.groups,
+    tasks: project.tasks,
+    selectedTask,
+    handleDeleteTask,
+    removeGroup,
+    pushToast,
+    setSelectedItemIds,
+    setGroupsOverlayOpen,
+  });
 
-  const requestDeleteSelectedTask = useCallback(() => {
-    if (!selectedTask) {
-      pushToast("info", "Select a task to delete.");
-      return;
-    }
+  const selectTaskAndActivateLinkedGroup = useCallback(
+    (taskId: string | null) => {
+      selectTask(taskId);
 
-    setPendingDeletion({
-      kind: "task",
-      taskId: selectedTask.id,
-      label: selectedTask.title,
-    });
-  }, [pushToast, selectedTask]);
+      if (!taskId) {
+        return;
+      }
 
-  const requestDeleteCurrentGroup = useCallback(() => {
-    if (!activeGroup) {
-      return;
-    }
+      const task = project.tasks.find((entry) => entry.id === taskId);
+      if (!task?.linkedGroupId) {
+        return;
+      }
 
-    if (activeGroup.kind !== "group") {
-      pushToast("info", "Canvas cannot be deleted.");
-      return;
-    }
-
-    setPendingDeletion({
-      kind: "group",
-      groupId: activeGroup.id,
-      label: activeGroup.name,
-    });
-  }, [activeGroup, pushToast]);
-
-  const requestDeleteGroupById = useCallback(
-    (groupId: string) => {
-      const targetGroup = project.groups.find((group) => group.id === groupId);
+      const targetGroup = project.groups.find((group) => group.id === task.linkedGroupId);
       if (!targetGroup) {
         return;
       }
 
-      if (targetGroup.kind !== "group") {
-        pushToast("info", "Canvas cannot be deleted.");
-        return;
-      }
-
-      setPendingDeletion({
-        kind: "group",
-        groupId: targetGroup.id,
-        label: targetGroup.name,
-      });
+      setActiveGroup(targetGroup.id);
+      setSelectedItemIds([]);
     },
-    [project.groups, pushToast],
+    [project.groups, project.tasks, selectTask, setActiveGroup, setSelectedItemIds],
   );
-
-  const handleConfirmDeletion = useCallback(() => {
-    if (!pendingDeletion) {
-      return;
-    }
-
-    if (pendingDeletion.kind === "task") {
-      handleDeleteTask(pendingDeletion.taskId);
-      setPendingDeletion(null);
-      return;
-    }
-
-    removeGroup(pendingDeletion.groupId);
-    setSelectedItemIds([]);
-    setGroupsOverlayOpen(false);
-    setPendingDeletion(null);
-    pushToast("success", `Deleted ${pendingDeletion.label}.`);
-  }, [
-    handleDeleteTask,
-    pendingDeletion,
-    pushToast,
-    removeGroup,
-    setGroupsOverlayOpen,
-    setSelectedItemIds,
-  ]);
 
   const {
     groupDialogOpen,
@@ -441,6 +395,14 @@ const AppContent = () => {
     saveShortcutBindings,
   } = useShortcutSettings({
     pushToast,
+  });
+  const {
+    featureGuide,
+    maybeShowTodoGuide,
+    setFeatureGuide,
+  } = useAppFeatureGuide({
+    seenTitleBarTooltips,
+    markTitleBarTooltipSeen,
   });
 
   const {
@@ -676,36 +638,7 @@ const AppContent = () => {
       y: event.clientY,
     });
   };
-
-  const zoomLabel = activeGroup
-    ? `${Math.round((activeGroup.zoom / DEFAULT_VIEW_ZOOM_BASELINE) * 100)}%`
-    : "0%";
-  const selectedStatusImage = useMemo(() => {
-    if (!activeGroup || selectedItemIds.length !== 1) {
-      return null;
-    }
-
-    const selectedItem = activeGroup.items.find(
-      (item) => item.id === selectedItemIds[0],
-    );
-
-    if (!selectedItem || selectedItem.type !== "image") {
-      return null;
-    }
-
-    return selectedItem as ImageItem;
-  }, [activeGroup, selectedItemIds]);
-  const canvasLabel = canvasSizePreview
-    ? `${canvasSizePreview.width} x ${canvasSizePreview.height}`
-    : activeGroup
-      ? `${activeGroup.canvasSize.width} x ${activeGroup.canvasSize.height}`
-      : "0 x 0";
-  const projectFileName =
-    project.filePath?.split(/[\\/]/).at(-1) ?? "Untitled.canvas";
   const activeDoodleSize = doodleMode === "brush" ? brushSize : eraserSize;
-  const zoomOverlayFilter = activeGroup
-    ? `blur(${activeGroup.filters.blur}px) grayscale(${activeGroup.filters.grayscale}%)`
-    : undefined;
   const {
     canExportSelectedSwatch,
     handleExportSelectedSwatch,
@@ -882,8 +815,7 @@ const AppContent = () => {
     <div
       className="app-shell"
       style={{
-        backgroundColor:
-          displayGroup?.backgroundColor ?? DEFAULT_GROUP_BACKGROUND_COLOR,
+        backgroundColor: appShellBackgroundColor,
       }}
       onDragOver={handleShellDragOver}
       onDrop={handleAppShellDrop}
@@ -1063,16 +995,22 @@ const AppContent = () => {
                     {primaryTask ? (
                       <TaskOverlay
                         tasks={orderedTasks}
+                        groups={project.groups}
                         primaryTask={primaryTask}
                         selectedTaskId={selectedTaskId}
                         expanded={taskListExpanded}
                         onToggleExpanded={toggleTaskListExpanded}
                         onSelectTask={(taskId) => {
-                          selectTask(taskId);
+                          selectTaskAndActivateLinkedGroup(taskId);
                           setTaskDetailOpen(true);
                           collapseTaskList();
                         }}
                         onInteract={registerTaskOverlayInteraction}
+                        onCreateTask={openTaskDialog}
+                        onDeleteTask={requestDeleteTaskById}
+                        onChangeTaskDates={openEditTaskDialog}
+                        onCompleteTask={completeTask}
+                        onLinkTaskToGroup={linkTaskToGroup}
                       />
                     ) : null}
                   </div>
@@ -1105,6 +1043,8 @@ const AppContent = () => {
                     <div className="canvas-overlay-column right-center">
                       <TaskDetailPanel
                         task={selectedTask}
+                        linkedGroupName={linkedSelectedTaskGroupName}
+                        groups={project.groups}
                         open={taskDetailOpen}
                         pinned={taskDetailPinned}
                         onReveal={() => {
@@ -1113,11 +1053,16 @@ const AppContent = () => {
                         }}
                         onTogglePinned={toggleTaskDetailPinned}
                         onDeleteTask={requestDeleteSelectedTask}
+                        onChangeTaskDates={() => openEditTaskDialog(selectedTask.id)}
+                        onCompleteTask={completeTask}
+                        onLinkTaskToGroup={linkTaskToGroup}
                         onInteract={registerTaskDetailInteraction}
                         onAddTodo={addTodo}
+                        onRemoveTodo={removeTodo}
                         onToggleTodo={toggleTodo}
                         onRenameTodo={renameTodo}
                         onReorderTodo={reorderTodo}
+                        onShowTodoGuide={maybeShowTodoGuide}
                       />
                     </div>
                   ) : null}
@@ -1336,121 +1281,67 @@ const AppContent = () => {
         />
       ) : null}
 
-      <ConfirmActionDialog
-        open={Boolean(pendingDeletion)}
-        title={
-          pendingDeletion?.kind === "group"
-            ? "Delete Group?"
-            : "Delete Task?"
-        }
-        message={
-          pendingDeletion?.kind === "group"
-            ? `Delete ${pendingDeletion.label}? This will remove the entire group and everything inside it.`
-            : pendingDeletion
-              ? `Delete ${pendingDeletion.label}? This task and all its todos will be removed.`
-              : ""
-        }
-        confirmLabel={pendingDeletion?.kind === "group" ? "Delete Group" : "Delete Task"}
-        onConfirm={handleConfirmDeletion}
-        onCancel={() => setPendingDeletion(null)}
-      />
-
-      <TaskDialog
-        open={taskDialogOpen}
-        draftTaskTitle={draftTaskTitle}
-        taskDates={taskDates}
-        taskDuration={taskDuration}
-        onClose={() => setTaskDialogOpen(false)}
-        onCreateTask={handleCreateTask}
-        onDraftTaskTitleChange={setDraftTaskTitle}
-        onTaskDatesChange={setTaskDates}
-      />
-
-      <GroupDialog
-        open={groupDialogOpen}
+      <AppDialogs
+        activeGroup={activeGroup}
+        backgroundColorDialogOpen={backgroundColorDialogOpen}
+        backgroundColorPreview={backgroundColorPreview}
+        canvasHeightInput={canvasHeightInput}
+        canvasSizeDialogOpen={canvasSizeDialogOpen}
+        canvasWidthInput={canvasWidthInput}
+        captureQuality={captureQuality}
+        captureSources={captureSources}
+        closeGroupDialog={closeGroupDialog}
+        closeShortcutDialog={closeShortcutDialog}
+        confirmCloseOpen={confirmCloseOpen}
+        connectDialogOpen={connectDialogOpen}
         draftGroupName={draftGroupName}
-        mode={editingGroup ? "rename" : "create"}
-        onClose={closeGroupDialog}
-        onCreateGroup={handleCreateGroup}
-        onDraftGroupNameChange={setDraftGroupName}
-      />
-
-      <ConnectDialog
-        open={connectDialogOpen}
-        loading={loadingCaptureSources}
-        sources={captureSources}
+        draftTaskTitle={draftTaskTitle}
+        editingGroup={editingGroup}
+        editingTaskId={editingTaskId}
+        featureGuide={featureGuide}
+        groupDialogOpen={groupDialogOpen}
+        handleConfirmCanvasSizeDialog={handleConfirmCanvasSizeDialog}
+        handleConfirmConnect={handleConfirmConnect}
+        handleConfirmDeletion={handleConfirmDeletion}
+        handleCreateGroup={handleCreateGroup}
+        handleDiscardAndClose={handleDiscardAndClose}
+        handleSaveAndClose={handleSaveAndClose}
+        handleSubmitTask={handleSubmitTask}
+        helpOpen={helpOpen}
+        loadingCaptureSources={loadingCaptureSources}
+        pendingDeletion={pendingDeletion}
+        projectFileName={projectFileName}
+        resetAllShortcutDraftBindings={resetAllShortcutDraftBindings}
+        resetShortcutDraftBinding={resetShortcutDraftBinding}
+        resetTitleBarTooltips={resetTitleBarTooltips}
+        saveShortcutBindings={saveShortcutBindings}
         selectedSourceId={selectedSourceId}
-        quality={captureQuality}
-        onClose={() => setConnectDialogOpen(false)}
-        onSelectSource={setSelectedSourceId}
-        onQualityChange={setCaptureQuality}
-        onConfirm={handleConfirmConnect}
+        setBackgroundColorDialogOpen={setBackgroundColorDialogOpen}
+        setBackgroundColorPreview={setBackgroundColorPreview}
+        setCanvasHeightInput={setCanvasHeightInput}
+        setCanvasSizeDialogOpen={setCanvasSizeDialogOpen}
+        setCanvasWidthInput={setCanvasWidthInput}
+        setCaptureQuality={setCaptureQuality}
+        setConnectDialogOpen={setConnectDialogOpen}
+        setDraftGroupName={setDraftGroupName}
+        setDraftTaskTitle={setDraftTaskTitle}
+        setFeatureGuide={setFeatureGuide}
+        setHelpOpen={setHelpOpen}
+        setPendingDeletion={setPendingDeletion}
+        setSelectedSourceId={setSelectedSourceId}
+        setTaskDates={setTaskDates}
+        setTaskDialogOpen={setTaskDialogOpen}
+        shortcutConflicts={shortcutConflicts}
+        shortcutDialogOpen={shortcutDialogOpen}
+        shortcutDraftBindings={shortcutDraftBindings}
+        taskDates={taskDates}
+        taskDialogOpen={taskDialogOpen}
+        taskDuration={taskDuration}
+        toast={toast}
+        updateShortcutDraftBinding={updateShortcutDraftBinding}
+        changeCanvasColors={changeCanvasColors}
+        onConfirmCloseCancel={() => setConfirmCloseOpen(false)}
       />
-
-      <CanvasSizeDialog
-        open={canvasSizeDialogOpen}
-        widthValue={canvasWidthInput}
-        heightValue={canvasHeightInput}
-        onClose={() => setCanvasSizeDialogOpen(false)}
-        onConfirm={handleConfirmCanvasSizeDialog}
-        onWidthChange={setCanvasWidthInput}
-        onHeightChange={setCanvasHeightInput}
-      />
-
-      <BackgroundColorDialog
-        open={backgroundColorDialogOpen}
-        canvasColor={
-          backgroundColorPreview?.canvasColor ??
-          activeGroup?.canvasColor ??
-          DEFAULT_GROUP_CANVAS_COLOR
-        }
-        backgroundColor={
-          backgroundColorPreview?.backgroundColor ??
-          activeGroup?.backgroundColor ??
-          DEFAULT_GROUP_BACKGROUND_COLOR
-        }
-        onClose={() => {
-          setBackgroundColorPreview(null);
-          setBackgroundColorDialogOpen(false);
-        }}
-        onPreviewChange={setBackgroundColorPreview}
-        onConfirm={(colors) => {
-          setBackgroundColorPreview(null);
-          changeCanvasColors(colors.canvasColor, colors.backgroundColor);
-          setBackgroundColorDialogOpen(false);
-        }}
-      />
-
-      <KeyboardShortcutsDialog
-        open={shortcutDialogOpen}
-        bindings={shortcutDraftBindings}
-        conflicts={shortcutConflicts}
-        onClose={closeShortcutDialog}
-        onBindingChange={updateShortcutDraftBinding}
-        onResetAction={resetShortcutDraftBinding}
-        onResetAll={resetAllShortcutDraftBindings}
-        onResetTooltips={() => void resetTitleBarTooltips()}
-        onSave={() => void saveShortcutBindings()}
-      />
-
-      <HelpTutorialDialog
-        open={helpOpen}
-        onClose={() => setHelpOpen(false)}
-      />
-
-      <ConfirmCloseDialog
-        open={confirmCloseOpen}
-        fileName={projectFileName}
-        onSave={() => void handleSaveAndClose()}
-        onDiscard={handleDiscardAndClose}
-        onCancel={() => setConfirmCloseOpen(false)}
-      />
-
-      {toast ? (
-        <div className={`app-toast app-toast-${toast.kind}`}>
-          {toast.message}
-        </div>
-      ) : null}
     </div>
   );
 };

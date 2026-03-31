@@ -113,6 +113,7 @@ export interface Task {
   order: number;
   startDate?: string;
   endDate?: string;
+  linkedGroupId?: string;
   todos: TodoItem[];
 }
 

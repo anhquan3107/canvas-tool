@@ -70,11 +70,13 @@ export type Action =
       payload: {
         taskId: string;
         title?: string;
+        completed?: boolean;
         startDate?: string;
         endDate?: string;
       };
     }
   | { type: "complete-task"; payload: { taskId: string; completed: boolean } }
+  | { type: "duplicate-task"; payload: { taskId: string; id: string } }
   | { type: "link-task-group"; payload: { taskId: string; groupId?: string } }
   | { type: "remove-task"; payload: { taskId: string } }
   | { type: "add-todo"; payload: { taskId: string; text: string } }
@@ -129,9 +131,10 @@ export interface Store {
   addTask: (title: string, dates: Pick<Task, "startDate" | "endDate">) => string;
   updateTask: (
     taskId: string,
-    updates: Partial<Pick<Task, "title" | "startDate" | "endDate">>,
+    updates: Partial<Pick<Task, "title" | "completed" | "startDate" | "endDate">>,
   ) => void;
   completeTask: (taskId: string, completed: boolean) => void;
+  duplicateTask: (taskId: string) => string | null;
   linkTaskToGroup: (taskId: string, groupId?: string) => void;
   removeTask: (taskId: string) => void;
   addTodo: (taskId: string, text: string) => void;

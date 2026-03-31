@@ -1,4 +1,13 @@
 import { startTransition, useEffect, useMemo, useState } from "react";
+import {
+  CalendarDays,
+  Check,
+  Copy,
+  Link2,
+  Pencil,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import type { ReferenceGroup, Task } from "@shared/types/project";
 import {
   formatTaskDateRange,
@@ -17,6 +26,8 @@ interface TaskOverlayProps {
   onSelectTask: (taskId: string) => void;
   onInteract: () => void;
   onCreateTask: () => void;
+  onRenameTask: (taskId: string) => void;
+  onDuplicateTask: (taskId: string) => void;
   onDeleteTask: (taskId: string) => void;
   onChangeTaskDates: (taskId: string) => void;
   onCompleteTask: (taskId: string, completed: boolean) => void;
@@ -27,7 +38,7 @@ const TASK_MENU_WIDTH = 164;
 const TASK_MENU_MARGIN = 12;
 
 const getTaskToneClass = (task: Task) => {
-  if (isTaskComplete(task.todos)) {
+  if (isTaskComplete(task)) {
     return "task-tone-complete";
   }
 
@@ -44,6 +55,8 @@ export const TaskOverlay = ({
   onSelectTask,
   onInteract,
   onCreateTask,
+  onRenameTask,
+  onDuplicateTask,
   onDeleteTask,
   onChangeTaskDates,
   onCompleteTask,
@@ -91,6 +104,17 @@ export const TaskOverlay = ({
     [groups],
   );
 
+  const orderedDisplayTasks = useMemo(() => {
+    if (!primaryTask) {
+      return tasks;
+    }
+
+    return [
+      primaryTask,
+      ...tasks.filter((task) => task.id !== primaryTask.id),
+    ];
+  }, [primaryTask, tasks]);
+
   const openTaskMenu = (event: React.MouseEvent, taskId: string) => {
     event.preventDefault();
     event.stopPropagation();
@@ -113,6 +137,11 @@ export const TaskOverlay = ({
     const linkedName = task.linkedGroupId
       ? linkedGroups.get(task.linkedGroupId) ?? null
       : null;
+    const compactExpanded = compact && task.id === selectedTaskId;
+    const taskCompleted = isTaskComplete(task);
+    const remainingLabel = taskCompleted
+      ? "Task Completed"
+      : getTaskRemainingLabel(task.endDate);
 
     return (
       <button
@@ -120,6 +149,9 @@ export const TaskOverlay = ({
         type="button"
         className={[
           compact ? "task-summary-card" : "task-list-item",
+          compact && !expanded ? "task-summary-card-primary" : "",
+          compact && expanded ? "task-summary-card-stack" : "",
+          compactExpanded ? "task-summary-card-expanded" : "",
           task.id === selectedTaskId ? "task-list-item-active" : "",
           toneClass,
         ]
@@ -136,8 +168,20 @@ export const TaskOverlay = ({
         <span className={`task-chip-dot ${toneClass}`} />
         <span className={compact ? "task-summary-copy" : "task-list-item-copy"}>
           <strong>{task.title}</strong>
-          <small>{formatTaskDateRange(task.startDate, task.endDate)}</small>
-          {linkedName ? <em>{linkedName}</em> : null}
+          {!compact ? (
+            <>
+              <small>{formatTaskDateRange(task.startDate, task.endDate)}</small>
+              {linkedName ? <em>{linkedName}</em> : null}
+            </>
+          ) : compactExpanded ? (
+            <span className="task-summary-meta">
+              <small>{formatTaskDateRange(task.startDate, task.endDate)}</small>
+              <em className={taskCompleted ? "task-summary-meta-complete" : ""}>
+                {taskCompleted ? <Check size={12} strokeWidth={2.4} /> : null}
+                {remainingLabel}
+              </em>
+            </span>
+          ) : null}
         </span>
       </button>
     );
@@ -154,18 +198,29 @@ export const TaskOverlay = ({
     >
       <div className="task-summary-row">
         {renderTaskButton(primaryTask, true)}
-        <button
-          type="button"
-          className={`task-overlay-toggle ${expanded ? "open" : ""}`}
-          onClick={() => {
-            onInteract();
-            onToggleExpanded();
-          }}
-          aria-expanded={expanded}
-          aria-label={expanded ? "Hide tasks" : "Show tasks"}
-        >
-          {expanded ? "▴" : "▾"}
-        </button>
+        {tasks.length > 1 ? (
+          <div
+            className={[
+              "task-summary-toggle-row",
+              expanded ? "task-summary-toggle-row-hidden" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+          >
+            <button
+              type="button"
+              className={`task-overlay-toggle ${expanded ? "open" : ""}`}
+              onClick={() => {
+                onInteract();
+                onToggleExpanded();
+              }}
+              aria-expanded={expanded}
+              aria-label={expanded ? "Hide tasks" : "Show tasks"}
+            >
+              {expanded ? "▴" : "▾"}
+            </button>
+          </div>
+        ) : null}
       </div>
 
       {renderPopover ? (
@@ -173,7 +228,9 @@ export const TaskOverlay = ({
           className={`task-list-popover ${expanded ? "open" : "closing"}`}
           aria-hidden={!expanded}
         >
-          {tasks.map((task) => renderTaskButton(task))}
+          {orderedDisplayTasks
+            .filter((task) => task.id !== primaryTask.id)
+            .map((task) => renderTaskButton(task, true))}
         </div>
       ) : null}
 
@@ -189,62 +246,96 @@ export const TaskOverlay = ({
         >
           <button
             type="button"
+            className="task-context-menu-item"
+            onClick={() => {
+              onRenameTask(selectedMenuTask.id);
+              setMenuState(null);
+            }}
+          >
+            <Pencil size={14} />
+            <span>Rename</span>
+          </button>
+          <button
+            type="button"
+            className="task-context-menu-item"
             onClick={() => {
               onChangeTaskDates(selectedMenuTask.id);
               setMenuState(null);
             }}
           >
-            Change Date
+            <CalendarDays size={14} />
+            <span>Change Date</span>
           </button>
           <button
             type="button"
+            className="task-context-menu-item"
             onClick={() => {
-              onCompleteTask(selectedMenuTask.id, !isTaskComplete(selectedMenuTask.todos));
+              onCompleteTask(selectedMenuTask.id, !isTaskComplete(selectedMenuTask));
               setMenuState(null);
             }}
           >
-            {isTaskComplete(selectedMenuTask.todos) ? "Mark Active" : "Mark as Done"}
+            <Check size={14} />
+            <span>{isTaskComplete(selectedMenuTask) ? "Mark Active" : "Task Done"}</span>
+          </button>
+          <div className="task-context-menu-divider" />
+          <button
+            type="button"
+            className="task-context-menu-item"
+            onClick={() => {
+              onDuplicateTask(selectedMenuTask.id);
+              setMenuState(null);
+            }}
+          >
+            <Copy size={14} />
+            <span>Duplicate Task</span>
           </button>
           <button
             type="button"
+            className="task-context-menu-item"
             onClick={() => {
               onCreateTask();
               setMenuState(null);
             }}
           >
-            Create New Task
+            <Plus size={14} />
+            <span>New Task</span>
           </button>
           <button
             type="button"
-            className="danger"
+            className="task-context-menu-item danger"
             onClick={() => {
               onDeleteTask(selectedMenuTask.id);
               setMenuState(null);
             }}
           >
-            Remove Task
+            <Trash2 size={14} />
+            <span>Remove Task</span>
           </button>
           <div className="task-context-menu-divider" />
           <div className="task-context-menu-section-label">Link to canvas/group</div>
           <button
             type="button"
+            className="task-context-menu-item"
             onClick={() => {
               onLinkTaskToGroup(selectedMenuTask.id, undefined);
               setMenuState(null);
             }}
           >
-            None
+            <Link2 size={14} />
+            <span>None</span>
           </button>
           {groups.map((group) => (
             <button
               key={group.id}
               type="button"
+              className="task-context-menu-item"
               onClick={() => {
                 onLinkTaskToGroup(selectedMenuTask.id, group.id);
                 setMenuState(null);
               }}
             >
-              {group.name}
+              <Link2 size={14} />
+              <span>{group.name}</span>
             </button>
           ))}
         </div>

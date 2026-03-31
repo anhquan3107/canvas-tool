@@ -165,7 +165,7 @@ export const ProjectProvider = ({
   const updateTask = useCallback(
     (
       taskId: string,
-      updates: Partial<Pick<Task, "title" | "startDate" | "endDate">>,
+      updates: Partial<Pick<Task, "title" | "completed" | "startDate" | "endDate">>,
     ) => {
       dispatch({ type: "update-task", payload: { taskId, ...updates } });
     },
@@ -174,6 +174,12 @@ export const ProjectProvider = ({
 
   const completeTask = useCallback((taskId: string, completed: boolean) => {
     dispatch({ type: "complete-task", payload: { taskId, completed } });
+  }, []);
+
+  const duplicateTask = useCallback((taskId: string) => {
+    const id = randomUUID();
+    dispatch({ type: "duplicate-task", payload: { taskId, id } });
+    return id;
   }, []);
 
   const linkTaskToGroup = useCallback((taskId: string, groupId?: string) => {
@@ -240,6 +246,7 @@ export const ProjectProvider = ({
       addTask,
       updateTask,
       completeTask,
+      duplicateTask,
       linkTaskToGroup,
       removeTask,
       addTodo,
@@ -273,6 +280,7 @@ export const ProjectProvider = ({
       addTask,
       updateTask,
       completeTask,
+      duplicateTask,
       linkTaskToGroup,
       removeTask,
       addTodo,

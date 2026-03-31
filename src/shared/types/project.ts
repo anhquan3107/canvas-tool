@@ -111,6 +111,7 @@ export interface Task {
   id: string;
   title: string;
   order: number;
+  completed?: boolean;
   startDate?: string;
   endDate?: string;
   linkedGroupId?: string;

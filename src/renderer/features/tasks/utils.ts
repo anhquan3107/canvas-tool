@@ -114,8 +114,18 @@ export const getTaskRemainingLabel = (endDate?: string) => {
 };
 
 export const isTaskComplete = (
-  todos: Array<{ completed: boolean }>,
-) => todos.length > 0 && todos.every((todo) => todo.completed);
+  taskOrTodos: { completed?: boolean; todos: Array<{ completed: boolean }> } | Array<{ completed: boolean }>,
+) => {
+  if (Array.isArray(taskOrTodos)) {
+    return taskOrTodos.length > 0 && taskOrTodos.every((todo) => todo.completed);
+  }
+
+  return (
+    taskOrTodos.completed === true ||
+    (taskOrTodos.todos.length > 0 &&
+      taskOrTodos.todos.every((todo) => todo.completed))
+  );
+};
 
 export const getTaskDeadlineTone = (endDate?: string) => {
   const remainingDays = getTaskRemainingDays(endDate);

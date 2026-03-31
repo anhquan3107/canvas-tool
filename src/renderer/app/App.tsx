@@ -137,6 +137,7 @@ const AppContent = () => {
     setGroupLocked,
     setGroupAnnotations,
     addTask,
+    duplicateTask,
     updateTask,
     completeTask,
     linkTaskToGroup,
@@ -210,6 +211,7 @@ const AppContent = () => {
     taskDetailOpen,
     taskDetailPinned,
     taskDialogOpen,
+    taskDialogMode,
     editingTaskId,
     draftTaskTitle,
     taskDates,
@@ -226,12 +228,15 @@ const AppContent = () => {
     registerTaskDetailInteraction,
     openTaskDialog,
     openEditTaskDialog,
+    openRenameTaskDialog,
     handleSubmitTask,
+    handleDuplicateTask,
     handleDeleteTask,
     handleDeleteSelectedTask,
   } = useTaskFeature({
     tasks: project.tasks,
     addTask,
+    duplicateTask,
     updateTask,
     removeTask,
     pushToast,
@@ -1006,6 +1011,8 @@ const AppContent = () => {
                         }}
                         onInteract={registerTaskOverlayInteraction}
                         onCreateTask={openTaskDialog}
+                        onRenameTask={openRenameTaskDialog}
+                        onDuplicateTask={handleDuplicateTask}
                         onDeleteTask={requestDeleteTaskById}
                         onChangeTaskDates={openEditTaskDialog}
                         onCompleteTask={completeTask}
@@ -1297,6 +1304,7 @@ const AppContent = () => {
         draftTaskTitle={draftTaskTitle}
         editingGroup={editingGroup}
         editingTaskId={editingTaskId}
+        taskDialogMode={taskDialogMode}
         featureGuide={featureGuide}
         groupDialogOpen={groupDialogOpen}
         handleConfirmCanvasSizeDialog={handleConfirmCanvasSizeDialog}

@@ -43,7 +43,7 @@
 }
 
 .canvas-overlay-column.right-center {
-  top: 50%;
+  top: 40%;
   right: 12px;
   transform: translateY(-50%);
   align-items: flex-end;

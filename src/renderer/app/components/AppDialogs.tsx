@@ -40,6 +40,7 @@ interface AppDialogsProps {
   draftTaskTitle: string;
   editingGroup: { id: string; currentName: string } | null;
   editingTaskId: string | null;
+  taskDialogMode: "create" | "edit" | "rename";
   featureGuide: FeatureGuideState | null;
   groupDialogOpen: boolean;
   handleConfirmCanvasSizeDialog: () => void;
@@ -107,6 +108,7 @@ export const AppDialogs = ({
   draftTaskTitle,
   editingGroup,
   editingTaskId,
+  taskDialogMode,
   featureGuide,
   groupDialogOpen,
   handleConfirmCanvasSizeDialog,
@@ -183,7 +185,7 @@ export const AppDialogs = ({
 
     <TaskDialog
       open={taskDialogOpen}
-      mode={editingTaskId ? "edit" : "create"}
+      mode={taskDialogMode}
       draftTaskTitle={draftTaskTitle}
       taskDates={taskDates}
       taskDuration={taskDuration}

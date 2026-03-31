@@ -5,7 +5,7 @@ import { formatDateLabel } from "@renderer/features/tasks/utils";
 
 interface TaskDialogProps {
   open: boolean;
-  mode?: "create" | "edit";
+  mode?: "create" | "edit" | "rename";
   draftTaskTitle: string;
   taskDates: TaskDateRange;
   taskDuration: number;
@@ -32,7 +32,13 @@ export const TaskDialog = ({
 
   return (
     <DialogFrame
-      title={mode === "edit" ? "Edit Task Deadline" : "Set Deadline"}
+      title={
+        mode === "rename"
+          ? "Rename Task"
+          : mode === "edit"
+            ? "Edit Task Deadline"
+            : "Set Deadline"
+      }
       onClose={onClose}
     >
       <div className="dialog-field">
@@ -44,45 +50,49 @@ export const TaskDialog = ({
         />
       </div>
 
-      <div className="dialog-grid">
-        <div className="dialog-field">
-          <label htmlFor="task-start">Start Date:</label>
-          <input
-            id="task-start"
-            type="date"
-            value={taskDates.startDate}
-            onChange={(event) =>
-              onTaskDatesChange((previous) => ({
-                ...previous,
-                startDate: event.target.value,
-              }))
-            }
-          />
-          <span className="dialog-date-preview">
-            {formatDateLabel(taskDates.startDate)}
-          </span>
-        </div>
+      {mode !== "rename" ? (
+        <>
+          <div className="dialog-grid">
+            <div className="dialog-field">
+              <label htmlFor="task-start">Start Date:</label>
+              <input
+                id="task-start"
+                type="date"
+                value={taskDates.startDate}
+                onChange={(event) =>
+                  onTaskDatesChange((previous) => ({
+                    ...previous,
+                    startDate: event.target.value,
+                  }))
+                }
+              />
+              <span className="dialog-date-preview">
+                {formatDateLabel(taskDates.startDate)}
+              </span>
+            </div>
 
-        <div className="dialog-field">
-          <label htmlFor="task-end">End Date:</label>
-          <input
-            id="task-end"
-            type="date"
-            value={taskDates.endDate}
-            onChange={(event) =>
-              onTaskDatesChange((previous) => ({
-                ...previous,
-                endDate: event.target.value,
-              }))
-            }
-          />
-          <span className="dialog-date-preview">
-            {formatDateLabel(taskDates.endDate)}
-          </span>
-        </div>
-      </div>
+            <div className="dialog-field">
+              <label htmlFor="task-end">End Date:</label>
+              <input
+                id="task-end"
+                type="date"
+                value={taskDates.endDate}
+                onChange={(event) =>
+                  onTaskDatesChange((previous) => ({
+                    ...previous,
+                    endDate: event.target.value,
+                  }))
+                }
+              />
+              <span className="dialog-date-preview">
+                {formatDateLabel(taskDates.endDate)}
+              </span>
+            </div>
+          </div>
 
-      <p className="dialog-duration">Duration: {taskDuration} day(s)</p>
+          <p className="dialog-duration">Duration: {taskDuration} day(s)</p>
+        </>
+      ) : null}
 
       <div className="dialog-actions">
         <button
@@ -90,7 +100,7 @@ export const TaskDialog = ({
           className="dialog-button primary"
           onClick={onSubmitTask}
         >
-          {mode === "edit" ? "Save" : "OK"}
+          {mode === "edit" || mode === "rename" ? "Save" : "OK"}
         </button>
         <button type="button" className="dialog-button" onClick={onClose}>
           Cancel

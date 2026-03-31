@@ -1,5 +1,6 @@
 import { GripVertical, Trash2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import type { FormEvent } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { Task } from "@shared/types/project";
 
 interface TodoListProps {
@@ -28,6 +29,7 @@ export const TodoList = ({
   const [newTodoText, setNewTodoText] = useState("");
   const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
   const [dragTodoId, setDragTodoId] = useState<string | null>(null);
+  const newTodoInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   const sortedTodos = useMemo(
     () => [...task.todos].sort((left, right) => left.order - right.order),
@@ -42,7 +44,18 @@ export const TodoList = ({
 
     onAddTodo(task.id, trimmed);
     setNewTodoText("");
+    if (newTodoInputRef.current) {
+      newTodoInputRef.current.style.height = "48px";
+    }
     onShowGuide();
+  };
+
+  const autoResizeTextArea = (event: FormEvent<HTMLTextAreaElement>) => {
+    const element = event.currentTarget;
+    const baseHeight = Number(element.dataset.baseHeight ?? "48");
+    const maxHeight = Number(element.dataset.maxHeight ?? "96");
+    element.style.height = `${baseHeight}px`;
+    element.style.height = `${Math.min(element.scrollHeight, maxHeight)}px`;
   };
 
   return (
@@ -54,17 +67,33 @@ export const TodoList = ({
           submitNewTodo();
         }}
       >
-        <input
-          value={newTodoText}
-          onChange={(event) => setNewTodoText(event.target.value)}
-          placeholder="Add a new task... (Ctrl+Enter to save)"
-          onKeyDown={(event) => {
-            if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-              event.preventDefault();
-              submitNewTodo();
-            }
-          }}
-        />
+        <div className="todo-add-field">
+          {newTodoText.trim().length === 0 ? (
+            <span className="todo-add-placeholder" aria-hidden="true">
+              Add a new task... (Ctrl+Enter to save)
+            </span>
+          ) : null}
+          <textarea
+            ref={newTodoInputRef}
+            aria-label="Add a new task"
+            data-base-height="48"
+            data-max-height="96"
+            value={newTodoText}
+            onChange={(event) => setNewTodoText(event.target.value)}
+            onInput={autoResizeTextArea}
+            onKeyDown={(event) => {
+              if (
+                event.key === "Enter" &&
+                (event.ctrlKey || event.metaKey) &&
+                !event.shiftKey
+              ) {
+                event.preventDefault();
+                submitNewTodo();
+              }
+            }}
+            rows={1}
+          />
+        </div>
         <button type="submit">Add</button>
       </form>
 
@@ -110,19 +139,28 @@ export const TodoList = ({
             </label>
 
             {editingTodoId === todo.id ? (
-              <input
+              <textarea
                 autoFocus
                 className="todo-text-input"
+                data-base-height="22"
+                data-max-height="88"
                 value={todo.text}
                 onChange={(event) =>
                   onRenameTodo(task.id, todo.id, event.target.value)
                 }
+                onInput={autoResizeTextArea}
                 onBlur={() => setEditingTodoId(null)}
                 onKeyDown={(event) => {
-                  if (event.key === "Enter") {
+                  if (event.key === "Enter" && event.shiftKey) {
+                    return;
+                  }
+
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
                     setEditingTodoId(null);
                   }
                 }}
+                rows={1}
               />
             ) : (
               <button

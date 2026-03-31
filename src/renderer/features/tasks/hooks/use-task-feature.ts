@@ -12,9 +12,10 @@ interface UseTaskFeatureOptions {
     title: string,
     dates: Pick<Task, "startDate" | "endDate">,
   ) => string;
+  duplicateTask: (taskId: string) => string | null;
   updateTask: (
     taskId: string,
-    updates: Partial<Pick<Task, "title" | "startDate" | "endDate">>,
+    updates: Partial<Pick<Task, "title" | "completed" | "startDate" | "endDate">>,
   ) => void;
   removeTask: (taskId: string) => void;
   pushToast: (kind: "success" | "error" | "info", message: string) => void;
@@ -25,6 +26,7 @@ const TASK_IDLE_TIMEOUT_MS = 5000;
 export const useTaskFeature = ({
   tasks,
   addTask,
+  duplicateTask,
   updateTask,
   removeTask,
   pushToast,
@@ -34,6 +36,9 @@ export const useTaskFeature = ({
   const [taskDetailOpen, setTaskDetailOpen] = useState(false);
   const [taskDetailPinned, setTaskDetailPinned] = useState(false);
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  const [taskDialogMode, setTaskDialogMode] = useState<"create" | "edit" | "rename">(
+    "create",
+  );
   const [draftTaskTitle, setDraftTaskTitle] = useState("New Task");
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [taskDates, setTaskDates] = useState<TaskDateRange>(
@@ -108,6 +113,7 @@ export const useTaskFeature = ({
   }, [registerTaskDetailInteraction]);
 
   const openTaskDialog = useCallback(() => {
+    setTaskDialogMode("create");
     setEditingTaskId(null);
     setDraftTaskTitle(`New Task ${tasks.length + 1}`);
     setTaskDates(createDefaultTaskDates());
@@ -121,6 +127,26 @@ export const useTaskFeature = ({
         return;
       }
 
+      setTaskDialogMode("edit");
+      setEditingTaskId(task.id);
+      setDraftTaskTitle(task.title);
+      setTaskDates({
+        startDate: task.startDate ?? createDefaultTaskDates().startDate,
+        endDate: task.endDate ?? createDefaultTaskDates().endDate,
+      });
+      setTaskDialogOpen(true);
+    },
+    [orderedTasks],
+  );
+
+  const openRenameTaskDialog = useCallback(
+    (taskId: string) => {
+      const task = orderedTasks.find((entry) => entry.id === taskId);
+      if (!task) {
+        return;
+      }
+
+      setTaskDialogMode("rename");
       setEditingTaskId(task.id);
       setDraftTaskTitle(task.title);
       setTaskDates({
@@ -136,14 +162,25 @@ export const useTaskFeature = ({
     const title = draftTaskTitle.trim() || `Task ${tasks.length + 1}`;
 
     if (editingTaskId) {
-      updateTask(editingTaskId, {
-        title,
-        startDate: taskDates.startDate,
-        endDate: taskDates.endDate,
-      });
+      updateTask(
+        editingTaskId,
+        taskDialogMode === "rename"
+          ? {
+              title,
+            }
+          : {
+              title,
+              startDate: taskDates.startDate,
+              endDate: taskDates.endDate,
+            },
+      );
       setTaskDialogOpen(false);
       setEditingTaskId(null);
-      pushToast("success", `Updated ${title}.`);
+      setTaskDialogMode("create");
+      pushToast(
+        "success",
+        taskDialogMode === "rename" ? `Renamed to ${title}.` : `Updated ${title}.`,
+      );
       return;
     }
 
@@ -155,6 +192,7 @@ export const useTaskFeature = ({
     setPendingTaskSelectionDismissal(false);
     setTaskDetailPinned(false);
     setTaskDialogOpen(false);
+    setTaskDialogMode("create");
     registerTaskOverlayInteraction();
     registerTaskDetailInteraction();
     pushToast("success", `Created ${title}.`);
@@ -165,10 +203,44 @@ export const useTaskFeature = ({
     pushToast,
     registerTaskDetailInteraction,
     registerTaskOverlayInteraction,
+    taskDialogMode,
     taskDates,
     tasks.length,
     updateTask,
   ]);
+
+  const handleDuplicateTask = useCallback(
+    (taskId: string) => {
+      const task = orderedTasks.find((entry) => entry.id === taskId);
+      if (!task) {
+        pushToast("info", "Select a task to duplicate.");
+        return;
+      }
+
+      const nextTaskId = duplicateTask(taskId);
+      if (!nextTaskId) {
+        pushToast("error", "Could not duplicate task.");
+        return;
+      }
+
+      setSelectedTaskId(nextTaskId);
+      setTaskListExpanded(true);
+      setTaskDetailOpen(true);
+      setTaskCreationPreviewActive(true);
+      setPendingTaskSelectionDismissal(false);
+      setTaskDetailPinned(false);
+      registerTaskOverlayInteraction();
+      registerTaskDetailInteraction();
+      pushToast("success", `Duplicated ${task.title}.`);
+    },
+    [
+      duplicateTask,
+      orderedTasks,
+      pushToast,
+      registerTaskDetailInteraction,
+      registerTaskOverlayInteraction,
+    ],
+  );
 
   useEffect(() => {
     if (!taskCreationPreviewActive) {
@@ -188,6 +260,20 @@ export const useTaskFeature = ({
       window.clearTimeout(timeoutId);
     };
   }, [taskCreationPreviewActive, taskDetailPinned, taskOverlayActivityVersion]);
+
+  useEffect(() => {
+    if (!taskListExpanded || taskCreationPreviewActive) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setTaskListExpanded(false);
+    }, TASK_IDLE_TIMEOUT_MS);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [taskCreationPreviewActive, taskListExpanded, taskOverlayActivityVersion]);
 
   useEffect(() => {
     if (!taskDetailOpen || taskDetailPinned || !selectedTaskId) {
@@ -266,6 +352,7 @@ export const useTaskFeature = ({
     taskDetailOpen,
     taskDetailPinned,
     taskDialogOpen,
+    taskDialogMode,
     editingTaskId,
     draftTaskTitle,
     taskDates,
@@ -285,7 +372,9 @@ export const useTaskFeature = ({
     registerTaskDetailInteraction,
     openTaskDialog,
     openEditTaskDialog,
+    openRenameTaskDialog,
     handleSubmitTask,
+    handleDuplicateTask,
     handleDeleteTask,
     handleDeleteSelectedTask,
   };

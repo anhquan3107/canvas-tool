@@ -136,7 +136,10 @@ export const loadCanvasProject = async (
   const tasksFile = zip.file("tasks.json");
   const tasksRaw = tasksFile ? await tasksFile.async("text") : "[]";
 
-  const tasks = JSON.parse(tasksRaw) as Project["tasks"];
+  const tasks = (JSON.parse(tasksRaw) as Project["tasks"]).map((task) => ({
+    ...task,
+    completed: task.completed ?? false,
+  }));
 
   return {
     id: parsedManifest.id,

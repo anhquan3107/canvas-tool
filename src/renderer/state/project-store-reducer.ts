@@ -325,15 +325,18 @@ const projectReducer = (project: Project, action: Action): Project => {
       return touchProject({
         ...project,
         tasks: [
-          ...project.tasks,
           {
             id: action.payload.id,
             title: action.payload.title || `Task ${project.tasks.length + 1}`,
-            order: project.tasks.length,
+            order: 0,
             startDate: action.payload.startDate,
             endDate: action.payload.endDate,
             todos: [],
           },
+          ...project.tasks.map((task) => ({
+            ...task,
+            order: task.order + 1,
+          })),
         ],
       });
     case "update-task":
@@ -345,6 +348,9 @@ const projectReducer = (project: Project, action: Action): Project => {
                 ...task,
                 ...(action.payload.title !== undefined
                   ? { title: action.payload.title }
+                  : {}),
+                ...(action.payload.completed !== undefined
+                  ? { completed: action.payload.completed }
                   : {}),
                 ...(action.payload.startDate !== undefined
                   ? { startDate: action.payload.startDate }
@@ -363,6 +369,7 @@ const projectReducer = (project: Project, action: Action): Project => {
           task.id === action.payload.taskId
             ? {
                 ...task,
+                completed: action.payload.completed,
                 todos: task.todos.map((todo) => ({
                   ...todo,
                   completed: action.payload.completed,
@@ -371,6 +378,36 @@ const projectReducer = (project: Project, action: Action): Project => {
             : task,
         ),
       });
+    case "duplicate-task": {
+      const sourceTask = project.tasks.find(
+        (task) => task.id === action.payload.taskId,
+      );
+
+      if (!sourceTask) {
+        return project;
+      }
+
+      return touchProject({
+        ...project,
+        tasks: [
+          {
+            ...sourceTask,
+            id: action.payload.id,
+            title: `${sourceTask.title} Copy`,
+            order: 0,
+            todos: sourceTask.todos.map((todo, index) => ({
+              ...todo,
+              id: randomUUID(),
+              order: index,
+            })),
+          },
+          ...project.tasks.map((task) => ({
+            ...task,
+            order: task.order + 1,
+          })),
+        ],
+      });
+    }
     case "link-task-group":
       return touchProject({
         ...project,

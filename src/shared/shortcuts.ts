@@ -31,7 +31,6 @@ export type ShortcutActionId =
   | "tasks.add"
   | "arrange.auto"
   | "arrange.horizontal"
-  | "arrange.toggleSnap"
   | "arrange.toggleAutoArrangeOnImport"
   | "tools.connect"
   | "tools.toggleDoodle"
@@ -155,12 +154,6 @@ export const SHORTCUT_DEFINITIONS: ShortcutDefinition[] = [
     section: "Arrange",
     label: "Arrange Horizontal",
     defaultBinding: "Ctrl+Alt+H",
-  },
-  {
-    id: "arrange.toggleSnap",
-    section: "Arrange",
-    label: "Toggle Snap",
-    defaultBinding: "Ctrl+;",
   },
   {
     id: "arrange.toggleAutoArrangeOnImport",

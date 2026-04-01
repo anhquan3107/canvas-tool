@@ -88,8 +88,6 @@ const AppContent = () => {
     setAppInfoOpen,
     canvasSizePreview,
     setCanvasSizePreview,
-    snapEnabled,
-    setSnapEnabled,
     autoArrangeOnImport,
     setAutoArrangeOnImport,
     menuState,
@@ -834,7 +832,6 @@ const AppContent = () => {
     openTaskDialog,
     arrangeSelectedItems,
     autoArrange,
-    toggleSnap: () => setSnapEnabled((previous) => !previous),
     toggleAutoArrangeOnImport: () =>
       setAutoArrangeOnImport((previous) => !previous),
     openConnectDialog,
@@ -987,7 +984,6 @@ const AppContent = () => {
                 <CanvasBoard
                   group={displayGroup}
                   activeTool={activeTool}
-                  snapEnabled={snapEnabled}
                   doodleMode={doodleMode}
                   doodleColor={doodleColor}
                   doodleSize={activeDoodleSize}
@@ -1176,9 +1172,7 @@ const AppContent = () => {
             selectedImage={selectedStatusImage}
             zoomLabel={zoomLabel}
             canvasLabel={canvasLabel}
-            snapEnabled={snapEnabled}
             autoArrangeEnabled={autoArrangeOnImport}
-            onToggleSnap={() => setSnapEnabled((previous) => !previous)}
             onToggleAutoArrange={() =>
               setAutoArrangeOnImport((previous) => !previous)
             }

@@ -24,7 +24,6 @@ export interface CanvasSizePreview {
 export interface CanvasBoardProps {
   group: ReferenceGroup;
   activeTool: ToolMode | null;
-  snapEnabled: boolean;
   doodleMode: DoodleMode;
   doodleColor: string;
   doodleSize: number;

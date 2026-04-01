@@ -38,7 +38,6 @@ const SELECTION_HIGHLIGHT_NAME = "selection-highlight";
 export const CanvasBoard = ({
   group,
   activeTool,
-  snapEnabled,
   doodleMode,
   doodleColor,
   doodleSize,
@@ -81,7 +80,6 @@ export const CanvasBoard = ({
   const onCanvasSizePreviewChangeRef = useRef(onCanvasSizePreviewChange);
   const onExportReadyRef = useRef(onExportReady);
   const activeToolRef = useRef(activeTool);
-  const snapEnabledRef = useRef(snapEnabled);
   const doodleModeRef = useRef(doodleMode);
   const doodleColorRef = useRef(doodleColor);
   const doodleSizeRef = useRef(doodleSize);
@@ -210,10 +208,6 @@ export const CanvasBoard = ({
   }, [activeTool]);
 
   useEffect(() => {
-    snapEnabledRef.current = snapEnabled;
-  }, [snapEnabled]);
-
-  useEffect(() => {
     doodleModeRef.current = doodleMode;
     const lastPointer = lastPointerClientRef.current;
     if (lastPointer) {
@@ -305,7 +299,6 @@ export const CanvasBoard = ({
       activeItemDragRef,
       hostRef,
       boardContainerRef,
-      snapEnabledRef,
       groupRef,
       onItemsPatchRef,
       setPreviewInsets,

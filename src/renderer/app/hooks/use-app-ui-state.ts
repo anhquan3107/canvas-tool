@@ -10,7 +10,6 @@ export const useAppUiState = () => {
   const [appInfoOpen, setAppInfoOpen] = useState(false);
   const [canvasSizePreview, setCanvasSizePreview] =
     useState<CanvasSizePreview | null>(null);
-  const [snapEnabled, setSnapEnabled] = useState(true);
   const [autoArrangeOnImport, setAutoArrangeOnImport] = useState(true);
   const [menuState, setMenuState] = useState<MenuState | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -39,8 +38,6 @@ export const useAppUiState = () => {
     setAppInfoOpen,
     canvasSizePreview,
     setCanvasSizePreview,
-    snapEnabled,
-    setSnapEnabled,
     autoArrangeOnImport,
     setAutoArrangeOnImport,
     menuState,

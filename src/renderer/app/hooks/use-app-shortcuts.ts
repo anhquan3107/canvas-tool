@@ -37,7 +37,6 @@ interface UseAppShortcutsOptions {
   openTaskDialog: () => void;
   arrangeSelectedItems: (mode: LayoutMode) => void;
   autoArrange: () => void;
-  toggleSnap: () => void;
   toggleAutoArrangeOnImport: () => void;
   openConnectDialog: () => void;
   toggleDoodle: () => void;
@@ -80,7 +79,6 @@ export const useAppShortcuts = ({
   openTaskDialog,
   arrangeSelectedItems,
   autoArrange,
-  toggleSnap,
   toggleAutoArrangeOnImport,
   openConnectDialog,
   toggleDoodle,
@@ -131,7 +129,6 @@ export const useAppShortcuts = ({
       "tasks.add": openTaskDialog,
       "arrange.auto": autoArrange,
       "arrange.horizontal": () => arrangeSelectedItems("horizontal"),
-      "arrange.toggleSnap": toggleSnap,
       "arrange.toggleAutoArrangeOnImport": toggleAutoArrangeOnImport,
       "tools.connect": openConnectDialog,
       "tools.toggleDoodle": toggleDoodle,
@@ -207,7 +204,6 @@ export const useAppShortcuts = ({
       toggleBlur,
       toggleCanvasLock,
       toggleDoodle,
-      toggleSnap,
       undo,
     ],
   );

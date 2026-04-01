@@ -9,9 +9,7 @@ interface StatusBarProps {
   selectedImage: ImageItem | null;
   zoomLabel: string;
   canvasLabel: string;
-  snapEnabled: boolean;
   autoArrangeEnabled: boolean;
-  onToggleSnap: () => void;
   onToggleAutoArrange: () => void;
 }
 
@@ -20,9 +18,7 @@ export const StatusBar = ({
   selectedImage,
   zoomLabel,
   canvasLabel,
-  snapEnabled,
   autoArrangeEnabled,
-  onToggleSnap,
   onToggleAutoArrange,
 }: StatusBarProps) => {
   const fileSizeBytes =
@@ -63,15 +59,6 @@ export const StatusBar = ({
             {formatLabel ? <span>{formatLabel}</span> : null}
           </div>
         ) : null}
-        <button
-          type="button"
-          className={`status-toggle ${snapEnabled ? "is-active" : ""}`}
-          onClick={onToggleSnap}
-          aria-pressed={snapEnabled}
-        >
-          <span className="status-checkbox" aria-hidden="true" />
-          <span>Snap</span>
-        </button>
         <button
           type="button"
           className={`status-toggle ${autoArrangeEnabled ? "is-active" : ""}`}

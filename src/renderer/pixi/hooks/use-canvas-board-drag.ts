@@ -18,7 +18,6 @@ interface UseCanvasBoardDragOptions {
   activeItemDragRef: MutableRefObject<ActiveItemDragState | null>;
   hostRef: MutableRefObject<HTMLDivElement | null>;
   boardContainerRef: MutableRefObject<Container | null>;
-  snapEnabledRef: MutableRefObject<boolean>;
   groupRef: MutableRefObject<ReferenceGroup>;
   onItemsPatchRef: MutableRefObject<
     (updates: Record<string, CanvasItemPatch>) => void
@@ -32,7 +31,6 @@ export const useCanvasBoardDrag = ({
   activeItemDragRef,
   hostRef,
   boardContainerRef,
-  snapEnabledRef,
   groupRef,
   onItemsPatchRef,
   setPreviewInsets,
@@ -188,79 +186,77 @@ export const useCanvasBoardDrag = ({
       let snappedOnX = false;
       let snappedOnY = false;
 
-      if (snapEnabledRef.current) {
-        const selectedSet = new Set(activeDrag.items.map((item) => item.itemId));
-        const candidateRects = groupRef.current.items.filter(
-          (item) => !selectedSet.has(item.id) && item.visible,
-        );
+      const selectedSet = new Set(activeDrag.items.map((item) => item.itemId));
+      const candidateRects = groupRef.current.items.filter(
+        (item) => !selectedSet.has(item.id) && item.visible,
+      );
 
-        let snappedTranslateX = translateX;
-        let snappedTranslateY = translateY;
-        let bestSnapX = SNAP_THRESHOLD + 1;
-        let bestSnapY = SNAP_THRESHOLD + 1;
+      let snappedTranslateX = translateX;
+      let snappedTranslateY = translateY;
+      let bestSnapX = SNAP_THRESHOLD + 1;
+      let bestSnapY = SNAP_THRESHOLD + 1;
 
-        candidateRects.forEach((item) => {
-          const itemRight = item.x + item.width;
-          const itemBottom = item.y + item.height;
+      candidateRects.forEach((item) => {
+        const itemRight = item.x + item.width;
+        const itemBottom = item.y + item.height;
 
-          const horizontalCandidates = [
-            {
-              delta: Math.abs(dragBounds.minX - item.x),
-              value: item.x - dragBounds.minX + translateX,
-            },
-            {
-              delta: Math.abs(dragBounds.minX - (itemRight + SNAP_GAP)),
-              value: itemRight + SNAP_GAP - dragBounds.minX + translateX,
-            },
-            {
-              delta: Math.abs(dragBounds.maxX - (item.x - SNAP_GAP)),
-              value: item.x - SNAP_GAP - dragBounds.maxX + translateX,
-            },
-            {
-              delta: Math.abs(dragBounds.maxX - itemRight),
-              value: itemRight - dragBounds.maxX + translateX,
-            },
-          ];
+        const horizontalCandidates = [
+          {
+            delta: Math.abs(dragBounds.minX - item.x),
+            value: item.x - dragBounds.minX + translateX,
+          },
+          {
+            delta: Math.abs(dragBounds.minX - (itemRight + SNAP_GAP)),
+            value: itemRight + SNAP_GAP - dragBounds.minX + translateX,
+          },
+          {
+            delta: Math.abs(dragBounds.maxX - (item.x - SNAP_GAP)),
+            value: item.x - SNAP_GAP - dragBounds.maxX + translateX,
+          },
+          {
+            delta: Math.abs(dragBounds.maxX - itemRight),
+            value: itemRight - dragBounds.maxX + translateX,
+          },
+        ];
 
-          const verticalCandidates = [
-            {
-              delta: Math.abs(dragBounds.minY - item.y),
-              value: item.y - dragBounds.minY + translateY,
-            },
-            {
-              delta: Math.abs(dragBounds.minY - (itemBottom + SNAP_GAP)),
-              value: itemBottom + SNAP_GAP - dragBounds.minY + translateY,
-            },
-            {
-              delta: Math.abs(dragBounds.maxY - (item.y - SNAP_GAP)),
-              value: item.y - SNAP_GAP - dragBounds.maxY + translateY,
-            },
-            {
-              delta: Math.abs(dragBounds.maxY - itemBottom),
-              value: itemBottom - dragBounds.maxY + translateY,
-            },
-          ];
+        const verticalCandidates = [
+          {
+            delta: Math.abs(dragBounds.minY - item.y),
+            value: item.y - dragBounds.minY + translateY,
+          },
+          {
+            delta: Math.abs(dragBounds.minY - (itemBottom + SNAP_GAP)),
+            value: itemBottom + SNAP_GAP - dragBounds.minY + translateY,
+          },
+          {
+            delta: Math.abs(dragBounds.maxY - (item.y - SNAP_GAP)),
+            value: item.y - SNAP_GAP - dragBounds.maxY + translateY,
+          },
+          {
+            delta: Math.abs(dragBounds.maxY - itemBottom),
+            value: itemBottom - dragBounds.maxY + translateY,
+          },
+        ];
 
-          horizontalCandidates.forEach((candidate) => {
-            if (candidate.delta < bestSnapX && candidate.delta <= SNAP_THRESHOLD) {
-              bestSnapX = candidate.delta;
-              snappedTranslateX = candidate.value;
-              snappedOnX = true;
-            }
-          });
-
-          verticalCandidates.forEach((candidate) => {
-            if (candidate.delta < bestSnapY && candidate.delta <= SNAP_THRESHOLD) {
-              bestSnapY = candidate.delta;
-              snappedTranslateY = candidate.value;
-              snappedOnY = true;
-            }
-          });
+        horizontalCandidates.forEach((candidate) => {
+          if (candidate.delta < bestSnapX && candidate.delta <= SNAP_THRESHOLD) {
+            bestSnapX = candidate.delta;
+            snappedTranslateX = candidate.value;
+            snappedOnX = true;
+          }
         });
 
-        translateX = snappedTranslateX;
-        translateY = snappedTranslateY;
-      }
+        verticalCandidates.forEach((candidate) => {
+          if (candidate.delta < bestSnapY && candidate.delta <= SNAP_THRESHOLD) {
+            bestSnapY = candidate.delta;
+            snappedTranslateY = candidate.value;
+            snappedOnY = true;
+          }
+        });
+      });
+
+      translateX = snappedTranslateX;
+      translateY = snappedTranslateY;
 
       let minX = Number.POSITIVE_INFINITY;
       let minY = Number.POSITIVE_INFINITY;
@@ -317,7 +313,6 @@ export const useCanvasBoardDrag = ({
       groupRef,
       scheduleViewCommit,
       setPreviewInsets,
-      snapEnabledRef,
       updateSelectedBoundsOverlay,
     ],
   );

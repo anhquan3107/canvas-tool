@@ -544,6 +544,30 @@ const shouldRecordHistory = (action: Action) =>
 const pushHistoryEntry = (entries: Project[], project: Project) =>
   [...entries, project].slice(-MAX_HISTORY_ENTRIES);
 
+const preserveTransientViewState = (
+  nextProject: Project,
+  currentProject: Project,
+): Project => ({
+  ...nextProject,
+  activeGroupId: currentProject.activeGroupId,
+  groups: nextProject.groups.map((group) => {
+    const currentGroup = currentProject.groups.find(
+      (entry) => entry.id === group.id,
+    );
+
+    if (!currentGroup) {
+      return group;
+    }
+
+    return {
+      ...group,
+      zoom: currentGroup.zoom,
+      panX: currentGroup.panX,
+      panY: currentGroup.panY,
+    };
+  }),
+});
+
 export const historyReducer = (
   state: HistoryState,
   action: Action,
@@ -561,7 +585,10 @@ export const historyReducer = (
         return state;
       }
 
-      const previous = state.past[state.past.length - 1];
+      const previous = preserveTransientViewState(
+        state.past[state.past.length - 1],
+        state.project,
+      );
       return {
         past: state.past.slice(0, -1),
         project: previous,
@@ -574,7 +601,7 @@ export const historyReducer = (
         return state;
       }
 
-      const next = state.future[0];
+      const next = preserveTransientViewState(state.future[0], state.project);
       return {
         past: pushHistoryEntry(state.past, state.project),
         project: next,

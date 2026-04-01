@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -29,6 +30,7 @@ interface ZoomOverlayProps {
   onDraftRulerSettingsChange: (settings: RulerGridSettings) => void;
   onApplyRulerSettings: (settings: RulerGridSettings) => void;
   onCancelRuler: () => void;
+  onClose: () => void;
 }
 
 const GRID_COLOR_OPTIONS = [
@@ -63,6 +65,7 @@ export const ZoomOverlay = ({
   onDraftRulerSettingsChange,
   onApplyRulerSettings,
   onCancelRuler,
+  onClose,
 }: ZoomOverlayProps) => {
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
@@ -122,7 +125,7 @@ export const ZoomOverlay = ({
     return () => observer.disconnect();
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!activeImage || viewportSize.width <= 0 || viewportSize.height <= 0) {
       return;
     }
@@ -228,6 +231,10 @@ export const ZoomOverlay = ({
         onMouseLeave={() => {
           handlePointerUp();
           setSlideshowBarVisible(false);
+        }}
+        onDoubleClick={(event) => {
+          event.preventDefault();
+          onClose();
         }}
       >
         <div className="zoom-overlay-stage" style={stageStyle}>

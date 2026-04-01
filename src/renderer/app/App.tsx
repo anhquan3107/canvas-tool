@@ -1147,6 +1147,7 @@ const AppContent = () => {
                   onDraftRulerSettingsChange={setDraftRulerSettings}
                   onApplyRulerSettings={applyRulerSettings}
                   onCancelRuler={cancelRuler}
+                  onClose={closeZoomOverlay}
                 />
               ) : null}
             </div>

@@ -72,6 +72,11 @@ export const useZoomOverlay = ({
 
   const openZoomOverlay = useCallback(
     (itemId: string, options?: { enableRuler?: boolean }) => {
+      if (zoomOverlayItemId === itemId && !options?.enableRuler) {
+        closeZoomOverlay();
+        return true;
+      }
+
       const nextImage = zoomOverlayItems.find((item) => item.id === itemId);
       if (!nextImage) {
         return false;
@@ -93,7 +98,7 @@ export const useZoomOverlay = ({
 
       return true;
     },
-    [setActiveTool, zoomOverlayItems],
+    [closeZoomOverlay, rulerSettings, setActiveTool, zoomOverlayItemId, zoomOverlayItems],
   );
 
   const selectNextZoomImage = useCallback(() => {

@@ -187,11 +187,11 @@
   position: absolute;
   top: 0;
   left: 0;
+  box-sizing: border-box;
   width: 0;
   height: 0;
   border: 1px solid rgba(116, 191, 255, 0.96);
   background: transparent;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
   pointer-events: none;
   opacity: 0;
   transform: translate(-9999px, -9999px);

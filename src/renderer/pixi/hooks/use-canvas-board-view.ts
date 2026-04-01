@@ -518,11 +518,10 @@ export const useCanvasBoardView = ({
       maxY = cropMaxY;
     }
 
-    const padding = 4;
-    const left = boardContainer.x + minX * boardContainer.scale.x - padding;
-    const top = boardContainer.y + minY * boardContainer.scale.y - padding;
-    const width = (maxX - minX) * boardContainer.scale.x + padding * 2;
-    const height = (maxY - minY) * boardContainer.scale.y + padding * 2;
+    const left = boardContainer.x + minX * boardContainer.scale.x;
+    const top = boardContainer.y + minY * boardContainer.scale.y;
+    const width = (maxX - minX) * boardContainer.scale.x;
+    const height = (maxY - minY) * boardContainer.scale.y;
 
     boundsOverlay.style.opacity = "1";
     boundsOverlay.style.transform = `translate(${left}px, ${top}px)`;

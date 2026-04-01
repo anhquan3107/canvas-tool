@@ -142,7 +142,7 @@ export const ZoomOverlay = ({
     return null;
   }
 
-  const maxScale = Math.max(fitScale * 8, fitScale);
+  const maxScale = Math.max(fitScale * 20, fitScale);
   const gridSettings =
     rulerEnabled && rulerDialogOpen ? draftRulerSettings : rulerSettings;
 

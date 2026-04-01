@@ -326,7 +326,7 @@ export const useCanvasBoardBootstrap = ({
         const nextZoom = clamp(
           baseScale * Math.exp(-normalizedDelta * 0.0024),
           0.18,
-          4,
+          20,
         );
 
         wheelZoomTarget.scale = nextZoom;

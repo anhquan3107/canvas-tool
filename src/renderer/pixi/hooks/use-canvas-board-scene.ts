@@ -197,6 +197,7 @@ export const useCanvasBoardScene = ({
         itemNode,
         safeWidth,
         safeHeight,
+        canvasZoom: scene.zoom,
         renderToken,
         renderTokenRef,
         ensureCaptureSession,

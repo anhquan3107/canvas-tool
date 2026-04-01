@@ -21,6 +21,7 @@ interface UseCanvasBoardBootstrapOptions {
   isPanningRef: MutableRefObject<boolean>;
   panStartRef: MutableRefObject<{ x: number; y: number }>;
   panOriginRef: MutableRefObject<{ x: number; y: number }>;
+  cancelWheelZoomAnimationRef: MutableRefObject<(() => void) | null>;
   activeItemDragRef: MutableRefObject<ActiveItemDragState | null>;
   activeSelectionBoxRef: MutableRefObject<ActiveSelectionBoxState | null>;
   activeAnnotationSessionRef: MutableRefObject<ActiveAnnotationSessionState | null>;
@@ -59,6 +60,7 @@ export const useCanvasBoardBootstrap = ({
   isPanningRef,
   panStartRef,
   panOriginRef,
+  cancelWheelZoomAnimationRef,
   activeItemDragRef,
   activeSelectionBoxRef,
   activeAnnotationSessionRef,
@@ -199,6 +201,24 @@ export const useCanvasBoardBootstrap = ({
 
         wheelZoomAnimationFrame = window.requestAnimationFrame(animateWheelZoom);
       };
+
+      const cancelWheelZoomAnimation = () => {
+        if (wheelZoomAnimationFrame !== null) {
+          window.cancelAnimationFrame(wheelZoomAnimationFrame);
+          wheelZoomAnimationFrame = null;
+        }
+
+        const activeBoard = boardContainerRef.current;
+        if (!activeBoard) {
+          return;
+        }
+
+        wheelZoomTarget.scale = activeBoard.scale.x;
+        wheelZoomTarget.x = activeBoard.x;
+        wheelZoomTarget.y = activeBoard.y;
+      };
+
+      cancelWheelZoomAnimationRef.current = cancelWheelZoomAnimation;
 
       const onPointerMove = (event: PointerEvent) => {
         updateDoodleCursor(event.clientX, event.clientY);
@@ -365,6 +385,7 @@ export const useCanvasBoardBootstrap = ({
           window.cancelAnimationFrame(wheelZoomAnimationFrame);
           wheelZoomAnimationFrame = null;
         }
+        cancelWheelZoomAnimationRef.current = null;
         host.removeEventListener("wheel", onWheel);
         window.removeEventListener("keydown", onKeyDown);
         window.removeEventListener("keyup", onKeyUp);

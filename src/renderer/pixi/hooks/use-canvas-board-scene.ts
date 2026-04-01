@@ -48,6 +48,7 @@ interface UseCanvasBoardSceneOptions {
   isPanningRef: MutableRefObject<boolean>;
   panStartRef: MutableRefObject<{ x: number; y: number }>;
   panOriginRef: MutableRefObject<{ x: number; y: number }>;
+  cancelWheelZoomAnimationRef: MutableRefObject<(() => void) | null>;
   spacePanActiveRef: MutableRefObject<boolean>;
   lastItemPressRef: MutableRefObject<{ itemId: string; time: number } | null>;
   ensureCaptureSession: (item: CaptureItem) => Promise<CaptureSession>;
@@ -80,6 +81,7 @@ export const useCanvasBoardScene = ({
   isPanningRef,
   panStartRef,
   panOriginRef,
+  cancelWheelZoomAnimationRef,
   spacePanActiveRef,
   lastItemPressRef,
   ensureCaptureSession,
@@ -321,6 +323,7 @@ export const useCanvasBoardScene = ({
         event.nativeEvent.altKey ||
         event.nativeEvent.button === 1
       ) {
+        cancelWheelZoomAnimationRef.current?.();
         isPanningRef.current = true;
         panStartRef.current = {
           x: event.nativeEvent.clientX,
@@ -373,6 +376,7 @@ export const useCanvasBoardScene = ({
     itemNodeByIdRef,
     onSelectionChangeRef,
     onItemDoubleClickRef,
+    cancelWheelZoomAnimationRef,
     panOriginRef,
     panStartRef,
     redrawAnnotations,

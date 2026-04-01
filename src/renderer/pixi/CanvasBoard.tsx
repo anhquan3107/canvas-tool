@@ -88,6 +88,7 @@ export const CanvasBoard = ({
   const isPanningRef = useRef(false);
   const panStartRef = useRef({ x: 0, y: 0 });
   const panOriginRef = useRef({ x: 0, y: 0 });
+  const cancelWheelZoomAnimationRef = useRef<(() => void) | null>(null);
   const previewInsetsRef = useRef(ZERO_INSETS);
   const activeItemDragRef = useRef<ActiveItemDragState | null>(null);
   const activeSelectionTransformRef =
@@ -327,6 +328,7 @@ export const CanvasBoard = ({
     isPanningRef,
     panStartRef,
     panOriginRef,
+    cancelWheelZoomAnimationRef,
     spacePanActiveRef,
     lastItemPressRef,
     onItemDoubleClickRef,
@@ -351,6 +353,7 @@ export const CanvasBoard = ({
     isPanningRef,
     panStartRef,
     panOriginRef,
+    cancelWheelZoomAnimationRef,
     activeItemDragRef,
     activeSelectionBoxRef,
     activeAnnotationSessionRef,

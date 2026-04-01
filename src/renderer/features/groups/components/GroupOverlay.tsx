@@ -25,31 +25,14 @@ interface PreviewRect {
   height: number;
 }
 
-const PREVIEW_WIDTH = 126;
-const PREVIEW_HEIGHT = 82;
-const PREVIEW_INSET = 4;
+const PREVIEW_WIDTH = 220;
+const PREVIEW_HEIGHT = 72;
+const PREVIEW_INSET = 0;
+const PREVIEW_GAP = 4;
 const AUTO_HIDE_DELAY_MS = 5000;
 const CONTEXT_MENU_WIDTH = 144;
 const CONTEXT_MENU_HEIGHT = 80;
 const CONTEXT_MENU_MARGIN = 10;
-
-const getItemVisualBounds = (item: CanvasItem) => {
-  const width =
-    (Number.isFinite(item.width) ? item.width : 0) *
-    Math.max(0.01, Math.abs(item.scaleX || 1));
-  const height =
-    (Number.isFinite(item.height) ? item.height : 0) *
-    Math.max(0.01, Math.abs(item.scaleY || 1));
-
-  return {
-    minX: item.x,
-    minY: item.y,
-    maxX: item.x + width,
-    maxY: item.y + height,
-    width,
-    height,
-  };
-};
 
 const getPreviewRects = (items: CanvasItem[]) => {
   const visibleItems = items
@@ -61,31 +44,21 @@ const getPreviewRects = (items: CanvasItem[]) => {
     return [];
   }
 
-  const bounds = visibleItems.map(getItemVisualBounds);
-  const minX = Math.min(...bounds.map((entry) => entry.minX));
-  const minY = Math.min(...bounds.map((entry) => entry.minY));
-  const maxX = Math.max(...bounds.map((entry) => entry.maxX));
-  const maxY = Math.max(...bounds.map((entry) => entry.maxY));
-  const contentWidth = Math.max(1, maxX - minX);
-  const contentHeight = Math.max(1, maxY - minY);
-  const scale = Math.max(
-    (PREVIEW_WIDTH - PREVIEW_INSET * 2) / contentWidth,
-    (PREVIEW_HEIGHT - PREVIEW_INSET * 2) / contentHeight,
-  );
-  const offsetX =
-    (PREVIEW_WIDTH - contentWidth * scale) * 0.5 - minX * scale;
-  const offsetY =
-    (PREVIEW_HEIGHT - contentHeight * scale) * 0.5 - minY * scale;
+  const contentWidth = PREVIEW_WIDTH - PREVIEW_INSET * 2;
+  const contentHeight = PREVIEW_HEIGHT - PREVIEW_INSET * 2;
+  const count = visibleItems.length;
+  const tileWidth =
+    (contentWidth - PREVIEW_GAP * Math.max(0, count - 1)) / count;
+  const tileHeight = contentHeight;
 
-  return visibleItems.map((item) => {
-    const bounds = getItemVisualBounds(item);
+  return visibleItems.map((item, index) => {
     return {
       item,
       rect: {
-        left: offsetX + bounds.minX * scale,
-        top: offsetY + bounds.minY * scale,
-        width: Math.max(6, bounds.width * scale),
-        height: Math.max(6, bounds.height * scale),
+        left: PREVIEW_INSET + index * (tileWidth + PREVIEW_GAP),
+        top: PREVIEW_INSET,
+        width: Math.max(6, tileWidth),
+        height: Math.max(6, tileHeight),
       } satisfies PreviewRect,
     };
   });

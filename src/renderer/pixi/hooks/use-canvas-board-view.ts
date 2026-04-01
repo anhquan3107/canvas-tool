@@ -179,7 +179,6 @@ export const useCanvasBoardView = ({
       board.clear();
       board.rect(-insets.left, -insets.top, width, height);
       board.fill(hexToPixiColor(scene.canvasColor));
-      board.stroke({ color: 0x2a2a2a, width: 2, alpha: 0.92 });
 
       const surfaceMinX = -insets.left;
       const surfaceMinY = -insets.top;

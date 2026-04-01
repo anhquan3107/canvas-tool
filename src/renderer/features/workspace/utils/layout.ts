@@ -34,43 +34,116 @@ export const buildAutoArrangeUpdates = (
     .filter((item) => item.visible !== false)
     .sort((left, right) => left.zIndex - right.zIndex);
 
+  if (visibleItems.length === 0) {
+    return {} as Record<string, ImagePatch>;
+  }
+
   const padding = SNAP_GAP;
-  const widestItem = visibleItems.reduce(
-    (maxWidth, item) => Math.max(maxWidth, item.width),
+  const availableWidth = Math.max(
+    240,
+    canvasWidth - padding * 2,
+  );
+  const totalArea = visibleItems.reduce((sum, item) => sum + item.width * item.height, 0);
+  const totalAspect = visibleItems.reduce(
+    (sum, item) => sum + item.width / Math.max(1, item.height),
     0,
   );
-  const totalWidth = visibleItems.reduce((sum, item) => sum + item.width, 0);
-  const totalArea = visibleItems.reduce(
-    (sum, item) => sum + item.width * item.height,
-    0,
+  const estimatedRowCount = Math.max(
+    1,
+    Math.round(
+      Math.sqrt(
+        Math.max(1, totalArea) /
+          Math.max(1, availableWidth * (DEFAULT_EMPTY_GROUP_CANVAS_SIZE.height * 0.9)),
+      ),
+    ),
   );
-  const targetAspectRatio =
-    DEFAULT_EMPTY_GROUP_CANVAS_SIZE.width / DEFAULT_EMPTY_GROUP_CANVAS_SIZE.height;
-  const wrapWidth = Math.max(
-    widestItem,
-    Math.ceil(Math.sqrt(Math.max(1, totalArea) * targetAspectRatio)),
-    canvasWidth,
+  const targetRowHeight = Math.max(
+    120,
+    Math.min(
+      360,
+      Math.round(totalArea / Math.max(1, availableWidth * estimatedRowCount)),
+    ),
   );
-  const layoutWidth = Math.min(totalWidth, wrapWidth);
-  const updates: Record<string, ImagePatch> = {};
-  let cursorX = padding;
-  let cursorY = padding;
-  let rowHeight = 0;
+
+  const rows: typeof visibleItems[] = [];
+  let currentRow: typeof visibleItems = [];
+  let currentRowWidthAtTarget = 0;
 
   visibleItems.forEach((item) => {
-    if (cursorX > padding && cursorX + item.width > layoutWidth - padding) {
-      cursorX = padding;
-      cursorY += rowHeight + padding;
-      rowHeight = 0;
+    const aspectRatio = item.width / Math.max(1, item.height);
+    const projectedWidth = aspectRatio * targetRowHeight;
+    const nextWidth =
+      currentRowWidthAtTarget +
+      projectedWidth +
+      (currentRow.length > 0 ? padding : 0);
+
+    currentRow.push(item);
+    currentRowWidthAtTarget = nextWidth;
+
+    if (
+      currentRow.length > 1 &&
+      currentRowWidthAtTarget >= availableWidth * 0.92
+    ) {
+      rows.push(currentRow);
+      currentRow = [];
+      currentRowWidthAtTarget = 0;
     }
+  });
 
-    updates[item.id] = {
-      x: cursorX,
-      y: cursorY,
-    };
+  if (currentRow.length > 0) {
+    rows.push(currentRow);
+  }
 
-    cursorX += item.width + padding;
-    rowHeight = Math.max(rowHeight, item.height);
+  if (rows.length > 1 && rows.at(-1)?.length === 1) {
+    const lastRow = rows[rows.length - 1];
+    const previousRow = rows[rows.length - 2];
+    const movedItem = previousRow?.pop();
+    if (movedItem) {
+      lastRow?.unshift(movedItem);
+    }
+    if (previousRow && previousRow.length === 0) {
+      rows.splice(rows.length - 2, 1);
+    }
+  }
+
+  const updates: Record<string, ImagePatch> = {};
+  let cursorY = padding;
+
+  rows.forEach((row) => {
+    const totalAspectRatio = row.reduce(
+      (sum, item) => sum + item.width / Math.max(1, item.height),
+      0,
+    );
+    const rowHeight = Math.max(
+      80,
+      Math.round(
+        (availableWidth - padding * Math.max(0, row.length - 1)) /
+          Math.max(totalAspectRatio, 0.0001),
+      ),
+    );
+
+    let cursorX = padding;
+
+    row.forEach((item, index) => {
+      const aspectRatio = item.width / Math.max(1, item.height);
+      const nextHeight = rowHeight;
+      const remainingWidth = availableWidth - (cursorX - padding);
+      const isLastInRow = index === row.length - 1;
+      const nextWidth = isLastInRow
+        ? Math.max(1, Math.round(remainingWidth))
+        : Math.max(1, Math.round(nextHeight * aspectRatio));
+
+      updates[item.id] = {
+        x: Math.round(cursorX),
+        y: Math.round(cursorY),
+        width: Math.round(nextWidth),
+        height: Math.round(nextHeight),
+      };
+
+      cursorX += nextWidth + padding;
+    });
+
+    cursorY += rowHeight + padding;
   });
 
   return updates;

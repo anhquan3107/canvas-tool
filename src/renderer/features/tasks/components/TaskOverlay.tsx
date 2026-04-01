@@ -63,6 +63,7 @@ export const TaskOverlay = ({
   onLinkTaskToGroup,
 }: TaskOverlayProps) => {
   const [renderPopover, setRenderPopover] = useState(expanded);
+  const [renderPrimaryMeta, setRenderPrimaryMeta] = useState(Boolean(selectedTaskId));
   const [menuState, setMenuState] = useState<{
     taskId: string;
     x: number;
@@ -84,6 +85,21 @@ export const TaskOverlay = ({
       window.clearTimeout(timeoutId);
     };
   }, [expanded]);
+
+  useEffect(() => {
+    if (selectedTaskId) {
+      setRenderPrimaryMeta(true);
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setRenderPrimaryMeta(false);
+    }, 220);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [selectedTaskId]);
 
   useEffect(() => {
     if (!menuState) {
@@ -138,6 +154,7 @@ export const TaskOverlay = ({
       ? linkedGroups.get(task.linkedGroupId) ?? null
       : null;
     const compactExpanded = compact && task.id === selectedTaskId;
+    const showCompactMeta = compact && task.id === primaryTask.id && renderPrimaryMeta;
     const taskCompleted = isTaskComplete(task);
     const remainingLabel = taskCompleted
       ? "Task Completed"
@@ -173,8 +190,11 @@ export const TaskOverlay = ({
               <small>{formatTaskDateRange(task.startDate, task.endDate)}</small>
               {linkedName ? <em>{linkedName}</em> : null}
             </>
-          ) : compactExpanded ? (
-            <span className="task-summary-meta">
+          ) : showCompactMeta ? (
+            <span
+              className={`task-summary-meta ${compactExpanded ? "shown" : "hidden"}`}
+              aria-hidden={!compactExpanded}
+            >
               <small>{formatTaskDateRange(task.startDate, task.endDate)}</small>
               <em className={taskCompleted ? "task-summary-meta-complete" : ""}>
                 {taskCompleted ? <Check size={12} strokeWidth={2.4} /> : null}
@@ -202,7 +222,7 @@ export const TaskOverlay = ({
           <div
             className={[
               "task-summary-toggle-row",
-              expanded ? "task-summary-toggle-row-hidden" : "",
+              renderPopover ? "task-summary-toggle-row-hidden" : "",
             ]
               .filter(Boolean)
               .join(" ")}

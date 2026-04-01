@@ -214,6 +214,7 @@
   position: absolute;
   top: 50%;
   left: 50%;
+  overflow: hidden;
   transform-origin: center center;
   will-change: transform;
 }
@@ -229,8 +230,8 @@
 }
 
 .zoom-overlay-image {
-  object-fit: fill;
   pointer-events: none;
+  image-rendering: auto;
 }
 
 .zoom-overlay-grid {

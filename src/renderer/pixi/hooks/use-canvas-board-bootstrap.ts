@@ -112,12 +112,14 @@ export const useCanvasBoardBootstrap = ({
 
     const bootstrap = async () => {
       const app = new Application();
+      const rendererResolution = Math.max(window.devicePixelRatio || 1, 2);
       await app.init({
         antialias: true,
         autoDensity: true,
         background: "#000000",
         backgroundAlpha: 0,
         preserveDrawingBuffer: true,
+        resolution: rendererResolution,
         resizeTo: host,
       });
 

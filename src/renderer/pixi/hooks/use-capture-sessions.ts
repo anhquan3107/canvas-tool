@@ -6,6 +6,7 @@ import {
   createDesktopCaptureConstraints,
 } from "@renderer/features/connect/utils";
 import type { CaptureSession } from "@renderer/pixi/types";
+import { configureBoardTextureQuality } from "@renderer/pixi/utils/textures";
 
 export const useCaptureSessions = () => {
   const captureSessionByIdRef = useRef(new Map<string, CaptureSession>());
@@ -50,7 +51,9 @@ export const useCaptureSessions = () => {
       video.srcObject = stream;
       await video.play();
 
-      const texture = Texture.from(video);
+      const texture = configureBoardTextureQuality(Texture.from(video), {
+        dynamic: true,
+      });
       const session: CaptureSession = {
         sourceId: item.sourceId,
         quality: item.quality,

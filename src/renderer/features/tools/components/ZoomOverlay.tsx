@@ -78,6 +78,31 @@ export const ZoomOverlay = ({
     [activeImageId, items],
   );
 
+  const sourceWidth = Math.max(
+    1,
+    Math.round(activeImage?.originalWidth ?? activeImage?.width ?? 1),
+  );
+  const sourceHeight = Math.max(
+    1,
+    Math.round(activeImage?.originalHeight ?? activeImage?.height ?? 1),
+  );
+  const cropX = Math.max(
+    0,
+    Math.min(sourceWidth - 1, Math.round(activeImage?.cropX ?? 0)),
+  );
+  const cropY = Math.max(
+    0,
+    Math.min(sourceHeight - 1, Math.round(activeImage?.cropY ?? 0)),
+  );
+  const cropWidth = Math.max(
+    1,
+    Math.min(sourceWidth - cropX, Math.round(activeImage?.cropWidth ?? sourceWidth)),
+  );
+  const cropHeight = Math.max(
+    1,
+    Math.min(sourceHeight - cropY, Math.round(activeImage?.cropHeight ?? sourceHeight)),
+  );
+
   useEffect(() => {
     const viewport = viewportRef.current;
     if (!viewport) {
@@ -104,14 +129,14 @@ export const ZoomOverlay = ({
 
     const nextFitScale =
       Math.min(
-        viewportSize.width / activeImage.width,
-        viewportSize.height / activeImage.height,
+        viewportSize.width / cropWidth,
+        viewportSize.height / cropHeight,
       ) * 0.94;
 
     setFitScale(nextFitScale);
     setScale(nextFitScale);
     setPan({ x: 0, y: 0 });
-  }, [activeImage, viewportSize.height, viewportSize.width]);
+  }, [activeImage, cropHeight, cropWidth, viewportSize.height, viewportSize.width]);
 
   if (!activeImage || !activeImage.assetPath) {
     return null;
@@ -148,8 +173,8 @@ export const ZoomOverlay = ({
       const rect = viewport.getBoundingClientRect();
       const centerX = rect.width * 0.5 + pan.x;
       const centerY = rect.height * 0.5 + pan.y;
-      const displayWidth = activeImage.width * scale;
-      const displayHeight = activeImage.height * scale;
+      const displayWidth = cropWidth * scale;
+      const displayHeight = cropHeight * scale;
       const imageLeft = centerX - displayWidth * 0.5;
       const imageRight = centerX + displayWidth * 0.5;
       const imageBottom = centerY + displayHeight * 0.5;
@@ -179,9 +204,16 @@ export const ZoomOverlay = ({
   };
 
   const stageStyle = {
-    width: `${activeImage.width}px`,
-    height: `${activeImage.height}px`,
+    width: `${cropWidth}px`,
+    height: `${cropHeight}px`,
     transform: `translate(-50%, -50%) translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
+  };
+
+  const imageStyle = {
+    width: `${sourceWidth}px`,
+    height: `${sourceHeight}px`,
+    transform: `translate(${-cropX}px, ${-cropY}px)`,
+    ...(filterStyle ? { filter: filterStyle } : {}),
   };
 
   return (
@@ -204,26 +236,25 @@ export const ZoomOverlay = ({
             src={activeImage.assetPath}
             alt={activeImage.label ?? "Focused canvas image"}
             draggable={false}
-            style={filterStyle ? { filter: filterStyle } : undefined}
+            style={imageStyle}
           />
 
           {rulerEnabled ? (
             <svg
               className="zoom-overlay-grid"
-              viewBox={`0 0 ${activeImage.width} ${activeImage.height}`}
+              viewBox={`0 0 ${cropWidth} ${cropHeight}`}
               preserveAspectRatio="none"
             >
               {Array.from({ length: Math.max(0, gridSettings.verticalLines - 1) }).map(
                 (_, index) => {
-                  const x =
-                    (activeImage.width / gridSettings.verticalLines) * (index + 1);
+                  const x = (cropWidth / gridSettings.verticalLines) * (index + 1);
                   return (
                     <line
                       key={`v-${index}`}
                       x1={x}
                       y1={0}
                       x2={x}
-                      y2={activeImage.height}
+                      y2={cropHeight}
                       stroke={gridSettings.gridColor}
                       strokeWidth={1}
                       strokeOpacity={0.82}
@@ -235,13 +266,13 @@ export const ZoomOverlay = ({
                 length: Math.max(0, gridSettings.horizontalLines - 1),
               }).map((_, index) => {
                 const y =
-                  (activeImage.height / gridSettings.horizontalLines) * (index + 1);
+                  (cropHeight / gridSettings.horizontalLines) * (index + 1);
                 return (
                   <line
                     key={`h-${index}`}
                     x1={0}
                     y1={y}
-                    x2={activeImage.width}
+                    x2={cropWidth}
                     y2={y}
                     stroke={gridSettings.gridColor}
                     strokeWidth={1}

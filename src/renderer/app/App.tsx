@@ -220,7 +220,6 @@ const AppContent = () => {
     setTaskDates,
     selectTask,
     toggleTaskListExpanded,
-    collapseTaskList,
     toggleTaskDetailPinned,
     registerTaskOverlayInteraction,
     registerTaskDetailInteraction,
@@ -1037,7 +1036,6 @@ const AppContent = () => {
                         onSelectTask={(taskId) => {
                           selectTaskAndActivateLinkedGroup(taskId);
                           setTaskDetailOpen(true);
-                          collapseTaskList();
                         }}
                         onInteract={registerTaskOverlayInteraction}
                         onCreateTask={openTaskDialog}

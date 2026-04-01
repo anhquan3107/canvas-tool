@@ -89,7 +89,7 @@ export const renderBoardItemVisuals = ({
           sprite.height = safeHeight;
         }
 
-        sprite.roundPixels = true;
+        sprite.roundPixels = false;
         sprite.alpha = 1;
         itemNode.addChildAt(sprite, 1);
       })
@@ -118,6 +118,7 @@ export const renderBoardItemVisuals = ({
         const sprite = new Sprite(session.texture);
         sprite.width = safeWidth;
         sprite.height = safeHeight;
+        sprite.roundPixels = false;
         sprite.alpha = 0.98;
         itemNode.addChildAt(sprite, 1);
       })

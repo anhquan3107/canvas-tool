@@ -276,7 +276,6 @@ export const CaptureWindowApp = () => {
     <div className="capture-window-shell">
       <header className="capture-window-topbar">
         <div className="capture-window-drag-region">
-          <strong className="capture-window-title">{sourceName}</strong>
           <div className="capture-window-toolbar">
             <button
               type="button"

@@ -105,6 +105,9 @@ export interface DesktopApi {
     ) => Promise<ShortcutBindings>;
     markTitleBarTooltipSeen: (tooltipId: string) => Promise<string[]>;
     resetTitleBarTooltips: () => Promise<string[]>;
+    onNativeMenuAction: (
+      listener: (action: "open-project" | "save-project" | "save-project-as") => void,
+    ) => () => void;
     quit: () => Promise<void>;
   };
   project: {

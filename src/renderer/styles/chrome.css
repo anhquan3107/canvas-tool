@@ -36,8 +36,41 @@
 .topbar-brand,
 .toolbar-button,
 .chrome-chip,
-.window-button {
+.window-button,
+.topbar-hover-tooltip-shell {
   -webkit-app-region: no-drag;
+}
+
+.topbar-hover-tooltip-shell {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.topbar-hover-tooltip {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  z-index: 40;
+  padding: 5px 10px;
+  border: 1px solid rgba(17, 17, 18, 0.22);
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18);
+  color: #56565b;
+  font-size: 10px;
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateX(-50%) translateY(-2px);
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease;
+}
+
+.topbar-hover-tooltip-shell.visible .topbar-hover-tooltip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
 
 .topbar-brand {
@@ -49,6 +82,12 @@
 }
 
 .topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.topbar-menu-bar {
   display: flex;
   align-items: center;
   gap: 2px;

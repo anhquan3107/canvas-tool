@@ -1,11 +1,13 @@
 import type { ShortcutActionId, ShortcutBindings } from "@shared/shortcuts";
 import {
   ClipboardPaste,
+  CircleHelp,
   Copy,
   Crop,
   Expand,
   FlipHorizontal,
   FolderOpen,
+  Info,
   Keyboard,
   LayoutGrid,
   ListTodo,
@@ -50,7 +52,9 @@ export type MenuIconId =
   | "crop"
   | "flip"
   | "swatch"
-  | "shortcuts";
+  | "shortcuts"
+  | "help"
+  | "info";
 
 interface MenuItemContentProps {
   icon: MenuIconId;
@@ -139,6 +143,8 @@ const MENU_ICONS: Record<MenuIconId, LucideIcon> = {
   flip: FlipHorizontal,
   swatch: SwatchBook,
   shortcuts: Keyboard,
+  help: CircleHelp,
+  info: Info,
 };
 
 const MenuIcon = ({ icon }: { icon: MenuIconId }) => {

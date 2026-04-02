@@ -474,6 +474,28 @@ const AppContent = () => {
     lastSavedSignatureRef,
   });
 
+  useEffect(() => {
+    const detachNativeMenuListener = window.desktopApi.app.onNativeMenuAction(
+      (action) => {
+        switch (action) {
+          case "open-project":
+            void handleOpenProject();
+            break;
+          case "save-project":
+            void handleSaveProject();
+            break;
+          case "save-project-as":
+            void handleSaveProjectAs();
+            break;
+          default:
+            break;
+        }
+      },
+    );
+
+    return detachNativeMenuListener;
+  }, [handleOpenProject, handleSaveProject, handleSaveProjectAs]);
+
   const {
     confirmCloseOpen,
     setConfirmCloseOpen,
@@ -862,14 +884,14 @@ const AppContent = () => {
           shortcutBindings={shortcutBindings}
           seenTitleBarTooltips={seenTitleBarTooltips}
           settingsOpen={settingsOpen}
-          helpOpen={helpOpen}
           selectedCount={selectedItemIds.length}
           canCropSelected={Boolean(selectedStatusImage)}
           canPaste={clipboardItems.length > 0}
           canExportSelectedTask={Boolean(selectedTask)}
           canExportAnyTask={project.tasks.length > 0}
-          canDeleteActiveGroup={canDeleteActiveGroup}
           canvasLocked={activeGroup?.locked ?? false}
+          canUndo={canUndo}
+          canRedo={canRedo}
           windowMaximized={windowMaximized}
           windowAlwaysOnTop={windowAlwaysOnTop}
           onBrandClick={() => setAppInfoOpen((previous) => !previous)}
@@ -919,28 +941,12 @@ const AppContent = () => {
             setSettingsOpen(false);
             autoArrange();
           }}
-          onToggleBlur={() => {
-            setSettingsOpen(false);
-            toggleBlur();
-          }}
-          onToggleBlackAndWhite={() => {
-            setSettingsOpen(false);
-            toggleBlackAndWhite();
-          }}
-          onActivateDoodle={() => {
-            setSettingsOpen(false);
-            handleToolButton("doodle");
-          }}
           onShowBackgroundColor={() => {
             handleOpenBackgroundColorDialog();
           }}
           onResetView={resetView}
           onTaskClick={openTaskDialog}
           onCreateGroup={openGroupDialog}
-          onDeleteCurrentGroup={() => {
-            setSettingsOpen(false);
-            requestDeleteCurrentGroup();
-          }}
           onShowShortcuts={() => {
             setSettingsOpen(false);
             openShortcutDialog();
@@ -956,6 +962,14 @@ const AppContent = () => {
           onFlipSelectedHorizontally={() => {
             setSettingsOpen(false);
             flipSelectedItemsHorizontally();
+          }}
+          onUndo={() => {
+            setSettingsOpen(false);
+            undo();
+          }}
+          onRedo={() => {
+            setSettingsOpen(false);
+            redo();
           }}
           onExit={() => {
             setSettingsOpen(false);

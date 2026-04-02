@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { ReferenceGroup } from "@shared/types/project";
 import type { ShortcutBindings } from "@shared/shortcuts";
+import { TopBarHoverTooltip } from "@renderer/app/components/TopBarHoverTooltip";
 import type { ToolMode } from "@renderer/features/tools/types";
 import { TitleBarTooltipConfirmDialog } from "@renderer/app/components/TitleBarTooltipConfirmDialog";
 import { formatMenuShortcut } from "@renderer/app/components/MenuItemContent";
@@ -8,6 +9,7 @@ import {
   type PendingTitleBarAction,
   type TitleBarTooltipMeta,
 } from "@renderer/app/components/topbar-tool-config";
+import { TopBarHelpMenu } from "@renderer/app/components/TopBarHelpMenu";
 import { TopBarSettingsMenu } from "@renderer/app/components/TopBarSettingsMenu";
 import { TopBarTools } from "@renderer/app/components/TopBarTools";
 import { TopBarWindowControls } from "@renderer/app/components/TopBarWindowControls";
@@ -18,14 +20,14 @@ interface TopBarProps {
   shortcutBindings: ShortcutBindings;
   seenTitleBarTooltips: string[];
   settingsOpen: boolean;
-  helpOpen: boolean;
   selectedCount: number;
   canCropSelected: boolean;
   canPaste: boolean;
   canExportSelectedTask: boolean;
   canExportAnyTask: boolean;
-  canDeleteActiveGroup: boolean;
   canvasLocked: boolean;
+  canUndo: boolean;
+  canRedo: boolean;
   windowMaximized: boolean;
   windowAlwaysOnTop: boolean;
   onBrandClick: () => void;
@@ -42,18 +44,16 @@ interface TopBarProps {
   onToggleCanvasLock: () => void;
   onToolClick: (tool: ToolMode) => void;
   onAutoArrange: () => void;
-  onToggleBlur: () => void;
-  onToggleBlackAndWhite: () => void;
-  onActivateDoodle: () => void;
   onShowBackgroundColor: () => void;
   onResetView: () => void;
   onTaskClick: () => void;
   onCreateGroup: () => void;
-  onDeleteCurrentGroup: () => void;
   onShowShortcuts: () => void;
   onPaste: () => void;
   onCropSelected: () => void;
   onFlipSelectedHorizontally: () => void;
+  onUndo: () => void;
+  onRedo: () => void;
   onExit: () => void;
   onMinimize: () => void;
   onToggleAlwaysOnTop: () => void;
@@ -68,14 +68,14 @@ export const TopBar = ({
   shortcutBindings,
   seenTitleBarTooltips,
   settingsOpen,
-  helpOpen,
   selectedCount,
   canCropSelected,
   canPaste,
   canExportSelectedTask,
   canExportAnyTask,
-  canDeleteActiveGroup,
   canvasLocked,
+  canUndo,
+  canRedo,
   windowMaximized,
   windowAlwaysOnTop,
   onBrandClick,
@@ -92,18 +92,16 @@ export const TopBar = ({
   onToggleCanvasLock,
   onToolClick,
   onAutoArrange,
-  onToggleBlur,
-  onToggleBlackAndWhite,
-  onActivateDoodle,
   onShowBackgroundColor,
   onResetView,
   onTaskClick,
   onCreateGroup,
-  onDeleteCurrentGroup,
   onShowShortcuts,
   onPaste,
   onCropSelected,
   onFlipSelectedHorizontally,
+  onUndo,
+  onRedo,
   onExit,
   onMinimize,
   onToggleAlwaysOnTop,
@@ -149,7 +147,9 @@ export const TopBar = ({
               )
             }
           >
-            CanvasTool
+            <TopBarHoverTooltip label="Open app info">
+              <span>CanvasTool</span>
+            </TopBarHoverTooltip>
           </button>
 
           <nav className="topbar-actions">
@@ -161,8 +161,9 @@ export const TopBar = ({
               canPaste={canPaste}
               canExportSelectedTask={canExportSelectedTask}
               canExportAnyTask={canExportAnyTask}
-              canDeleteActiveGroup={canDeleteActiveGroup}
               canvasLocked={canvasLocked}
+              canUndo={canUndo}
+              canRedo={canRedo}
               onToggleSettings={onToggleSettings}
               onOpenProject={onOpenProject}
               onSaveProject={onSaveProject}
@@ -174,31 +175,36 @@ export const TopBar = ({
               onChangeCanvasSize={onChangeCanvasSize}
               onToggleCanvasLock={onToggleCanvasLock}
               onAutoArrange={onAutoArrange}
-              onToggleBlur={onToggleBlur}
-              onToggleBlackAndWhite={onToggleBlackAndWhite}
-              onActivateDoodle={onActivateDoodle}
               onShowBackgroundColor={onShowBackgroundColor}
               onResetView={onResetView}
-              onTaskClick={onTaskClick}
-              onCreateGroup={onCreateGroup}
-              onDeleteCurrentGroup={onDeleteCurrentGroup}
               onShowShortcuts={onShowShortcuts}
               onPaste={onPaste}
               onCropSelected={onCropSelected}
               onFlipSelectedHorizontally={onFlipSelectedHorizontally}
+              onUndo={onUndo}
+              onRedo={onRedo}
               onExit={onExit}
             />
 
             <TopBarTools
               activeGroup={activeGroup}
               activeTool={activeTool}
-              helpOpen={helpOpen}
+              shortcutBindings={shortcutBindings}
               runTitleBarAction={runTitleBarAction}
-              onShowHelp={onShowHelp}
               onToolClick={onToolClick}
               onResetView={onResetView}
               onTaskClick={onTaskClick}
               onCreateGroup={onCreateGroup}
+            />
+
+            <TopBarHelpMenu
+              onShowHelp={onShowHelp}
+              onShowAbout={onBrandClick}
+              onCloseOtherMenus={() => {
+                if (settingsOpen) {
+                  onToggleSettings();
+                }
+              }}
             />
           </nav>
         </div>
@@ -207,7 +213,6 @@ export const TopBar = ({
           shortcutBindings={shortcutBindings}
           windowAlwaysOnTop={windowAlwaysOnTop}
           windowMaximized={windowMaximized}
-          runTitleBarAction={runTitleBarAction}
           onShowShortcuts={onShowShortcuts}
           onToggleAlwaysOnTop={onToggleAlwaysOnTop}
           onMinimize={onMinimize}

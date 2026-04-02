@@ -11,6 +11,20 @@ const desktopApi: DesktopApi = {
       ipcRenderer.invoke("app:mark-title-bar-tooltip-seen", tooltipId),
     resetTitleBarTooltips: () =>
       ipcRenderer.invoke("app:reset-title-bar-tooltips"),
+    onNativeMenuAction: (listener) => {
+      const handleAction = (
+        _event: Electron.IpcRendererEvent,
+        action: "open-project" | "save-project" | "save-project-as",
+      ) => {
+        listener(action);
+      };
+
+      ipcRenderer.on("native-menu:action", handleAction);
+
+      return () => {
+        ipcRenderer.removeListener("native-menu:action", handleAction);
+      };
+    },
     quit: () => ipcRenderer.invoke("app:quit"),
   },
   project: {

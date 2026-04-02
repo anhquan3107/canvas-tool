@@ -1,15 +1,12 @@
 import { Settings } from "lucide-react";
 import type { ShortcutBindings } from "@shared/shortcuts";
-import type {
-  PendingTitleBarAction,
-  TitleBarTooltipMeta,
-} from "@renderer/app/components/topbar-tool-config";
+import { TopBarHoverTooltip } from "@renderer/app/components/TopBarHoverTooltip";
+import { formatMenuShortcut } from "@renderer/app/components/MenuItemContent";
 
 interface TopBarWindowControlsProps {
   shortcutBindings: ShortcutBindings;
   windowAlwaysOnTop: boolean;
   windowMaximized: boolean;
-  runTitleBarAction: (meta: TitleBarTooltipMeta, action: () => void) => void;
   onShowShortcuts: () => void;
   onToggleAlwaysOnTop: () => void;
   onMinimize: () => void;
@@ -18,9 +15,9 @@ interface TopBarWindowControlsProps {
 }
 
 export const TopBarWindowControls = ({
+  shortcutBindings,
   windowAlwaysOnTop,
   windowMaximized,
-  runTitleBarAction,
   onShowShortcuts,
   onToggleAlwaysOnTop,
   onMinimize,
@@ -29,42 +26,56 @@ export const TopBarWindowControls = ({
 }: TopBarWindowControlsProps) => (
   <div className="window-cluster">
     <span className="locale-indicator">ENG</span>
-    <button
-      type="button"
-      className="chrome-chip"
-      onClick={onShowShortcuts}
-      aria-label="Keyboard shortcuts"
+    <TopBarHoverTooltip label="Open keyboard shortcuts">
+      <button
+        type="button"
+        className="chrome-chip"
+        onClick={onShowShortcuts}
+        aria-label="Keyboard shortcuts"
+      >
+        <Settings size={13} strokeWidth={1.9} />
+      </button>
+    </TopBarHoverTooltip>
+    <TopBarHoverTooltip
+      label={`Keep window on top (${formatMenuShortcut(shortcutBindings, "window.toggleAlwaysOnTop")})`}
     >
-      <Settings size={13} strokeWidth={1.9} />
-    </button>
-    <button
-      type="button"
-      className={`window-button ${windowAlwaysOnTop ? "active" : ""}`}
-      onClick={onToggleAlwaysOnTop}
-      aria-label="Toggle always on top"
+      <button
+        type="button"
+        className={`window-button ${windowAlwaysOnTop ? "active" : ""}`}
+        onClick={onToggleAlwaysOnTop}
+        aria-label="Toggle always on top"
+      >
+        ⇪
+      </button>
+    </TopBarHoverTooltip>
+    <TopBarHoverTooltip label="Minimize window">
+      <button
+        type="button"
+        className="window-button"
+        onClick={onMinimize}
+      >
+        -
+      </button>
+    </TopBarHoverTooltip>
+    <TopBarHoverTooltip label={windowMaximized ? "Restore window" : "Maximize window"}>
+      <button
+        type="button"
+        className="window-button"
+        onClick={onToggleMaximize}
+      >
+        {windowMaximized ? "❐" : "□"}
+      </button>
+    </TopBarHoverTooltip>
+    <TopBarHoverTooltip
+      label={`Close app (${formatMenuShortcut(shortcutBindings, "app.quit")})`}
     >
-      ⇪
-    </button>
-    <button
-      type="button"
-      className="window-button"
-      onClick={onMinimize}
-    >
-      -
-    </button>
-    <button
-      type="button"
-      className="window-button"
-      onClick={onToggleMaximize}
-    >
-      {windowMaximized ? "❐" : "□"}
-    </button>
-    <button
-      type="button"
-      className="window-button close"
-      onClick={onCloseWindow}
-    >
-      ×
-    </button>
+      <button
+        type="button"
+        className="window-button close"
+        onClick={onCloseWindow}
+      >
+        ×
+      </button>
+    </TopBarHoverTooltip>
   </div>
 );

@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, Menu, type MenuItemConstructorOptions } from "electron";
 import path from "node:path";
 import { guardWindowDevTools } from "./devtools-guard";
 import { setupIpcHandlers } from "./ipc/ipc-handlers";
@@ -10,6 +10,11 @@ if (
 ) {
   // Keep noisy Windows Graphics Capture diagnostics out of the app console.
   app.commandLine.appendSwitch("log-level", "3");
+}
+
+if (process.platform === "darwin") {
+  process.title = "CanvasTool";
+  app.setName("CanvasTool");
 }
 
 const createMainWindow = async () => {
@@ -44,7 +49,116 @@ const createMainWindow = async () => {
   }
 };
 
+const sendNativeMenuAction = (
+  window: BrowserWindow | null,
+  action: "open-project" | "save-project" | "save-project-as",
+) => {
+  const targetWindow = window ?? BrowserWindow.getAllWindows()[0] ?? null;
+  targetWindow?.webContents.send("native-menu:action", action);
+};
+
+const installMacApplicationMenu = () => {
+  if (process.platform !== "darwin") {
+    return;
+  }
+
+  app.setName("CanvasTool");
+  app.setAboutPanelOptions({
+    applicationName: "CanvasTool",
+    applicationVersion: app.getVersion(),
+    version: app.getVersion(),
+  });
+
+  const template: MenuItemConstructorOptions[] = [
+    {
+      role: "appMenu",
+      submenu: [
+        { role: "about", label: "About CanvasTool" },
+        { type: "separator" },
+        { role: "services" },
+        { type: "separator" },
+        { role: "hide", label: "Hide CanvasTool" },
+        { role: "hideOthers" },
+        { role: "unhide" },
+        { type: "separator" },
+        { role: "quit", label: "Quit CanvasTool" },
+      ],
+    },
+    {
+      label: "File",
+      submenu: [
+        {
+          label: "Open",
+          accelerator: "CmdOrCtrl+O",
+          click: () => sendNativeMenuAction(BrowserWindow.getFocusedWindow(), "open-project"),
+        },
+        {
+          label: "Save",
+          accelerator: "CmdOrCtrl+S",
+          click: () => sendNativeMenuAction(BrowserWindow.getFocusedWindow(), "save-project"),
+        },
+        {
+          label: "Save As...",
+          accelerator: "CmdOrCtrl+Shift+S",
+          click: () =>
+            sendNativeMenuAction(BrowserWindow.getFocusedWindow(), "save-project-as"),
+        },
+        { type: "separator" },
+        { role: "close", label: "Close Window" },
+        { role: "quit", label: "Quit CanvasTool" },
+      ],
+    },
+    {
+      label: "Edit",
+      submenu: [
+        { role: "undo" },
+        { role: "redo" },
+        { type: "separator" },
+        { role: "cut" },
+        { role: "copy" },
+        { role: "paste" },
+        { role: "selectAll" },
+      ],
+    },
+    {
+      label: "View",
+      submenu: [
+        { role: "reload" },
+        { role: "forceReload" },
+        { role: "toggleDevTools" },
+        { type: "separator" },
+        { role: "resetZoom" },
+        { role: "zoomIn" },
+        { role: "zoomOut" },
+        { type: "separator" },
+        { role: "togglefullscreen" },
+      ],
+    },
+    {
+      label: "Window",
+      submenu: [
+        { role: "minimize" },
+        { role: "zoom" },
+        { type: "separator" },
+        { role: "front" },
+      ],
+    },
+    {
+      label: "Help",
+      submenu: [
+        {
+          label: "About CanvasTool",
+          click: () => app.showAboutPanel(),
+        },
+      ],
+    },
+  ];
+
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+};
+
 app.whenReady().then(async () => {
+  installMacApplicationMenu();
   await createMainWindow();
 
   app.on("activate", async () => {

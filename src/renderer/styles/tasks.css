@@ -67,6 +67,17 @@
     box-shadow 180ms ease;
 }
 
+.task-summary-card:hover,
+.task-summary-card:focus-visible,
+.task-list-item:hover,
+.task-list-item:focus-visible {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(18, 18, 21, 0.98);
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
 .task-summary-card-primary {
   margin-bottom: 0;
 }
@@ -112,6 +123,12 @@
 .task-list-item-active {
   border-color: rgba(255, 255, 255, 0.05);
   background: rgba(21, 21, 23, 0.92);
+}
+
+.task-list-item-active:hover,
+.task-list-item-active:focus-visible {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(21, 21, 23, 0.96);
 }
 
 .task-summary-copy,

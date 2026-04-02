@@ -227,7 +227,12 @@ export const useAppShortcuts = ({
     return handlers;
   }, [actionHandlers, shortcutBindings]);
 
-  useShortcuts(shortcutHandlers);
+  useShortcuts(shortcutHandlers, {
+    allowRepeat: [
+      shortcutBindings["tools.doodleDecreaseSize"],
+      shortcutBindings["tools.doodleIncreaseSize"],
+    ].filter(Boolean),
+  });
 
   useEffect(() => {
     const onPaste = (event: ClipboardEvent) => {

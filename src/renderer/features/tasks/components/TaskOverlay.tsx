@@ -156,6 +156,11 @@ export const TaskOverlay = ({
       : null;
     const compactExpanded = compact && task.id === selectedTaskId;
     const showCompactMeta = compact && task.id === selectedTaskId;
+    const shouldExpandListOnClick =
+      compact &&
+      task.id === primaryTask.id &&
+      tasks.length > 1 &&
+      !expanded;
     const taskCompleted = isTaskComplete(task);
     const remainingLabel = taskCompleted
       ? "Task Completed"
@@ -177,6 +182,9 @@ export const TaskOverlay = ({
           .join(" ")}
         onClick={() => {
           onInteract();
+          if (shouldExpandListOnClick) {
+            onToggleExpanded();
+          }
           startTransition(() => {
             onSelectTask(task.id);
           });

@@ -129,14 +129,19 @@ export const keyboardEventToShortcut = (event: KeyboardEvent) => {
 
 export const useShortcuts = (
   handlers: Partial<Record<string, () => void>>,
-  options?: { allowWhenTyping?: string[] },
+  options?: { allowWhenTyping?: string[]; allowRepeat?: string[] },
 ) => {
   useEffect(() => {
     const typingWhitelist = new Set(options?.allowWhenTyping ?? []);
+    const repeatWhitelist = new Set(options?.allowRepeat ?? []);
 
     const onKeyDown = (event: KeyboardEvent) => {
       const combo = keyboardEventToShortcut(event);
       if (!combo) {
+        return;
+      }
+
+      if (event.repeat && !repeatWhitelist.has(combo)) {
         return;
       }
 
@@ -155,5 +160,5 @@ export const useShortcuts = (
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [handlers, options?.allowWhenTyping]);
+  }, [handlers, options?.allowRepeat, options?.allowWhenTyping]);
 };

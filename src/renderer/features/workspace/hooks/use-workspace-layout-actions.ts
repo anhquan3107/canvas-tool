@@ -1,10 +1,45 @@
 import { useCallback } from "react";
-import type { LayoutMode, ReferenceGroup } from "@shared/types/project";
+import type {
+  CanvasItem,
+  ImageItem,
+  LayoutMode,
+  ReferenceGroup,
+} from "@shared/types/project";
+import { normalizePreviewSize } from "@renderer/features/import/import-queue";
 import type { ImagePatch, ToastKind } from "@renderer/features/workspace/types";
 import {
   buildArrangeSelectedItemsUpdates,
   buildAutoArrangeUpdates,
 } from "@renderer/features/workspace/utils/layout";
+
+const getStableArrangeSize = (item: CanvasItem) => {
+  if (item.type !== "image") {
+    return {
+      width: item.width,
+      height: item.height,
+    };
+  }
+
+  const imageItem = item as ImageItem;
+  const sourceWidth =
+    imageItem.cropWidth ?? imageItem.originalWidth ?? imageItem.width;
+  const sourceHeight =
+    imageItem.cropHeight ?? imageItem.originalHeight ?? imageItem.height;
+
+  return normalizePreviewSize(sourceWidth, sourceHeight);
+};
+
+const isWithinArrangeTolerance = (
+  nextValue: number | undefined,
+  currentValue: number,
+  tolerance = 2,
+) => {
+  if (nextValue === undefined) {
+    return true;
+  }
+
+  return Math.abs(nextValue - currentValue) <= tolerance;
+};
 
 interface UseWorkspaceLayoutActionsOptions {
   activeGroup: ReferenceGroup | undefined;
@@ -35,6 +70,31 @@ export const useWorkspaceLayoutActions = ({
   runHistoryBatch,
   ensureCanvasFitsItems,
 }: UseWorkspaceLayoutActionsOptions) => {
+  const hasMeaningfulPatchChanges = useCallback(
+    (updates: Record<string, ImagePatch>) => {
+      if (!activeGroup) {
+        return false;
+      }
+
+      return Object.entries(updates).some(([itemId, patch]) => {
+        const currentItem = activeGroup.items.find((item) => item.id === itemId);
+        if (!currentItem) {
+          return true;
+        }
+
+        return (
+          !isWithinArrangeTolerance(patch.x, currentItem.x) ||
+          !isWithinArrangeTolerance(patch.y, currentItem.y) ||
+          !isWithinArrangeTolerance(patch.width, currentItem.width) ||
+          !isWithinArrangeTolerance(patch.height, currentItem.height) ||
+          (patch.zIndex !== undefined && patch.zIndex !== currentItem.zIndex) ||
+          (patch.visible !== undefined && patch.visible !== currentItem.visible)
+        );
+      });
+    },
+    [activeGroup],
+  );
+
   const arrangeSelectedItems = useCallback(
     (mode: LayoutMode) => {
       if (!activeGroup || selectedItemIds.length === 0) {
@@ -96,10 +156,23 @@ export const useWorkspaceLayoutActions = ({
       return;
     }
 
+    const arrangeItems = visibleItems.map((item) => {
+      const stableSize = getStableArrangeSize(item);
+      return {
+        ...item,
+        width: stableSize.width,
+        height: stableSize.height,
+      };
+    });
+
     const updates = buildAutoArrangeUpdates(
-      visibleItems,
+      arrangeItems,
       activeGroup.canvasSize.width,
     );
+
+    if (!hasMeaningfulPatchChanges(updates)) {
+      return;
+    }
 
     runHistoryBatch(() => {
       patchGroupItems(activeGroup.id, updates);
@@ -125,6 +198,7 @@ export const useWorkspaceLayoutActions = ({
   }, [
     activeGroup,
     ensureCanvasFitsItems,
+    hasMeaningfulPatchChanges,
     patchGroupItems,
     pushToast,
     runHistoryBatch,

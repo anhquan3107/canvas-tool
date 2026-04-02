@@ -70,18 +70,6 @@ export const useCanvasWorkspace = ({
       if (!expansionPlan) {
         return;
       }
-      if (expansionPlan.shiftedUpdates) {
-        patchGroupItems(groupId, expansionPlan.shiftedUpdates);
-
-        if (currentView) {
-          setGroupView(
-            groupId,
-            currentView.zoom,
-            currentView.panX - expansionPlan.expandLeft * currentView.zoom,
-            currentView.panY - expansionPlan.expandTop * currentView.zoom,
-          );
-        }
-      }
 
       if (
         expansionPlan.requiredWidth > currentSize.width ||
@@ -94,6 +82,19 @@ export const useCanvasWorkspace = ({
           expansionPlan.requiredWidth,
           expansionPlan.requiredHeight,
         );
+      }
+
+      if (expansionPlan.shiftedUpdates) {
+        patchGroupItems(groupId, expansionPlan.shiftedUpdates);
+
+        if (currentView) {
+          setGroupView(
+            groupId,
+            currentView.zoom,
+            currentView.panX - expansionPlan.expandLeft * currentView.zoom,
+            currentView.panY - expansionPlan.expandTop * currentView.zoom,
+          );
+        }
       }
     },
     [patchGroupItems, setGroupCanvasSize, setGroupView],

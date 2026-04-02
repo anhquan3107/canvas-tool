@@ -28,7 +28,7 @@ interface PreviewRect {
 const PREVIEW_WIDTH = 220;
 const PREVIEW_HEIGHT = 72;
 const PREVIEW_INSET = 0;
-const PREVIEW_GAP = 4;
+const PREVIEW_GAP = 0;
 const AUTO_HIDE_DELAY_MS = 5000;
 const CONTEXT_MENU_WIDTH = 144;
 const CONTEXT_MENU_HEIGHT = 80;
@@ -47,17 +47,23 @@ const getPreviewRects = (items: CanvasItem[]) => {
   const contentWidth = PREVIEW_WIDTH - PREVIEW_INSET * 2;
   const contentHeight = PREVIEW_HEIGHT - PREVIEW_INSET * 2;
   const count = visibleItems.length;
-  const tileWidth =
-    (contentWidth - PREVIEW_GAP * Math.max(0, count - 1)) / count;
+  const usableWidth = contentWidth - PREVIEW_GAP * Math.max(0, count - 1);
+  const baseTileWidth = Math.floor(usableWidth / count);
   const tileHeight = contentHeight;
 
   return visibleItems.map((item, index) => {
+    const left = PREVIEW_INSET + index * (baseTileWidth + PREVIEW_GAP);
+    const width =
+      index === count - 1
+        ? Math.max(6, PREVIEW_INSET + contentWidth - left)
+        : Math.max(6, baseTileWidth);
+
     return {
       item,
       rect: {
-        left: PREVIEW_INSET + index * (tileWidth + PREVIEW_GAP),
+        left,
         top: PREVIEW_INSET,
-        width: Math.max(6, tileWidth),
+        width,
         height: Math.max(6, tileHeight),
       } satisfies PreviewRect,
     };

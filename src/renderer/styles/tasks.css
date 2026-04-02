@@ -9,7 +9,7 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 8px;
+  gap: 4px;
   max-width: min(340px, calc(100vw - 44px));
   pointer-events: auto;
 }
@@ -24,8 +24,9 @@
 .task-summary-toggle-row {
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 100%;
+  justify-content: flex-start;
+  align-self: flex-start;
+  width: auto;
 }
 
 .task-summary-toggle-row-hidden {
@@ -60,11 +61,11 @@
     0 12px 26px rgba(0, 0, 0, 0.28),
     inset 0 1px 0 rgba(255, 255, 255, 0.03);
   transition:
-    max-width 180ms ease,
-    padding 180ms ease,
-    background-color 180ms ease,
-    border-color 180ms ease,
-    box-shadow 180ms ease;
+    max-width 480ms cubic-bezier(0.16, 1, 0.3, 1),
+    padding 480ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 260ms ease,
+    border-color 260ms ease,
+    box-shadow 260ms ease;
 }
 
 .task-summary-card:hover,
@@ -149,11 +150,7 @@
   overflow: hidden;
   max-width: 0;
   opacity: 0;
-  transform: translateX(-8px);
-  transition:
-    max-width 220ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 200ms ease-out,
-    transform 200ms ease-out;
+  transform: translate3d(-10px, 4px, 0) scale(0.985);
   pointer-events: none;
   will-change: max-width, opacity, transform;
 }
@@ -167,13 +164,15 @@
 .task-summary-meta.shown {
   max-width: 360px;
   opacity: 1;
-  transform: translateX(0);
+  transform: translate3d(0, 0, 0) scale(1);
+  animation: task-summary-meta-in 480ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .task-summary-meta.hidden {
   max-width: 0;
   opacity: 0;
-  transform: translateX(-8px);
+  transform: translate3d(-10px, 4px, 0) scale(0.985);
+  animation: task-summary-meta-out 620ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .task-summary-copy strong,
@@ -327,6 +326,7 @@
 .task-list-popover {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 4px;
   width: auto;
   padding: 0;
@@ -343,7 +343,7 @@
 }
 
 .task-list-popover.closing {
-  animation: task-overlay-drop-out 180ms ease-in forwards;
+  animation: task-overlay-drop-out 220ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 .task-context-menu {
@@ -410,8 +410,8 @@
 
 .task-detail-panel {
   width: var(--task-detail-width);
-  height: min(72vh, calc(100% - 40px));
-  max-height: min(72vh, calc(100% - 40px));
+  height: min(52dvh, calc(100dvh - 72px));
+  max-height: min(52dvh, calc(100dvh - 72px));
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -436,11 +436,10 @@
 
 .task-detail-hover-zone {
   position: fixed;
-  top: 50%;
+  top: calc(40% - 20dvh);
   right: 0;
   width: 18px;
-  height: min(60vh, calc(100vh - 72px));
-  transform: translateY(-50%);
+  height: min(46dvh, calc(100dvh - 88px));
   pointer-events: auto;
   z-index: 9;
 }
@@ -733,6 +732,7 @@
   margin: 0;
   padding: 0 0 6px;
   overflow-y: auto;
+  overflow-x: hidden;
   position: relative;
 }
 
@@ -897,7 +897,31 @@
 
   to {
     opacity: 0;
-    transform: translateY(-8px);
+    transform: translateY(4px);
+  }
+}
+
+@keyframes task-summary-meta-in {
+  from {
+    opacity: 0;
+    transform: translate3d(-10px, 4px, 0) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes task-summary-meta-out {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: translate3d(-10px, 4px, 0) scale(0.985);
   }
 }
 

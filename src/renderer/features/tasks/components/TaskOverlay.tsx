@@ -36,6 +36,7 @@ interface TaskOverlayProps {
 
 const TASK_MENU_WIDTH = 164;
 const TASK_MENU_MARGIN = 12;
+const TASK_META_HIDE_DURATION_MS = 640;
 
 const getTaskToneClass = (task: Task) => {
   if (isTaskComplete(task)) {
@@ -94,7 +95,7 @@ export const TaskOverlay = ({
 
     const timeoutId = window.setTimeout(() => {
       setRenderPrimaryMeta(false);
-    }, 220);
+    }, TASK_META_HIDE_DURATION_MS);
 
     return () => {
       window.clearTimeout(timeoutId);
@@ -154,7 +155,7 @@ export const TaskOverlay = ({
       ? linkedGroups.get(task.linkedGroupId) ?? null
       : null;
     const compactExpanded = compact && task.id === selectedTaskId;
-    const showCompactMeta = compact && task.id === primaryTask.id && renderPrimaryMeta;
+    const showCompactMeta = compact && task.id === selectedTaskId;
     const taskCompleted = isTaskComplete(task);
     const remainingLabel = taskCompleted
       ? "Task Completed"
@@ -192,8 +193,8 @@ export const TaskOverlay = ({
             </>
           ) : showCompactMeta ? (
             <span
-              className={`task-summary-meta ${compactExpanded ? "shown" : "hidden"}`}
-              aria-hidden={!compactExpanded}
+              className={`task-summary-meta ${renderPrimaryMeta ? "shown" : "hidden"}`}
+              aria-hidden={!renderPrimaryMeta}
             >
               <small>{formatTaskDateRange(task.startDate, task.endDate)}</small>
               <em className={taskCompleted ? "task-summary-meta-complete" : ""}>

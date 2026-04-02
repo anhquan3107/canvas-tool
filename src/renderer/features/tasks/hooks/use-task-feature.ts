@@ -22,6 +22,7 @@ interface UseTaskFeatureOptions {
 }
 
 const TASK_IDLE_TIMEOUT_MS = 5000;
+const TASK_SELECTION_HIDE_DURATION_MS = 640;
 
 export const useTaskFeature = ({
   tasks,
@@ -60,7 +61,9 @@ export const useTaskFeature = ({
     [orderedTasks, selectedTaskId],
   );
 
-  const primaryTask = selectedTask ?? orderedTasks[0] ?? null;
+  const primaryTask = taskListExpanded || pendingTaskSelectionDismissal
+    ? orderedTasks[0] ?? null
+    : selectedTask ?? orderedTasks[0] ?? null;
 
   const taskDuration = useMemo(
     () => getDayCount(taskDates.startDate, taskDates.endDate),
@@ -300,7 +303,7 @@ export const useTaskFeature = ({
         setSelectedTaskId(null);
       }
       setPendingTaskSelectionDismissal(false);
-    }, 220);
+    }, TASK_SELECTION_HIDE_DURATION_MS);
 
     return () => {
       window.clearTimeout(timeoutId);

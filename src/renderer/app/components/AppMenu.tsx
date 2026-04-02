@@ -43,8 +43,7 @@ interface AppMenuProps extends MenuState {
   onDeleteSelected: () => void;
   onCropSelected: () => void;
   onFlipSelectedHorizontally: () => void;
-  onArrangePinterest: () => void;
-  onArrangeHorizontal: () => void;
+  onArrangeSelectedAuto: () => void;
   onExportSwatch: () => void;
   onExit: () => void;
 }
@@ -90,13 +89,11 @@ export const AppMenu = ({
   onDeleteSelected,
   onCropSelected,
   onFlipSelectedHorizontally,
-  onArrangePinterest,
-  onArrangeHorizontal,
+  onArrangeSelectedAuto,
   onExportSwatch,
   onExit,
 }: AppMenuProps) => {
   const menuRef = useRef<HTMLDivElement | null>(null);
-  const [arrangeOpen, setArrangeOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [taskExportOpen, setTaskExportOpen] = useState(false);
   const [canvasArrangeOpen, setCanvasArrangeOpen] = useState(false);
@@ -169,33 +166,11 @@ export const AppMenu = ({
           <button type="button" onClick={onPaste} disabled={!canPaste}>
             <MenuItemContent {...getMenuActionContentProps(shortcutBindings, "paste")} />
           </button>
-          <div
-            className="app-menu-submenu"
-            onPointerEnter={() => setArrangeOpen(true)}
-            onPointerLeave={() => setArrangeOpen(false)}
-          >
-            <button
-              type="button"
-              className="app-menu-submenu-trigger"
-              onClick={() => setArrangeOpen((open) => !open)}
-            >
-              <MenuItemContent icon="arrange" label="Arrange" submenu />
-            </button>
-            {arrangeOpen ? (
-              <div className="app-menu app-menu-submenu-panel">
-                <button type="button" onClick={onArrangePinterest}>
-                  <MenuItemContent
-                    {...getMenuActionContentProps(shortcutBindings, "arrangePinterest")}
-                  />
-                </button>
-                <button type="button" onClick={onArrangeHorizontal}>
-                  <MenuItemContent
-                    {...getMenuActionContentProps(shortcutBindings, "arrangeHorizontal")}
-                  />
-                </button>
-              </div>
-            ) : null}
-          </div>
+          <button type="button" onClick={onArrangeSelectedAuto}>
+            <MenuItemContent
+              {...getMenuActionContentProps(shortcutBindings, "autoArrange")}
+            />
+          </button>
           <div className="app-menu-divider" />
           <button
             type="button"

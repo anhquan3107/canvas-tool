@@ -327,6 +327,9 @@ const AppContent = () => {
       addGroup(name);
     },
     renameGroup,
+    onCreateGroupSuccess: () => {
+      setGroupsOverlayOpen(true);
+    },
     setSelectedItemIds,
     pushToast,
   });
@@ -1309,11 +1312,7 @@ const AppContent = () => {
             setMenuState(null);
             flipSelectedItemsHorizontally();
           }}
-          onArrangePinterest={() => {
-            setMenuState(null);
-            arrangeSelectedItems("pinterest-dynamic");
-          }}
-          onArrangeHorizontal={() => {
+          onArrangeSelectedAuto={() => {
             setMenuState(null);
             arrangeSelectedItems("horizontal");
           }}

@@ -4,6 +4,7 @@ interface UseGroupFeatureOptions {
   groupCount: number;
   addGroup: (name: string) => void;
   renameGroup: (groupId: string, name: string) => void;
+  onCreateGroupSuccess: () => void;
   setSelectedItemIds: (itemIds: string[]) => void;
   pushToast: (kind: "success" | "error" | "info", message: string) => void;
 }
@@ -12,6 +13,7 @@ export const useGroupFeature = ({
   groupCount,
   addGroup,
   renameGroup,
+  onCreateGroupSuccess,
   setSelectedItemIds,
   pushToast,
 }: UseGroupFeatureOptions) => {
@@ -49,12 +51,14 @@ export const useGroupFeature = ({
     addGroup(name);
     setSelectedItemIds([]);
     setGroupDialogOpen(false);
+    onCreateGroupSuccess();
     pushToast("success", `Saved current canvas as ${name}.`);
   }, [
     addGroup,
     draftGroupName,
     editingGroup,
     groupCount,
+    onCreateGroupSuccess,
     pushToast,
     renameGroup,
     setSelectedItemIds,

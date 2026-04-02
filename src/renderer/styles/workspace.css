@@ -31,6 +31,7 @@
 .canvas-overlay-column.bottom-left {
   left: 0;
   bottom: 40px;
+  z-index: 11;
   max-width: min(320px, calc(100% - 32px));
 }
 
@@ -43,9 +44,8 @@
 }
 
 .canvas-overlay-column.right-center {
-  top: 40%;
+  top: calc(40% - 20dvh);
   right: 12px;
-  transform: translateY(-50%);
   align-items: flex-end;
   width: auto;
   max-width: calc(100% - 24px);

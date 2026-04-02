@@ -69,9 +69,7 @@ export const useWorkspaceLayoutActions = ({
 
       pushToast(
         "success",
-        mode === "horizontal"
-          ? "Selected items arranged horizontally."
-          : "Selected items arranged in Pinterest layout.",
+        "Selected items auto arranged.",
       );
     },
     [

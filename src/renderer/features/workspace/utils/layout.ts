@@ -377,39 +377,35 @@ export const buildArrangeSelectedItemsUpdates = (
   );
   const anchorX = Math.min(...selectedItems.map((item) => item.x));
   const anchorY = Math.min(...selectedItems.map((item) => item.y));
-  const gap = SNAP_GAP;
-  const updates: Record<string, ImagePatch> = {};
-
-  if (mode === "horizontal") {
-    let cursorX = anchorX;
-    selectedItems.forEach((item) => {
-      updates[item.id] = { x: Math.round(cursorX), y: Math.round(anchorY) };
-      cursorX += item.width + gap;
-    });
-    return updates;
-  }
-
-  const columnCount = Math.min(
-    4,
-    Math.max(2, Math.ceil(Math.sqrt(selectedItems.length))),
+  const maxX = Math.max(...selectedItems.map((item) => item.x + item.width));
+  const selectionWidth = Math.max(
+    240,
+    Math.ceil(maxX - anchorX + SNAP_GAP * 2),
   );
-  const columnWidth = Math.max(...selectedItems.map((item) => item.width)) + gap;
-  const columnHeights = Array.from({ length: columnCount }, () => anchorY);
 
-  selectedItems.forEach((item) => {
-    let columnIndex = 0;
-    for (let index = 1; index < columnHeights.length; index += 1) {
-      if (columnHeights[index] < columnHeights[columnIndex]) {
-        columnIndex = index;
-      }
-    }
+  const arrangedUpdates = buildAutoArrangeUpdates(
+    selectedItems.map((item) => ({
+      id: item.id,
+      width: item.width,
+      height: item.height,
+      zIndex: item.zIndex ?? 0,
+      visible: item.visible,
+    })),
+    selectionWidth,
+  );
 
-    updates[item.id] = {
-      x: Math.round(anchorX + columnIndex * columnWidth),
-      y: Math.round(columnHeights[columnIndex]),
-    };
-    columnHeights[columnIndex] += item.height + gap;
-  });
+  const offsetX = anchorX - SNAP_GAP;
+  const offsetY = anchorY - SNAP_GAP;
 
-  return updates;
+  return Object.fromEntries(
+    Object.entries(arrangedUpdates).map(([itemId, patch]) => [
+      itemId,
+      {
+        x: Math.round((patch.x ?? 0) + offsetX),
+        y: Math.round((patch.y ?? 0) + offsetY),
+        width: patch.width,
+        height: patch.height,
+      },
+    ]),
+  ) as Record<string, ImagePatch>;
 };

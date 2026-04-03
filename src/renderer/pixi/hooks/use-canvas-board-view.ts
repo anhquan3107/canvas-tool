@@ -21,6 +21,7 @@ interface UseCanvasBoardViewOptions {
   selectedBoundsOverlayRef: MutableRefObject<HTMLDivElement | null>;
   boardContainerRef: MutableRefObject<Container | null>;
   boardGraphicRef: MutableRefObject<Graphics | null>;
+  annotationMaskRef: MutableRefObject<Graphics | null>;
   itemNodeByIdRef: MutableRefObject<Map<string, Container>>;
   groupRef: MutableRefObject<ReferenceGroup>;
   selectionIdsRef: MutableRefObject<string[]>;
@@ -49,6 +50,7 @@ export const useCanvasBoardView = ({
   selectedBoundsOverlayRef,
   boardContainerRef,
   boardGraphicRef,
+  annotationMaskRef,
   itemNodeByIdRef,
   groupRef,
   selectionIdsRef,
@@ -166,6 +168,7 @@ export const useCanvasBoardView = ({
   const drawBoardSurface = useCallback(
     (insets = previewInsetsRef.current) => {
       const board = boardGraphicRef.current;
+      const annotationMask = annotationMaskRef.current;
       const boardContainer = boardContainerRef.current;
       const host = hostRef.current;
       if (!board) {
@@ -179,6 +182,12 @@ export const useCanvasBoardView = ({
       board.clear();
       board.rect(-insets.left, -insets.top, width, height);
       board.fill(hexToPixiColor(scene.canvasColor));
+
+      if (annotationMask) {
+        annotationMask.clear();
+        annotationMask.rect(0, 0, scene.canvasSize.width, scene.canvasSize.height);
+        annotationMask.fill(0xffffff);
+      }
 
       const surfaceMinX = -insets.left;
       const surfaceMinY = -insets.top;
@@ -219,7 +228,14 @@ export const useCanvasBoardView = ({
         Math.max(1, hitMaxY - hitMinY),
       );
     },
-    [boardContainerRef, boardGraphicRef, groupRef, hostRef, previewInsetsRef],
+    [
+      annotationMaskRef,
+      boardContainerRef,
+      boardGraphicRef,
+      groupRef,
+      hostRef,
+      previewInsetsRef,
+    ],
   );
 
   const setPreviewInsets = useCallback(

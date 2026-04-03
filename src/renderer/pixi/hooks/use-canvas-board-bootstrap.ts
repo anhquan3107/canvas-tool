@@ -15,6 +15,7 @@ interface UseCanvasBoardBootstrapOptions {
   boardGraphicRef: MutableRefObject<Graphics | null>;
   gridGraphicRef: MutableRefObject<Graphics | null>;
   itemLayerRef: MutableRefObject<Container | null>;
+  annotationMaskRef: MutableRefObject<Graphics | null>;
   annotationLayerRef: MutableRefObject<Graphics | null>;
   annotationPreviewLayerRef: MutableRefObject<Graphics | null>;
   viewCommitTimerRef: MutableRefObject<number | null>;
@@ -54,6 +55,7 @@ export const useCanvasBoardBootstrap = ({
   boardGraphicRef,
   gridGraphicRef,
   itemLayerRef,
+  annotationMaskRef,
   annotationLayerRef,
   annotationPreviewLayerRef,
   viewCommitTimerRef,
@@ -151,13 +153,21 @@ export const useCanvasBoardBootstrap = ({
       boardContainer.addChild(itemLayer);
       itemLayerRef.current = itemLayer;
 
+      const annotationMask = new Graphics();
+      annotationMask.eventMode = "none";
+      annotationMask.alpha = 0;
+      boardContainer.addChild(annotationMask);
+      annotationMaskRef.current = annotationMask;
+
       const annotationLayer = new Graphics();
       annotationLayer.eventMode = "none";
+      annotationLayer.mask = annotationMask;
       boardContainer.addChild(annotationLayer);
       annotationLayerRef.current = annotationLayer;
 
       const annotationPreviewLayer = new Graphics();
       annotationPreviewLayer.eventMode = "none";
+      annotationPreviewLayer.mask = annotationMask;
       boardContainer.addChild(annotationPreviewLayer);
       annotationPreviewLayerRef.current = annotationPreviewLayer;
       let wheelZoomAnimationFrame: number | null = null;
@@ -421,6 +431,7 @@ export const useCanvasBoardBootstrap = ({
       boardGraphicRef.current = null;
       gridGraphicRef.current = null;
       itemLayerRef.current = null;
+      annotationMaskRef.current = null;
       annotationLayerRef.current = null;
       annotationPreviewLayerRef.current = null;
       captureSessionByIdRef.current.forEach((_, captureId) => {
@@ -448,6 +459,7 @@ export const useCanvasBoardBootstrap = ({
     hostRef,
     isPanningRef,
     itemLayerRef,
+    annotationMaskRef,
     onSelectionChangeRef,
     panOriginRef,
     panStartRef,

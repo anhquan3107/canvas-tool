@@ -1,5 +1,5 @@
 import { ipcMain, type BrowserWindow } from "electron";
-import type { AppWindowState } from "../../shared/types/ipc";
+import type { AppWindowPosition, AppWindowState } from "../../shared/types/ipc";
 import { getSenderWindow } from "./ipc-utils";
 
 export const registerWindowHandlers = (window: BrowserWindow) => {
@@ -48,4 +48,15 @@ export const registerWindowHandlers = (window: BrowserWindow) => {
     isMaximized: (getSenderWindow(event.sender) ?? window).isMaximized(),
     isAlwaysOnTop: (getSenderWindow(event.sender) ?? window).isAlwaysOnTop(),
   }));
+
+  ipcMain.handle("window:get-position", (event): AppWindowPosition => {
+    const targetWindow = getSenderWindow(event.sender) ?? window;
+    const [x, y] = targetWindow.getPosition();
+    return { x, y };
+  });
+
+  ipcMain.handle("window:set-position", (event, payload: AppWindowPosition) => {
+    const targetWindow = getSenderWindow(event.sender) ?? window;
+    targetWindow.setPosition(Math.round(payload.x), Math.round(payload.y));
+  });
 };

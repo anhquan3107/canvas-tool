@@ -79,6 +79,7 @@ export interface ActiveAnnotationSessionState {
   annotations: AnnotationStroke[];
   lastPoint: { x: number; y: number };
   changed: boolean;
+  outsideCanvas: boolean;
 }
 
 export interface CropRect {

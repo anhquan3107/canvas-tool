@@ -49,6 +49,8 @@ const desktopApi: DesktopApi = {
     toggleMaximize: () => ipcRenderer.invoke("window:toggle-maximize"),
     close: () => ipcRenderer.invoke("window:close"),
     getControlsState: () => ipcRenderer.invoke("window:get-controls-state"),
+    getPosition: () => ipcRenderer.invoke("window:get-position"),
+    setPosition: (payload) => ipcRenderer.invoke("window:set-position", payload),
   },
   clipboard: {
     writeImageFromDataUrl: (payload) =>

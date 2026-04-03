@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_SHORTCUT_BINDINGS, resolveShortcutBindings } from "@shared/shortcuts";
 import { ConnectDialog } from "@renderer/features/connect/components/ConnectDialog";
+import { useWindowRightDrag } from "@renderer/app/hooks/use-window-right-drag";
 import type {
   CaptureQuality,
   CaptureSource,
@@ -53,6 +54,8 @@ const getInitialParams = () => {
 };
 
 export const CaptureWindowApp = () => {
+  useWindowRightDrag();
+
   const initial = useMemo(() => getInitialParams(), []);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -322,6 +325,7 @@ export const CaptureWindowApp = () => {
               B&amp;W
             </button>
           </div>
+          <div className="capture-window-drag-spacer" />
         </div>
 
         <div className="window-cluster">

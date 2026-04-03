@@ -89,24 +89,31 @@ export const useCanvasBoardAnnotations = ({
     [annotationLayerRef, annotationPreviewLayerRef],
   );
 
+  const commitBrushDraftStroke = useCallback(
+    (session: ActiveAnnotationSessionState) => {
+      if (session.mode !== "brush" || !session.draftStroke) {
+        return session;
+      }
+
+      return {
+        ...session,
+        annotations: [...session.annotations, session.draftStroke],
+        draftStroke: null,
+        changed: true,
+      };
+    },
+    [],
+  );
+
   const finalizeAnnotationSession = useCallback(
     (session: ActiveAnnotationSessionState) => {
+      const committedSession = commitBrushDraftStroke(session);
       activeAnnotationSessionRef.current = null;
       redrawDraftAnnotation(null);
 
-      if (session.mode === "brush" && session.draftStroke) {
-        const nextAnnotations = [
-          ...groupRef.current.annotations,
-          session.draftStroke,
-        ];
-        redrawAnnotations(nextAnnotations);
-        onAnnotationsChangeRef.current(nextAnnotations);
-        return;
-      }
-
-      if (session.changed) {
-        redrawAnnotations(session.annotations);
-        onAnnotationsChangeRef.current(session.annotations);
+      if (committedSession.changed) {
+        redrawAnnotations(committedSession.annotations);
+        onAnnotationsChangeRef.current(committedSession.annotations);
         return;
       }
 
@@ -151,6 +158,7 @@ export const useCanvasBoardAnnotations = ({
           annotations: groupRef.current.annotations,
           lastPoint: point,
           changed: false,
+          outsideCanvas: false,
         };
         redrawDraftAnnotation(draftStroke);
         return;
@@ -175,6 +183,7 @@ export const useCanvasBoardAnnotations = ({
         annotations: nextAnnotations,
         lastPoint: point,
         changed: nextAnnotations !== groupRef.current.annotations,
+        outsideCanvas: false,
       };
       redrawAnnotations(nextAnnotations);
       redrawDraftAnnotation(null);
@@ -206,18 +215,46 @@ export const useCanvasBoardAnnotations = ({
       }
 
       if (!point.insideCanvas) {
-        if (
-          session.mode === "brush" &&
-          session.draftStroke &&
-          distanceBetween(session.lastPoint, point) >= MIN_STROKE_POINT_DISTANCE
-        ) {
-          session.draftStroke = {
-            ...session.draftStroke,
-            points: [...session.draftStroke.points, point.x, point.y],
-          };
+        if (session.mode === "brush") {
+          if (
+            !session.outsideCanvas &&
+            session.draftStroke &&
+            distanceBetween(session.lastPoint, point) >= MIN_STROKE_POINT_DISTANCE
+          ) {
+            session.lastPoint = point;
+            session.draftStroke = {
+              ...session.draftStroke,
+              points: [...session.draftStroke.points, point.x, point.y],
+            };
+          }
+
+          const nextSession = commitBrushDraftStroke(session);
+          nextSession.outsideCanvas = true;
+          activeAnnotationSessionRef.current = nextSession;
+          redrawAnnotations(nextSession.annotations);
+          redrawDraftAnnotation(null);
+        } else {
+          session.outsideCanvas = true;
         }
-        finalizeAnnotationSession(session);
         return;
+      }
+
+      if (session.outsideCanvas) {
+        session.outsideCanvas = false;
+        session.lastPoint = point;
+
+        if (session.mode === "brush") {
+          session.draftStroke = {
+            id: crypto.randomUUID(),
+            points: [point.x, point.y],
+            color: doodleColorRef.current,
+            size: doodleSizeRef.current,
+            tool: "brush",
+            createdAt: new Date().toISOString(),
+          };
+          redrawDraftAnnotation(session.draftStroke);
+          return;
+        }
       }
 
       if (

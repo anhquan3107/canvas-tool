@@ -22,6 +22,7 @@ import { useCanvasStage } from "@renderer/app/hooks/use-canvas-stage";
 import { useExportActions } from "@renderer/app/hooks/use-export-actions";
 import { useProjectFileActions } from "@renderer/app/hooks/use-project-file-actions";
 import { useWindowControls } from "@renderer/app/hooks/use-window-controls";
+import { useWindowRightDrag } from "@renderer/app/hooks/use-window-right-drag";
 import { CanvasBoard } from "@renderer/pixi/CanvasBoard";
 import { ProjectProvider } from "@renderer/state/project-store";
 import { useProjectStore } from "@renderer/state/use-project-store";
@@ -75,6 +76,8 @@ export const App = () => {
 };
 
 const AppContent = () => {
+  useWindowRightDrag();
+
   const {
     recentFiles,
     setRecentFiles,

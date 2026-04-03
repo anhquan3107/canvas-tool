@@ -61,6 +61,7 @@ export const CanvasBoard = ({
   const boardGraphicRef = useRef<Graphics | null>(null);
   const gridGraphicRef = useRef<Graphics | null>(null);
   const itemLayerRef = useRef<Container | null>(null);
+  const annotationMaskRef = useRef<Graphics | null>(null);
   const annotationLayerRef = useRef<Graphics | null>(null);
   const annotationPreviewLayerRef = useRef<Graphics | null>(null);
   const frameByIdRef = useRef(new Map<string, Graphics>());
@@ -236,6 +237,7 @@ export const CanvasBoard = ({
     selectedBoundsOverlayRef,
     boardContainerRef,
     boardGraphicRef,
+    annotationMaskRef,
     itemNodeByIdRef,
     groupRef,
     selectionIdsRef,
@@ -348,6 +350,7 @@ export const CanvasBoard = ({
     boardGraphicRef,
     gridGraphicRef,
     itemLayerRef,
+    annotationMaskRef,
     annotationLayerRef,
     annotationPreviewLayerRef,
     viewCommitTimerRef,

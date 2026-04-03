@@ -58,6 +58,11 @@ export interface AppWindowControlsState {
   isAlwaysOnTop: boolean;
 }
 
+export interface AppWindowPosition {
+  x: number;
+  y: number;
+}
+
 export interface ClipboardWriteImageRequest {
   dataUrl: string;
 }
@@ -136,6 +141,8 @@ export interface DesktopApi {
     toggleMaximize: () => Promise<AppWindowControlsState>;
     close: () => Promise<void>;
     getControlsState: () => Promise<AppWindowControlsState>;
+    getPosition: () => Promise<AppWindowPosition>;
+    setPosition: (payload: AppWindowPosition) => Promise<void>;
   };
   clipboard: {
     writeImageFromDataUrl: (

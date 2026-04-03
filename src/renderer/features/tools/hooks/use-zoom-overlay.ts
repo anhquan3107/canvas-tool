@@ -8,7 +8,7 @@ const clamp = (value: number, min: number, max: number) =>
 const DEFAULT_RULER_SETTINGS: RulerGridSettings = {
   horizontalLines: 10,
   verticalLines: 10,
-  gridColor: "#d24b43",
+  gridColor: "#ff2a2a",
 };
 
 const DEFAULT_SLIDESHOW_SECONDS = 3;

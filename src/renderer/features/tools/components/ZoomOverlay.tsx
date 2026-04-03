@@ -35,12 +35,12 @@ interface ZoomOverlayProps {
 }
 
 const GRID_COLOR_OPTIONS = [
-  { label: "Red", value: "#d24b43" },
-  { label: "Green", value: "#5fb46b" },
-  { label: "Blue", value: "#4e81d8" },
-  { label: "Cyan", value: "#47c7cf" },
-  { label: "White", value: "#f3f1e9" },
-  { label: "Black", value: "#121212" },
+  { label: "Red", value: "#ff2a2a" },
+  { label: "Green", value: "#00d84a" },
+  { label: "Blue", value: "#0057ff" },
+  { label: "Cyan", value: "#00eaff" },
+  { label: "White", value: "#ffffff" },
+  { label: "Black", value: "#000000" },
 ];
 
 const clamp = (value: number, min: number, max: number) =>
@@ -394,7 +394,7 @@ export const ZoomOverlay = ({
                       y2={cropHeight}
                       stroke={gridSettings.gridColor}
                       strokeWidth={1}
-                      strokeOpacity={0.82}
+                      strokeOpacity={1}
                     />
                   );
                 },
@@ -413,7 +413,7 @@ export const ZoomOverlay = ({
                     y2={y}
                     stroke={gridSettings.gridColor}
                     strokeWidth={1}
-                    strokeOpacity={0.82}
+                    strokeOpacity={1}
                   />
                 );
               })}

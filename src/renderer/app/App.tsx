@@ -731,6 +731,24 @@ const AppContent = () => {
       return;
     }
 
+    const sameAsStoredView =
+      Math.abs(activeGroup.zoom - nextView.zoom) < 0.0001 &&
+      Math.abs(activeGroup.panX - nextView.panX) < 0.01 &&
+      Math.abs(activeGroup.panY - nextView.panY) < 0.01;
+
+    if (sameAsStoredView) {
+      setGroupView(
+        activeGroup.id,
+        nextView.zoom,
+        nextView.panX + 0.01,
+        nextView.panY + 0.01,
+      );
+      requestAnimationFrame(() => {
+        setGroupView(activeGroup.id, nextView.zoom, nextView.panX, nextView.panY);
+      });
+      return;
+    }
+
     setGroupView(activeGroup.id, nextView.zoom, nextView.panX, nextView.panY);
   }, [activeGroup, setGroupView, viewportSize, zoomOverlayOpen]);
 

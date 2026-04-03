@@ -26,6 +26,8 @@ interface UseWorkspaceClipboardActionsOptions {
       y: number;
       width: number;
       height: number;
+      scaleX?: number;
+      scaleY?: number;
       visible?: boolean;
     }>,
     currentSize: { width: number; height: number },

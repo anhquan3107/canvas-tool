@@ -2,6 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ImageItem, ReferenceGroup } from "@shared/types/project";
 import type { RulerGridSettings, ToolMode } from "@renderer/features/tools/types";
 
+const clamp = (value: number, min: number, max: number) =>
+  Math.min(max, Math.max(min, value));
+
 const DEFAULT_RULER_SETTINGS: RulerGridSettings = {
   horizontalLines: 10,
   verticalLines: 10,
@@ -231,7 +234,23 @@ export const useZoomOverlay = ({
       return;
     }
 
+    const isTypingTarget = (target: EventTarget | null) => {
+      if (!(target instanceof HTMLElement)) {
+        return false;
+      }
+
+      if (target.isContentEditable) {
+        return true;
+      }
+
+      return ["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(target.tagName);
+    };
+
     const handleKeyDown = (event: KeyboardEvent) => {
+      if (isTypingTarget(event.target)) {
+        return;
+      }
+
       if (event.key === "ArrowRight") {
         event.preventDefault();
         selectNextZoomImage();
@@ -244,9 +263,21 @@ export const useZoomOverlay = ({
         return;
       }
 
-      if (!rulerEnabled && event.code === "Space") {
+      if (!rulerEnabled && event.key === "Enter") {
         event.preventDefault();
         setSlideshowPlaying((previous) => !previous);
+        return;
+      }
+
+      if (!rulerEnabled && event.key === "ArrowUp") {
+        event.preventDefault();
+        setSlideshowSeconds((previous) => clamp(previous + 1, 1, 12));
+        return;
+      }
+
+      if (!rulerEnabled && event.key === "ArrowDown") {
+        event.preventDefault();
+        setSlideshowSeconds((previous) => clamp(previous - 1, 1, 12));
       }
     };
 

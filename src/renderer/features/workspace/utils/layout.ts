@@ -16,8 +16,30 @@ type LayoutItem = {
   y: number;
   width: number;
   height: number;
+  scaleX?: number;
+  scaleY?: number;
   zIndex?: number;
   visible?: boolean;
+};
+
+const getVisualBounds = (item: LayoutItem) => {
+  const safeWidth = Math.max(1, item.width);
+  const safeHeight = Math.max(1, item.height);
+  const safeScaleX =
+    Number.isFinite(item.scaleX) && item.scaleX && item.scaleX !== 0
+      ? Math.abs(item.scaleX)
+      : 1;
+  const safeScaleY =
+    Number.isFinite(item.scaleY) && item.scaleY && item.scaleY !== 0
+      ? Math.abs(item.scaleY)
+      : 1;
+
+  return {
+    minX: item.x,
+    minY: item.y,
+    maxX: item.x + safeWidth * safeScaleX,
+    maxY: item.y + safeHeight * safeScaleY,
+  };
 };
 
 export const buildAutoArrangeUpdates = (
@@ -205,7 +227,14 @@ export const buildAutoArrangeUpdates = (
 };
 
 export const getFocusedGroupView = (
-  items: Array<{ x: number; y: number; width: number; height: number }>,
+  items: Array<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    scaleX?: number;
+    scaleY?: number;
+  }>,
   canvasSize: { width: number; height: number },
   viewportSize: { width: number; height: number },
 ) => {
@@ -214,12 +243,18 @@ export const getFocusedGroupView = (
   }
 
   const bounds = items.reduce(
-    (acc, item) => ({
-      minX: Math.min(acc.minX, item.x),
-      minY: Math.min(acc.minY, item.y),
-      maxX: Math.max(acc.maxX, item.x + item.width),
-      maxY: Math.max(acc.maxY, item.y + item.height),
-    }),
+    (acc, item) => {
+      const visualBounds = getVisualBounds({
+        id: "",
+        ...item,
+      });
+      return {
+        minX: Math.min(acc.minX, visualBounds.minX),
+        minY: Math.min(acc.minY, visualBounds.minY),
+        maxX: Math.max(acc.maxX, visualBounds.maxX),
+        maxY: Math.max(acc.maxY, visualBounds.maxY),
+      };
+    },
     {
       minX: Number.POSITIVE_INFINITY,
       minY: Number.POSITIVE_INFINITY,
@@ -327,8 +362,9 @@ export const getCanvasExpansionPlan = (
     return null;
   }
 
-  const minX = Math.min(...visibleItems.map((item) => item.x));
-  const minY = Math.min(...visibleItems.map((item) => item.y));
+  const visualBounds = visibleItems.map(getVisualBounds);
+  const minX = Math.min(...visualBounds.map((item) => item.minX));
+  const minY = Math.min(...visualBounds.map((item) => item.minY));
   const expandLeft = Math.max(
     0,
     Math.ceil(
@@ -356,14 +392,18 @@ export const getCanvasExpansionPlan = (
 
   const requiredWidth = Math.max(
     currentSize.width + expandLeft,
-    ...normalizedVisibleItems.map((item) =>
-      Math.ceil(item.x + item.width + CANVAS_EXPANSION_PADDING),
+    ...normalizedVisibleItems.map((item) => {
+      const visualBounds = getVisualBounds(item);
+      return Math.ceil(visualBounds.maxX + CANVAS_EXPANSION_PADDING);
+    },
     ),
   );
   const requiredHeight = Math.max(
     currentSize.height + expandTop,
-    ...normalizedVisibleItems.map((item) =>
-      Math.ceil(item.y + item.height + CANVAS_EXPANSION_PADDING),
+    ...normalizedVisibleItems.map((item) => {
+      const visualBounds = getVisualBounds(item);
+      return Math.ceil(visualBounds.maxY + CANVAS_EXPANSION_PADDING);
+    },
     ),
   );
 
@@ -392,10 +432,11 @@ export const getFittedCanvas = (group: ReferenceGroup) => {
     return null;
   }
 
-  const minX = Math.min(...visibleItems.map((item) => item.x));
-  const minY = Math.min(...visibleItems.map((item) => item.y));
-  const maxX = Math.max(...visibleItems.map((item) => item.x + item.width));
-  const maxY = Math.max(...visibleItems.map((item) => item.y + item.height));
+  const visualBounds = visibleItems.map(getVisualBounds);
+  const minX = Math.min(...visualBounds.map((item) => item.minX));
+  const minY = Math.min(...visualBounds.map((item) => item.minY));
+  const maxX = Math.max(...visualBounds.map((item) => item.maxX));
+  const maxY = Math.max(...visualBounds.map((item) => item.maxY));
   const shiftX = Math.round(CANVAS_EXPANSION_PADDING - minX);
   const shiftY = Math.round(CANVAS_EXPANSION_PADDING - minY);
   const nextWidth = Math.max(

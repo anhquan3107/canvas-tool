@@ -214,6 +214,7 @@ export const useCanvasBoardScene = ({
           event.nativeEvent.button === 1;
 
         if (panByModifier) {
+          cancelWheelZoomAnimationRef.current?.();
           isPanningRef.current = true;
           panStartRef.current = {
             x: event.nativeEvent.clientX,
@@ -289,6 +290,24 @@ export const useCanvasBoardScene = ({
                 Number.isFinite(entry.height) && entry.height > 1
                   ? entry.height
                   : 120,
+              visualWidth:
+                (Number.isFinite(entry.width) && entry.width > 1
+                  ? entry.width
+                  : 180) *
+                Math.abs(
+                  Number.isFinite(entry.scaleX) && entry.scaleX !== 0
+                    ? entry.scaleX
+                    : 1,
+                ),
+              visualHeight:
+                (Number.isFinite(entry.height) && entry.height > 1
+                  ? entry.height
+                  : 120) *
+                Math.abs(
+                  Number.isFinite(entry.scaleY) && entry.scaleY !== 0
+                    ? entry.scaleY
+                    : 1,
+                ),
             };
           })
           .filter((entry): entry is NonNullable<typeof entry> => entry !== null);

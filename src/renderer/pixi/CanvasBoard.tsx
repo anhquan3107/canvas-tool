@@ -151,22 +151,6 @@ export const CanvasBoard = ({
     cropSessionRef.current = cropSession;
   }, [cropSession]);
 
-  const { handleTransformHandlePointerDown } = useCanvasBoardTransform({
-    hostRef,
-    boardContainerRef,
-    itemNodeByIdRef,
-    groupRef,
-    selectedItemIds,
-    cropSessionRef,
-    activeSelectionTransformRef,
-    activeCropHandleRef,
-    previewInsetsRef,
-    updateSelectedBoundsOverlayRef,
-    onCanvasSizePreviewChangeRef,
-    onItemsPatchRef,
-    onCropRectChange,
-  });
-
   useEffect(() => {
     onSelectionChangeRef.current = onSelectionChange;
   }, [onSelectionChange]);
@@ -269,6 +253,23 @@ export const CanvasBoard = ({
     lastPointerClientRef,
     activeSelectionTransformRef,
     cropSessionRef,
+  });
+
+  const { handleTransformHandlePointerDown } = useCanvasBoardTransform({
+    hostRef,
+    boardContainerRef,
+    itemNodeByIdRef,
+    groupRef,
+    selectedItemIds,
+    cropSessionRef,
+    activeSelectionTransformRef,
+    activeCropHandleRef,
+    previewInsetsRef,
+    setPreviewInsets,
+    updateSelectedBoundsOverlayRef,
+    onCanvasSizePreviewChangeRef,
+    onItemsPatchRef,
+    onCropRectChange,
   });
 
   useEffect(() => {

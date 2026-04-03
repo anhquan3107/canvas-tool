@@ -1,7 +1,7 @@
 import { useCallback, useEffect, type PointerEvent as ReactPointerEvent } from "react";
 import type { RefObject } from "react";
 import type { Container } from "pixi.js";
-import { ZERO_INSETS } from "@renderer/pixi/constants";
+import { BOARD_EXPANSION_PADDING, ZERO_INSETS } from "@renderer/pixi/constants";
 import type {
   ActiveSelectionTransformState,
   CropRect,
@@ -29,6 +29,12 @@ interface UseCanvasBoardTransformOptions {
     right: number;
     bottom: number;
   }>;
+  setPreviewInsets: (nextInsets: {
+    left: number;
+    top: number;
+    right: number;
+    bottom: number;
+  }) => void;
   updateSelectedBoundsOverlayRef: RefObject<() => void>;
   onCanvasSizePreviewChangeRef: RefObject<
     ((size: { width: number; height: number } | null) => void) | undefined
@@ -47,6 +53,7 @@ export const useCanvasBoardTransform = ({
   activeSelectionTransformRef,
   activeCropHandleRef,
   previewInsetsRef,
+  setPreviewInsets,
   updateSelectedBoundsOverlayRef,
   onCanvasSizePreviewChangeRef,
   onItemsPatchRef,
@@ -223,37 +230,39 @@ export const useCanvasBoardTransform = ({
         maxY = Math.max(maxY, itemMaxY);
       });
 
-      previewInsetsRef.current = ZERO_INSETS;
-      updateSelectedBoundsOverlayRef.current();
-
+      let nextInsets = ZERO_INSETS;
       if (
         Number.isFinite(minX) &&
         Number.isFinite(minY) &&
         Number.isFinite(maxX) &&
         Number.isFinite(maxY)
       ) {
-        const nextInsets = {
-          left: minX < 0 ? Math.ceil(-minX + 24) : 0,
-          top: minY < 0 ? Math.ceil(-minY + 24) : 0,
+        nextInsets = {
+          left:
+            minX < 0 ? Math.ceil(-minX + BOARD_EXPANSION_PADDING) : 0,
+          top:
+            minY < 0 ? Math.ceil(-minY + BOARD_EXPANSION_PADDING) : 0,
           right:
             maxX > groupRef.current.canvasSize.width
-              ? Math.ceil(maxX - groupRef.current.canvasSize.width + 24)
+              ? Math.ceil(
+                  maxX -
+                    groupRef.current.canvasSize.width +
+                    BOARD_EXPANSION_PADDING,
+                )
               : 0,
           bottom:
             maxY > groupRef.current.canvasSize.height
-              ? Math.ceil(maxY - groupRef.current.canvasSize.height + 24)
+              ? Math.ceil(
+                  maxY -
+                    groupRef.current.canvasSize.height +
+                    BOARD_EXPANSION_PADDING,
+                )
               : 0,
         };
-        previewInsetsRef.current = nextInsets;
-        onCanvasSizePreviewChangeRef.current?.({
-          width: Math.round(
-            groupRef.current.canvasSize.width + nextInsets.left + nextInsets.right,
-          ),
-          height: Math.round(
-            groupRef.current.canvasSize.height + nextInsets.top + nextInsets.bottom,
-          ),
-        });
       }
+
+      setPreviewInsets(nextInsets);
+      updateSelectedBoundsOverlayRef.current();
     },
     [
       activeSelectionTransformRef,
@@ -262,6 +271,7 @@ export const useCanvasBoardTransform = ({
       itemNodeByIdRef,
       onCanvasSizePreviewChangeRef,
       previewInsetsRef,
+      setPreviewInsets,
       updateSelectedBoundsOverlayRef,
     ],
   );
@@ -274,8 +284,7 @@ export const useCanvasBoardTransform = ({
       return;
     }
 
-    onCanvasSizePreviewChangeRef.current?.(null);
-    previewInsetsRef.current = ZERO_INSETS;
+    setPreviewInsets(ZERO_INSETS);
 
     if (activeTransform.hasChanged && Object.keys(activeTransform.patchBuffer).length > 0) {
       onItemsPatchRef.current({ ...activeTransform.patchBuffer });
@@ -285,9 +294,8 @@ export const useCanvasBoardTransform = ({
     updateSelectedBoundsOverlayRef.current();
   }, [
     activeSelectionTransformRef,
-    onCanvasSizePreviewChangeRef,
     onItemsPatchRef,
-    previewInsetsRef,
+    setPreviewInsets,
     updateSelectedBoundsOverlayRef,
   ]);
 

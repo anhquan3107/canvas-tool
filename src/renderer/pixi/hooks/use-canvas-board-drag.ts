@@ -280,8 +280,8 @@ export const useCanvasBoardDrag = ({
 
         minX = Math.min(minX, resolvedX);
         minY = Math.min(minY, resolvedY);
-        maxX = Math.max(maxX, resolvedX + item.width);
-        maxY = Math.max(maxY, resolvedY + item.height);
+        maxX = Math.max(maxX, resolvedX + item.visualWidth);
+        maxY = Math.max(maxY, resolvedY + item.visualHeight);
       });
 
       setPreviewInsets({

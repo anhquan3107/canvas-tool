@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -45,6 +46,20 @@ const GRID_COLOR_OPTIONS = [
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 
+const clampPanToBounds = (
+  nextPan: { x: number; y: number },
+  viewport: { width: number; height: number },
+  image: { width: number; height: number },
+) => {
+  const overflowX = Math.max(0, (image.width - viewport.width) * 0.5);
+  const overflowY = Math.max(0, (image.height - viewport.height) * 0.5);
+
+  return {
+    x: clamp(nextPan.x, -overflowX, overflowX),
+    y: clamp(nextPan.y, -overflowY, overflowY),
+  };
+};
+
 export const ZoomOverlay = ({
   items,
   activeImageId,
@@ -74,6 +89,7 @@ export const ZoomOverlay = ({
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [panOrigin, setPanOrigin] = useState({ x: 0, y: 0 });
+  const [spacePanActive, setSpacePanActive] = useState(false);
   const [slideshowBarVisible, setSlideshowBarVisible] = useState(false);
 
   const activeImage = useMemo(
@@ -130,11 +146,12 @@ export const ZoomOverlay = ({
       return;
     }
 
-    const nextFitScale =
-      Math.min(
-        viewportSize.width / cropWidth,
-        viewportSize.height / cropHeight,
-      ) * 0.94;
+    const widthFitScale = viewportSize.width / cropWidth;
+    const heightFitScale = viewportSize.height / cropHeight;
+    const preferredFitScale =
+      cropWidth >= cropHeight ? widthFitScale : heightFitScale;
+    const containFitScale = Math.min(widthFitScale, heightFitScale);
+    const nextFitScale = Math.min(preferredFitScale, containFitScale);
 
     setFitScale(nextFitScale);
     setScale(nextFitScale);
@@ -148,17 +165,43 @@ export const ZoomOverlay = ({
   const maxScale = Math.max(fitScale * 20, fitScale);
   const gridSettings =
     rulerEnabled && rulerDialogOpen ? draftRulerSettings : rulerSettings;
+  const canPan = scale > fitScale + 0.001;
+
+  const clampPanForScale = useCallback(
+    (nextPan: { x: number; y: number }, nextScale: number) => {
+      if (viewportSize.width <= 0 || viewportSize.height <= 0) {
+        return nextPan;
+      }
+
+      if (nextScale <= fitScale + 0.001) {
+        return { x: 0, y: 0 };
+      }
+
+      return clampPanToBounds(nextPan, viewportSize, {
+        width: cropWidth * nextScale,
+        height: cropHeight * nextScale,
+      });
+    },
+    [cropHeight, cropWidth, fitScale, viewportSize],
+  );
 
   const handleWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
     event.preventDefault();
 
-    setScale((previous) =>
-      clamp(previous * Math.exp(-event.deltaY * 0.0015), fitScale * 0.6, maxScale),
-    );
+    setScale((previous) => {
+      const nextScale = clamp(
+        previous * Math.exp(-event.deltaY * 0.0015),
+        fitScale,
+        maxScale,
+      );
+
+      setPan((previousPan) => clampPanForScale(previousPan, nextScale));
+      return nextScale;
+    });
   };
 
   const handlePointerDown = (event: ReactMouseEvent<HTMLDivElement>) => {
-    if (event.button !== 1) {
+    if (!canPan) {
       return;
     }
 
@@ -196,15 +239,68 @@ export const ZoomOverlay = ({
     }
 
     event.preventDefault();
-    setPan({
-      x: event.clientX - panOrigin.x,
-      y: event.clientY - panOrigin.y,
-    });
+    setPan(
+      clampPanForScale(
+        {
+          x: event.clientX - panOrigin.x,
+          y: event.clientY - panOrigin.y,
+        },
+        scale,
+      ),
+    );
   };
 
   const handlePointerUp = () => {
     setIsPanning(false);
   };
+
+  useEffect(() => {
+    setPan((previousPan) => clampPanForScale(previousPan, scale));
+  }, [clampPanForScale, scale]);
+
+  useEffect(() => {
+    const isTypingTarget = (target: EventTarget | null) => {
+      if (!(target instanceof HTMLElement)) {
+        return false;
+      }
+
+      if (target.isContentEditable) {
+        return true;
+      }
+
+      return ["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(target.tagName);
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (isTypingTarget(event.target)) {
+        return;
+      }
+
+      if (event.code !== "Space") {
+        return;
+      }
+
+      event.preventDefault();
+      setSpacePanActive(true);
+    };
+
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (event.code !== "Space") {
+        return;
+      }
+
+      setSpacePanActive(false);
+      setIsPanning(false);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, []);
 
   const stageStyle = {
     width: `${cropWidth}px`,
@@ -225,11 +321,21 @@ export const ZoomOverlay = ({
         ref={viewportRef}
         className="zoom-overlay-viewport"
         onWheel={handleWheel}
-        onMouseDown={handlePointerDown}
+        onMouseDown={(event) => {
+          const canStartPan =
+            event.button === 1 || (spacePanActive && event.button === 0);
+
+          if (!canStartPan) {
+            return;
+          }
+
+          handlePointerDown(event);
+        }}
         onMouseMove={handlePointerMove}
         onMouseUp={handlePointerUp}
         onMouseLeave={() => {
           handlePointerUp();
+          setSpacePanActive(false);
           setSlideshowBarVisible(false);
         }}
         onDoubleClick={(event) => {
@@ -435,7 +541,7 @@ export const ZoomOverlay = ({
       )}
 
       <div className="zoom-overlay-hint">
-        Scroll to zoom • Middle-click to pan • ESC to close
+        Scroll to zoom • Hold Space and drag to pan • ESC to close
       </div>
     </div>
   );

@@ -53,6 +53,8 @@ export interface DragItemState {
   startPos: { x: number; y: number };
   width: number;
   height: number;
+  visualWidth: number;
+  visualHeight: number;
 }
 
 export interface ActiveItemDragState {

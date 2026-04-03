@@ -667,6 +667,16 @@ const AppContent = () => {
       y: event.clientY,
     });
   };
+  const handleCanvasSelectionChange = useCallback(
+    (itemIds: string[]) => {
+      if (itemIds.length > 0) {
+        setAppInfoOpen(false);
+      }
+
+      setSelectedItemIds(itemIds);
+    },
+    [setAppInfoOpen, setSelectedItemIds],
+  );
   const activeDoodleSize = doodleMode === "brush" ? brushSize : eraserSize;
   const {
     canExportSelectedSwatch,
@@ -1013,7 +1023,7 @@ const AppContent = () => {
                       previous ? { ...previous, rect } : previous,
                     )
                   }
-                  onSelectionChange={setSelectedItemIds}
+                  onSelectionChange={handleCanvasSelectionChange}
                   onViewChange={handleBoardViewChange}
                   onItemsPatch={handleBoardItemsPatch}
                   onAnnotationsChange={(annotations) =>

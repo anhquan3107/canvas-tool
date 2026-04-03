@@ -20,6 +20,7 @@ export interface AppSettings {
   lastOpenedFile?: string;
   lastExportPath?: string;
   maxRecentFiles: number;
+  windowOpacity?: number;
   shortcuts?: Partial<Record<ShortcutActionId, string>>;
   seenTitleBarTooltips?: string[];
 }

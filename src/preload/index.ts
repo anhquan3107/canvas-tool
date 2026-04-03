@@ -51,6 +51,8 @@ const desktopApi: DesktopApi = {
     getControlsState: () => ipcRenderer.invoke("window:get-controls-state"),
     getPosition: () => ipcRenderer.invoke("window:get-position"),
     setPosition: (payload) => ipcRenderer.invoke("window:set-position", payload),
+    getOpacity: () => ipcRenderer.invoke("window:get-opacity"),
+    setOpacity: (payload) => ipcRenderer.invoke("window:set-opacity", payload),
   },
   clipboard: {
     writeImageFromDataUrl: (payload) =>

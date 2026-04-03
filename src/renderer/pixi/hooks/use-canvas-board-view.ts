@@ -24,6 +24,7 @@ interface UseCanvasBoardViewOptions {
   annotationMaskRef: MutableRefObject<Graphics | null>;
   itemNodeByIdRef: MutableRefObject<Map<string, Container>>;
   groupRef: MutableRefObject<ReferenceGroup>;
+  surfaceOpacityRef: MutableRefObject<number>;
   selectionIdsRef: MutableRefObject<string[]>;
   activeItemDragRef: MutableRefObject<ActiveItemDragState | null>;
   activeSelectionTransformRef: MutableRefObject<ActiveSelectionTransformState | null>;
@@ -53,6 +54,7 @@ export const useCanvasBoardView = ({
   annotationMaskRef,
   itemNodeByIdRef,
   groupRef,
+  surfaceOpacityRef,
   selectionIdsRef,
   activeItemDragRef,
   activeSelectionTransformRef,
@@ -176,12 +178,16 @@ export const useCanvasBoardView = ({
       }
 
       const scene = groupRef.current;
+      const surfaceOpacity = surfaceOpacityRef.current;
       const width = scene.canvasSize.width + insets.left + insets.right;
       const height = scene.canvasSize.height + insets.top + insets.bottom;
 
       board.clear();
       board.rect(-insets.left, -insets.top, width, height);
-      board.fill(hexToPixiColor(scene.canvasColor));
+      board.fill({
+        color: hexToPixiColor(scene.canvasColor),
+        alpha: surfaceOpacity,
+      });
 
       if (annotationMask) {
         annotationMask.clear();
@@ -235,6 +241,7 @@ export const useCanvasBoardView = ({
       groupRef,
       hostRef,
       previewInsetsRef,
+      surfaceOpacityRef,
     ],
   );
 

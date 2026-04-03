@@ -37,6 +37,7 @@ const SELECTION_HIGHLIGHT_NAME = "selection-highlight";
 
 export const CanvasBoard = ({
   group,
+  surfaceOpacity = 1,
   activeTool,
   doodleMode,
   doodleColor,
@@ -73,6 +74,7 @@ export const CanvasBoard = ({
     useCaptureSessions();
   const selectionIdsRef = useRef(selectedItemIds);
   const groupRef = useRef(group);
+  const surfaceOpacityRef = useRef(surfaceOpacity);
   const onSelectionChangeRef = useRef(onSelectionChange);
   const onItemsPatchRef = useRef(onItemsPatch);
   const onViewChangeRef = useRef(onViewChange);
@@ -240,6 +242,7 @@ export const CanvasBoard = ({
     annotationMaskRef,
     itemNodeByIdRef,
     groupRef,
+    surfaceOpacityRef,
     selectionIdsRef,
     activeItemDragRef,
     activeSelectionBoxRef,
@@ -256,6 +259,11 @@ export const CanvasBoard = ({
     activeSelectionTransformRef,
     cropSessionRef,
   });
+
+  useEffect(() => {
+    surfaceOpacityRef.current = surfaceOpacity;
+    drawBoardSurface();
+  }, [drawBoardSurface, surfaceOpacity]);
 
   const { handleTransformHandlePointerDown } = useCanvasBoardTransform({
     hostRef,

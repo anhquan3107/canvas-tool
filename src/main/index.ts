@@ -76,7 +76,8 @@ const createMainWindow = async () => {
     minWidth: 1100,
     minHeight: 700,
     frame: false,
-    backgroundColor: "#12100f",
+    transparent: true,
+    backgroundColor: "#00000000",
     title: "CanvasTool",
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),

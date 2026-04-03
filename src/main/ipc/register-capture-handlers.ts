@@ -40,7 +40,8 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
       minWidth: 640,
       minHeight: 420,
       frame: false,
-      backgroundColor: "#12100f",
+      transparent: true,
+      backgroundColor: "#00000000",
       title: `Capture - ${payload.sourceName}`,
       webPreferences: {
         preload: path.join(__dirname, "../preload/index.js"),

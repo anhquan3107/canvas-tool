@@ -138,6 +138,15 @@
   margin-bottom: 8px;
 }
 
+.color-picker-opacity-field {
+  grid-column: 1 / -1;
+}
+
+.color-picker-opacity-slider {
+  width: 100%;
+  accent-color: #527d8c;
+}
+
 .color-picker-preview {
   width: 100%;
   height: 42px;

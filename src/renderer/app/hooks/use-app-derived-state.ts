@@ -13,6 +13,7 @@ interface UseAppDerivedStateOptions {
   backgroundColorPreview: {
     canvasColor: string;
     backgroundColor: string;
+    windowOpacity: number;
   } | null;
   canvasSizePreview: { width: number; height: number } | null;
   lastSavedSignature: string;

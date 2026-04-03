@@ -1,5 +1,14 @@
 import { ipcMain, type BrowserWindow } from "electron";
-import type { AppWindowPosition, AppWindowState } from "../../shared/types/ipc";
+import type {
+  AppWindowOpacityRequest,
+  AppWindowPosition,
+  AppWindowState,
+} from "../../shared/types/ipc";
+import {
+  clampWindowOpacity,
+  getSavedWindowOpacity,
+  persistWindowOpacity,
+} from "../window-opacity";
 import { getSenderWindow } from "./ipc-utils";
 
 export const registerWindowHandlers = (window: BrowserWindow) => {
@@ -59,4 +68,17 @@ export const registerWindowHandlers = (window: BrowserWindow) => {
     const targetWindow = getSenderWindow(event.sender) ?? window;
     targetWindow.setPosition(Math.round(payload.x), Math.round(payload.y));
   });
+
+  ipcMain.handle("window:get-opacity", () => getSavedWindowOpacity());
+
+  ipcMain.handle(
+    "window:set-opacity",
+    async (_event, payload: AppWindowOpacityRequest) => {
+      const nextOpacity = clampWindowOpacity(payload.opacity);
+      if (payload.persist) {
+        await persistWindowOpacity(nextOpacity);
+      }
+      return nextOpacity;
+    },
+  );
 };

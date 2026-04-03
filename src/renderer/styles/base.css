@@ -29,11 +29,12 @@ body,
   width: 100%;
   height: 100%;
   margin: 0;
+  background: transparent;
 }
 
 body {
   overflow: hidden;
-  background: #1e1e1f;
+  background: transparent;
   color: var(--text);
 }
 

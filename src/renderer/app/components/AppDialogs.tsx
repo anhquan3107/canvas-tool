@@ -26,6 +26,7 @@ interface AppDialogsProps {
   backgroundColorPreview: {
     canvasColor: string;
     backgroundColor: string;
+    windowOpacity: number;
   } | null;
   canvasHeightInput: string;
   canvasSizeDialogOpen: boolean;
@@ -59,13 +60,6 @@ interface AppDialogsProps {
   resetTitleBarTooltips: () => Promise<unknown>;
   saveShortcutBindings: () => Promise<unknown>;
   selectedSourceId: string | null;
-  setBackgroundColorDialogOpen: Dispatch<SetStateAction<boolean>>;
-  setBackgroundColorPreview: Dispatch<
-    SetStateAction<{
-      canvasColor: string;
-      backgroundColor: string;
-    } | null>
-  >;
   setCanvasHeightInput: Dispatch<SetStateAction<string>>;
   setCanvasSizeDialogOpen: Dispatch<SetStateAction<boolean>>;
   setCanvasWidthInput: Dispatch<SetStateAction<string>>;
@@ -88,8 +82,19 @@ interface AppDialogsProps {
   taskDuration: number;
   toast: { kind: "success" | "error" | "info"; message: string } | null;
   updateShortcutDraftBinding: (actionId: ShortcutActionId, binding: string) => void;
-  changeCanvasColors: (canvasColor: string, backgroundColor: string) => void;
+  onBackgroundColorDialogClose: () => void;
+  onBackgroundColorPreviewChange: (colors: {
+    canvasColor: string;
+    backgroundColor: string;
+    windowOpacity: number;
+  }) => void;
+  onBackgroundColorConfirm: (colors: {
+    canvasColor: string;
+    backgroundColor: string;
+    windowOpacity: number;
+  }) => void;
   onConfirmCloseCancel: () => void;
+  windowOpacity: number;
 }
 
 export const AppDialogs = ({
@@ -128,8 +133,6 @@ export const AppDialogs = ({
   resetTitleBarTooltips,
   saveShortcutBindings,
   selectedSourceId,
-  setBackgroundColorDialogOpen,
-  setBackgroundColorPreview,
   setCanvasHeightInput,
   setCanvasSizeDialogOpen,
   setCanvasWidthInput,
@@ -152,8 +155,11 @@ export const AppDialogs = ({
   taskDuration,
   toast,
   updateShortcutDraftBinding,
-  changeCanvasColors,
+  onBackgroundColorDialogClose,
+  onBackgroundColorPreviewChange,
+  onBackgroundColorConfirm,
   onConfirmCloseCancel,
+  windowOpacity,
 }: AppDialogsProps) => (
   <>
     <ConfirmActionDialog
@@ -240,16 +246,10 @@ export const AppDialogs = ({
         activeGroup?.backgroundColor ??
         DEFAULT_GROUP_BACKGROUND_COLOR
       }
-      onClose={() => {
-        setBackgroundColorPreview(null);
-        setBackgroundColorDialogOpen(false);
-      }}
-      onPreviewChange={setBackgroundColorPreview}
-      onConfirm={(colors) => {
-        setBackgroundColorPreview(null);
-        changeCanvasColors(colors.canvasColor, colors.backgroundColor);
-        setBackgroundColorDialogOpen(false);
-      }}
+      windowOpacity={backgroundColorPreview?.windowOpacity ?? windowOpacity}
+      onClose={onBackgroundColorDialogClose}
+      onPreviewChange={onBackgroundColorPreviewChange}
+      onConfirm={onBackgroundColorConfirm}
     />
 
     <KeyboardShortcutsDialog

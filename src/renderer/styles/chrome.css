@@ -20,7 +20,7 @@
   justify-content: space-between;
   gap: 20px;
   padding: 0 10px 0 8px;
-  background: #2d2c31;
+  background: var(--topbar-bg, #2d2c31);
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   -webkit-app-region: drag;
   user-select: none;

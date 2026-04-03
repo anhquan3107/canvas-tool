@@ -3,6 +3,7 @@ import {
   useEffect,
   useRef,
   useState,
+  type CSSProperties,
   type MouseEvent as ReactMouseEvent,
 } from "react";
 import {
@@ -49,6 +50,7 @@ import { AppMenu } from "@renderer/app/components/AppMenu";
 import { TopBar } from "@renderer/app/components/TopBar";
 import { AppInfoPanel } from "@renderer/app/components/AppInfoPanel";
 import { StatusBar } from "@renderer/app/components/StatusBar";
+import { hexToRgba } from "@renderer/pixi/utils/color";
 
 export const App = () => {
   const mode = new URLSearchParams(window.location.search).get("mode");
@@ -77,6 +79,13 @@ export const App = () => {
 };
 
 const clampCanvasZoom = (value: number) => Math.min(20, Math.max(0.18, value));
+const clampWindowOpacity = (value: number) => Math.min(1, Math.max(0.05, value));
+
+type BackgroundColorPreviewState = {
+  canvasColor: string;
+  backgroundColor: string;
+  windowOpacity: number;
+};
 
 const AppContent = () => {
   useWindowRightDrag();
@@ -157,13 +166,33 @@ const AppContent = () => {
     itemId: string;
     rect: { left: number; top: number; right: number; bottom: number };
   } | null>(null);
-  const [backgroundColorPreview, setBackgroundColorPreview] = useState<{
-    canvasColor: string;
-    backgroundColor: string;
-  } | null>(null);
+  const [backgroundColorPreview, setBackgroundColorPreview] =
+    useState<BackgroundColorPreviewState | null>(null);
+  const [windowOpacity, setWindowOpacity] = useState<number | null>(null);
 
   const { toast, pushToast } = useToast();
   const { importQueue, setImportQueue } = useImportQueueSession(project);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void window.desktopApi.window
+      .getOpacity()
+      .then((nextOpacity) => {
+        if (!cancelled) {
+          setWindowOpacity(clampWindowOpacity(nextOpacity));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setWindowOpacity(1);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const refreshRecents = useCallback(() => {
     window.desktopApi.project
@@ -267,6 +296,20 @@ const AppContent = () => {
     canvasSizePreview,
     lastSavedSignature: lastSavedSignatureRef.current,
   });
+  const appBackgroundOpacity = clampWindowOpacity(
+    backgroundColorPreview?.windowOpacity ?? windowOpacity ?? 1,
+  );
+  const appShellStyle = {
+    backgroundColor: hexToRgba(appShellBackgroundColor, appBackgroundOpacity),
+    "--bg-panel": `rgba(34, 34, 37, ${0.96 * appBackgroundOpacity})`,
+    "--bg-panel-soft": `rgba(42, 42, 46, ${0.86 * appBackgroundOpacity})`,
+    "--bg-menu": `rgba(38, 38, 42, ${0.98 * appBackgroundOpacity})`,
+    "--bg-chrome": `rgba(31, 31, 33, ${0.94 * appBackgroundOpacity})`,
+    "--bg-chrome-solid": `rgba(31, 31, 33, ${appBackgroundOpacity})`,
+    "--topbar-bg": `rgba(45, 44, 49, ${appBackgroundOpacity})`,
+    "--status-pill-bg": `rgba(18, 18, 20, ${0.54 * appBackgroundOpacity})`,
+    "--status-pill-hover-bg": `rgba(18, 18, 20, ${0.68 * appBackgroundOpacity})`,
+  } as CSSProperties;
   const activeGroupRef = useRef(activeGroup);
   const {
     handleConfirmDeletion,
@@ -531,6 +574,7 @@ const AppContent = () => {
     setHelpOpen(false);
     setCanvasSizeDialogOpen(false);
     setBackgroundColorDialogOpen(false);
+    setBackgroundColorPreview(null);
     setAppInfoOpen(false);
     setTaskDetailOpen(false);
     setConnectDialogOpen(false);
@@ -543,6 +587,7 @@ const AppContent = () => {
     closeZoomOverlay,
     setAppInfoOpen,
     setBackgroundColorDialogOpen,
+    setBackgroundColorPreview,
     setCanvasSizeDialogOpen,
     setConnectDialogOpen,
     setGroupDialogOpen,
@@ -903,9 +948,33 @@ const AppContent = () => {
     setBackgroundColorPreview({
       canvasColor: activeGroup.canvasColor,
       backgroundColor: activeGroup.backgroundColor,
+      windowOpacity: windowOpacity ?? 1,
     });
     setBackgroundColorDialogOpen(true);
-  }, [activeGroup, setBackgroundColorDialogOpen, setSettingsOpen]);
+  }, [activeGroup, setBackgroundColorDialogOpen, setSettingsOpen, windowOpacity]);
+
+  const handleCloseBackgroundColorDialog = useCallback(() => {
+    setBackgroundColorPreview(null);
+    setBackgroundColorDialogOpen(false);
+  }, [setBackgroundColorDialogOpen]);
+
+  const handleConfirmBackgroundColorDialog = useCallback(
+    (colors: BackgroundColorPreviewState) => {
+      const nextWindowOpacity = clampWindowOpacity(colors.windowOpacity);
+
+      setBackgroundColorPreview(null);
+      setWindowOpacity(nextWindowOpacity);
+      changeCanvasColors(colors.canvasColor, colors.backgroundColor);
+      setBackgroundColorDialogOpen(false);
+      void window.desktopApi.window
+        .setOpacity({
+          opacity: nextWindowOpacity,
+          persist: true,
+        })
+        .catch(() => null);
+    },
+    [changeCanvasColors, setBackgroundColorDialogOpen],
+  );
 
   useEffect(() => {
     const detachNativeMenuListener = window.desktopApi.app.onNativeMenuAction(
@@ -1041,9 +1110,7 @@ const AppContent = () => {
   return (
     <div
       className="app-shell"
-      style={{
-        backgroundColor: appShellBackgroundColor,
-      }}
+      style={appShellStyle}
       onDragOver={handleShellDragOver}
       onDrop={handleAppShellDrop}
       onContextMenu={handleShellContextMenu}
@@ -1160,14 +1227,17 @@ const AppContent = () => {
               className="canvas-stage"
               ref={canvasStageRef}
               style={{
-                backgroundColor:
+                backgroundColor: hexToRgba(
                   displayGroup?.backgroundColor ??
-                  DEFAULT_GROUP_BACKGROUND_COLOR,
+                    DEFAULT_GROUP_BACKGROUND_COLOR,
+                  appBackgroundOpacity,
+                ),
               }}
             >
               {displayGroup ? (
                 <CanvasBoard
                   group={displayGroup}
+                  surfaceOpacity={appBackgroundOpacity}
                   activeTool={activeTool}
                   doodleMode={doodleMode}
                   doodleColor={doodleColor}
@@ -1536,8 +1606,6 @@ const AppContent = () => {
         resetTitleBarTooltips={resetTitleBarTooltips}
         saveShortcutBindings={saveShortcutBindings}
         selectedSourceId={selectedSourceId}
-        setBackgroundColorDialogOpen={setBackgroundColorDialogOpen}
-        setBackgroundColorPreview={setBackgroundColorPreview}
         setCanvasHeightInput={setCanvasHeightInput}
         setCanvasSizeDialogOpen={setCanvasSizeDialogOpen}
         setCanvasWidthInput={setCanvasWidthInput}
@@ -1560,8 +1628,11 @@ const AppContent = () => {
         taskDuration={taskDuration}
         toast={toast}
         updateShortcutDraftBinding={updateShortcutDraftBinding}
-        changeCanvasColors={changeCanvasColors}
+        onBackgroundColorDialogClose={handleCloseBackgroundColorDialog}
+        onBackgroundColorPreviewChange={setBackgroundColorPreview}
+        onBackgroundColorConfirm={handleConfirmBackgroundColorDialog}
         onConfirmCloseCancel={() => setConfirmCloseOpen(false)}
+        windowOpacity={windowOpacity ?? 1}
       />
     </div>
   );

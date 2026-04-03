@@ -15,9 +15,18 @@ interface BackgroundColorDialogProps {
   open: boolean;
   canvasColor: string;
   backgroundColor: string;
+  windowOpacity: number;
   onClose: () => void;
-  onPreviewChange: (colors: { canvasColor: string; backgroundColor: string }) => void;
-  onConfirm: (colors: { canvasColor: string; backgroundColor: string }) => void;
+  onPreviewChange: (colors: {
+    canvasColor: string;
+    backgroundColor: string;
+    windowOpacity: number;
+  }) => void;
+  onConfirm: (colors: {
+    canvasColor: string;
+    backgroundColor: string;
+    windowOpacity: number;
+  }) => void;
 }
 
 type ColorTarget = "canvas" | "background";
@@ -106,6 +115,7 @@ export const BackgroundColorDialog = ({
   open,
   canvasColor,
   backgroundColor,
+  windowOpacity,
   onClose,
   onPreviewChange,
   onConfirm,
@@ -116,6 +126,7 @@ export const BackgroundColorDialog = ({
   const [target, setTarget] = useState<ColorTarget>("canvas");
   const [draftCanvasColor, setDraftCanvasColor] = useState(canvasColor);
   const [draftBackgroundColor, setDraftBackgroundColor] = useState(backgroundColor);
+  const [draftWindowOpacity, setDraftWindowOpacity] = useState(windowOpacity);
   const [hue, setHue] = useState(0);
   const [saturation, setSaturation] = useState(0);
   const [value, setValue] = useState(0);
@@ -128,6 +139,7 @@ export const BackgroundColorDialog = ({
     if (!open) {
       setDraftCanvasColor(canvasColor);
       setDraftBackgroundColor(backgroundColor);
+      setDraftWindowOpacity(windowOpacity);
       return;
     }
 
@@ -138,7 +150,8 @@ export const BackgroundColorDialog = ({
     setTarget("canvas");
     setDraftCanvasColor(canvasColor);
     setDraftBackgroundColor(backgroundColor);
-  }, [backgroundColor, canvasColor, open]);
+    setDraftWindowOpacity(windowOpacity);
+  }, [backgroundColor, canvasColor, open, windowOpacity]);
 
   useEffect(() => {
     previousOpenRef.current = open;
@@ -201,8 +214,15 @@ export const BackgroundColorDialog = ({
     onPreviewChange({
       canvasColor: draftCanvasColor,
       backgroundColor: draftBackgroundColor,
+      windowOpacity: draftWindowOpacity,
     });
-  }, [draftBackgroundColor, draftCanvasColor, onPreviewChange, open]);
+  }, [
+    draftBackgroundColor,
+    draftCanvasColor,
+    draftWindowOpacity,
+    onPreviewChange,
+    open,
+  ]);
 
   const squarePointer = (clientX: number, clientY: number) => {
     const canvas = squareCanvasRef.current;
@@ -374,6 +394,24 @@ export const BackgroundColorDialog = ({
           />
         </div>
 
+        <div className="dialog-field color-picker-opacity-field">
+          <label htmlFor="color-picker-opacity">
+            App Opacity: {Math.round(draftWindowOpacity * 100)}%
+          </label>
+          <input
+            id="color-picker-opacity"
+            className="color-picker-opacity-slider"
+            type="range"
+            min="5"
+            max="100"
+            step="1"
+            value={Math.round(draftWindowOpacity * 100)}
+            onChange={(event) => {
+              setDraftWindowOpacity(clamp(Number(event.target.value) / 100, 0.05, 1));
+            }}
+          />
+        </div>
+
         <div className="dialog-field">
           <label>Preview:</label>
           <div
@@ -390,6 +428,7 @@ export const BackgroundColorDialog = ({
           onClick={() => {
             setDraftCanvasColor(DEFAULT_GROUP_CANVAS_COLOR);
             setDraftBackgroundColor(DEFAULT_GROUP_BACKGROUND_COLOR);
+            setDraftWindowOpacity(1);
           }}
         >
           Reset
@@ -401,6 +440,7 @@ export const BackgroundColorDialog = ({
             onConfirm({
               canvasColor: draftCanvasColor,
               backgroundColor: draftBackgroundColor,
+              windowOpacity: draftWindowOpacity,
             })
           }
         >

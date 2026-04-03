@@ -9,9 +9,18 @@ import {
 
 const SETTINGS_FILE = "settings.json";
 
+const clampSavedWindowOpacity = (value: number | undefined) => {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return 1;
+  }
+
+  return Math.min(1, Math.max(0.05, value));
+};
+
 const defaultSettings = (): AppSettings => ({
   recentFiles: [],
   maxRecentFiles: 12,
+  windowOpacity: 1,
   shortcuts: { ...DEFAULT_SHORTCUT_BINDINGS },
   seenTitleBarTooltips: [],
 });
@@ -77,6 +86,7 @@ export const readSettings = async (): Promise<AppSettings> => {
         typeof parsed.maxRecentFiles === "number" && parsed.maxRecentFiles > 0
           ? parsed.maxRecentFiles
           : 12,
+      windowOpacity: clampSavedWindowOpacity(parsed.windowOpacity),
       lastOpenedFile:
         typeof parsed.lastOpenedFile === "string"
           ? parsed.lastOpenedFile

@@ -23,6 +23,7 @@ export interface CanvasSizePreview {
 
 export interface CanvasBoardProps {
   group: ReferenceGroup;
+  surfaceOpacity?: number;
   activeTool: ToolMode | null;
   doodleMode: DoodleMode;
   doodleColor: string;

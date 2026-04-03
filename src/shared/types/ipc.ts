@@ -63,6 +63,11 @@ export interface AppWindowPosition {
   y: number;
 }
 
+export interface AppWindowOpacityRequest {
+  opacity: number;
+  persist?: boolean;
+}
+
 export type NativeMenuAction =
   | "open-project"
   | "save-project"
@@ -155,6 +160,8 @@ export interface DesktopApi {
     getControlsState: () => Promise<AppWindowControlsState>;
     getPosition: () => Promise<AppWindowPosition>;
     setPosition: (payload: AppWindowPosition) => Promise<void>;
+    getOpacity: () => Promise<number>;
+    setOpacity: (payload: AppWindowOpacityRequest) => Promise<number>;
   };
   clipboard: {
     writeImageFromDataUrl: (

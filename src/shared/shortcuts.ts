@@ -14,6 +14,7 @@ export type ShortcutActionId =
   | "export.canvasImage"
   | "export.groupImages"
   | "export.allTasks"
+  | "edit.selectAll"
   | "edit.undo"
   | "edit.redo"
   | "edit.cut"
@@ -23,10 +24,13 @@ export type ShortcutActionId =
   | "edit.crop"
   | "edit.flipHorizontal"
   | "canvas.resetView"
+  | "canvas.fitToWindow"
   | "canvas.changeSize"
   | "canvas.toggleLock"
   | "canvas.clearTransientUi"
   | "canvas.panHand"
+  | "canvas.zoomIn"
+  | "canvas.zoomOut"
   | "groups.create"
   | "tasks.add"
   | "arrange.auto"
@@ -41,6 +45,7 @@ export type ShortcutActionId =
   | "tools.toggleRuler"
   | "tools.toggleBlur"
   | "tools.toggleBlackAndWhite"
+  | "window.showSettings"
   | "window.toggleAlwaysOnTop"
   | "app.quit"
   | "window.closeAuxiliary";
@@ -82,6 +87,12 @@ export const SHORTCUT_DEFINITIONS: ShortcutDefinition[] = [
     label: "Export All Tasks",
     defaultBinding: "Ctrl+Shift+T",
   },
+  {
+    id: "edit.selectAll",
+    section: "Edit",
+    label: "Select All Items",
+    defaultBinding: "Ctrl+A",
+  },
   { id: "edit.undo", section: "Edit", label: "Undo", defaultBinding: "Ctrl+Z" },
   {
     id: "edit.redo",
@@ -103,20 +114,26 @@ export const SHORTCUT_DEFINITIONS: ShortcutDefinition[] = [
   {
     id: "canvas.resetView",
     section: "Canvas / View",
-    label: "Reset View",
+    label: "Fit Canvas to Content",
     defaultBinding: "Ctrl+Shift+F",
+  },
+  {
+    id: "canvas.fitToWindow",
+    section: "Canvas / View",
+    label: "Reset View",
+    defaultBinding: "Ctrl+0",
   },
   {
     id: "canvas.changeSize",
     section: "Canvas / View",
     label: "Change Canvas Size",
-    defaultBinding: "Ctrl+Shift+C",
+    defaultBinding: "Ctrl+Alt+I",
   },
   {
     id: "canvas.toggleLock",
     section: "Canvas / View",
     label: "Lock / Unlock Canvas",
-    defaultBinding: "Ctrl+L",
+    defaultBinding: "F2",
   },
   {
     id: "canvas.panHand",
@@ -130,6 +147,18 @@ export const SHORTCUT_DEFINITIONS: ShortcutDefinition[] = [
     section: "Canvas / View",
     label: "Close Overlays / Clear Transient UI",
     defaultBinding: "Escape",
+  },
+  {
+    id: "canvas.zoomIn",
+    section: "Canvas / View",
+    label: "Zoom In",
+    defaultBinding: "Ctrl++",
+  },
+  {
+    id: "canvas.zoomOut",
+    section: "Canvas / View",
+    label: "Zoom Out",
+    defaultBinding: "Ctrl+-",
   },
   {
     id: "groups.create",
@@ -214,6 +243,12 @@ export const SHORTCUT_DEFINITIONS: ShortcutDefinition[] = [
     section: "Tools",
     label: "B&W",
     defaultBinding: "Ctrl+Y",
+  },
+  {
+    id: "window.showSettings",
+    section: "Canvas / View",
+    label: "Show Keyboard Shortcuts",
+    defaultBinding: "F1",
   },
   {
     id: "window.toggleAlwaysOnTop",

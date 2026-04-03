@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { DesktopApi } from "../shared/types/ipc";
+import type { DesktopApi, NativeMenuAction } from "../shared/types/ipc";
 
 const desktopApi: DesktopApi = {
   app: {
@@ -14,7 +14,7 @@ const desktopApi: DesktopApi = {
     onNativeMenuAction: (listener) => {
       const handleAction = (
         _event: Electron.IpcRendererEvent,
-        action: "open-project" | "save-project" | "save-project-as",
+        action: NativeMenuAction,
       ) => {
         listener(action);
       };

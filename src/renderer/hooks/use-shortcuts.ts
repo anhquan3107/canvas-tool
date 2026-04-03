@@ -115,7 +115,8 @@ export const keyboardEventToShortcut = (event: KeyboardEvent) => {
   if (event.ctrlKey || event.metaKey) {
     parts.push("Ctrl");
   }
-  if (event.shiftKey) {
+  const includesImplicitShift = normalizedKey === "+";
+  if (event.shiftKey && !includesImplicitShift) {
     parts.push("Shift");
   }
   if (event.altKey) {
@@ -149,7 +150,9 @@ export const useShortcuts = (
         return;
       }
 
-      const handler = handlers[combo];
+      const handler =
+        handlers[combo] ??
+        (combo.endsWith("=") ? handlers[`${combo.slice(0, -1)}+`] : undefined);
       if (!handler) {
         return;
       }

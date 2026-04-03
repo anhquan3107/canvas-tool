@@ -63,6 +63,16 @@ export interface AppWindowPosition {
   y: number;
 }
 
+export type NativeMenuAction =
+  | "open-project"
+  | "save-project"
+  | "save-project-as"
+  | "show-shortcuts"
+  | "toggle-canvas-lock"
+  | "change-canvas-size"
+  | "fit-canvas-to-content"
+  | "fit-canvas-to-window";
+
 export interface ClipboardWriteImageRequest {
   dataUrl: string;
 }
@@ -111,7 +121,7 @@ export interface DesktopApi {
     markTitleBarTooltipSeen: (tooltipId: string) => Promise<string[]>;
     resetTitleBarTooltips: () => Promise<string[]>;
     onNativeMenuAction: (
-      listener: (action: "open-project" | "save-project" | "save-project-as") => void,
+      listener: (action: NativeMenuAction) => void,
     ) => () => void;
     quit: () => Promise<void>;
   };

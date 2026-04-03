@@ -18,11 +18,14 @@ import {
   WandSparkles,
   type LucideIcon,
 } from "lucide-react";
+import type { ShortcutActionId, ShortcutBindings } from "@shared/shortcuts";
+import { formatMenuShortcut } from "@renderer/app/components/MenuItemContent";
 
 interface HelpFeature {
   icon: LucideIcon;
   label: string;
   purpose: string;
+  shortcutActionId?: ShortcutActionId;
 }
 
 interface HelpSection {
@@ -32,6 +35,7 @@ interface HelpSection {
 }
 
 interface HelpTutorialDialogProps {
+  shortcutBindings: ShortcutBindings;
   open: boolean;
   onClose: () => void;
 }
@@ -58,6 +62,7 @@ const HELP_SECTIONS: HelpSection[] = [
         label: "Keyboard Shortcuts",
         purpose:
           "Customize your keybinds so the app matches the way you work.",
+        shortcutActionId: "window.showSettings",
       },
     ],
   },
@@ -69,13 +74,22 @@ const HELP_SECTIONS: HelpSection[] = [
         icon: ScanSearch,
         label: "Reset View",
         purpose:
-          "Recenter and refit the working area so your content is easy to see again.",
+          "Restore the current canvas view to a clean centered framing without resizing the board.",
+        shortcutActionId: "canvas.fitToWindow",
+      },
+      {
+        icon: ScanSearch,
+        label: "Fit Canvas to Content",
+        purpose:
+          "Resize and refit the working area around your content so everything is easy to see again.",
+        shortcutActionId: "canvas.resetView",
       },
       {
         icon: WandSparkles,
         label: "Change Canvas Size",
         purpose:
           "Resize the active group’s board when you need more room or a tighter frame.",
+        shortcutActionId: "canvas.changeSize",
       },
       {
         icon: Palette,
@@ -85,9 +99,10 @@ const HELP_SECTIONS: HelpSection[] = [
       },
       {
         icon: Lock,
-        label: "Lock Canvas",
+        label: "Lock / Unlock Canvas",
         purpose:
           "Prevent accidental edits while you review, present, or compare references.",
+        shortcutActionId: "canvas.toggleLock",
       },
     ],
   },
@@ -172,6 +187,7 @@ const HELP_SECTIONS: HelpSection[] = [
 ];
 
 export const HelpTutorialDialog = ({
+  shortcutBindings,
   open,
   onClose,
 }: HelpTutorialDialogProps) => {
@@ -225,7 +241,17 @@ export const HelpTutorialDialog = ({
                         <Icon size={16} strokeWidth={1.9} aria-hidden="true" />
                       </div>
                       <div className="help-feature-copy">
-                        <h3>{feature.label}</h3>
+                        <h3>
+                          {feature.label}
+                          {feature.shortcutActionId ? (
+                            <span className="help-feature-shortcut">
+                              {formatMenuShortcut(
+                                shortcutBindings,
+                                feature.shortcutActionId,
+                              )}
+                            </span>
+                          ) : null}
+                        </h3>
                         <p>{feature.purpose}</p>
                       </div>
                     </article>

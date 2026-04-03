@@ -8,6 +8,28 @@ import {
 } from "@renderer/features/import/image-import";
 import type { DoodleMode, ToolMode } from "@renderer/features/tools/types";
 
+const isMacPlatform = () =>
+  /mac/i.test(
+    (() => {
+      if (typeof navigator === "undefined") {
+        return "";
+      }
+
+      const navigatorWithUAData = navigator as Navigator & {
+        userAgentData?: { platform?: string };
+      };
+
+      return navigatorWithUAData.userAgentData?.platform ?? navigator.platform ?? "";
+    })(),
+  );
+
+const NATIVE_MENU_DEFAULT_BINDINGS = {
+  "window.showSettings": "F1",
+  "canvas.toggleLock": "F2",
+  "canvas.changeSize": "Ctrl+Alt+I",
+  "canvas.resetView": "Ctrl+Shift+F",
+} as const;
+
 interface UseAppShortcutsOptions {
   shortcutBindings: ShortcutBindings;
   activeTool: ToolMode | null;
@@ -19,6 +41,7 @@ interface UseAppShortcutsOptions {
   handleExportCanvasImage: () => Promise<unknown> | void;
   handleExportGroupImages: () => Promise<unknown> | void;
   handleExportAllTasksHtml: () => Promise<unknown> | void;
+  selectAllItems: () => void;
   undo: () => void;
   redo: () => void;
   cutSelectedItems: () => void;
@@ -29,8 +52,10 @@ interface UseAppShortcutsOptions {
   cropSelectedImage: () => void;
   flipSelectedItemsHorizontally: () => void;
   resetView: () => void;
+  fitCanvasToWindow: () => void;
   openCanvasSizeDialog: () => void;
   toggleCanvasLock: () => void;
+  showSettings: () => void;
   clearTransientUi: () => void;
   exitDoodle: () => void;
   openGroupDialog: () => void;
@@ -45,6 +70,8 @@ interface UseAppShortcutsOptions {
   toggleRuler: () => void;
   toggleBlur: () => void;
   toggleBlackAndWhite: () => void;
+  zoomInCanvas: () => void;
+  zoomOutCanvas: () => void;
   toggleAlwaysOnTop: () => void;
   quitApplication: () => void;
   importFromPayload: (payload: ImportPayload) => Promise<void>;
@@ -61,6 +88,7 @@ export const useAppShortcuts = ({
   handleExportCanvasImage,
   handleExportGroupImages,
   handleExportAllTasksHtml,
+  selectAllItems,
   undo,
   redo,
   cutSelectedItems,
@@ -71,8 +99,10 @@ export const useAppShortcuts = ({
   cropSelectedImage,
   flipSelectedItemsHorizontally,
   resetView,
+  fitCanvasToWindow,
   openCanvasSizeDialog,
   toggleCanvasLock,
+  showSettings,
   clearTransientUi,
   exitDoodle,
   openGroupDialog,
@@ -87,6 +117,8 @@ export const useAppShortcuts = ({
   toggleRuler,
   toggleBlur,
   toggleBlackAndWhite,
+  zoomInCanvas,
+  zoomOutCanvas,
   toggleAlwaysOnTop,
   quitApplication,
   importFromPayload,
@@ -99,6 +131,7 @@ export const useAppShortcuts = ({
       "export.canvasImage": () => void handleExportCanvasImage(),
       "export.groupImages": () => void handleExportGroupImages(),
       "export.allTasks": () => void handleExportAllTasksHtml(),
+      "edit.selectAll": selectAllItems,
       "edit.undo": undo,
       "edit.redo": redo,
       "edit.cut": cutSelectedItems,
@@ -115,8 +148,10 @@ export const useAppShortcuts = ({
       "edit.crop": cropSelectedImage,
       "edit.flipHorizontal": flipSelectedItemsHorizontally,
       "canvas.resetView": resetView,
+      "canvas.fitToWindow": fitCanvasToWindow,
       "canvas.changeSize": openCanvasSizeDialog,
       "canvas.toggleLock": toggleCanvasLock,
+      "window.showSettings": showSettings,
       "canvas.clearTransientUi": () => {
         if (activeTool === "doodle") {
           exitDoodle();
@@ -125,6 +160,8 @@ export const useAppShortcuts = ({
 
         clearTransientUi();
       },
+      "canvas.zoomIn": zoomInCanvas,
+      "canvas.zoomOut": zoomOutCanvas,
       "groups.create": openGroupDialog,
       "tasks.add": openTaskDialog,
       "arrange.auto": autoArrange,
@@ -181,6 +218,7 @@ export const useAppShortcuts = ({
       cutSelectedItems,
       deleteSelectedItems,
       flipSelectedItemsHorizontally,
+      fitCanvasToWindow,
       handleExportAllTasksHtml,
       handleExportCanvasImage,
       handleExportGroupImages,
@@ -196,7 +234,9 @@ export const useAppShortcuts = ({
       quitApplication,
       redo,
       resetView,
+      selectAllItems,
       setDoodleMode,
+      showSettings,
       toggleRuler,
       toggleAlwaysOnTop,
       toggleAutoArrangeOnImport,
@@ -205,14 +245,25 @@ export const useAppShortcuts = ({
       toggleCanvasLock,
       toggleDoodle,
       undo,
+      zoomInCanvas,
+      zoomOutCanvas,
     ],
   );
 
   const shortcutHandlers = useMemo(() => {
     const handlers: Partial<Record<string, () => void>> = {};
+    const shouldUseNativeMenuPath = isMacPlatform();
 
     Object.entries(shortcutBindings).forEach(([actionId, binding]) => {
       if (!binding) {
+        return;
+      }
+
+      const nativeMenuBinding =
+        NATIVE_MENU_DEFAULT_BINDINGS[
+          actionId as keyof typeof NATIVE_MENU_DEFAULT_BINDINGS
+        ];
+      if (shouldUseNativeMenuPath && nativeMenuBinding === binding) {
         return;
       }
 

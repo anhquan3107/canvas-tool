@@ -13,6 +13,7 @@ export type MenuActionKey =
   | "exportSelectedTaskHtml"
   | "exportAllTasksHtml"
   | "resetView"
+  | "fitCanvasToContent"
   | "changeCanvasSize"
   | "toggleCanvasLock"
   | "createGroup"
@@ -73,11 +74,16 @@ export const MENU_ACTION_META: Record<MenuActionKey, MenuActionMeta> = {
   resetView: {
     icon: "resetView",
     label: "Reset View",
+    shortcutActionId: "canvas.fitToWindow",
+  },
+  fitCanvasToContent: {
+    icon: "resetView",
+    label: "Fit Canvas to Content",
     shortcutActionId: "canvas.resetView",
   },
   changeCanvasSize: {
     icon: "canvasSize",
-    label: "Change Canvas Size...",
+    label: "Change Canvas Size",
     shortcutActionId: "canvas.changeSize",
   },
   toggleCanvasLock: {
@@ -116,7 +122,11 @@ export const MENU_ACTION_META: Record<MenuActionKey, MenuActionMeta> = {
     label: "Doodle",
     shortcutActionId: "tools.toggleDoodle",
   },
-  keyboardShortcut: { icon: "shortcuts", label: "Keyboard Shortcut" },
+  keyboardShortcut: {
+    icon: "shortcuts",
+    label: "Keyboard Shortcuts",
+    shortcutActionId: "window.showSettings",
+  },
   paste: { icon: "paste", label: "Paste", shortcutActionId: "edit.paste" },
   crop: { icon: "crop", label: "Crop", shortcutActionId: "edit.crop" },
   flipHorizontal: {

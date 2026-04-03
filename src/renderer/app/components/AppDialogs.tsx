@@ -81,6 +81,7 @@ interface AppDialogsProps {
   setTaskDialogOpen: Dispatch<SetStateAction<boolean>>;
   shortcutConflicts: Partial<Record<ShortcutActionId, ShortcutActionId[]>>;
   shortcutDialogOpen: boolean;
+  shortcutBindings: ShortcutBindings;
   shortcutDraftBindings: ShortcutBindings;
   taskDates: TaskDateRange;
   taskDialogOpen: boolean;
@@ -144,6 +145,7 @@ export const AppDialogs = ({
   setTaskDialogOpen,
   shortcutConflicts,
   shortcutDialogOpen,
+  shortcutBindings,
   shortcutDraftBindings,
   taskDates,
   taskDialogOpen,
@@ -262,7 +264,11 @@ export const AppDialogs = ({
       onSave={() => void saveShortcutBindings()}
     />
 
-    <HelpTutorialDialog open={helpOpen} onClose={() => setHelpOpen(false)} />
+    <HelpTutorialDialog
+      open={helpOpen}
+      shortcutBindings={shortcutBindings}
+      onClose={() => setHelpOpen(false)}
+    />
 
     <ConfirmCloseDialog
       open={confirmCloseOpen}

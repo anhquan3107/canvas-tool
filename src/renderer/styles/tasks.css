@@ -1037,7 +1037,20 @@
   gap: 24px;
 }
 
+.canvas-size-dialog {
+  width: min(620px, calc(100vw - 40px));
+}
+
+.canvas-size-dialog .task-dialog-shell {
+  gap: 22px;
+}
+
 .group-name-dialog .group-dialog-input {
+  min-height: 58px;
+  font-size: 18px;
+}
+
+.canvas-size-dialog .group-dialog-input {
   min-height: 58px;
   font-size: 18px;
 }

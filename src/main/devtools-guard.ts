@@ -16,10 +16,6 @@ const isDevToolsOpenShortcut = (input: Input) => {
     return true;
   }
 
-  if (process.platform === "darwin" && key === "i" && input.alt) {
-    return true;
-  }
-
   if (key === "j" && input.shift) {
     return true;
   }

@@ -29,6 +29,7 @@ interface AppMenuProps extends MenuState {
   onChangeCanvasSize: () => void;
   onToggleCanvasLock: () => void;
   onResetView: () => void;
+  onFitCanvasToContent: () => void;
   onCreateGroup: () => void;
   onDeleteCurrentGroup: () => void;
   onCreateTask: () => void;
@@ -75,6 +76,7 @@ export const AppMenu = ({
   onChangeCanvasSize,
   onToggleCanvasLock,
   onResetView,
+  onFitCanvasToContent,
   onCreateGroup,
   onDeleteCurrentGroup,
   onCreateTask,
@@ -289,6 +291,11 @@ export const AppMenu = ({
           <button type="button" onClick={onResetView}>
             <MenuItemContent
               {...getMenuActionContentProps(shortcutBindings, "resetView")}
+            />
+          </button>
+          <button type="button" onClick={onFitCanvasToContent}>
+            <MenuItemContent
+              {...getMenuActionContentProps(shortcutBindings, "fitCanvasToContent")}
             />
           </button>
           <button type="button" onClick={onChangeCanvasSize}>

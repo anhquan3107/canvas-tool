@@ -36,6 +36,14 @@ const migrateShortcutBindings = (shortcuts: AppSettings["shortcuts"]) => {
       toggleAutoArrangeOnImport === "Ctrl+Alt+I"
         ? "Ctrl+Shift+A"
         : toggleAutoArrangeOnImport,
+    "canvas.toggleLock":
+      shortcuts["canvas.toggleLock"] === "Ctrl+L"
+        ? "F2"
+        : shortcuts["canvas.toggleLock"],
+    "canvas.changeSize":
+      shortcuts["canvas.changeSize"] === "Ctrl+Shift+C"
+        ? "Ctrl+Alt+I"
+        : shortcuts["canvas.changeSize"],
   };
 };
 

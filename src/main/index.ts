@@ -1,5 +1,6 @@
 import { app, BrowserWindow, Menu, type MenuItemConstructorOptions } from "electron";
 import path from "node:path";
+import type { NativeMenuAction } from "../shared/types/ipc";
 import { guardWindowDevTools } from "./devtools-guard";
 import { setupIpcHandlers } from "./ipc/ipc-handlers";
 
@@ -47,11 +48,13 @@ const createMainWindow = async () => {
   } else {
     await mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
   }
+
+  mainWindow.webContents.setZoomFactor(1);
 };
 
 const sendNativeMenuAction = (
   window: BrowserWindow | null,
-  action: "open-project" | "save-project" | "save-project-as",
+  action: NativeMenuAction,
 ) => {
   const targetWindow = window ?? BrowserWindow.getAllWindows()[0] ?? null;
   targetWindow?.webContents.send("native-menu:action", action);
@@ -123,13 +126,36 @@ const installMacApplicationMenu = () => {
     {
       label: "View",
       submenu: [
-        { role: "reload" },
-        { role: "forceReload" },
-        { role: "toggleDevTools" },
+        {
+          label: "Show Keyboard Shortcuts",
+          accelerator: "F1",
+          click: () =>
+            sendNativeMenuAction(BrowserWindow.getFocusedWindow(), "show-shortcuts"),
+        },
+        {
+          label: "Lock / Unlock Canvas",
+          accelerator: "F2",
+          click: () =>
+            sendNativeMenuAction(BrowserWindow.getFocusedWindow(), "toggle-canvas-lock"),
+        },
         { type: "separator" },
-        { role: "resetZoom" },
-        { role: "zoomIn" },
-        { role: "zoomOut" },
+        {
+          label: "Fit Canvas to Content",
+          accelerator: "CmdOrCtrl+Shift+F",
+          click: () =>
+            sendNativeMenuAction(BrowserWindow.getFocusedWindow(), "fit-canvas-to-content"),
+        },
+        {
+          label: "Reset View",
+          click: () =>
+            sendNativeMenuAction(BrowserWindow.getFocusedWindow(), "fit-canvas-to-window"),
+        },
+        {
+          label: "Change Canvas Size",
+          accelerator: "CmdOrCtrl+Alt+I",
+          click: () =>
+            sendNativeMenuAction(BrowserWindow.getFocusedWindow(), "change-canvas-size"),
+        },
         { type: "separator" },
         { role: "togglefullscreen" },
       ],

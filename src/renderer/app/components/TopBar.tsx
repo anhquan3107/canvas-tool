@@ -46,6 +46,7 @@ interface TopBarProps {
   onAutoArrange: () => void;
   onShowBackgroundColor: () => void;
   onResetView: () => void;
+  onFitCanvasToContent: () => void;
   onTaskClick: () => void;
   onCreateGroup: () => void;
   onShowShortcuts: () => void;
@@ -94,6 +95,7 @@ export const TopBar = ({
   onAutoArrange,
   onShowBackgroundColor,
   onResetView,
+  onFitCanvasToContent,
   onTaskClick,
   onCreateGroup,
   onShowShortcuts,
@@ -177,6 +179,7 @@ export const TopBar = ({
               onAutoArrange={onAutoArrange}
               onShowBackgroundColor={onShowBackgroundColor}
               onResetView={onResetView}
+              onFitCanvasToContent={onFitCanvasToContent}
               onShowShortcuts={onShowShortcuts}
               onPaste={onPaste}
               onCropSelected={onCropSelected}

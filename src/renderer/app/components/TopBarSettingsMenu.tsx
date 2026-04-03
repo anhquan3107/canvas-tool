@@ -30,6 +30,7 @@ interface TopBarSettingsMenuProps {
   onAutoArrange: () => void;
   onShowBackgroundColor: () => void;
   onResetView: () => void;
+  onFitCanvasToContent: () => void;
   onShowShortcuts: () => void;
   onPaste: () => void;
   onCropSelected: () => void;
@@ -75,6 +76,7 @@ export const TopBarSettingsMenu = ({
   onAutoArrange,
   onShowBackgroundColor,
   onResetView,
+  onFitCanvasToContent,
   onShowShortcuts,
   onPaste,
   onCropSelected,
@@ -283,8 +285,7 @@ export const TopBarSettingsMenu = ({
 
               <button type="button" onClick={() => runMenuAction(onShowShortcuts)}>
                 <MenuItemContent
-                  icon="shortcuts"
-                  label="Keyboard Shortcut"
+                  {...getMenuActionContentProps(shortcutBindings, "keyboardShortcut")}
                 />
               </button>
             </>
@@ -295,6 +296,17 @@ export const TopBarSettingsMenu = ({
               <button type="button" onClick={() => runMenuAction(onResetView)}>
                 <MenuItemContent
                   {...getMenuActionContentProps(shortcutBindings, "resetView")}
+                />
+              </button>
+              <button
+                type="button"
+                onClick={() => runMenuAction(onFitCanvasToContent)}
+              >
+                <MenuItemContent
+                  {...getMenuActionContentProps(
+                    shortcutBindings,
+                    "fitCanvasToContent",
+                  )}
                 />
               </button>
               <button type="button" onClick={() => runMenuAction(onChangeCanvasSize)}>

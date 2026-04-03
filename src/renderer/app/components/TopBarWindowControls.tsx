@@ -26,7 +26,9 @@ export const TopBarWindowControls = ({
 }: TopBarWindowControlsProps) => (
   <div className="window-cluster">
     <span className="locale-indicator">ENG</span>
-    <TopBarHoverTooltip label="Open keyboard shortcuts">
+    <TopBarHoverTooltip
+      label={`Open keyboard shortcuts (${formatMenuShortcut(shortcutBindings, "window.showSettings")})`}
+    >
       <button
         type="button"
         className="chrome-chip"

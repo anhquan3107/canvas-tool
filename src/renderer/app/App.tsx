@@ -43,6 +43,7 @@ import { ZoomOverlay } from "@renderer/features/tools/components/ZoomOverlay";
 import { useToolFeature } from "@renderer/features/tools/hooks/use-tool-feature";
 import { useZoomOverlay } from "@renderer/features/tools/hooks/use-zoom-overlay";
 import { useCanvasWorkspace } from "@renderer/features/workspace/hooks/use-canvas-workspace";
+import { getFocusedGroupView } from "@renderer/features/workspace/utils/layout";
 import { useToast } from "@renderer/hooks/use-toast";
 import { AppMenu } from "@renderer/app/components/AppMenu";
 import { TopBar } from "@renderer/app/components/TopBar";
@@ -74,6 +75,8 @@ export const App = () => {
     </ProjectProvider>
   );
 };
+
+const clampCanvasZoom = (value: number) => Math.min(20, Math.max(0.18, value));
 
 const AppContent = () => {
   useWindowRightDrag();
@@ -677,6 +680,94 @@ const AppContent = () => {
     },
     [setAppInfoOpen, setSelectedItemIds],
   );
+  const handleSelectAllItems = useCallback(() => {
+    if (!activeGroup || zoomOverlayOpen) {
+      return;
+    }
+
+    setAppInfoOpen(false);
+    setSelectedItemIds(
+      activeGroup.items
+        .filter((item) => item.visible !== false)
+        .map((item) => item.id),
+    );
+  }, [activeGroup, setAppInfoOpen, setSelectedItemIds, zoomOverlayOpen]);
+
+  const handleShowShortcutsShortcut = useCallback(() => {
+    const shouldOpenShortcutDialog = !shortcutDialogOpen;
+
+    clearTransientUi();
+
+    if (shouldOpenShortcutDialog) {
+      openShortcutDialog();
+    }
+  }, [clearTransientUi, openShortcutDialog, shortcutDialogOpen]);
+
+  const handleFitCanvasToWindow = useCallback(() => {
+    if (
+      !activeGroup ||
+      zoomOverlayOpen ||
+      !viewportSize ||
+      viewportSize.width <= 0 ||
+      viewportSize.height <= 0
+    ) {
+      return;
+    }
+
+    const nextView = getFocusedGroupView(
+      [
+        {
+          x: 0,
+          y: 0,
+          width: activeGroup.canvasSize.width,
+          height: activeGroup.canvasSize.height,
+        },
+      ],
+      activeGroup.canvasSize,
+      viewportSize,
+    );
+
+    if (!nextView) {
+      return;
+    }
+
+    setGroupView(activeGroup.id, nextView.zoom, nextView.panX, nextView.panY);
+  }, [activeGroup, setGroupView, viewportSize, zoomOverlayOpen]);
+
+  const handleZoomCanvas = useCallback(
+    (direction: 1 | -1) => {
+      if (
+        !activeGroup ||
+        zoomOverlayOpen ||
+        !viewportSize ||
+        viewportSize.width <= 0 ||
+        viewportSize.height <= 0
+      ) {
+        return;
+      }
+
+      const viewportCenterX = viewportSize.width * 0.5;
+      const viewportCenterY = viewportSize.height * 0.5;
+      const currentZoom = Math.max(activeGroup.zoom, 0.0001);
+      const worldX = (viewportCenterX - activeGroup.panX) / currentZoom;
+      const worldY = (viewportCenterY - activeGroup.panY) / currentZoom;
+      const zoomFactor = direction > 0 ? 1.15 : 1 / 1.15;
+      const nextZoom = clampCanvasZoom(currentZoom * zoomFactor);
+
+      if (Math.abs(nextZoom - activeGroup.zoom) < 0.0001) {
+        return;
+      }
+
+      setGroupView(
+        activeGroup.id,
+        nextZoom,
+        viewportCenterX - worldX * nextZoom,
+        viewportCenterY - worldY * nextZoom,
+      );
+    },
+    [activeGroup, setGroupView, viewportSize, zoomOverlayOpen],
+  );
+
   const activeDoodleSize = doodleMode === "brush" ? brushSize : eraserSize;
   const {
     canExportSelectedSwatch,
@@ -798,6 +889,40 @@ const AppContent = () => {
     setBackgroundColorDialogOpen(true);
   }, [activeGroup, setBackgroundColorDialogOpen, setSettingsOpen]);
 
+  useEffect(() => {
+    const detachNativeMenuListener = window.desktopApi.app.onNativeMenuAction(
+      (action) => {
+        switch (action) {
+          case "show-shortcuts":
+            handleShowShortcutsShortcut();
+            break;
+          case "toggle-canvas-lock":
+            toggleCanvasLock();
+            break;
+          case "change-canvas-size":
+            handleOpenCanvasSizeDialog();
+            break;
+          case "fit-canvas-to-content":
+            resetView();
+            break;
+          case "fit-canvas-to-window":
+            handleFitCanvasToWindow();
+            break;
+          default:
+            break;
+        }
+      },
+    );
+
+    return detachNativeMenuListener;
+  }, [
+    handleFitCanvasToWindow,
+    handleOpenCanvasSizeDialog,
+    handleShowShortcutsShortcut,
+    resetView,
+    toggleCanvasLock,
+  ]);
+
   const handleToolbarToolClick = useCallback(
     (tool: "connect" | "doodle" | "blur" | "bw" | "ruler") => {
       if (tool === "ruler") {
@@ -851,6 +976,7 @@ const AppContent = () => {
     handleExportCanvasImage,
     handleExportGroupImages,
     handleExportAllTasksHtml,
+    selectAllItems: handleSelectAllItems,
     undo,
     redo,
     cutSelectedItems,
@@ -861,8 +987,10 @@ const AppContent = () => {
     cropSelectedImage: toggleCropSelectedImage,
     flipSelectedItemsHorizontally,
     resetView,
+    fitCanvasToWindow: handleFitCanvasToWindow,
     openCanvasSizeDialog: handleOpenCanvasSizeDialog,
     toggleCanvasLock,
+    showSettings: handleShowShortcutsShortcut,
     clearTransientUi,
     exitDoodle,
     openGroupDialog,
@@ -878,6 +1006,8 @@ const AppContent = () => {
     toggleRuler: handleRulerTool,
     toggleBlur,
     toggleBlackAndWhite,
+    zoomInCanvas: () => handleZoomCanvas(1),
+    zoomOutCanvas: () => handleZoomCanvas(-1),
     toggleAlwaysOnTop: handleToggleAlwaysOnTop,
     quitApplication: handleCloseWindow,
     importFromPayload,
@@ -960,7 +1090,8 @@ const AppContent = () => {
           onShowBackgroundColor={() => {
             handleOpenBackgroundColorDialog();
           }}
-          onResetView={resetView}
+          onResetView={handleFitCanvasToWindow}
+          onFitCanvasToContent={resetView}
           onTaskClick={openTaskDialog}
           onCreateGroup={openGroupDialog}
           onShowShortcuts={() => {
@@ -1267,6 +1398,10 @@ const AppContent = () => {
           }}
           onResetView={() => {
             setMenuState(null);
+            handleFitCanvasToWindow();
+          }}
+          onFitCanvasToContent={() => {
+            setMenuState(null);
             resetView();
           }}
           onCreateGroup={() => {
@@ -1393,6 +1528,7 @@ const AppContent = () => {
         setTaskDialogOpen={setTaskDialogOpen}
         shortcutConflicts={shortcutConflicts}
         shortcutDialogOpen={shortcutDialogOpen}
+        shortcutBindings={shortcutBindings}
         shortcutDraftBindings={shortcutDraftBindings}
         taskDates={taskDates}
         taskDialogOpen={taskDialogOpen}

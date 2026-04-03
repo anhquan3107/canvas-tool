@@ -27,7 +27,6 @@ interface TopBarToolsProps {
   shortcutBindings: ShortcutBindings;
   runTitleBarAction: (meta: TitleBarTooltipMeta, action: () => void) => void;
   onToolClick: (tool: ToolMode) => void;
-  onResetView: () => void;
   onTaskClick: () => void;
   onCreateGroup: () => void;
 }
@@ -38,7 +37,6 @@ export const TopBarTools = ({
   shortcutBindings,
   runTitleBarAction,
   onToolClick,
-  onResetView,
   onTaskClick,
   onCreateGroup,
 }: TopBarToolsProps) => (
@@ -76,31 +74,6 @@ export const TopBarTools = ({
       </TopBarHoverTooltip>
     ))}
 
-    <TopBarHoverTooltip
-      label={buildHoverLabel(
-        "Reset the canvas view",
-        formatMenuShortcut(shortcutBindings, "canvas.resetView"),
-      )}
-    >
-      <button
-        type="button"
-        className="toolbar-button"
-        onClick={() =>
-          runTitleBarAction(
-            {
-              id: "topbar.resetView",
-              label: "Reset View",
-              description:
-                "Return the canvas camera to its default framing so the board is easy to navigate again.",
-              shortcutActionId: "canvas.resetView",
-            },
-            onResetView,
-          )
-        }
-      >
-        Reset View
-      </button>
-    </TopBarHoverTooltip>
     <TopBarHoverTooltip
       label={buildHoverLabel("Manage tasks", formatMenuShortcut(shortcutBindings, "tasks.add"))}
     >

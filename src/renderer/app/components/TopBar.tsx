@@ -192,7 +192,6 @@ export const TopBar = ({
               shortcutBindings={shortcutBindings}
               runTitleBarAction={runTitleBarAction}
               onToolClick={onToolClick}
-              onResetView={onResetView}
               onTaskClick={onTaskClick}
               onCreateGroup={onCreateGroup}
             />

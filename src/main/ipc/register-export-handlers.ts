@@ -1,4 +1,10 @@
-import { dialog, ipcMain, nativeImage, type BrowserWindow } from "electron";
+import {
+  dialog,
+  ipcMain,
+  nativeImage,
+  type BrowserWindow,
+  type OpenDialogOptions,
+} from "electron";
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { ProjectExportResult } from "../../shared/types/ipc";
@@ -124,11 +130,14 @@ export const registerExportHandlers = (window: BrowserWindow) => {
         sanitizeFileStem(payload.groupName ?? "Canvas Images") ||
         "Canvas Images";
       const defaultPath = await getExportDefaultPath(defaultFolder);
-      const dialogResult = await dialog.showOpenDialog(targetWindow, {
+      const dialogOptions: OpenDialogOptions = {
         title: "Export Images to Folder",
-        defaultPath,
         properties: ["openDirectory", "createDirectory"],
-      });
+      };
+      if (process.platform !== "win32") {
+        dialogOptions.defaultPath = defaultPath;
+      }
+      const dialogResult = await dialog.showOpenDialog(targetWindow, dialogOptions);
 
       if (dialogResult.canceled || dialogResult.filePaths.length === 0) {
         return null;

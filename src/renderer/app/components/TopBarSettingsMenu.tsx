@@ -86,10 +86,14 @@ export const TopBarSettingsMenu = ({
   onExit,
 }: TopBarSettingsMenuProps) => {
   const [activeMenu, setActiveMenu] = useState<TopBarMenuKey | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [taskExportOpen, setTaskExportOpen] = useState(false);
 
   useEffect(() => {
     if (!settingsOpen) {
       setActiveMenu(null);
+      setExportOpen(false);
+      setTaskExportOpen(false);
     }
   }, [settingsOpen]);
 
@@ -105,6 +109,8 @@ export const TopBarSettingsMenu = ({
       onToggleSettings();
     }
     setActiveMenu(null);
+    setExportOpen(false);
+    setTaskExportOpen(false);
   };
 
   const toggleMenu = (menu: TopBarMenuKey) => {
@@ -165,58 +171,89 @@ export const TopBarSettingsMenu = ({
 
               <div className="topbar-settings-divider" />
 
-              <button
-                type="button"
-                onClick={() => runMenuAction(onExportCanvasImage)}
+              <div
+                className="topbar-settings-submenu"
+                onPointerEnter={() => setExportOpen(true)}
+                onPointerLeave={() => {
+                  setExportOpen(false);
+                  setTaskExportOpen(false);
+                }}
               >
-                <MenuItemContent
-                  icon="export"
-                  label="Export Canvas"
-                  shortcut={
-                    getMenuActionContentProps(shortcutBindings, "exportCanvasImage")
-                      .shortcut
-                  }
-                />
-              </button>
-              <button
-                type="button"
-                onClick={() => runMenuAction(onExportGroupImages)}
-              >
-                <MenuItemContent
-                  icon="export"
-                  label="Export Groups"
-                  shortcut={
-                    getMenuActionContentProps(shortcutBindings, "exportGroupImages")
-                      .shortcut
-                  }
-                />
-              </button>
-              <button
-                type="button"
-                onClick={() => runMenuAction(onExportAllTasksHtml)}
-                disabled={!canExportAnyTask}
-              >
-                <MenuItemContent
-                  icon="task"
-                  label="Export Tasks"
-                  shortcut={
-                    getMenuActionContentProps(shortcutBindings, "exportAllTasksHtml")
-                      .shortcut
-                  }
-                />
-              </button>
-              <button
-                type="button"
-                onClick={() => runMenuAction(onExportSelectedTaskHtml)}
-                disabled={!canExportSelectedTask}
-              >
-                <MenuItemContent
-                  {...getMenuActionContentProps(
-                    shortcutBindings,
-                    "exportSelectedTaskHtml",
-                  )}
-                />
-              </button>
+                <button
+                  type="button"
+                  className="topbar-settings-submenu-trigger"
+                  onClick={() => setExportOpen((open) => !open)}
+                >
+                  <MenuItemContent icon="export" label="Export" submenu />
+                </button>
+                {exportOpen ? (
+                  <div className="topbar-settings-menu topbar-settings-submenu-panel">
+                    <button
+                      type="button"
+                      onClick={() => runMenuAction(onExportCanvasImage)}
+                    >
+                      <MenuItemContent
+                        {...getMenuActionContentProps(
+                          shortcutBindings,
+                          "exportCanvasImage",
+                        )}
+                      />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => runMenuAction(onExportGroupImages)}
+                    >
+                      <MenuItemContent
+                        {...getMenuActionContentProps(
+                          shortcutBindings,
+                          "exportGroupImages",
+                        )}
+                      />
+                    </button>
+                    <div
+                      className="topbar-settings-submenu"
+                      onPointerEnter={() => setTaskExportOpen(true)}
+                      onPointerLeave={() => setTaskExportOpen(false)}
+                    >
+                      <button
+                        type="button"
+                        className="topbar-settings-submenu-trigger"
+                        onClick={() => setTaskExportOpen((open) => !open)}
+                      >
+                        <MenuItemContent icon="task" label="Export Tasks" submenu />
+                      </button>
+                      {taskExportOpen ? (
+                        <div className="topbar-settings-menu topbar-settings-submenu-panel">
+                          <button
+                            type="button"
+                            onClick={() => runMenuAction(onExportSelectedTaskHtml)}
+                            disabled={!canExportSelectedTask}
+                          >
+                            <MenuItemContent
+                              {...getMenuActionContentProps(
+                                shortcutBindings,
+                                "exportSelectedTaskHtml",
+                              )}
+                            />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => runMenuAction(onExportAllTasksHtml)}
+                            disabled={!canExportAnyTask}
+                          >
+                            <MenuItemContent
+                              {...getMenuActionContentProps(
+                                shortcutBindings,
+                                "exportAllTasksHtml",
+                              )}
+                            />
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
 
               <div className="topbar-settings-divider" />
 

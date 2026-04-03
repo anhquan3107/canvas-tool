@@ -5,7 +5,7 @@ interface TopBarHoverTooltipProps {
   children: ReactNode;
 }
 
-const HOVER_TOOLTIP_DELAY_MS = 2200;
+const HOVER_TOOLTIP_DELAY_MS = 500;
 
 export const TopBarHoverTooltip = ({
   label,

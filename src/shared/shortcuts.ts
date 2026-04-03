@@ -27,6 +27,7 @@ export type ShortcutActionId =
   | "canvas.fitToWindow"
   | "canvas.changeSize"
   | "canvas.toggleLock"
+  | "canvas.toggleSwatches"
   | "canvas.clearTransientUi"
   | "canvas.panHand"
   | "canvas.zoomIn"
@@ -134,6 +135,12 @@ export const SHORTCUT_DEFINITIONS: ShortcutDefinition[] = [
     section: "Canvas / View",
     label: "Lock / Unlock Canvas",
     defaultBinding: "F2",
+  },
+  {
+    id: "canvas.toggleSwatches",
+    section: "Canvas / View",
+    label: "Hide / Show Swatches",
+    defaultBinding: "Ctrl+H",
   },
   {
     id: "canvas.panHand",

@@ -32,6 +32,7 @@ const BROWSER_ZOOM_OVERRIDE_BINDINGS = {
 const MAC_NATIVE_MENU_DEFAULT_BINDINGS = {
   "window.showSettings": "F1",
   "canvas.toggleLock": "F2",
+  "canvas.toggleSwatches": "Ctrl+H",
   "canvas.changeSize": "Ctrl+Alt+I",
   "canvas.resetView": "Ctrl+Shift+F",
 } as const;
@@ -61,6 +62,7 @@ interface UseAppShortcutsOptions {
   fitCanvasToWindow: () => void;
   openCanvasSizeDialog: () => void;
   toggleCanvasLock: () => void;
+  toggleSwatches: () => void;
   showSettings: () => void;
   clearTransientUi: () => void;
   exitDoodle: () => void;
@@ -108,6 +110,7 @@ export const useAppShortcuts = ({
   fitCanvasToWindow,
   openCanvasSizeDialog,
   toggleCanvasLock,
+  toggleSwatches,
   showSettings,
   clearTransientUi,
   exitDoodle,
@@ -157,6 +160,7 @@ export const useAppShortcuts = ({
       "canvas.fitToWindow": fitCanvasToWindow,
       "canvas.changeSize": openCanvasSizeDialog,
       "canvas.toggleLock": toggleCanvasLock,
+      "canvas.toggleSwatches": toggleSwatches,
       "window.showSettings": showSettings,
       "canvas.clearTransientUi": () => {
         if (activeTool === "doodle") {
@@ -249,6 +253,7 @@ export const useAppShortcuts = ({
       toggleBlackAndWhite,
       toggleBlur,
       toggleCanvasLock,
+      toggleSwatches,
       toggleDoodle,
       undo,
       zoomInCanvas,

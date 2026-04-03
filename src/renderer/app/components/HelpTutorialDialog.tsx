@@ -98,6 +98,13 @@ const HELP_SECTIONS: HelpSection[] = [
           "Set the canvas and surrounding background colors to match your mood or readability needs.",
       },
       {
+        icon: Palette,
+        label: "Hide / Show Swatches",
+        purpose:
+          "Temporarily hide the color swatch chips shown on images so you can review the board more cleanly.",
+        shortcutActionId: "canvas.toggleSwatches",
+      },
+      {
         icon: Lock,
         label: "Lock / Unlock Canvas",
         purpose:

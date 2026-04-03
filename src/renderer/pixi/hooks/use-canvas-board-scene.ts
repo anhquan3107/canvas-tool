@@ -42,6 +42,7 @@ interface UseCanvasBoardSceneOptions {
   onSelectionChangeRef: MutableRefObject<(itemIds: string[]) => void>;
   onItemDoubleClickRef: MutableRefObject<((itemId: string) => void) | undefined>;
   activeToolRef: MutableRefObject<string | null>;
+  showSwatchesRef: MutableRefObject<boolean>;
   renderTokenRef: MutableRefObject<number>;
   activeItemDragRef: MutableRefObject<ActiveItemDragState | null>;
   activeSelectionBoxRef: MutableRefObject<ActiveSelectionBoxState | null>;
@@ -75,6 +76,7 @@ export const useCanvasBoardScene = ({
   onSelectionChangeRef,
   onItemDoubleClickRef,
   activeToolRef,
+  showSwatchesRef,
   renderTokenRef,
   activeItemDragRef,
   activeSelectionBoxRef,
@@ -197,6 +199,7 @@ export const useCanvasBoardScene = ({
         itemNode,
         safeWidth,
         safeHeight,
+        showSwatches: showSwatchesRef.current,
         canvasZoom: scene.zoom,
         renderToken,
         renderTokenRef,

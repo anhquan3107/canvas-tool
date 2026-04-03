@@ -15,6 +15,8 @@
 }
 
 .app-topbar {
+  position: relative;
+  z-index: 50;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -24,6 +26,19 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   -webkit-app-region: drag;
   user-select: none;
+  overflow: visible;
+  transform: translateY(0);
+  transition:
+    transform 180ms ease,
+    opacity 160ms ease,
+    border-color 160ms ease;
+}
+
+.desktop-frame.window-unfocused .app-topbar {
+  opacity: 0;
+  transform: translateY(-100%);
+  border-bottom-color: transparent;
+  pointer-events: none;
 }
 
 .app-drag-region,
@@ -85,12 +100,14 @@
   display: flex;
   align-items: center;
   gap: 2px;
+  -webkit-app-region: no-drag;
 }
 
 .topbar-menu-bar {
   display: flex;
   align-items: center;
   gap: 2px;
+  -webkit-app-region: no-drag;
 }
 
 .topbar-settings-shell {
@@ -127,6 +144,7 @@
   border-radius: 7px;
   background: var(--bg-menu);
   box-shadow: 0 16px 32px rgba(0, 0, 0, 0.36);
+  -webkit-app-region: no-drag;
 }
 
 .topbar-settings-menu button {

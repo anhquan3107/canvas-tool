@@ -38,6 +38,7 @@ const SELECTION_HIGHLIGHT_NAME = "selection-highlight";
 export const CanvasBoard = ({
   group,
   surfaceOpacity = 1,
+  showSwatches = true,
   activeTool,
   doodleMode,
   doodleColor,
@@ -83,6 +84,7 @@ export const CanvasBoard = ({
   const onCanvasSizePreviewChangeRef = useRef(onCanvasSizePreviewChange);
   const onExportReadyRef = useRef(onExportReady);
   const activeToolRef = useRef(activeTool);
+  const showSwatchesRef = useRef(showSwatches);
   const doodleModeRef = useRef(doodleMode);
   const doodleColorRef = useRef(doodleColor);
   const doodleSizeRef = useRef(doodleSize);
@@ -318,6 +320,20 @@ export const CanvasBoard = ({
       scheduleViewCommit,
     });
 
+  const preserveLiveBoardView = useCallback(() => {
+    const boardContainer = boardContainerRef.current;
+    if (!boardContainer) {
+      return;
+    }
+
+    groupRef.current = {
+      ...groupRef.current,
+      zoom: boardContainer.scale.x,
+      panX: boardContainer.x,
+      panY: boardContainer.y,
+    };
+  }, []);
+
   const rebuildScene = useCanvasBoardScene({
     hostRef,
     boardContainerRef,
@@ -333,6 +349,7 @@ export const CanvasBoard = ({
     groupRef,
     onSelectionChangeRef,
     activeToolRef,
+    showSwatchesRef,
     renderTokenRef,
     activeItemDragRef,
     activeSelectionBoxRef,
@@ -350,6 +367,23 @@ export const CanvasBoard = ({
     redrawAnnotations,
     startAnnotationSession,
   });
+
+  useEffect(() => {
+    showSwatchesRef.current = showSwatches;
+
+    if (!appReady) {
+      return;
+    }
+
+    cancelWheelZoomAnimationRef.current?.();
+    if (viewCommitTimerRef.current !== null) {
+      window.clearTimeout(viewCommitTimerRef.current);
+      viewCommitTimerRef.current = null;
+    }
+
+    preserveLiveBoardView();
+    rebuildScene();
+  }, [appReady, preserveLiveBoardView, rebuildScene, showSwatches]);
 
   useCanvasBoardBootstrap({
     hostRef,
@@ -396,6 +430,39 @@ export const CanvasBoard = ({
       return;
     }
 
+    const board = boardGraphicRef.current;
+    const doodleActive = activeTool === "doodle";
+
+    if (board && !isPanningRef.current) {
+      board.cursor = doodleActive ? "none" : "grab";
+    }
+
+    const itemById = new Map(group.items.map((item) => [item.id, item]));
+    itemNodeByIdRef.current.forEach((itemNode, itemId) => {
+      const item = itemById.get(itemId);
+      if (!item) {
+        return;
+      }
+
+      itemNode.eventMode = doodleActive ? "none" : "static";
+      itemNode.cursor =
+        doodleActive || group.locked || item.locked ? "default" : "move";
+    });
+  }, [appReady, activeTool, group.items, group.locked]);
+
+  useEffect(() => {
+    if (!appReady) {
+      return;
+    }
+
+    cancelWheelZoomAnimationRef.current?.();
+    if (viewCommitTimerRef.current !== null) {
+      window.clearTimeout(viewCommitTimerRef.current);
+      viewCommitTimerRef.current = null;
+    }
+
+    preserveLiveBoardView();
+
     previewInsetsRef.current = ZERO_INSETS;
     onCanvasSizePreviewChangeRef.current?.(null);
     rebuildScene();
@@ -405,7 +472,7 @@ export const CanvasBoard = ({
     group.items,
     group.canvasSize.width,
     group.canvasSize.height,
-    activeTool,
+    preserveLiveBoardView,
     rebuildScene,
   ]);
 

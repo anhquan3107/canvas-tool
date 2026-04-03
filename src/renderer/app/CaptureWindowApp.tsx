@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_SHORTCUT_BINDINGS, resolveShortcutBindings } from "@shared/shortcuts";
+import { useWindowFocusState } from "@renderer/app/hooks/use-window-focus-state";
 import { ConnectDialog } from "@renderer/features/connect/components/ConnectDialog";
 import { useWindowRightDrag } from "@renderer/app/hooks/use-window-right-drag";
 import type {
@@ -55,6 +56,7 @@ const getInitialParams = () => {
 
 export const CaptureWindowApp = () => {
   useWindowRightDrag();
+  const windowFocused = useWindowFocusState();
 
   const initial = useMemo(() => getInitialParams(), []);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -276,7 +278,9 @@ export const CaptureWindowApp = () => {
   };
 
   return (
-    <div className="capture-window-shell">
+    <div
+      className={`capture-window-shell ${windowFocused ? "" : "window-unfocused"}`}
+    >
       <header className="capture-window-topbar">
         <div className="capture-window-drag-region">
           <div className="capture-window-toolbar">

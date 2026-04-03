@@ -74,6 +74,7 @@ export type NativeMenuAction =
   | "save-project-as"
   | "show-shortcuts"
   | "toggle-canvas-lock"
+  | "toggle-swatches"
   | "change-canvas-size"
   | "fit-canvas-to-content"
   | "fit-canvas-to-window"

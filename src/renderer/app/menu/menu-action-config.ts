@@ -16,6 +16,7 @@ export type MenuActionKey =
   | "fitCanvasToContent"
   | "changeCanvasSize"
   | "toggleCanvasLock"
+  | "toggleSwatches"
   | "createGroup"
   | "deleteCurrentGroup"
   | "addTask"
@@ -90,6 +91,11 @@ export const MENU_ACTION_META: Record<MenuActionKey, MenuActionMeta> = {
     icon: "lock",
     label: "Lock Canvas",
     shortcutActionId: "canvas.toggleLock",
+  },
+  toggleSwatches: {
+    icon: "swatch",
+    label: "Hide / Show Swatches",
+    shortcutActionId: "canvas.toggleSwatches",
   },
   createGroup: {
     icon: "group",

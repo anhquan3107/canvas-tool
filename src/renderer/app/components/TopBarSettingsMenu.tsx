@@ -27,6 +27,7 @@ interface TopBarSettingsMenuProps {
   onExportAllTasksHtml: () => void;
   onChangeCanvasSize: () => void;
   onToggleCanvasLock: () => void;
+  onToggleSwatches: () => void;
   onAutoArrange: () => void;
   onShowBackgroundColor: () => void;
   onResetView: () => void;
@@ -73,6 +74,7 @@ export const TopBarSettingsMenu = ({
   onExportAllTasksHtml,
   onChangeCanvasSize,
   onToggleCanvasLock,
+  onToggleSwatches,
   onAutoArrange,
   onShowBackgroundColor,
   onResetView,
@@ -131,6 +133,7 @@ export const TopBarSettingsMenu = ({
     <div
       key={menu}
       className="topbar-settings-shell"
+      onPointerDown={(event) => event.stopPropagation()}
       onPointerEnter={() => {
         if (settingsOpen) {
           setActiveMenu(menu);
@@ -352,6 +355,11 @@ export const TopBarSettingsMenu = ({
                     shortcutBindings,
                     "changeCanvasSize",
                   )}
+                />
+              </button>
+              <button type="button" onClick={() => runMenuAction(onToggleSwatches)}>
+                <MenuItemContent
+                  {...getMenuActionContentProps(shortcutBindings, "toggleSwatches")}
                 />
               </button>
 

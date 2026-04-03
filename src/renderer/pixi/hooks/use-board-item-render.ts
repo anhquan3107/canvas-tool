@@ -27,6 +27,7 @@ interface RenderBoardItemVisualsOptions {
   itemNode: Container;
   safeWidth: number;
   safeHeight: number;
+  showSwatches: boolean;
   canvasZoom: number;
   renderToken: number;
   renderTokenRef: { current: number };
@@ -38,6 +39,7 @@ export const renderBoardItemVisuals = ({
   itemNode,
   safeWidth,
   safeHeight,
+  showSwatches,
   canvasZoom,
   renderToken,
   renderTokenRef,
@@ -142,6 +144,7 @@ export const renderBoardItemVisuals = ({
   }
 
   if (
+    showSwatches &&
     item.type === "image" &&
     ((item.swatches?.length ?? 0) > 0 || item.swatchHex)
   ) {

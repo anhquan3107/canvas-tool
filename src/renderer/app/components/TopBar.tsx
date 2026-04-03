@@ -42,6 +42,7 @@ interface TopBarProps {
   onExportAllTasksHtml: () => void;
   onChangeCanvasSize: () => void;
   onToggleCanvasLock: () => void;
+  onToggleSwatches: () => void;
   onToolClick: (tool: ToolMode) => void;
   onAutoArrange: () => void;
   onShowBackgroundColor: () => void;
@@ -91,6 +92,7 @@ export const TopBar = ({
   onExportAllTasksHtml,
   onChangeCanvasSize,
   onToggleCanvasLock,
+  onToggleSwatches,
   onToolClick,
   onAutoArrange,
   onShowBackgroundColor,
@@ -176,6 +178,7 @@ export const TopBar = ({
               onExportAllTasksHtml={onExportAllTasksHtml}
               onChangeCanvasSize={onChangeCanvasSize}
               onToggleCanvasLock={onToggleCanvasLock}
+              onToggleSwatches={onToggleSwatches}
               onAutoArrange={onAutoArrange}
               onShowBackgroundColor={onShowBackgroundColor}
               onResetView={onResetView}

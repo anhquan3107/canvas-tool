@@ -23,6 +23,7 @@ import { useCanvasStage } from "@renderer/app/hooks/use-canvas-stage";
 import { useExportActions } from "@renderer/app/hooks/use-export-actions";
 import { useProjectFileActions } from "@renderer/app/hooks/use-project-file-actions";
 import { useWindowControls } from "@renderer/app/hooks/use-window-controls";
+import { useWindowFocusState } from "@renderer/app/hooks/use-window-focus-state";
 import { useWindowRightDrag } from "@renderer/app/hooks/use-window-right-drag";
 import { CanvasBoard } from "@renderer/pixi/CanvasBoard";
 import { ProjectProvider } from "@renderer/state/project-store";
@@ -89,6 +90,7 @@ type BackgroundColorPreviewState = {
 
 const AppContent = () => {
   useWindowRightDrag();
+  const windowFocused = useWindowFocusState();
 
   const {
     recentFiles,
@@ -169,6 +171,7 @@ const AppContent = () => {
   const [backgroundColorPreview, setBackgroundColorPreview] =
     useState<BackgroundColorPreviewState | null>(null);
   const [windowOpacity, setWindowOpacity] = useState<number | null>(null);
+  const [swatchesHidden, setSwatchesHidden] = useState(false);
 
   const { toast, pushToast } = useToast();
   const { importQueue, setImportQueue } = useImportQueueSession(project);
@@ -679,7 +682,14 @@ const AppContent = () => {
       return;
     }
 
-    const handlePointer = () => {
+    const handlePointer = (event: PointerEvent) => {
+      if (
+        event.target instanceof HTMLElement &&
+        event.target.closest(".topbar-settings-shell")
+      ) {
+        return;
+      }
+
       setMenuState(null);
       setSettingsOpen(false);
     };
@@ -976,6 +986,10 @@ const AppContent = () => {
     [changeCanvasColors, setBackgroundColorDialogOpen],
   );
 
+  const handleToggleSwatches = useCallback(() => {
+    setSwatchesHidden((previous) => !previous);
+  }, []);
+
   useEffect(() => {
     const detachNativeMenuListener = window.desktopApi.app.onNativeMenuAction(
       (action) => {
@@ -985,6 +999,9 @@ const AppContent = () => {
             break;
           case "toggle-canvas-lock":
             toggleCanvasLock();
+            break;
+          case "toggle-swatches":
+            handleToggleSwatches();
             break;
           case "change-canvas-size":
             handleOpenCanvasSizeDialog();
@@ -1012,6 +1029,7 @@ const AppContent = () => {
     handleFitCanvasToWindow,
     handleOpenCanvasSizeDialog,
     handleShowShortcutsShortcut,
+    handleToggleSwatches,
     handleZoomCanvas,
     resetView,
     toggleCanvasLock,
@@ -1084,6 +1102,7 @@ const AppContent = () => {
     fitCanvasToWindow: handleFitCanvasToWindow,
     openCanvasSizeDialog: handleOpenCanvasSizeDialog,
     toggleCanvasLock,
+    toggleSwatches: handleToggleSwatches,
     showSettings: handleShowShortcutsShortcut,
     clearTransientUi,
     exitDoodle,
@@ -1115,7 +1134,7 @@ const AppContent = () => {
       onDrop={handleAppShellDrop}
       onContextMenu={handleShellContextMenu}
     >
-      <div className="desktop-frame">
+      <div className={`desktop-frame ${windowFocused ? "" : "window-unfocused"}`}>
         <TopBar
           activeGroup={activeGroup}
           activeTool={activeTool}
@@ -1173,6 +1192,10 @@ const AppContent = () => {
           onToggleCanvasLock={() => {
             setSettingsOpen(false);
             toggleCanvasLock();
+          }}
+          onToggleSwatches={() => {
+            setSettingsOpen(false);
+            handleToggleSwatches();
           }}
           onToolClick={handleToolbarToolClick}
           onAutoArrange={() => {
@@ -1238,6 +1261,7 @@ const AppContent = () => {
                 <CanvasBoard
                   group={displayGroup}
                   surfaceOpacity={appBackgroundOpacity}
+                  showSwatches={!swatchesHidden}
                   activeTool={activeTool}
                   doodleMode={doodleMode}
                   doodleColor={doodleColor}
@@ -1490,6 +1514,10 @@ const AppContent = () => {
           onToggleCanvasLock={() => {
             setMenuState(null);
             toggleCanvasLock();
+          }}
+          onToggleSwatches={() => {
+            setMenuState(null);
+            handleToggleSwatches();
           }}
           onResetView={() => {
             setMenuState(null);

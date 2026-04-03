@@ -125,7 +125,10 @@ const installMacApplicationMenu = () => {
         { type: "separator" },
         { role: "services" },
         { type: "separator" },
-        { role: "hide", label: "Hide CanvasTool" },
+        {
+          label: "Hide CanvasTool",
+          click: () => app.hide(),
+        },
         { role: "hideOthers" },
         { role: "unhide" },
         { type: "separator" },
@@ -182,6 +185,12 @@ const installMacApplicationMenu = () => {
           accelerator: "F2",
           click: () =>
             sendNativeMenuAction(BrowserWindow.getFocusedWindow(), "toggle-canvas-lock"),
+        },
+        {
+          label: "Hide / Show Swatches",
+          accelerator: "CmdOrCtrl+H",
+          click: () =>
+            sendNativeMenuAction(BrowserWindow.getFocusedWindow(), "toggle-swatches"),
         },
         { type: "separator" },
         {

@@ -18,6 +18,57 @@ if (process.platform === "darwin") {
   app.setName("CanvasTool");
 }
 
+const sendNativeMenuAction = (
+  window: BrowserWindow | null,
+  action: NativeMenuAction,
+) => {
+  const targetWindow = window ?? BrowserWindow.getAllWindows()[0] ?? null;
+  targetWindow?.webContents.send("native-menu:action", action);
+};
+
+const registerAppShortcutOverrides = (window: BrowserWindow) => {
+  window.webContents.on("before-input-event", (event, input) => {
+    const hasPrimaryModifier =
+      process.platform === "darwin" ? input.meta : input.control;
+    if (!hasPrimaryModifier || input.alt) {
+      return;
+    }
+
+    const key = input.key.toLowerCase();
+    const code =
+      "code" in input && typeof input.code === "string" ? input.code : "";
+    const isResetView =
+      !input.shift &&
+      (key === "0" || code === "Digit0" || code === "Numpad0");
+    const isZoomOut =
+      !input.shift &&
+      (key === "-" || key === "subtract" || code === "Minus" || code === "NumpadSubtract");
+    const isZoomIn =
+      key === "+" ||
+      key === "=" ||
+      key === "add" ||
+      code === "NumpadAdd" ||
+      code === "Equal";
+
+    if (isResetView) {
+      event.preventDefault();
+      sendNativeMenuAction(window, "fit-canvas-to-window");
+      return;
+    }
+
+    if (isZoomOut) {
+      event.preventDefault();
+      sendNativeMenuAction(window, "canvas-zoom-out");
+      return;
+    }
+
+    if (isZoomIn) {
+      event.preventDefault();
+      sendNativeMenuAction(window, "canvas-zoom-in");
+    }
+  });
+};
+
 const createMainWindow = async () => {
   const mainWindow = new BrowserWindow({
     width: 1440,
@@ -34,6 +85,7 @@ const createMainWindow = async () => {
     },
   });
   guardWindowDevTools(mainWindow);
+  registerAppShortcutOverrides(mainWindow);
 
   setupIpcHandlers(mainWindow);
 
@@ -50,14 +102,6 @@ const createMainWindow = async () => {
   }
 
   mainWindow.webContents.setZoomFactor(1);
-};
-
-const sendNativeMenuAction = (
-  window: BrowserWindow | null,
-  action: NativeMenuAction,
-) => {
-  const targetWindow = window ?? BrowserWindow.getAllWindows()[0] ?? null;
-  targetWindow?.webContents.send("native-menu:action", action);
 };
 
 const installMacApplicationMenu = () => {

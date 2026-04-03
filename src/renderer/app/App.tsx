@@ -908,6 +908,12 @@ const AppContent = () => {
           case "fit-canvas-to-window":
             handleFitCanvasToWindow();
             break;
+          case "canvas-zoom-in":
+            handleZoomCanvas(1);
+            break;
+          case "canvas-zoom-out":
+            handleZoomCanvas(-1);
+            break;
           default:
             break;
         }
@@ -919,6 +925,7 @@ const AppContent = () => {
     handleFitCanvasToWindow,
     handleOpenCanvasSizeDialog,
     handleShowShortcutsShortcut,
+    handleZoomCanvas,
     resetView,
     toggleCanvasLock,
   ]);

@@ -23,7 +23,13 @@ const isMacPlatform = () =>
     })(),
   );
 
-const NATIVE_MENU_DEFAULT_BINDINGS = {
+const BROWSER_ZOOM_OVERRIDE_BINDINGS = {
+  "canvas.fitToWindow": "Ctrl+0",
+  "canvas.zoomIn": "Ctrl++",
+  "canvas.zoomOut": "Ctrl+-",
+} as const;
+
+const MAC_NATIVE_MENU_DEFAULT_BINDINGS = {
   "window.showSettings": "F1",
   "canvas.toggleLock": "F2",
   "canvas.changeSize": "Ctrl+Alt+I",
@@ -252,18 +258,26 @@ export const useAppShortcuts = ({
 
   const shortcutHandlers = useMemo(() => {
     const handlers: Partial<Record<string, () => void>> = {};
-    const shouldUseNativeMenuPath = isMacPlatform();
+    const isMac = isMacPlatform();
 
     Object.entries(shortcutBindings).forEach(([actionId, binding]) => {
       if (!binding) {
         return;
       }
 
-      const nativeMenuBinding =
-        NATIVE_MENU_DEFAULT_BINDINGS[
-          actionId as keyof typeof NATIVE_MENU_DEFAULT_BINDINGS
+      const browserZoomOverrideBinding =
+        BROWSER_ZOOM_OVERRIDE_BINDINGS[
+          actionId as keyof typeof BROWSER_ZOOM_OVERRIDE_BINDINGS
         ];
-      if (shouldUseNativeMenuPath && nativeMenuBinding === binding) {
+      if (browserZoomOverrideBinding === binding) {
+        return;
+      }
+
+      const macNativeMenuBinding =
+        MAC_NATIVE_MENU_DEFAULT_BINDINGS[
+          actionId as keyof typeof MAC_NATIVE_MENU_DEFAULT_BINDINGS
+        ];
+      if (isMac && macNativeMenuBinding === binding) {
         return;
       }
 

@@ -71,7 +71,9 @@ export type NativeMenuAction =
   | "toggle-canvas-lock"
   | "change-canvas-size"
   | "fit-canvas-to-content"
-  | "fit-canvas-to-window";
+  | "fit-canvas-to-window"
+  | "canvas-zoom-in"
+  | "canvas-zoom-out";
 
 export interface ClipboardWriteImageRequest {
   dataUrl: string;

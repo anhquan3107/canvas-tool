@@ -483,6 +483,23 @@ export const CanvasBoard = ({
       return;
     }
 
+    const boardContainer = boardContainerRef.current;
+    const hasExternalViewChange =
+      boardContainer &&
+      (Math.abs(boardContainer.x - group.panX) > 0.75 ||
+        Math.abs(boardContainer.y - group.panY) > 0.75 ||
+        Math.abs(boardContainer.scale.x - group.zoom) > 0.001);
+
+    if (isPanningRef.current && hasExternalViewChange) {
+      isPanningRef.current = false;
+      if (boardGraphicRef.current) {
+        boardGraphicRef.current.cursor =
+          activeToolRef.current === "doodle" && !spacePanActiveRef.current
+            ? "none"
+            : "grab";
+      }
+    }
+
     if (
       isPanningRef.current ||
       activeItemDragRef.current ||

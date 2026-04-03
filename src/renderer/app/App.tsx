@@ -81,6 +81,7 @@ export const App = () => {
 
 const clampCanvasZoom = (value: number) => Math.min(20, Math.max(0.18, value));
 const clampWindowOpacity = (value: number) => Math.min(1, Math.max(0.05, value));
+const SHELL_RIGHT_CLICK_DRAG_THRESHOLD = 5;
 
 type BackgroundColorPreviewState = {
   canvasColor: string;
@@ -88,9 +89,62 @@ type BackgroundColorPreviewState = {
   windowOpacity: number;
 };
 
+type ShellRightClickGesture = {
+  active: boolean;
+  moved: boolean;
+  startX: number;
+  startY: number;
+};
+
+const getRightMouseGestureState = () =>
+  (window as Window & {
+    __canvasToolRightMouseGesture?: {
+      isRightMouseDown: boolean;
+      isDragging: boolean;
+      startX: number;
+      startY: number;
+      suppressCurrentContextMenu: boolean;
+      suppressContextMenuUntil: number;
+    };
+  }).__canvasToolRightMouseGesture;
+
+const isTypingElement = (target: EventTarget | null) => {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  return (
+    target.isContentEditable ||
+    ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)
+  );
+};
+
+const shouldIgnoreShellRightClickTarget = (target: EventTarget | null) => {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+
+  if (isTypingElement(target)) {
+    return true;
+  }
+
+  return Boolean(
+    target.closest(
+      ".app-topbar, .topbar-settings-shell, .group-overlay-shell, .task-overlay-shell, [data-window-no-drag='true']",
+    ),
+  );
+};
+
 const AppContent = () => {
   useWindowRightDrag();
   const windowFocused = useWindowFocusState();
+  const appShellRef = useRef<HTMLDivElement | null>(null);
+  const shellRightClickGestureRef = useRef<ShellRightClickGesture>({
+    active: false,
+    moved: false,
+    startX: 0,
+    startY: 0,
+  });
 
   const {
     recentFiles,
@@ -718,12 +772,101 @@ const AppContent = () => {
       previousActiveGroupIdRef.current = activeGroupId;
     }
   }, [activeGroupId]);
+
+  useEffect(() => {
+    const resetShellRightClickGesture = () => {
+      shellRightClickGestureRef.current = {
+        active: false,
+        moved: false,
+        startX: 0,
+        startY: 0,
+      };
+    };
+
+    window.addEventListener("blur", resetShellRightClickGesture);
+    return () => {
+      window.removeEventListener("blur", resetShellRightClickGesture);
+    };
+  }, []);
+
+  const handleShellPointerDownCapture = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (event.button !== 2) {
+        return;
+      }
+
+      if (shouldIgnoreShellRightClickTarget(event.target)) {
+        shellRightClickGestureRef.current = {
+          active: false,
+          moved: false,
+          startX: 0,
+          startY: 0,
+        };
+        return;
+      }
+
+      shellRightClickGestureRef.current = {
+        active: true,
+        moved: false,
+        startX: event.clientX,
+        startY: event.clientY,
+      };
+    },
+    [],
+  );
+
+  const handleShellPointerMoveCapture = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      const gesture = shellRightClickGestureRef.current;
+      if (!gesture.active || (event.buttons & 2) === 0 || gesture.moved) {
+        return;
+      }
+
+      if (
+        Math.hypot(event.clientX - gesture.startX, event.clientY - gesture.startY) >=
+        SHELL_RIGHT_CLICK_DRAG_THRESHOLD
+      ) {
+        gesture.moved = true;
+      }
+    },
+    [],
+  );
+
+  const handleShellPointerUpCapture = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (event.button !== 2) {
+        return;
+      }
+
+      const gesture = shellRightClickGestureRef.current;
+      const shouldOpenMenu =
+        gesture.active &&
+        !gesture.moved &&
+        !event.defaultPrevented &&
+        !shouldIgnoreShellRightClickTarget(event.target);
+
+      shellRightClickGestureRef.current = {
+        active: false,
+        moved: false,
+        startX: 0,
+        startY: 0,
+      };
+
+      if (!shouldOpenMenu) {
+        return;
+      }
+
+      event.preventDefault();
+      setMenuState({
+        x: event.clientX,
+        y: event.clientY,
+      });
+    },
+    [setMenuState],
+  );
+
   const handleShellContextMenu = (event: ReactMouseEvent<HTMLDivElement>) => {
     event.preventDefault();
-    setMenuState({
-      x: event.clientX,
-      y: event.clientY,
-    });
   };
   const handleCanvasSelectionChange = useCallback(
     (itemIds: string[]) => {
@@ -1128,10 +1271,15 @@ const AppContent = () => {
 
   return (
     <div
+      ref={appShellRef}
       className="app-shell"
       style={appShellStyle}
       onDragOver={handleShellDragOver}
       onDrop={handleAppShellDrop}
+      onPointerDownCapture={handleShellPointerDownCapture}
+      onPointerMoveCapture={handleShellPointerMoveCapture}
+      onPointerUpCapture={handleShellPointerUpCapture}
+      onPointerCancelCapture={handleShellPointerUpCapture}
       onContextMenu={handleShellContextMenu}
     >
       <div className={`desktop-frame ${windowFocused ? "" : "window-unfocused"}`}>

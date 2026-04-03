@@ -282,8 +282,8 @@ export const CaptureWindowApp = () => {
       className={`capture-window-shell ${windowFocused ? "" : "window-unfocused"}`}
     >
       <header className="capture-window-topbar">
-        <div className="capture-window-drag-region">
-          <div className="capture-window-toolbar">
+        <div className="capture-window-drag-region" data-window-left-drag="true">
+          <div className="capture-window-toolbar" data-window-no-drag="true">
             <button
               type="button"
               className="toolbar-button"
@@ -332,7 +332,7 @@ export const CaptureWindowApp = () => {
           <div className="capture-window-drag-spacer" />
         </div>
 
-        <div className="window-cluster">
+        <div className="window-cluster" data-window-no-drag="true">
           <button
             type="button"
             className={`window-button ${windowAlwaysOnTop ? "active" : ""}`}

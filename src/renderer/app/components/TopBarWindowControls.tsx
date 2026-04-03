@@ -24,7 +24,7 @@ export const TopBarWindowControls = ({
   onToggleMaximize,
   onCloseWindow,
 }: TopBarWindowControlsProps) => (
-  <div className="window-cluster">
+  <div className="window-cluster" data-window-no-drag="true">
     <span className="locale-indicator">ENG</span>
     <TopBarHoverTooltip
       label={`Open keyboard shortcuts (${formatMenuShortcut(shortcutBindings, "window.showSettings")})`}

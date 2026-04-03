@@ -211,6 +211,13 @@ export const useCanvasBoardScene = ({
       itemNode.on("pointerdown", (event: FederatedPointerEvent) => {
         event.stopPropagation();
 
+        if (event.nativeEvent.button === 2) {
+          const nextSelection = [item.id];
+          selectionIdsRef.current = nextSelection;
+          onSelectionChangeRef.current(nextSelection);
+          return;
+        }
+
         const panByModifier =
           spacePanActiveRef.current ||
           event.nativeEvent.altKey ||
@@ -340,6 +347,10 @@ export const useCanvasBoardScene = ({
 
     board.on("pointerdown", (event: FederatedPointerEvent) => {
       event.stopPropagation();
+
+      if (event.nativeEvent.button === 2) {
+        return;
+      }
 
       if (
         spacePanActiveRef.current ||

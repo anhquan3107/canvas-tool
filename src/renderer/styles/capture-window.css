@@ -17,7 +17,7 @@
   padding: 6px 8px 6px 10px;
   background: #1f1e21;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  -webkit-app-region: drag;
+  -webkit-app-region: no-drag;
   user-select: none;
   overflow: visible;
   transform: translateY(0);

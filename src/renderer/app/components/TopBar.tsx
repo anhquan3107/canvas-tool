@@ -135,7 +135,7 @@ export const TopBar = ({
   return (
     <>
       <header className="app-topbar">
-        <div className="app-drag-region">
+        <div className="app-drag-region" data-window-left-drag="true">
           <button
             type="button"
             className="topbar-brand"
@@ -156,7 +156,7 @@ export const TopBar = ({
             </TopBarHoverTooltip>
           </button>
 
-          <nav className="topbar-actions">
+          <nav className="topbar-actions" data-window-no-drag="true">
             <TopBarSettingsMenu
               shortcutBindings={shortcutBindings}
               settingsOpen={settingsOpen}

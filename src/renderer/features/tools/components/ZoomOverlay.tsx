@@ -188,16 +188,40 @@ export const ZoomOverlay = ({
   const handleWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
     event.preventDefault();
 
-    setScale((previous) => {
-      const nextScale = clamp(
-        previous * Math.exp(-event.deltaY * 0.0015),
-        fitScale,
-        maxScale,
-      );
+    const viewport = viewportRef.current;
+    if (!viewport) {
+      return;
+    }
 
-      setPan((previousPan) => clampPanForScale(previousPan, nextScale));
-      return nextScale;
-    });
+    const rect = viewport.getBoundingClientRect();
+    const pointerX = event.clientX - rect.left;
+    const pointerY = event.clientY - rect.top;
+    const viewportCenterX = rect.width * 0.5;
+    const viewportCenterY = rect.height * 0.5;
+
+    const nextScale = clamp(
+      scale * Math.exp(-event.deltaY * 0.0015),
+      fitScale,
+      maxScale,
+    );
+
+    if (Math.abs(nextScale - scale) < 0.0001) {
+      return;
+    }
+
+    const anchoredPan = {
+      x:
+        pointerX -
+        viewportCenterX -
+        ((pointerX - viewportCenterX - pan.x) / scale) * nextScale,
+      y:
+        pointerY -
+        viewportCenterY -
+        ((pointerY - viewportCenterY - pan.y) / scale) * nextScale,
+    };
+
+    setScale(nextScale);
+    setPan(clampPanForScale(anchoredPan, nextScale));
   };
 
   const handlePointerDown = (event: ReactMouseEvent<HTMLDivElement>) => {

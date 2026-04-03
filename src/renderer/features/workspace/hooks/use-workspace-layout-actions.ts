@@ -5,6 +5,7 @@ import type {
   LayoutMode,
   ReferenceGroup,
 } from "@shared/types/project";
+import { DEFAULT_EMPTY_GROUP_CANVAS_SIZE } from "@shared/project-defaults";
 import { normalizePreviewSize } from "@renderer/features/import/import-queue";
 import type { ImagePatch, ToastKind } from "@renderer/features/workspace/types";
 import {
@@ -89,6 +90,10 @@ export const useWorkspaceLayoutActions = ({
           !isWithinArrangeTolerance(patch.y, currentItem.y) ||
           !isWithinArrangeTolerance(patch.width, currentItem.width) ||
           !isWithinArrangeTolerance(patch.height, currentItem.height) ||
+          (patch.scaleX !== undefined &&
+            !isWithinArrangeTolerance(patch.scaleX, currentItem.scaleX)) ||
+          (patch.scaleY !== undefined &&
+            !isWithinArrangeTolerance(patch.scaleY, currentItem.scaleY)) ||
           (patch.zIndex !== undefined && patch.zIndex !== currentItem.zIndex) ||
           (patch.visible !== undefined && patch.visible !== currentItem.visible)
         );
@@ -169,8 +174,19 @@ export const useWorkspaceLayoutActions = ({
 
     const updates = buildAutoArrangeUpdates(
       arrangeItems,
-      activeGroup.canvasSize.width,
+      Math.min(
+        activeGroup.canvasSize.width,
+        DEFAULT_EMPTY_GROUP_CANVAS_SIZE.width,
+      ),
     );
+
+    visibleItems.forEach((item) => {
+      updates[item.id] = {
+        ...updates[item.id],
+        scaleX: 1,
+        scaleY: 1,
+      };
+    });
 
     if (!hasMeaningfulPatchChanges(updates)) {
       return;

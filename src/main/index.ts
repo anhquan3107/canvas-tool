@@ -111,18 +111,11 @@ const installMacApplicationMenu = () => {
   }
 
   app.setName("CanvasTool");
-  app.setAboutPanelOptions({
-    applicationName: "CanvasTool",
-    applicationVersion: app.getVersion(),
-    version: app.getVersion(),
-  });
 
   const template: MenuItemConstructorOptions[] = [
     {
       role: "appMenu",
       submenu: [
-        { role: "about", label: "About CanvasTool" },
-        { type: "separator" },
         { role: "services" },
         { type: "separator" },
         {
@@ -221,15 +214,6 @@ const installMacApplicationMenu = () => {
         { role: "zoom" },
         { type: "separator" },
         { role: "front" },
-      ],
-    },
-    {
-      label: "Help",
-      submenu: [
-        {
-          label: "About CanvasTool",
-          click: () => app.showAboutPanel(),
-        },
       ],
     },
   ];

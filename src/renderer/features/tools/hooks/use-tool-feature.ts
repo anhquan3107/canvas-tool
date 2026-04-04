@@ -66,8 +66,16 @@ export const useToolFeature = ({
       return;
     }
 
+    const nextBlur = activeGroup.filters.blur > 0 ? 0 : 8;
     setGroupFilters(activeGroup.id, {
-      blur: activeGroup.filters.blur > 0 ? 0 : 8,
+      blur: nextBlur,
+    });
+    setActiveTool((previous) => {
+      if (nextBlur > 0) {
+        return "blur";
+      }
+
+      return previous === "blur" ? null : previous;
     });
   }, [activeGroup, setGroupFilters]);
 

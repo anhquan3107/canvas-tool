@@ -213,12 +213,6 @@ export const TopBar = ({
 
             <TopBarHelpMenu
               onShowHelp={onShowHelp}
-              onShowAbout={onBrandClick}
-              onCloseOtherMenus={() => {
-                if (settingsOpen) {
-                  onToggleSettings();
-                }
-              }}
             />
           </nav>
         </div>

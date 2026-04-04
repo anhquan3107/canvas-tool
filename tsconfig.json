@@ -11,6 +11,7 @@
     "forceConsistentCasingInFileNames": true,
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    "ignoreDeprecations": "5.0",
     "baseUrl": ".",
     "paths": {
       "@renderer/*": ["src/renderer/*"],

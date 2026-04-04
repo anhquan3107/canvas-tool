@@ -3,6 +3,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import {
@@ -406,6 +407,11 @@ export const BackgroundColorDialog = ({
             max="100"
             step="1"
             value={Math.round(draftWindowOpacity * 100)}
+            style={
+              {
+                "--slider-fill": `${Math.round(draftWindowOpacity * 100)}%`,
+              } as CSSProperties
+            }
             onChange={(event) => {
               setDraftWindowOpacity(clamp(Number(event.target.value) / 100, 0.05, 1));
             }}

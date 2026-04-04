@@ -11,7 +11,8 @@ import {
   DEFAULT_GROUP_CANVAS_COLOR,
   DEFAULT_VIEW_ZOOM_BASELINE,
 } from "@shared/project-defaults";
-import type { Project } from "@shared/types/project";
+import type { TaskTransferTask, TasksImportResult } from "@shared/types/ipc";
+import type { Project, ReferenceGroup, Task } from "@shared/types/project";
 import { AppDialogs } from "@renderer/app/components/AppDialogs";
 import { useAppShortcuts } from "@renderer/app/hooks/use-app-shortcuts";
 import { useAppDeletion } from "@renderer/app/hooks/use-app-deletion";
@@ -37,6 +38,7 @@ import { useImportQueueSession } from "@renderer/features/import/hooks/use-impor
 import { GroupOverlay } from "@renderer/features/groups/components/GroupOverlay";
 import { useGroupFeature } from "@renderer/features/groups/hooks/use-group-feature";
 import { TaskDetailPanel } from "@renderer/features/tasks/components/TaskDetailPanel";
+import { TaskImportDialog } from "@renderer/features/tasks/components/TaskImportDialog";
 import { TaskOverlay } from "@renderer/features/tasks/components/TaskOverlay";
 import { useTaskFeature } from "@renderer/features/tasks/hooks/use-task-feature";
 import { ColorWheel } from "@renderer/features/tools/components/ColorWheel";
@@ -89,24 +91,18 @@ type BackgroundColorPreviewState = {
   windowOpacity: number;
 };
 
+type TaskImportMode = "merge" | "replace" | "skip-duplicates";
+type TaskImportPreviewState = TasksImportResult & {
+  duplicateCount: number;
+  importableCount: number;
+};
+
 type ShellRightClickGesture = {
   active: boolean;
   moved: boolean;
   startX: number;
   startY: number;
 };
-
-const getRightMouseGestureState = () =>
-  (window as Window & {
-    __canvasToolRightMouseGesture?: {
-      isRightMouseDown: boolean;
-      isDragging: boolean;
-      startX: number;
-      startY: number;
-      suppressCurrentContextMenu: boolean;
-      suppressContextMenuUntil: number;
-    };
-  }).__canvasToolRightMouseGesture;
 
 const isTypingElement = (target: EventTarget | null) => {
   if (!(target instanceof HTMLElement)) {
@@ -134,6 +130,83 @@ const shouldIgnoreShellRightClickTarget = (target: EventTarget | null) => {
     ),
   );
 };
+
+const buildTaskDuplicateSignature = (
+  task: Pick<
+    TaskTransferTask,
+    "title" | "startDate" | "endDate" | "linkedGroupName" | "todos"
+  >,
+) =>
+  JSON.stringify({
+    title: task.title.trim().toLowerCase(),
+    startDate: task.startDate ?? "",
+    endDate: task.endDate ?? "",
+    linkedGroupName: task.linkedGroupName?.trim().toLowerCase() ?? "",
+    todos: [...task.todos]
+      .sort((left, right) => left.order - right.order)
+      .map((todo) => ({
+        text: todo.text.trim().toLowerCase(),
+        completed: todo.completed,
+      })),
+  });
+
+const buildExistingTaskDuplicateSet = (
+  tasks: Task[],
+  groups: ReferenceGroup[],
+) => {
+  const groupNameById = new Map(groups.map((group) => [group.id, group.name]));
+  return new Set(
+    tasks.map((task) =>
+      buildTaskDuplicateSignature({
+        ...task,
+        linkedGroupName: task.linkedGroupId
+          ? groupNameById.get(task.linkedGroupId)
+          : undefined,
+      }),
+    ),
+  );
+};
+
+const resolveImportedTaskGroupId = (
+  task: TaskTransferTask,
+  groups: ReferenceGroup[],
+) => {
+  if (task.linkedGroupId && groups.some((group) => group.id === task.linkedGroupId)) {
+    return task.linkedGroupId;
+  }
+
+  if (!task.linkedGroupName) {
+    return undefined;
+  }
+
+  const matchedGroup = groups.find(
+    (group) => group.name.trim().toLowerCase() === task.linkedGroupName?.trim().toLowerCase(),
+  );
+  return matchedGroup?.id;
+};
+
+const cloneImportedTasksForProject = (
+  tasks: TaskTransferTask[],
+  groups: ReferenceGroup[],
+  startingOrder: number,
+) =>
+  tasks.map<Task>((task, index) => ({
+    id: crypto.randomUUID(),
+    title: task.title,
+    order: startingOrder + index,
+    completed: task.completed,
+    startDate: task.startDate,
+    endDate: task.endDate,
+    linkedGroupId: resolveImportedTaskGroupId(task, groups),
+    todos: [...task.todos]
+      .sort((left, right) => left.order - right.order)
+      .map((todo, todoIndex) => ({
+        id: crypto.randomUUID(),
+        text: todo.text,
+        completed: todo.completed,
+        order: todoIndex,
+      })),
+  }));
 
 const AppContent = () => {
   useWindowRightDrag();
@@ -226,6 +299,8 @@ const AppContent = () => {
     useState<BackgroundColorPreviewState | null>(null);
   const [windowOpacity, setWindowOpacity] = useState<number | null>(null);
   const [swatchesHidden, setSwatchesHidden] = useState(false);
+  const [taskImportPreview, setTaskImportPreview] =
+    useState<TaskImportPreviewState | null>(null);
 
   const { toast, pushToast } = useToast();
   const { importQueue, setImportQueue } = useImportQueueSession(project);
@@ -295,6 +370,7 @@ const AppContent = () => {
   const {
     primaryTask,
     selectedTask,
+    exportSelectedTask,
     selectedTaskId,
     orderedTasks,
     taskListExpanded,
@@ -992,14 +1068,101 @@ const AppContent = () => {
     handleExportGroupImages,
     handleExportSelectedTaskHtml,
     handleExportAllTasksHtml,
+    handleExportSelectedTaskTxt,
+    handleExportAllTasksTxt,
   } = useExportActions({
     activeGroup,
     project,
     pushToast,
     selectedItemIds,
-    selectedTask: selectedTask ?? undefined,
+    selectedTask: exportSelectedTask ?? undefined,
     exportCanvasImageRef,
   });
+
+  const handleImportTasks = useCallback(async () => {
+    try {
+      const result = await window.desktopApi.project.importTasks();
+      if (!result) {
+        return;
+      }
+
+      const existingTaskIds = new Set(project.tasks.map((task) => task.id));
+      const existingTaskSignatures = buildExistingTaskDuplicateSet(
+        project.tasks,
+        project.groups,
+      );
+      const duplicateCount = result.tasks.filter(
+        (task) =>
+          existingTaskIds.has(task.id) ||
+          existingTaskSignatures.has(buildTaskDuplicateSignature(task)),
+      ).length;
+
+      setTaskImportPreview({
+        ...result,
+        duplicateCount,
+        importableCount: Math.max(0, result.tasks.length - duplicateCount),
+      });
+    } catch (error) {
+      pushToast(
+        "error",
+        error instanceof Error ? error.message : "Task import failed.",
+      );
+    }
+  }, [project.groups, project.tasks, pushToast]);
+
+  const handleApplyImportedTasks = useCallback(
+    (mode: TaskImportMode) => {
+      if (!taskImportPreview) {
+        return;
+      }
+
+      const existingTaskIds = new Set(project.tasks.map((task) => task.id));
+      const existingTaskSignatures = buildExistingTaskDuplicateSet(
+        project.tasks,
+        project.groups,
+      );
+      const importedTasks =
+        mode === "skip-duplicates"
+          ? taskImportPreview.tasks.filter(
+              (task) =>
+                !existingTaskIds.has(task.id) &&
+                !existingTaskSignatures.has(buildTaskDuplicateSignature(task)),
+            )
+          : taskImportPreview.tasks;
+
+      const nextTasks =
+        mode === "replace"
+          ? cloneImportedTasksForProject(importedTasks, project.groups, 0)
+          : [
+              ...project.tasks,
+              ...cloneImportedTasksForProject(
+                importedTasks,
+                project.groups,
+                project.tasks.length,
+              ),
+            ];
+
+      if (importedTasks.length === 0) {
+        setTaskImportPreview(null);
+        pushToast("info", "No new tasks to import.");
+        return;
+      }
+
+      setProject({
+        ...project,
+        tasks: nextTasks,
+        updatedAt: new Date().toISOString(),
+      });
+      setTaskImportPreview(null);
+      pushToast(
+        "success",
+        mode === "replace"
+          ? `Replaced tasks with ${importedTasks.length} imported task${importedTasks.length === 1 ? "" : "s"}.`
+          : `Imported ${importedTasks.length} task${importedTasks.length === 1 ? "" : "s"}.`,
+      );
+    },
+    [project, pushToast, setProject, taskImportPreview],
+  );
 
   const handleAppShellDrop = useCallback(
     (event: React.DragEvent<HTMLDivElement>) => {
@@ -1292,7 +1455,7 @@ const AppContent = () => {
           selectedCount={selectedItemIds.length}
           canCropSelected={Boolean(selectedStatusImage)}
           canPaste={clipboardItems.length > 0}
-          canExportSelectedTask={Boolean(selectedTask)}
+          canExportSelectedTask={Boolean(exportSelectedTask)}
           canExportAnyTask={project.tasks.length > 0}
           canvasLocked={activeGroup?.locked ?? false}
           canUndo={canUndo}
@@ -1308,6 +1471,10 @@ const AppContent = () => {
           onOpenProject={() => {
             setSettingsOpen(false);
             void handleOpenProject();
+          }}
+          onImportTasks={() => {
+            setSettingsOpen(false);
+            void handleImportTasks();
           }}
           onSaveProject={() => {
             setSettingsOpen(false);
@@ -1332,6 +1499,14 @@ const AppContent = () => {
           onExportAllTasksHtml={() => {
             setSettingsOpen(false);
             void handleExportAllTasksHtml();
+          }}
+          onExportSelectedTaskTxt={() => {
+            setSettingsOpen(false);
+            void handleExportSelectedTaskTxt();
+          }}
+          onExportAllTasksTxt={() => {
+            setSettingsOpen(false);
+            void handleExportAllTasksTxt();
           }}
           onChangeCanvasSize={() => {
             setSettingsOpen(false);
@@ -1616,7 +1791,7 @@ const AppContent = () => {
           canCropSelected={Boolean(selectedStatusImage)}
           canExportSwatch={canExportSelectedSwatch}
           canPaste={clipboardItems.length > 0}
-          canExportSelectedTask={Boolean(selectedTask)}
+          canExportSelectedTask={Boolean(exportSelectedTask)}
           canExportAnyTask={project.tasks.length > 0}
           canDeleteActiveGroup={canDeleteActiveGroup}
           canUndo={canUndo}
@@ -1633,6 +1808,10 @@ const AppContent = () => {
           onOpen={() => {
             setMenuState(null);
             void handleOpenProject();
+          }}
+          onImportTasks={() => {
+            setMenuState(null);
+            void handleImportTasks();
           }}
           onSave={() => {
             setMenuState(null);
@@ -1707,6 +1886,14 @@ const AppContent = () => {
             setMenuState(null);
             void handleExportAllTasksHtml();
           }}
+          onExportSelectedTaskTxt={() => {
+            setMenuState(null);
+            void handleExportSelectedTaskTxt();
+          }}
+          onExportAllTasksTxt={() => {
+            setMenuState(null);
+            void handleExportAllTasksTxt();
+          }}
           onCopySelected={() => {
             setMenuState(null);
             copySelectedItemsToClipboard();
@@ -1743,6 +1930,14 @@ const AppContent = () => {
             setMenuState(null);
             handleCloseWindow();
           }}
+        />
+      ) : null}
+
+      {taskImportPreview ? (
+        <TaskImportDialog
+          preview={taskImportPreview}
+          onApply={handleApplyImportedTasks}
+          onClose={() => setTaskImportPreview(null)}
         />
       ) : null}
 

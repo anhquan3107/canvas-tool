@@ -38,8 +38,11 @@ const desktopApi: DesktopApi = {
       ipcRenderer.invoke("project:export-group-images", payload),
     exportTasksHtml: (payload) =>
       ipcRenderer.invoke("project:export-tasks-html", payload),
+    exportTasksTxt: (payload) =>
+      ipcRenderer.invoke("project:export-tasks-txt", payload),
     exportSwatchAco: (payload) =>
       ipcRenderer.invoke("project:export-swatch-aco", payload),
+    importTasks: () => ipcRenderer.invoke("project:import-tasks"),
     getRecentFiles: () => ipcRenderer.invoke("project:get-recent-files"),
   },
   window: {

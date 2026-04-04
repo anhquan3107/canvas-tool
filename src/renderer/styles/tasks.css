@@ -1054,3 +1054,110 @@
   min-height: 58px;
   font-size: 18px;
 }
+
+.task-import-dialog {
+  width: min(720px, calc(100vw - 40px));
+  padding: 28px 30px 24px;
+  border-radius: 20px;
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(27, 27, 30, 0.98);
+}
+
+.task-import-dialog h3 {
+  margin: 6px 0 0;
+  text-align: left;
+}
+
+.task-import-dialog-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.task-import-dialog-eyebrow,
+.task-import-dialog-section-label {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.task-import-dialog-filemeta {
+  display: grid;
+  gap: 6px;
+  justify-items: end;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+}
+
+.task-import-dialog-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.task-import-dialog-stat {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.task-import-dialog-stat strong {
+  color: rgba(255, 255, 255, 0.96);
+  font-size: 20px;
+}
+
+.task-import-dialog-stat span,
+.task-import-dialog-copy,
+.task-import-dialog-note,
+.task-import-dialog-row span,
+.task-import-dialog-empty {
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 13px;
+}
+
+.task-import-dialog-section {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.task-import-dialog-copy,
+.task-import-dialog-note {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.task-import-dialog-list {
+  display: grid;
+  gap: 8px;
+}
+
+.task-import-dialog-row,
+.task-import-dialog-empty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.task-import-dialog-row strong {
+  color: rgba(255, 255, 255, 0.94);
+  font-size: 14px;
+}
+
+.task-import-dialog-actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 22px;
+}

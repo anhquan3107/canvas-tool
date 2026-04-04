@@ -9,7 +9,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import type { ProjectExportResult } from "../../shared/types/ipc";
 import { readSettings, setLastExportPath } from "../services/app-settings-service";
-import { createAcoBuffer, renderTasksHtml } from "./export-utils";
+import { createAcoBuffer } from "./export-utils";
 import {
   acoDialogFilter,
   canvasImageDialogFilter,
@@ -17,6 +17,7 @@ import {
   getDefaultDocumentsPath,
   getSenderWindow,
   htmlDialogFilter,
+  textDialogFilter,
   sanitizeFileStem,
 } from "./ipc-utils";
 import {
@@ -24,7 +25,9 @@ import {
   ensureGroupImagesExportPayload,
   ensureSwatchExportPayload,
   ensureTasksHtmlExportPayload,
+  ensureTasksTxtExportPayload,
 } from "./ipc-validators";
+import { renderTasksHtml, renderTasksTxt } from "./task-transfer-utils";
 
 const getExportDefaultPath = async (fileName: string) => {
   const settings = await readSettings();
@@ -204,6 +207,36 @@ export const registerExportHandlers = (window: BrowserWindow) => {
       await fs.writeFile(
         safePath,
         renderTasksHtml(payload.projectTitle, payload.tasks),
+        "utf8",
+      );
+      await setLastExportPath(path.dirname(safePath));
+      return { filePath: safePath };
+    },
+  );
+
+  ipcMain.handle(
+    "project:export-tasks-txt",
+    async (event, rawPayload: unknown): Promise<ProjectExportResult | null> => {
+      const targetWindow = getSenderWindow(event.sender) ?? window;
+      const payload = ensureTasksTxtExportPayload(rawPayload);
+      const defaultStem =
+        sanitizeFileStem(payload.name ?? `${payload.projectTitle}`) || "Tasks";
+      const defaultPath = await getExportDefaultPath(`${defaultStem}.txt`);
+      const dialogResult = await dialog.showSaveDialog(targetWindow, {
+        defaultPath,
+        filters: textDialogFilter,
+      });
+
+      if (dialogResult.canceled || !dialogResult.filePath) {
+        return null;
+      }
+
+      const safePath = dialogResult.filePath.endsWith(".txt")
+        ? dialogResult.filePath
+        : `${dialogResult.filePath}.txt`;
+      await fs.writeFile(
+        safePath,
+        renderTasksTxt(payload.projectTitle, payload.tasks),
         "utf8",
       );
       await setLastExportPath(path.dirname(safePath));

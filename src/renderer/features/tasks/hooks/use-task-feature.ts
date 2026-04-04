@@ -33,6 +33,7 @@ export const useTaskFeature = ({
   pushToast,
 }: UseTaskFeatureOptions) => {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [exportSelectedTaskId, setExportSelectedTaskId] = useState<string | null>(null);
   const [taskListExpanded, setTaskListExpanded] = useState(false);
   const [taskDetailOpen, setTaskDetailOpen] = useState(false);
   const [taskDetailPinned, setTaskDetailPinned] = useState(false);
@@ -60,6 +61,10 @@ export const useTaskFeature = ({
     () => orderedTasks.find((task) => task.id === selectedTaskId) ?? null,
     [orderedTasks, selectedTaskId],
   );
+  const exportSelectedTask = useMemo(
+    () => orderedTasks.find((task) => task.id === exportSelectedTaskId) ?? null,
+    [exportSelectedTaskId, orderedTasks],
+  );
 
   const primaryTask = taskListExpanded || pendingTaskSelectionDismissal
     ? orderedTasks[0] ?? null
@@ -81,6 +86,7 @@ export const useTaskFeature = ({
   const selectTask = useCallback((taskId: string | null) => {
     setPendingTaskSelectionDismissal(false);
     setSelectedTaskId(taskId);
+    setExportSelectedTaskId(taskId);
     if (taskId) {
       registerTaskOverlayInteraction();
       registerTaskDetailInteraction();
@@ -329,13 +335,16 @@ export const useTaskFeature = ({
         setSelectedTaskId(nextSelectedTask?.id ?? null);
         setTaskDetailOpen(Boolean(nextSelectedTask));
       }
+      if (exportSelectedTaskId === task.id) {
+        setExportSelectedTaskId(nextSelectedTask?.id ?? null);
+      }
       setTaskDetailPinned(false);
       setPendingTaskSelectionDismissal(false);
       setTaskListExpanded(false);
       setTaskCreationPreviewActive(false);
       pushToast("success", `Deleted ${task.title}.`);
     },
-    [orderedTasks, pushToast, removeTask, selectedTaskId],
+    [exportSelectedTaskId, orderedTasks, pushToast, removeTask, selectedTaskId],
   );
 
   const handleDeleteSelectedTask = useCallback(() => {
@@ -349,6 +358,7 @@ export const useTaskFeature = ({
   return {
     primaryTask,
     selectedTask,
+    exportSelectedTask,
     selectedTaskId,
     orderedTasks,
     taskListExpanded,

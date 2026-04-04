@@ -7,6 +7,8 @@ import type {
   RemoteImageFetchRequest,
   SwatchExportRequest,
   TasksHtmlExportRequest,
+  TasksTxtExportRequest,
+  TaskTransferTask,
 } from "../../shared/types/ipc";
 import type { Project, Task } from "../../shared/types/project";
 
@@ -142,7 +144,7 @@ const isTodoItem = (value: unknown): value is Task["todos"][number] => {
   );
 };
 
-const isTask = (value: unknown): value is Task => {
+const isTaskTransferTask = (value: unknown): value is TaskTransferTask => {
   if (!value || typeof value !== "object") {
     return false;
   }
@@ -152,8 +154,13 @@ const isTask = (value: unknown): value is Task => {
     typeof record.id === "string" &&
     typeof record.title === "string" &&
     typeof record.order === "number" &&
+    (record.completed === undefined || typeof record.completed === "boolean") &&
     (record.startDate === undefined || typeof record.startDate === "string") &&
     (record.endDate === undefined || typeof record.endDate === "string") &&
+    (record.linkedGroupId === undefined ||
+      typeof record.linkedGroupId === "string") &&
+    (record.linkedGroupName === undefined ||
+      typeof record.linkedGroupName === "string") &&
     Array.isArray(record.todos) &&
     record.todos.every(isTodoItem)
   );
@@ -168,7 +175,29 @@ export const ensureTasksHtmlExportPayload = (
 
   const payload = value as Record<string, unknown>;
   const tasks = Array.isArray(payload.tasks)
-    ? payload.tasks.filter(isTask)
+    ? payload.tasks.filter(isTaskTransferTask)
+    : [];
+
+  return {
+    projectTitle:
+      typeof payload.projectTitle === "string"
+        ? payload.projectTitle
+        : "CanvasTool",
+    tasks,
+    name: typeof payload.name === "string" ? payload.name : undefined,
+  };
+};
+
+export const ensureTasksTxtExportPayload = (
+  value: unknown,
+): TasksTxtExportRequest => {
+  if (!value || typeof value !== "object") {
+    throw new Error("Invalid task export payload.");
+  }
+
+  const payload = value as Record<string, unknown>;
+  const tasks = Array.isArray(payload.tasks)
+    ? payload.tasks.filter(isTaskTransferTask)
     : [];
 
   return {

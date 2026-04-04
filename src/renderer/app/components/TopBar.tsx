@@ -34,12 +34,15 @@ interface TopBarProps {
   onToggleSettings: () => void;
   onShowHelp: () => void;
   onOpenProject: () => void;
+  onImportTasks: () => void;
   onSaveProject: () => void;
   onSaveProjectAs: () => void;
   onExportCanvasImage: () => void;
   onExportGroupImages: () => void;
   onExportSelectedTaskHtml: () => void;
   onExportAllTasksHtml: () => void;
+  onExportSelectedTaskTxt: () => void;
+  onExportAllTasksTxt: () => void;
   onChangeCanvasSize: () => void;
   onToggleCanvasLock: () => void;
   onToggleSwatches: () => void;
@@ -84,12 +87,15 @@ export const TopBar = ({
   onToggleSettings,
   onShowHelp,
   onOpenProject,
+  onImportTasks,
   onSaveProject,
   onSaveProjectAs,
   onExportCanvasImage,
   onExportGroupImages,
   onExportSelectedTaskHtml,
   onExportAllTasksHtml,
+  onExportSelectedTaskTxt,
+  onExportAllTasksTxt,
   onChangeCanvasSize,
   onToggleCanvasLock,
   onToggleSwatches,
@@ -134,7 +140,7 @@ export const TopBar = ({
 
   return (
     <>
-      <header className="app-topbar">
+      <header className="app-topbar" data-window-left-drag="true">
         <div className="app-drag-region" data-window-left-drag="true">
           <button
             type="button"
@@ -170,12 +176,15 @@ export const TopBar = ({
               canRedo={canRedo}
               onToggleSettings={onToggleSettings}
               onOpenProject={onOpenProject}
+              onImportTasks={onImportTasks}
               onSaveProject={onSaveProject}
               onSaveProjectAs={onSaveProjectAs}
               onExportCanvasImage={onExportCanvasImage}
               onExportGroupImages={onExportGroupImages}
               onExportSelectedTaskHtml={onExportSelectedTaskHtml}
               onExportAllTasksHtml={onExportAllTasksHtml}
+              onExportSelectedTaskTxt={onExportSelectedTaskTxt}
+              onExportAllTasksTxt={onExportAllTasksTxt}
               onChangeCanvasSize={onChangeCanvasSize}
               onToggleCanvasLock={onToggleCanvasLock}
               onToggleSwatches={onToggleSwatches}

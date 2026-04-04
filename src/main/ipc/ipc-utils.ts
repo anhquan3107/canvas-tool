@@ -20,6 +20,16 @@ export const htmlDialogFilter = [
   { name: "HTML Document", extensions: ["html"] },
 ];
 
+export const textDialogFilter = [
+  { name: "Text Document", extensions: ["txt"] },
+];
+
+export const taskImportDialogFilter = [
+  { name: "CanvasTool Task Transfer", extensions: ["html", "txt"] },
+  { name: "HTML Document", extensions: ["html"] },
+  { name: "Text Document", extensions: ["txt"] },
+];
+
 export const MAX_FETCH_SIZE_BYTES = 25 * 1024 * 1024;
 
 export const sanitizeFileStem = (value: string) =>

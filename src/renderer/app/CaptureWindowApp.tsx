@@ -281,7 +281,7 @@ export const CaptureWindowApp = () => {
     <div
       className={`capture-window-shell ${windowFocused ? "" : "window-unfocused"}`}
     >
-      <header className="capture-window-topbar">
+      <header className="capture-window-topbar" data-window-left-drag="true">
         <div className="capture-window-drag-region" data-window-left-drag="true">
           <div className="capture-window-toolbar" data-window-no-drag="true">
             <button

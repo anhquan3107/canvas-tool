@@ -1,4 +1,5 @@
 import { useCallback, useMemo, type MutableRefObject } from "react";
+import type { TaskTransferTask } from "@shared/types/ipc";
 import type { ImageItem, Project, ReferenceGroup, Task } from "@shared/types/project";
 import { extractImageSwatches } from "@renderer/features/import/swatches";
 
@@ -21,6 +22,16 @@ export const useExportActions = ({
   selectedTask,
   exportCanvasImageRef,
 }: UseExportActionsOptions) => {
+  const exportableTasks = useMemo(() => {
+    const groupNameById = new Map(project.groups.map((group) => [group.id, group.name]));
+    return project.tasks.map<TaskTransferTask>((task) => ({
+      ...task,
+      linkedGroupName: task.linkedGroupId
+        ? groupNameById.get(task.linkedGroupId)
+        : undefined,
+    }));
+  }, [project.groups, project.tasks]);
+
   const selectedImageForSwatchExport = useMemo(
     () =>
       selectedItemIds.length === 1 && activeGroup
@@ -173,11 +184,16 @@ export const useExportActions = ({
       return;
     }
 
+    const exportableTask =
+      exportableTasks.find((task) => task.id === selectedTask.id) ?? {
+        ...selectedTask,
+      };
+
     try {
       const result = await window.desktopApi.project.exportTasksHtml({
-        projectTitle: selectedTask.title,
-        tasks: [selectedTask],
-        name: selectedTask.title,
+        projectTitle: exportableTask.title,
+        tasks: [exportableTask],
+        name: exportableTask.title,
       });
 
       if (!result) {
@@ -191,10 +207,10 @@ export const useExportActions = ({
         error instanceof Error ? error.message : "Task export failed.",
       );
     }
-  }, [pushToast, selectedTask]);
+  }, [exportableTasks, pushToast, selectedTask]);
 
   const handleExportAllTasksHtml = useCallback(async () => {
-    if (project.tasks.length === 0) {
+    if (exportableTasks.length === 0) {
       pushToast("info", "No tasks available to export.");
       return;
     }
@@ -202,7 +218,7 @@ export const useExportActions = ({
     try {
       const result = await window.desktopApi.project.exportTasksHtml({
         projectTitle: "All Tasks",
-        tasks: project.tasks,
+        tasks: exportableTasks,
         name: "All Tasks",
       });
 
@@ -217,7 +233,64 @@ export const useExportActions = ({
         error instanceof Error ? error.message : "Task export failed.",
       );
     }
-  }, [project.tasks, pushToast]);
+  }, [exportableTasks, pushToast]);
+
+  const handleExportSelectedTaskTxt = useCallback(async () => {
+    if (!selectedTask) {
+      pushToast("info", "Select a task to export.");
+      return;
+    }
+
+    const exportableTask =
+      exportableTasks.find((task) => task.id === selectedTask.id) ?? {
+        ...selectedTask,
+      };
+
+    try {
+      const result = await window.desktopApi.project.exportTasksTxt({
+        projectTitle: exportableTask.title,
+        tasks: [exportableTask],
+        name: exportableTask.title,
+      });
+
+      if (!result) {
+        return;
+      }
+
+      pushToast("success", "Task exported to TXT.");
+    } catch (error) {
+      pushToast(
+        "error",
+        error instanceof Error ? error.message : "Task export failed.",
+      );
+    }
+  }, [exportableTasks, pushToast, selectedTask]);
+
+  const handleExportAllTasksTxt = useCallback(async () => {
+    if (exportableTasks.length === 0) {
+      pushToast("info", "No tasks available to export.");
+      return;
+    }
+
+    try {
+      const result = await window.desktopApi.project.exportTasksTxt({
+        projectTitle: "All Tasks",
+        tasks: exportableTasks,
+        name: "All Tasks",
+      });
+
+      if (!result) {
+        return;
+      }
+
+      pushToast("success", "All tasks exported to TXT.");
+    } catch (error) {
+      pushToast(
+        "error",
+        error instanceof Error ? error.message : "Task export failed.",
+      );
+    }
+  }, [exportableTasks, pushToast]);
 
   return {
     canExportSelectedSwatch,
@@ -226,5 +299,7 @@ export const useExportActions = ({
     handleExportGroupImages,
     handleExportSelectedTaskHtml,
     handleExportAllTasksHtml,
+    handleExportSelectedTaskTxt,
+    handleExportAllTasksTxt,
   };
 };

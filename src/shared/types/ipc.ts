@@ -44,8 +44,27 @@ export interface GroupImagesExportRequest {
 
 export interface TasksHtmlExportRequest {
   projectTitle: string;
-  tasks: Task[];
+  tasks: TaskTransferTask[];
   name?: string;
+}
+
+export interface TasksTxtExportRequest {
+  projectTitle: string;
+  tasks: TaskTransferTask[];
+  name?: string;
+}
+
+export interface TaskTransferTask extends Task {
+  linkedGroupName?: string;
+}
+
+export interface TasksImportResult {
+  filePath: string;
+  format: "html" | "txt";
+  projectTitle: string;
+  exportedAt?: string;
+  tasks: TaskTransferTask[];
+  invalidTaskCount: number;
 }
 
 export interface AppWindowState {
@@ -147,9 +166,13 @@ export interface DesktopApi {
     exportTasksHtml: (
       payload: TasksHtmlExportRequest,
     ) => Promise<ProjectExportResult | null>;
+    exportTasksTxt: (
+      payload: TasksTxtExportRequest,
+    ) => Promise<ProjectExportResult | null>;
     exportSwatchAco: (
       payload: SwatchExportRequest,
     ) => Promise<ProjectExportResult | null>;
+    importTasks: () => Promise<TasksImportResult | null>;
     getRecentFiles: () => Promise<string[]>;
   };
   window: {

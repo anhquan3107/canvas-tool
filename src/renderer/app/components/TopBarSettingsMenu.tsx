@@ -19,12 +19,15 @@ interface TopBarSettingsMenuProps {
   canRedo: boolean;
   onToggleSettings: () => void;
   onOpenProject: () => void;
+  onImportTasks: () => void;
   onSaveProject: () => void;
   onSaveProjectAs: () => void;
   onExportCanvasImage: () => void;
   onExportGroupImages: () => void;
   onExportSelectedTaskHtml: () => void;
   onExportAllTasksHtml: () => void;
+  onExportSelectedTaskTxt: () => void;
+  onExportAllTasksTxt: () => void;
   onChangeCanvasSize: () => void;
   onToggleCanvasLock: () => void;
   onToggleSwatches: () => void;
@@ -66,12 +69,15 @@ export const TopBarSettingsMenu = ({
   canRedo,
   onToggleSettings,
   onOpenProject,
+  onImportTasks,
   onSaveProject,
   onSaveProjectAs,
   onExportCanvasImage,
   onExportGroupImages,
   onExportSelectedTaskHtml,
   onExportAllTasksHtml,
+  onExportSelectedTaskTxt,
+  onExportAllTasksTxt,
   onChangeCanvasSize,
   onToggleCanvasLock,
   onToggleSwatches,
@@ -251,12 +257,42 @@ export const TopBarSettingsMenu = ({
                               )}
                             />
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => runMenuAction(onExportSelectedTaskTxt)}
+                            disabled={!canExportSelectedTask}
+                          >
+                            <MenuItemContent
+                              {...getMenuActionContentProps(
+                                shortcutBindings,
+                                "exportSelectedTaskTxt",
+                              )}
+                            />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => runMenuAction(onExportAllTasksTxt)}
+                            disabled={!canExportAnyTask}
+                          >
+                            <MenuItemContent
+                              {...getMenuActionContentProps(
+                                shortcutBindings,
+                                "exportAllTasksTxt",
+                              )}
+                            />
+                          </button>
                         </div>
                       ) : null}
                     </div>
                   </div>
                 ) : null}
               </div>
+
+              <button type="button" onClick={() => runMenuAction(onImportTasks)}>
+                <MenuItemContent
+                  {...getMenuActionContentProps(shortcutBindings, "importTasks")}
+                />
+              </button>
 
               <div className="topbar-settings-divider" />
 

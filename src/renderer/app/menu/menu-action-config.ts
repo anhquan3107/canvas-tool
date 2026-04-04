@@ -6,12 +6,15 @@ import {
 
 export type MenuActionKey =
   | "open"
+  | "importTasks"
   | "saveCanvas"
   | "saveCanvasAs"
   | "exportCanvasImage"
   | "exportGroupImages"
   | "exportSelectedTaskHtml"
   | "exportAllTasksHtml"
+  | "exportSelectedTaskTxt"
+  | "exportAllTasksTxt"
   | "resetView"
   | "fitCanvasToContent"
   | "changeCanvasSize"
@@ -47,6 +50,7 @@ interface MenuActionMeta {
 
 export const MENU_ACTION_META: Record<MenuActionKey, MenuActionMeta> = {
   open: { icon: "open", label: "Open", shortcutActionId: "file.open" },
+  importTasks: { icon: "task", label: "Import Tasks from HTML / TXT" },
   saveCanvas: { icon: "save", label: "Save Canvas", shortcutActionId: "file.save" },
   saveCanvasAs: {
     icon: "saveAs",
@@ -71,6 +75,14 @@ export const MENU_ACTION_META: Record<MenuActionKey, MenuActionMeta> = {
     icon: "task",
     label: "Export All Tasks to HTML",
     shortcutActionId: "export.allTasks",
+  },
+  exportSelectedTaskTxt: {
+    icon: "task",
+    label: "Export Selected Task to TXT",
+  },
+  exportAllTasksTxt: {
+    icon: "task",
+    label: "Export All Tasks to TXT",
   },
   resetView: {
     icon: "resetView",

@@ -12,5 +12,5 @@ export const setupIpcHandlers = (window: BrowserWindow) => {
   registerCaptureHandlers(window);
   registerProjectHandlers(window);
   registerWindowHandlers(window);
-  registerImportHandlers();
+  registerImportHandlers(window);
 };

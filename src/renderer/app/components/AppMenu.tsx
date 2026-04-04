@@ -19,6 +19,7 @@ interface AppMenuProps extends MenuState {
   onUndo: () => void;
   onRedo: () => void;
   onOpen: () => void;
+  onImportTasks: () => void;
   onSave: () => void;
   onSaveAs: () => void;
   canvasLocked: boolean;
@@ -39,6 +40,8 @@ interface AppMenuProps extends MenuState {
   onExportGroupImages: () => void;
   onExportSelectedTaskHtml: () => void;
   onExportAllTasksHtml: () => void;
+  onExportSelectedTaskTxt: () => void;
+  onExportAllTasksTxt: () => void;
   onCopySelected: () => void;
   onCutSelected: () => void;
   onPaste: () => void;
@@ -67,6 +70,7 @@ export const AppMenu = ({
   onUndo,
   onRedo,
   onOpen,
+  onImportTasks,
   onSave,
   onSaveAs,
   canvasLocked,
@@ -87,6 +91,8 @@ export const AppMenu = ({
   onExportGroupImages,
   onExportSelectedTaskHtml,
   onExportAllTasksHtml,
+  onExportSelectedTaskTxt,
+  onExportAllTasksTxt,
   onCopySelected,
   onCutSelected,
   onPaste,
@@ -283,12 +289,41 @@ export const AppMenu = ({
                           )}
                         />
                       </button>
+                      <button
+                        type="button"
+                        onClick={onExportSelectedTaskTxt}
+                        disabled={!canExportSelectedTask}
+                      >
+                        <MenuItemContent
+                          {...getMenuActionContentProps(
+                            shortcutBindings,
+                            "exportSelectedTaskTxt",
+                          )}
+                        />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={onExportAllTasksTxt}
+                        disabled={!canExportAnyTask}
+                      >
+                        <MenuItemContent
+                          {...getMenuActionContentProps(
+                            shortcutBindings,
+                            "exportAllTasksTxt",
+                          )}
+                        />
+                      </button>
                     </div>
                   ) : null}
                 </div>
               </div>
             ) : null}
           </div>
+          <button type="button" onClick={onImportTasks}>
+            <MenuItemContent
+              {...getMenuActionContentProps(shortcutBindings, "importTasks")}
+            />
+          </button>
           <div className="app-menu-divider" />
           <button type="button" onClick={onResetView}>
             <MenuItemContent

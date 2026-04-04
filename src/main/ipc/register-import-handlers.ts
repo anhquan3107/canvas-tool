@@ -1,13 +1,15 @@
-import { clipboard, ipcMain, nativeImage } from "electron";
-import { MAX_FETCH_SIZE_BYTES, isHttpUrl, toDataUrl } from "./ipc-utils";
+import { clipboard, dialog, ipcMain, nativeImage, type BrowserWindow } from "electron";
+import fs from "node:fs/promises";
+import { MAX_FETCH_SIZE_BYTES, getSenderWindow, isHttpUrl, taskImportDialogFilter, toDataUrl } from "./ipc-utils";
 import { extractImageSwatchesFromSource } from "../services/image-swatch-extractor";
 import {
   ensureClipboardWriteImagePayload,
   ensureImageSwatchExtractPayload,
   ensureRemoteImageFetchPayload,
 } from "./ipc-validators";
+import { parseImportedTasks } from "./task-transfer-utils";
 
-export const registerImportHandlers = () => {
+export const registerImportHandlers = (window: BrowserWindow) => {
   ipcMain.handle("clipboard:write-image-data-url", (_, rawPayload) => {
     const payload = ensureClipboardWriteImagePayload(rawPayload);
     if (!payload) {
@@ -81,5 +83,22 @@ export const registerImportHandlers = () => {
     } catch {
       return [];
     }
+  });
+
+  ipcMain.handle("project:import-tasks", async (event) => {
+    const targetWindow = getSenderWindow(event.sender) ?? window;
+    const dialogResult = await dialog.showOpenDialog(targetWindow, {
+      title: "Import Tasks",
+      properties: ["openFile"],
+      filters: taskImportDialogFilter,
+    });
+
+    if (dialogResult.canceled || dialogResult.filePaths.length === 0) {
+      return null;
+    }
+
+    const filePath = dialogResult.filePaths[0];
+    const contents = await fs.readFile(filePath, "utf8");
+    return parseImportedTasks(filePath, contents);
   });
 };

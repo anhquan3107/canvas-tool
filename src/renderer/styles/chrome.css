@@ -48,6 +48,11 @@
   gap: 6px;
 }
 
+.app-drag-region {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .topbar-brand,
 .toolbar-button,
 .chrome-chip,

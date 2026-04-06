@@ -1,6 +1,7 @@
 import { clamp } from "@renderer/pixi/utils/geometry";
 
-const PEN_PRESSURE_FLOOR = 0.02;
+const PEN_STROKE_PRESSURE_FLOOR = 0.005;
+const PEN_DISPLAY_PRESSURE_FLOOR = 0.02;
 
 export interface NormalizedPointerData {
   clientX: number;
@@ -20,6 +21,7 @@ export const isPenPointerType = (pointerType?: string | null) =>
 export const resolvePointerPressure = (
   pointerType: string | undefined,
   pressure: number | undefined,
+  minimumPressure = PEN_STROKE_PRESSURE_FLOOR,
 ) => {
   if (!isPenPointerType(pointerType)) {
     return 1;
@@ -28,9 +30,9 @@ export const resolvePointerPressure = (
   const rawPressure =
     typeof pressure === "number" && Number.isFinite(pressure) && pressure > 0
       ? pressure
-      : PEN_PRESSURE_FLOOR;
+      : minimumPressure;
 
-  return clamp(rawPressure, PEN_PRESSURE_FLOOR, 1);
+  return clamp(rawPressure, minimumPressure, 1);
 };
 
 export const getDisplayPressureScale = (
@@ -42,7 +44,7 @@ export const getDisplayPressureScale = (
     return 1;
   }
 
-  return resolvePointerPressure(pointerType, pressure);
+  return resolvePointerPressure(pointerType, pressure, PEN_DISPLAY_PRESSURE_FLOOR);
 };
 
 export const getNormalizedPointerData = (

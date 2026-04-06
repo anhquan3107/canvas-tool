@@ -10,28 +10,8 @@ const getPointPressure = (stroke: AnnotationStroke, pointIndex: number) =>
 const getPointSize = (stroke: AnnotationStroke, pointIndex: number) =>
   stroke.size * getPointPressure(stroke, pointIndex);
 
-const getRenderedPointSize = (stroke: AnnotationStroke, pointIndex: number) => {
-  const pointCount = getPointCount(stroke);
-  if (pointCount <= 1) {
-    return getPointSize(stroke, pointIndex);
-  }
-
-  if (pointIndex === 0) {
-    return (getPointSize(stroke, 0) + getPointSize(stroke, 1)) * 0.5;
-  }
-
-  if (pointIndex === pointCount - 1) {
-    return (
-      getPointSize(stroke, pointCount - 2) + getPointSize(stroke, pointCount - 1)
-    ) * 0.5;
-  }
-
-  return (
-    getPointSize(stroke, pointIndex - 1) +
-    getPointSize(stroke, pointIndex) +
-    getPointSize(stroke, pointIndex + 1)
-  ) / 3;
-};
+const getRenderedPointSize = (stroke: AnnotationStroke, pointIndex: number) =>
+  getPointSize(stroke, pointIndex);
 
 export const drawAnnotationStroke = (
   graphics: Graphics,
@@ -48,31 +28,42 @@ export const drawAnnotationStroke = (
     return;
   }
 
-  for (let pointIndex = 1; pointIndex < pointCount - 1; pointIndex += 1) {
-    const offset = pointIndex * 2;
-    graphics.circle(
-      stroke.points[offset],
-      stroke.points[offset + 1],
-      getRenderedPointSize(stroke, pointIndex) * 0.5,
-    );
-    graphics.fill({ color: stroke.color, alpha: 1 });
-  }
-
   for (let pointIndex = 0; pointIndex < pointCount - 1; pointIndex += 1) {
     const startOffset = pointIndex * 2;
     const endOffset = startOffset + 2;
-    graphics.moveTo(stroke.points[startOffset], stroke.points[startOffset + 1]);
-    graphics.lineTo(stroke.points[endOffset], stroke.points[endOffset + 1]);
-    graphics.stroke({
-      color: stroke.color,
-      width:
-        (getRenderedPointSize(stroke, pointIndex) +
-          getRenderedPointSize(stroke, pointIndex + 1)) *
-        0.5,
-      alpha: 1,
-      cap: "round",
-      join: "round",
-    });
+    const startX = stroke.points[startOffset];
+    const startY = stroke.points[startOffset + 1];
+    const endX = stroke.points[endOffset];
+    const endY = stroke.points[endOffset + 1];
+    const startSize = getRenderedPointSize(stroke, pointIndex);
+    const endSize = getRenderedPointSize(stroke, pointIndex + 1);
+    const segmentDistance = Math.hypot(endX - startX, endY - startY);
+    const segmentSteps = Math.max(1, Math.ceil(segmentDistance / 2));
+
+    let previousX = startX;
+    let previousY = startY;
+    let previousSize = startSize;
+
+    for (let step = 1; step <= segmentSteps; step += 1) {
+      const progress = step / segmentSteps;
+      const nextX = startX + (endX - startX) * progress;
+      const nextY = startY + (endY - startY) * progress;
+      const nextSize = startSize + (endSize - startSize) * progress;
+
+      graphics.moveTo(previousX, previousY);
+      graphics.lineTo(nextX, nextY);
+      graphics.stroke({
+        color: stroke.color,
+        width: Math.max(0.01, (previousSize + nextSize) * 0.5),
+        alpha: 1,
+        cap: "round",
+        join: "round",
+      });
+
+      previousX = nextX;
+      previousY = nextY;
+      previousSize = nextSize;
+    }
   }
 };
 

@@ -81,8 +81,7 @@ export const ColorWheel = ({
   const wheelRef = useRef<HTMLButtonElement | null>(null);
   const wheelCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const ringRef = useRef<HTMLSpanElement | null>(null);
-  const activePointerIdRef = useRef<number | null>(null);
-  const activePointerTypeRef = useRef<string | null>(null);
+  const wheelDraggingRef = useRef(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [thumbPosition, setThumbPosition] = useState<{ x: number; y: number } | null>(
     null,
@@ -220,8 +219,7 @@ export const ColorWheel = ({
     }
 
     event.preventDefault();
-    activePointerIdRef.current = event.pointerId;
-    activePointerTypeRef.current = event.pointerType;
+    wheelDraggingRef.current = true;
     try {
       event.currentTarget.setPointerCapture(event.pointerId);
     } catch {
@@ -231,14 +229,7 @@ export const ColorWheel = ({
   };
 
   const handleWheelPointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    if (
-      doodleMode !== "brush" ||
-      activePointerIdRef.current === null ||
-      !(
-        event.pointerId === activePointerIdRef.current ||
-        (activePointerTypeRef.current === "pen" && event.pointerType === "pen")
-      )
-    ) {
+    if (doodleMode !== "brush" || !wheelDraggingRef.current) {
       return;
     }
 
@@ -246,18 +237,11 @@ export const ColorWheel = ({
   };
 
   const handleWheelPointerUp = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    if (
-      activePointerIdRef.current === null ||
-      !(
-        event.pointerId === activePointerIdRef.current ||
-        (activePointerTypeRef.current === "pen" && event.pointerType === "pen")
-      )
-    ) {
+    if (!wheelDraggingRef.current) {
       return;
     }
 
-    activePointerIdRef.current = null;
-    activePointerTypeRef.current = null;
+    wheelDraggingRef.current = false;
     try {
       if (event.currentTarget.hasPointerCapture(event.pointerId)) {
         event.currentTarget.releasePointerCapture(event.pointerId);
@@ -269,56 +253,52 @@ export const ColorWheel = ({
 
   useEffect(() => {
     if (doodleMode !== "brush") {
-      activePointerIdRef.current = null;
-      activePointerTypeRef.current = null;
+      wheelDraggingRef.current = false;
     }
   }, [doodleMode]);
 
   useEffect(() => {
     const handlePointerMove = (event: PointerEvent) => {
-      if (
-        doodleMode !== "brush" ||
-        activePointerIdRef.current === null ||
-        !(
-          event.pointerId === activePointerIdRef.current ||
-          (activePointerTypeRef.current === "pen" && event.pointerType === "pen")
-        )
-      ) {
+      if (doodleMode !== "brush" || !wheelDraggingRef.current) {
         return;
       }
 
       updateColorFromPointer(event.clientX, event.clientY);
     };
 
-    const handlePointerEnd = (event: PointerEvent) => {
-      if (
-        activePointerIdRef.current === null ||
-        !(
-          event.pointerId === activePointerIdRef.current ||
-          (activePointerTypeRef.current === "pen" && event.pointerType === "pen")
-        )
-      ) {
+    const handleMouseMove = (event: MouseEvent) => {
+      if (doodleMode !== "brush" || !wheelDraggingRef.current) {
         return;
       }
 
-      activePointerIdRef.current = null;
-      activePointerTypeRef.current = null;
+      updateColorFromPointer(event.clientX, event.clientY);
+    };
+
+    const handlePointerEnd = () => {
+      wheelDraggingRef.current = false;
+    };
+
+    const handleMouseUp = () => {
+      wheelDraggingRef.current = false;
     };
 
     const handleBlur = () => {
-      activePointerIdRef.current = null;
-      activePointerTypeRef.current = null;
+      wheelDraggingRef.current = false;
     };
 
     window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("pointerup", handlePointerEnd);
     window.addEventListener("pointercancel", handlePointerEnd);
+    window.addEventListener("mouseup", handleMouseUp);
     window.addEventListener("blur", handleBlur);
 
     return () => {
       window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("pointerup", handlePointerEnd);
       window.removeEventListener("pointercancel", handlePointerEnd);
+      window.removeEventListener("mouseup", handleMouseUp);
       window.removeEventListener("blur", handleBlur);
     };
   }, [doodleMode]);

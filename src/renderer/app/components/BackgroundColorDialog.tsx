@@ -124,10 +124,8 @@ export const BackgroundColorDialog = ({
   const squareCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const hueTrackRef = useRef<HTMLDivElement | null>(null);
   const previousOpenRef = useRef(false);
-  const activeSquarePointerIdRef = useRef<number | null>(null);
-  const activeHuePointerIdRef = useRef<number | null>(null);
-  const activeSquarePointerTypeRef = useRef<string | null>(null);
-  const activeHuePointerTypeRef = useRef<string | null>(null);
+  const squareDraggingRef = useRef(false);
+  const hueDraggingRef = useRef(false);
   const targetRef = useRef<ColorTarget>("canvas");
   const hueRef = useRef(0);
   const saturationRef = useRef(0);
@@ -292,8 +290,7 @@ export const BackgroundColorDialog = ({
 
   const handleSquarePointerDown = (event: ReactPointerEvent<HTMLCanvasElement>) => {
     event.preventDefault();
-    activeSquarePointerIdRef.current = event.pointerId;
-    activeSquarePointerTypeRef.current = event.pointerType;
+    squareDraggingRef.current = true;
     try {
       event.currentTarget.setPointerCapture(event.pointerId);
     } catch {
@@ -303,13 +300,7 @@ export const BackgroundColorDialog = ({
   };
 
   const handleSquarePointerMove = (event: ReactPointerEvent<HTMLCanvasElement>) => {
-    if (
-      activeSquarePointerIdRef.current === null ||
-      !(
-        event.pointerId === activeSquarePointerIdRef.current ||
-        (activeSquarePointerTypeRef.current === "pen" && event.pointerType === "pen")
-      )
-    ) {
+    if (!squareDraggingRef.current) {
       return;
     }
 
@@ -317,18 +308,11 @@ export const BackgroundColorDialog = ({
   };
 
   const handleSquarePointerUp = (event: ReactPointerEvent<HTMLCanvasElement>) => {
-    if (
-      activeSquarePointerIdRef.current === null ||
-      !(
-        event.pointerId === activeSquarePointerIdRef.current ||
-        (activeSquarePointerTypeRef.current === "pen" && event.pointerType === "pen")
-      )
-    ) {
+    if (!squareDraggingRef.current) {
       return;
     }
 
-    activeSquarePointerIdRef.current = null;
-    activeSquarePointerTypeRef.current = null;
+    squareDraggingRef.current = false;
     try {
       if (event.currentTarget.hasPointerCapture(event.pointerId)) {
         event.currentTarget.releasePointerCapture(event.pointerId);
@@ -340,8 +324,7 @@ export const BackgroundColorDialog = ({
 
   const handleHuePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     event.preventDefault();
-    activeHuePointerIdRef.current = event.pointerId;
-    activeHuePointerTypeRef.current = event.pointerType;
+    hueDraggingRef.current = true;
     try {
       event.currentTarget.setPointerCapture(event.pointerId);
     } catch {
@@ -351,13 +334,7 @@ export const BackgroundColorDialog = ({
   };
 
   const handleHuePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (
-      activeHuePointerIdRef.current === null ||
-      !(
-        event.pointerId === activeHuePointerIdRef.current ||
-        (activeHuePointerTypeRef.current === "pen" && event.pointerType === "pen")
-      )
-    ) {
+    if (!hueDraggingRef.current) {
       return;
     }
 
@@ -365,18 +342,11 @@ export const BackgroundColorDialog = ({
   };
 
   const handleHuePointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (
-      activeHuePointerIdRef.current === null ||
-      !(
-        event.pointerId === activeHuePointerIdRef.current ||
-        (activeHuePointerTypeRef.current === "pen" && event.pointerType === "pen")
-      )
-    ) {
+    if (!hueDraggingRef.current) {
       return;
     }
 
-    activeHuePointerIdRef.current = null;
-    activeHuePointerTypeRef.current = null;
+    hueDraggingRef.current = false;
     try {
       if (event.currentTarget.hasPointerCapture(event.pointerId)) {
         event.currentTarget.releasePointerCapture(event.pointerId);
@@ -388,71 +358,59 @@ export const BackgroundColorDialog = ({
 
   useEffect(() => {
     if (!open) {
-      activeSquarePointerIdRef.current = null;
-      activeHuePointerIdRef.current = null;
-      activeSquarePointerTypeRef.current = null;
-      activeHuePointerTypeRef.current = null;
+      squareDraggingRef.current = false;
+      hueDraggingRef.current = false;
       return;
     }
 
     const handlePointerMove = (event: PointerEvent) => {
-      if (
-        activeSquarePointerIdRef.current !== null &&
-        (event.pointerId === activeSquarePointerIdRef.current ||
-          (activeSquarePointerTypeRef.current === "pen" &&
-            event.pointerType === "pen"))
-      ) {
+      if (squareDraggingRef.current) {
         squarePointer(event.clientX, event.clientY);
       }
 
-      if (
-        activeHuePointerIdRef.current !== null &&
-        (event.pointerId === activeHuePointerIdRef.current ||
-          (activeHuePointerTypeRef.current === "pen" &&
-            event.pointerType === "pen"))
-      ) {
+      if (hueDraggingRef.current) {
         huePointer(event.clientY);
       }
     };
 
-    const handlePointerEnd = (event: PointerEvent) => {
-      if (
-        activeSquarePointerIdRef.current !== null &&
-        (event.pointerId === activeSquarePointerIdRef.current ||
-          (activeSquarePointerTypeRef.current === "pen" &&
-            event.pointerType === "pen"))
-      ) {
-        activeSquarePointerIdRef.current = null;
-        activeSquarePointerTypeRef.current = null;
+    const handleMouseMove = (event: MouseEvent) => {
+      if (squareDraggingRef.current) {
+        squarePointer(event.clientX, event.clientY);
       }
 
-      if (
-        activeHuePointerIdRef.current !== null &&
-        (event.pointerId === activeHuePointerIdRef.current ||
-          (activeHuePointerTypeRef.current === "pen" &&
-            event.pointerType === "pen"))
-      ) {
-        activeHuePointerIdRef.current = null;
-        activeHuePointerTypeRef.current = null;
+      if (hueDraggingRef.current) {
+        huePointer(event.clientY);
       }
+    };
+
+    const handlePointerEnd = () => {
+      squareDraggingRef.current = false;
+      hueDraggingRef.current = false;
+    };
+
+    const handleMouseUp = () => {
+      squareDraggingRef.current = false;
+      hueDraggingRef.current = false;
     };
 
     const handleBlur = () => {
-      activeSquarePointerIdRef.current = null;
-      activeHuePointerIdRef.current = null;
-      activeSquarePointerTypeRef.current = null;
-      activeHuePointerTypeRef.current = null;
+      squareDraggingRef.current = false;
+      hueDraggingRef.current = false;
     };
 
     window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("pointerup", handlePointerEnd);
     window.addEventListener("pointercancel", handlePointerEnd);
+    window.addEventListener("mouseup", handleMouseUp);
     window.addEventListener("blur", handleBlur);
 
     return () => {
       window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("pointerup", handlePointerEnd);
       window.removeEventListener("pointercancel", handlePointerEnd);
+      window.removeEventListener("mouseup", handleMouseUp);
       window.removeEventListener("blur", handleBlur);
     };
   }, [open]);

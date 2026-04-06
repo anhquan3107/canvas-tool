@@ -1,6 +1,6 @@
 import { clamp } from "@renderer/pixi/utils/geometry";
 
-const PEN_PRESSURE_FLOOR = 0.2;
+const PEN_PRESSURE_FLOOR = 0.02;
 
 export interface NormalizedPointerData {
   clientX: number;
@@ -28,7 +28,7 @@ export const resolvePointerPressure = (
   const rawPressure =
     typeof pressure === "number" && Number.isFinite(pressure) && pressure > 0
       ? pressure
-      : 0.5;
+      : PEN_PRESSURE_FLOOR;
 
   return clamp(rawPressure, PEN_PRESSURE_FLOOR, 1);
 };

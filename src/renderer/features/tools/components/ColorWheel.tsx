@@ -82,6 +82,7 @@ export const ColorWheel = ({
   const wheelCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const ringRef = useRef<HTMLSpanElement | null>(null);
   const activePointerIdRef = useRef<number | null>(null);
+  const activePointerTypeRef = useRef<string | null>(null);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [thumbPosition, setThumbPosition] = useState<{ x: number; y: number } | null>(
     null,
@@ -220,6 +221,7 @@ export const ColorWheel = ({
 
     event.preventDefault();
     activePointerIdRef.current = event.pointerId;
+    activePointerTypeRef.current = event.pointerType;
     try {
       event.currentTarget.setPointerCapture(event.pointerId);
     } catch {
@@ -231,7 +233,11 @@ export const ColorWheel = ({
   const handleWheelPointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
     if (
       doodleMode !== "brush" ||
-      event.pointerId !== activePointerIdRef.current
+      activePointerIdRef.current === null ||
+      !(
+        event.pointerId === activePointerIdRef.current ||
+        (activePointerTypeRef.current === "pen" && event.pointerType === "pen")
+      )
     ) {
       return;
     }
@@ -240,11 +246,18 @@ export const ColorWheel = ({
   };
 
   const handleWheelPointerUp = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    if (event.pointerId !== activePointerIdRef.current) {
+    if (
+      activePointerIdRef.current === null ||
+      !(
+        event.pointerId === activePointerIdRef.current ||
+        (activePointerTypeRef.current === "pen" && event.pointerType === "pen")
+      )
+    ) {
       return;
     }
 
     activePointerIdRef.current = null;
+    activePointerTypeRef.current = null;
     try {
       if (event.currentTarget.hasPointerCapture(event.pointerId)) {
         event.currentTarget.releasePointerCapture(event.pointerId);
@@ -257,6 +270,7 @@ export const ColorWheel = ({
   useEffect(() => {
     if (doodleMode !== "brush") {
       activePointerIdRef.current = null;
+      activePointerTypeRef.current = null;
     }
   }, [doodleMode]);
 
@@ -265,7 +279,10 @@ export const ColorWheel = ({
       if (
         doodleMode !== "brush" ||
         activePointerIdRef.current === null ||
-        event.pointerId !== activePointerIdRef.current
+        !(
+          event.pointerId === activePointerIdRef.current ||
+          (activePointerTypeRef.current === "pen" && event.pointerType === "pen")
+        )
       ) {
         return;
       }
@@ -274,15 +291,23 @@ export const ColorWheel = ({
     };
 
     const handlePointerEnd = (event: PointerEvent) => {
-      if (event.pointerId !== activePointerIdRef.current) {
+      if (
+        activePointerIdRef.current === null ||
+        !(
+          event.pointerId === activePointerIdRef.current ||
+          (activePointerTypeRef.current === "pen" && event.pointerType === "pen")
+        )
+      ) {
         return;
       }
 
       activePointerIdRef.current = null;
+      activePointerTypeRef.current = null;
     };
 
     const handleBlur = () => {
       activePointerIdRef.current = null;
+      activePointerTypeRef.current = null;
     };
 
     window.addEventListener("pointermove", handlePointerMove);

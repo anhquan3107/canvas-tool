@@ -126,6 +126,8 @@ export const BackgroundColorDialog = ({
   const previousOpenRef = useRef(false);
   const activeSquarePointerIdRef = useRef<number | null>(null);
   const activeHuePointerIdRef = useRef<number | null>(null);
+  const activeSquarePointerTypeRef = useRef<string | null>(null);
+  const activeHuePointerTypeRef = useRef<string | null>(null);
   const targetRef = useRef<ColorTarget>("canvas");
   const hueRef = useRef(0);
   const saturationRef = useRef(0);
@@ -291,6 +293,7 @@ export const BackgroundColorDialog = ({
   const handleSquarePointerDown = (event: ReactPointerEvent<HTMLCanvasElement>) => {
     event.preventDefault();
     activeSquarePointerIdRef.current = event.pointerId;
+    activeSquarePointerTypeRef.current = event.pointerType;
     try {
       event.currentTarget.setPointerCapture(event.pointerId);
     } catch {
@@ -300,7 +303,13 @@ export const BackgroundColorDialog = ({
   };
 
   const handleSquarePointerMove = (event: ReactPointerEvent<HTMLCanvasElement>) => {
-    if (event.pointerId !== activeSquarePointerIdRef.current) {
+    if (
+      activeSquarePointerIdRef.current === null ||
+      !(
+        event.pointerId === activeSquarePointerIdRef.current ||
+        (activeSquarePointerTypeRef.current === "pen" && event.pointerType === "pen")
+      )
+    ) {
       return;
     }
 
@@ -308,11 +317,18 @@ export const BackgroundColorDialog = ({
   };
 
   const handleSquarePointerUp = (event: ReactPointerEvent<HTMLCanvasElement>) => {
-    if (event.pointerId !== activeSquarePointerIdRef.current) {
+    if (
+      activeSquarePointerIdRef.current === null ||
+      !(
+        event.pointerId === activeSquarePointerIdRef.current ||
+        (activeSquarePointerTypeRef.current === "pen" && event.pointerType === "pen")
+      )
+    ) {
       return;
     }
 
     activeSquarePointerIdRef.current = null;
+    activeSquarePointerTypeRef.current = null;
     try {
       if (event.currentTarget.hasPointerCapture(event.pointerId)) {
         event.currentTarget.releasePointerCapture(event.pointerId);
@@ -325,6 +341,7 @@ export const BackgroundColorDialog = ({
   const handleHuePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     event.preventDefault();
     activeHuePointerIdRef.current = event.pointerId;
+    activeHuePointerTypeRef.current = event.pointerType;
     try {
       event.currentTarget.setPointerCapture(event.pointerId);
     } catch {
@@ -334,7 +351,13 @@ export const BackgroundColorDialog = ({
   };
 
   const handleHuePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.pointerId !== activeHuePointerIdRef.current) {
+    if (
+      activeHuePointerIdRef.current === null ||
+      !(
+        event.pointerId === activeHuePointerIdRef.current ||
+        (activeHuePointerTypeRef.current === "pen" && event.pointerType === "pen")
+      )
+    ) {
       return;
     }
 
@@ -342,11 +365,18 @@ export const BackgroundColorDialog = ({
   };
 
   const handleHuePointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.pointerId !== activeHuePointerIdRef.current) {
+    if (
+      activeHuePointerIdRef.current === null ||
+      !(
+        event.pointerId === activeHuePointerIdRef.current ||
+        (activeHuePointerTypeRef.current === "pen" && event.pointerType === "pen")
+      )
+    ) {
       return;
     }
 
     activeHuePointerIdRef.current = null;
+    activeHuePointerTypeRef.current = null;
     try {
       if (event.currentTarget.hasPointerCapture(event.pointerId)) {
         event.currentTarget.releasePointerCapture(event.pointerId);
@@ -360,32 +390,58 @@ export const BackgroundColorDialog = ({
     if (!open) {
       activeSquarePointerIdRef.current = null;
       activeHuePointerIdRef.current = null;
+      activeSquarePointerTypeRef.current = null;
+      activeHuePointerTypeRef.current = null;
       return;
     }
 
     const handlePointerMove = (event: PointerEvent) => {
-      if (event.pointerId === activeSquarePointerIdRef.current) {
+      if (
+        activeSquarePointerIdRef.current !== null &&
+        (event.pointerId === activeSquarePointerIdRef.current ||
+          (activeSquarePointerTypeRef.current === "pen" &&
+            event.pointerType === "pen"))
+      ) {
         squarePointer(event.clientX, event.clientY);
       }
 
-      if (event.pointerId === activeHuePointerIdRef.current) {
+      if (
+        activeHuePointerIdRef.current !== null &&
+        (event.pointerId === activeHuePointerIdRef.current ||
+          (activeHuePointerTypeRef.current === "pen" &&
+            event.pointerType === "pen"))
+      ) {
         huePointer(event.clientY);
       }
     };
 
     const handlePointerEnd = (event: PointerEvent) => {
-      if (event.pointerId === activeSquarePointerIdRef.current) {
+      if (
+        activeSquarePointerIdRef.current !== null &&
+        (event.pointerId === activeSquarePointerIdRef.current ||
+          (activeSquarePointerTypeRef.current === "pen" &&
+            event.pointerType === "pen"))
+      ) {
         activeSquarePointerIdRef.current = null;
+        activeSquarePointerTypeRef.current = null;
       }
 
-      if (event.pointerId === activeHuePointerIdRef.current) {
+      if (
+        activeHuePointerIdRef.current !== null &&
+        (event.pointerId === activeHuePointerIdRef.current ||
+          (activeHuePointerTypeRef.current === "pen" &&
+            event.pointerType === "pen"))
+      ) {
         activeHuePointerIdRef.current = null;
+        activeHuePointerTypeRef.current = null;
       }
     };
 
     const handleBlur = () => {
       activeSquarePointerIdRef.current = null;
       activeHuePointerIdRef.current = null;
+      activeSquarePointerTypeRef.current = null;
+      activeHuePointerTypeRef.current = null;
     };
 
     window.addEventListener("pointermove", handlePointerMove);

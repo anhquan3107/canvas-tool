@@ -2,7 +2,10 @@ import { useLayoutEffect, useRef, useState } from "react";
 import type { ShortcutBindings } from "@shared/shortcuts";
 import type { MenuState } from "@renderer/app/types";
 import { MenuItemContent } from "@renderer/app/components/MenuItemContent";
-import { getMenuActionContentProps } from "@renderer/app/menu/menu-action-config";
+import { AppMenuCanvasSection } from "@renderer/app/components/AppMenuCanvasSection";
+import { AppMenuEditSection } from "@renderer/app/components/AppMenuEditSection";
+import { AppMenuFileSection } from "@renderer/app/components/AppMenuFileSection";
+import { AppMenuTaskSection } from "@renderer/app/components/AppMenuTaskSection";
 
 interface AppMenuProps extends MenuState {
   shortcutBindings: ShortcutBindings;
@@ -104,10 +107,6 @@ export const AppMenu = ({
   onExit,
 }: AppMenuProps) => {
   const menuRef = useRef<HTMLDivElement | null>(null);
-  const [exportOpen, setExportOpen] = useState(false);
-  const [taskExportOpen, setTaskExportOpen] = useState(false);
-  const [canvasArrangeOpen, setCanvasArrangeOpen] = useState(false);
-  const [filterOpen, setFilterOpen] = useState(false);
   const [placement, setPlacement] = useState<{
     left: number;
     top: number;
@@ -166,295 +165,95 @@ export const AppMenu = ({
       onClick={(event) => event.stopPropagation()}
     >
       {selectedCount > 0 ? (
-        <>
-          <button type="button" onClick={onCopySelected}>
-            <MenuItemContent {...getMenuActionContentProps(shortcutBindings, "copy")} />
-          </button>
-          <button type="button" onClick={onCutSelected}>
-            <MenuItemContent {...getMenuActionContentProps(shortcutBindings, "cut")} />
-          </button>
-          <button type="button" onClick={onPaste} disabled={!canPaste}>
-            <MenuItemContent {...getMenuActionContentProps(shortcutBindings, "paste")} />
-          </button>
-          <button type="button" onClick={onArrangeSelectedAuto}>
-            <MenuItemContent
-              {...getMenuActionContentProps(shortcutBindings, "autoArrange")}
-            />
-          </button>
-          <div className="app-menu-divider" />
-          <button
-            type="button"
-            onClick={onCropSelected}
-            disabled={!canCropSelected}
-          >
-            <MenuItemContent {...getMenuActionContentProps(shortcutBindings, "crop")} />
-          </button>
-          <button type="button" onClick={onFlipSelectedHorizontally}>
-            <MenuItemContent
-              {...getMenuActionContentProps(shortcutBindings, "flipHorizontal")}
-            />
-          </button>
-          <div className="app-menu-divider" />
-          <button type="button" onClick={onDeleteSelected}>
-            <MenuItemContent {...getMenuActionContentProps(shortcutBindings, "delete")} />
-          </button>
-          <div className="app-menu-divider" />
-          <button
-            type="button"
-            onClick={onExportSwatch}
-            disabled={!canExportSwatch}
-          >
-            <MenuItemContent
-              {...getMenuActionContentProps(shortcutBindings, "exportSwatches")}
-            />
-          </button>
-        </>
+        <AppMenuEditSection
+          shortcutBindings={shortcutBindings}
+          selectedCount={selectedCount}
+          canCropSelected={canCropSelected}
+          canExportSwatch={canExportSwatch}
+          canPaste={canPaste}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          onCopySelected={onCopySelected}
+          onCutSelected={onCutSelected}
+          onPaste={onPaste}
+          onArrangeSelectedAuto={onArrangeSelectedAuto}
+          onCropSelected={onCropSelected}
+          onFlipSelectedHorizontally={onFlipSelectedHorizontally}
+          onDeleteSelected={onDeleteSelected}
+          onExportSwatch={onExportSwatch}
+          onUndo={onUndo}
+          onRedo={onRedo}
+          mode="selection"
+        />
       ) : (
         <>
-          <button type="button" onClick={() => void onOpen()}>
-            <MenuItemContent {...getMenuActionContentProps(shortcutBindings, "open")} />
-          </button>
-          <button type="button" onClick={() => void onSave()}>
-            <MenuItemContent
-              {...getMenuActionContentProps(shortcutBindings, "saveCanvas")}
-            />
-          </button>
-          <button type="button" onClick={() => void onSaveAs()}>
-            <MenuItemContent
-              {...getMenuActionContentProps(shortcutBindings, "saveCanvasAs")}
-            />
-          </button>
-          <div
-            className="app-menu-submenu"
-            onPointerEnter={() => setExportOpen(true)}
-            onPointerLeave={() => {
-              setExportOpen(false);
-              setTaskExportOpen(false);
-            }}
-          >
-            <button
-              type="button"
-              className="app-menu-submenu-trigger"
-              onClick={() => setExportOpen((open) => !open)}
-            >
-              <MenuItemContent icon="export" label="Export" submenu />
-            </button>
-            {exportOpen ? (
-              <div className="app-menu app-menu-submenu-panel">
-                <button type="button" onClick={onExportCanvasImage}>
-                  <MenuItemContent
-                    {...getMenuActionContentProps(shortcutBindings, "exportCanvasImage")}
-                  />
-                </button>
-                <button type="button" onClick={onExportGroupImages}>
-                  <MenuItemContent
-                    {...getMenuActionContentProps(shortcutBindings, "exportGroupImages")}
-                  />
-                </button>
-                <div
-                  className="app-menu-submenu"
-                  onPointerEnter={() => setTaskExportOpen(true)}
-                  onPointerLeave={() => setTaskExportOpen(false)}
-                >
-                  <button
-                    type="button"
-                    className="app-menu-submenu-trigger"
-                    onClick={() => setTaskExportOpen((open) => !open)}
-                  >
-                    <MenuItemContent icon="task" label="Export Tasks" submenu />
-                  </button>
-                  {taskExportOpen ? (
-                    <div className="app-menu app-menu-submenu-panel">
-                      <button
-                        type="button"
-                        onClick={onExportSelectedTaskHtml}
-                        disabled={!canExportSelectedTask}
-                      >
-                        <MenuItemContent
-                          {...getMenuActionContentProps(
-                            shortcutBindings,
-                            "exportSelectedTaskHtml",
-                          )}
-                        />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={onExportAllTasksHtml}
-                        disabled={!canExportAnyTask}
-                      >
-                        <MenuItemContent
-                          {...getMenuActionContentProps(
-                            shortcutBindings,
-                            "exportAllTasksHtml",
-                          )}
-                        />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={onExportSelectedTaskTxt}
-                        disabled={!canExportSelectedTask}
-                      >
-                        <MenuItemContent
-                          {...getMenuActionContentProps(
-                            shortcutBindings,
-                            "exportSelectedTaskTxt",
-                          )}
-                        />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={onExportAllTasksTxt}
-                        disabled={!canExportAnyTask}
-                      >
-                        <MenuItemContent
-                          {...getMenuActionContentProps(
-                            shortcutBindings,
-                            "exportAllTasksTxt",
-                          )}
-                        />
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            ) : null}
-          </div>
-          <button type="button" onClick={onImportTasks}>
-            <MenuItemContent
-              {...getMenuActionContentProps(shortcutBindings, "importTasks")}
-            />
-          </button>
+          <AppMenuFileSection
+            shortcutBindings={shortcutBindings}
+            canExportSelectedTask={canExportSelectedTask}
+            canExportAnyTask={canExportAnyTask}
+            onOpen={onOpen}
+            onSave={onSave}
+            onSaveAs={onSaveAs}
+            onImportTasks={onImportTasks}
+            onExportCanvasImage={onExportCanvasImage}
+            onExportGroupImages={onExportGroupImages}
+            onExportSelectedTaskHtml={onExportSelectedTaskHtml}
+            onExportAllTasksHtml={onExportAllTasksHtml}
+            onExportSelectedTaskTxt={onExportSelectedTaskTxt}
+            onExportAllTasksTxt={onExportAllTasksTxt}
+            onExit={onExit}
+          />
           <div className="app-menu-divider" />
-          <button type="button" onClick={onResetView}>
-            <MenuItemContent
-              {...getMenuActionContentProps(shortcutBindings, "resetView")}
-            />
-          </button>
-          <button type="button" onClick={onFitCanvasToContent}>
-            <MenuItemContent
-              {...getMenuActionContentProps(shortcutBindings, "fitCanvasToContent")}
-            />
-          </button>
-          <button type="button" onClick={onChangeCanvasSize}>
-            <MenuItemContent
-              {...getMenuActionContentProps(shortcutBindings, "changeCanvasSize")}
-            />
-          </button>
-          <button type="button" onClick={onToggleSwatches}>
-            <MenuItemContent
-              {...getMenuActionContentProps(shortcutBindings, "toggleSwatches")}
-            />
-          </button>
-          <button type="button" onClick={onToggleCanvasLock}>
-            <MenuItemContent
-              icon="lock"
-              label={canvasLocked ? "Unlock Canvas" : "Lock Canvas"}
-              shortcut={
-                getMenuActionContentProps(shortcutBindings, "toggleCanvasLock")
-                  .shortcut
-              }
-            />
-          </button>
+          <AppMenuCanvasSection
+            shortcutBindings={shortcutBindings}
+            canvasLocked={canvasLocked}
+            canDeleteActiveGroup={canDeleteActiveGroup}
+            onResetView={onResetView}
+            onFitCanvasToContent={onFitCanvasToContent}
+            onChangeCanvasSize={onChangeCanvasSize}
+            onToggleSwatches={onToggleSwatches}
+            onToggleCanvasLock={onToggleCanvasLock}
+            onCreateGroup={onCreateGroup}
+            onDeleteCurrentGroup={onDeleteCurrentGroup}
+            onAutoArrange={onAutoArrange}
+            onShowBackgroundColor={onShowBackgroundColor}
+            onToggleBlackAndWhite={onToggleBlackAndWhite}
+            onToggleBlur={onToggleBlur}
+            onActivateDoodle={onActivateDoodle}
+          />
           <div className="app-menu-divider" />
-          <button type="button" onClick={onCreateGroup}>
-            <MenuItemContent
-              {...getMenuActionContentProps(shortcutBindings, "createGroup")}
-            />
-          </button>
-          <button
-            type="button"
-            onClick={onDeleteCurrentGroup}
-            disabled={!canDeleteActiveGroup}
-          >
-            <MenuItemContent
-              {...getMenuActionContentProps(shortcutBindings, "deleteCurrentGroup")}
-            />
-          </button>
-          <button type="button" onClick={onCreateTask}>
-            <MenuItemContent {...getMenuActionContentProps(shortcutBindings, "addTask")} />
-          </button>
+          <AppMenuTaskSection
+            shortcutBindings={shortcutBindings}
+            canExportSelectedTask={canExportSelectedTask}
+            canExportAnyTask={canExportAnyTask}
+            onCreateTask={onCreateTask}
+            onExportSelectedTaskHtml={onExportSelectedTaskHtml}
+            onExportAllTasksHtml={onExportAllTasksHtml}
+            onExportSelectedTaskTxt={onExportSelectedTaskTxt}
+            onExportAllTasksTxt={onExportAllTasksTxt}
+            mode="main"
+          />
           <div className="app-menu-divider" />
-          <div
-            className="app-menu-submenu"
-            onPointerEnter={() => setCanvasArrangeOpen(true)}
-            onPointerLeave={() => setCanvasArrangeOpen(false)}
-          >
-            <button
-              type="button"
-              className="app-menu-submenu-trigger"
-              onClick={() => setCanvasArrangeOpen((open) => !open)}
-            >
-              <MenuItemContent icon="arrange" label="Arrange" submenu />
-            </button>
-            {canvasArrangeOpen ? (
-              <div className="app-menu app-menu-submenu-panel">
-                <button type="button" onClick={onAutoArrange}>
-                  <MenuItemContent
-                    {...getMenuActionContentProps(shortcutBindings, "autoArrange")}
-                  />
-                </button>
-              </div>
-            ) : null}
-          </div>
-          <div className="app-menu-divider" />
-          <button type="button" onClick={onShowBackgroundColor}>
-            <MenuItemContent
-              {...getMenuActionContentProps(
-                shortcutBindings,
-                "changeBackgroundColor",
-              )}
-            />
-          </button>
-          <div
-            className="app-menu-submenu"
-            onPointerEnter={() => setFilterOpen(true)}
-            onPointerLeave={() => setFilterOpen(false)}
-          >
-            <button
-              type="button"
-              className="app-menu-submenu-trigger"
-              onClick={() => setFilterOpen((open) => !open)}
-            >
-              <MenuItemContent icon="filter" label="Filter" submenu />
-            </button>
-            {filterOpen ? (
-              <div className="app-menu app-menu-submenu-panel">
-                <button type="button" onClick={onToggleBlackAndWhite}>
-                  <MenuItemContent
-                    {...getMenuActionContentProps(
-                      shortcutBindings,
-                      "filterBlackAndWhite",
-                    )}
-                  />
-                </button>
-                <button type="button" onClick={onToggleBlur}>
-                  <MenuItemContent
-                    {...getMenuActionContentProps(shortcutBindings, "filterBlur")}
-                  />
-                </button>
-              </div>
-            ) : null}
-          </div>
-          <div className="app-menu-divider" />
-          <button type="button" onClick={onActivateDoodle}>
-            <MenuItemContent {...getMenuActionContentProps(shortcutBindings, "doodle")} />
-          </button>
-          <div className="app-menu-divider" />
-          <button type="button" onClick={onUndo} disabled={!canUndo}>
-            <MenuItemContent {...getMenuActionContentProps(shortcutBindings, "undo")} />
-          </button>
-          <button type="button" onClick={onRedo} disabled={!canRedo}>
-            <MenuItemContent {...getMenuActionContentProps(shortcutBindings, "redo")} />
-          </button>
-          {canPaste ? (
-            <button type="button" onClick={onPaste}>
-              <MenuItemContent {...getMenuActionContentProps(shortcutBindings, "paste")} />
-            </button>
-          ) : null}
-          <div className="app-menu-divider" />
-          <button type="button" onClick={onExit}>
-            <MenuItemContent {...getMenuActionContentProps(shortcutBindings, "exit")} />
-          </button>
+          <AppMenuEditSection
+            shortcutBindings={shortcutBindings}
+            selectedCount={selectedCount}
+            canCropSelected={canCropSelected}
+            canExportSwatch={canExportSwatch}
+            canPaste={canPaste}
+            canUndo={canUndo}
+            canRedo={canRedo}
+            onCopySelected={onCopySelected}
+            onCutSelected={onCutSelected}
+            onPaste={onPaste}
+            onArrangeSelectedAuto={onArrangeSelectedAuto}
+            onCropSelected={onCropSelected}
+            onFlipSelectedHorizontally={onFlipSelectedHorizontally}
+            onDeleteSelected={onDeleteSelected}
+            onExportSwatch={onExportSwatch}
+            onUndo={onUndo}
+            onRedo={onRedo}
+            mode="general"
+          />
         </>
       )}
       {selectedCount > 0 ? (

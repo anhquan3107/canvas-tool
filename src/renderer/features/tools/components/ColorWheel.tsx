@@ -81,6 +81,7 @@ export const ColorWheel = ({
   const wheelRef = useRef<HTMLButtonElement | null>(null);
   const wheelCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const ringRef = useRef<HTMLSpanElement | null>(null);
+  const activePointerIdRef = useRef<number | null>(null);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [thumbPosition, setThumbPosition] = useState<{ x: number; y: number } | null>(
     null,
@@ -218,23 +219,53 @@ export const ColorWheel = ({
     }
 
     event.preventDefault();
-    updateColorFromPointer(event.clientX, event.clientY);
-    event.currentTarget.setPointerCapture(event.pointerId);
-  };
-
-  const handleWheelPointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    if (doodleMode !== "brush" || !event.currentTarget.hasPointerCapture(event.pointerId)) {
-      return;
-    }
-
+    activePointerIdRef.current = event.pointerId;
     updateColorFromPointer(event.clientX, event.clientY);
   };
 
-  const handleWheelPointerUp = (event: ReactPointerEvent<HTMLButtonElement>) => {
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
+  useEffect(() => {
+    if (doodleMode !== "brush") {
+      activePointerIdRef.current = null;
     }
-  };
+  }, [doodleMode]);
+
+  useEffect(() => {
+    const handlePointerMove = (event: PointerEvent) => {
+      if (
+        doodleMode !== "brush" ||
+        activePointerIdRef.current === null ||
+        event.pointerId !== activePointerIdRef.current
+      ) {
+        return;
+      }
+
+      updateColorFromPointer(event.clientX, event.clientY);
+    };
+
+    const handlePointerEnd = (event: PointerEvent) => {
+      if (event.pointerId !== activePointerIdRef.current) {
+        return;
+      }
+
+      activePointerIdRef.current = null;
+    };
+
+    const handleBlur = () => {
+      activePointerIdRef.current = null;
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerEnd);
+    window.addEventListener("pointercancel", handlePointerEnd);
+    window.addEventListener("blur", handleBlur);
+
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerEnd);
+      window.removeEventListener("pointercancel", handlePointerEnd);
+      window.removeEventListener("blur", handleBlur);
+    };
+  }, [doodleMode]);
 
   const erasing = doodleMode === "erase-line" || doodleMode === "erase-pixel";
   const activeSize = erasing ? eraserSize : brushSize;
@@ -256,9 +287,6 @@ export const ColorWheel = ({
           className={doodleMode === "brush" ? "tool-wheel interactive" : "tool-wheel"}
           aria-label="Choose brush color"
           onPointerDown={handleWheelPointerDown}
-          onPointerMove={handleWheelPointerMove}
-          onPointerUp={handleWheelPointerUp}
-          onPointerCancel={handleWheelPointerUp}
         >
           <canvas ref={wheelCanvasRef} className="tool-wheel-canvas" />
           <span

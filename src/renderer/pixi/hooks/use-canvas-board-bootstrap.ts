@@ -7,6 +7,7 @@ import type {
 } from "@renderer/pixi/types";
 import { clamp } from "@renderer/pixi/utils/geometry";
 import { MARQUEE_DRAG_THRESHOLD } from "@renderer/pixi/constants";
+import { getNormalizedPointerData } from "@renderer/pixi/utils/pointer";
 
 interface UseCanvasBoardBootstrapOptions {
   hostRef: MutableRefObject<HTMLDivElement | null>;
@@ -20,6 +21,7 @@ interface UseCanvasBoardBootstrapOptions {
   annotationPreviewLayerRef: MutableRefObject<Graphics | null>;
   viewCommitTimerRef: MutableRefObject<number | null>;
   isPanningRef: MutableRefObject<boolean>;
+  activePanPointerIdRef: MutableRefObject<number | null>;
   panStartRef: MutableRefObject<{ x: number; y: number }>;
   panOriginRef: MutableRefObject<{ x: number; y: number }>;
   cancelWheelZoomAnimationRef: MutableRefObject<(() => void) | null>;
@@ -31,8 +33,22 @@ interface UseCanvasBoardBootstrapOptions {
   selectionIdsRef: MutableRefObject<string[]>;
   onSelectionChangeRef: MutableRefObject<(itemIds: string[]) => void>;
   hideDoodleCursor: () => void;
-  updateDoodleCursor: (clientX: number, clientY: number) => void;
-  updateAnnotationSession: (clientX: number, clientY: number) => void;
+  updateDoodleCursor: (
+    clientX: number,
+    clientY: number,
+    pointerState?: {
+      pointerType: string;
+      pressure: number;
+      buttons: number;
+    },
+  ) => void;
+  updateAnnotationSession: (pointer: {
+    clientX: number;
+    clientY: number;
+    pointerId: number;
+    pointerType: string;
+    pressure: number;
+  }) => void;
   updateSelectionMarquee: (clientX: number, clientY: number) => void;
   updateDraggedItemPosition: (clientX: number, clientY: number) => void;
   commitAnnotationSession: () => void;
@@ -60,6 +76,7 @@ export const useCanvasBoardBootstrap = ({
   annotationPreviewLayerRef,
   viewCommitTimerRef,
   isPanningRef,
+  activePanPointerIdRef,
   panStartRef,
   panOriginRef,
   cancelWheelZoomAnimationRef,
@@ -233,46 +250,68 @@ export const useCanvasBoardBootstrap = ({
       cancelWheelZoomAnimationRef.current = cancelWheelZoomAnimation;
 
       const onPointerMove = (event: PointerEvent) => {
-        updateDoodleCursor(event.clientX, event.clientY);
+        const pointer = getNormalizedPointerData(event);
+        updateDoodleCursor(pointer.clientX, pointer.clientY, pointer);
 
-        if (activeAnnotationSessionRef.current) {
-          updateAnnotationSession(event.clientX, event.clientY);
+        if (
+          activeAnnotationSessionRef.current &&
+          activeAnnotationSessionRef.current.pointerId === pointer.pointerId
+        ) {
+          updateAnnotationSession(pointer);
           return;
         }
 
-        if (activeSelectionBoxRef.current) {
-          updateSelectionMarquee(event.clientX, event.clientY);
+        if (
+          activeSelectionBoxRef.current &&
+          activeSelectionBoxRef.current.pointerId === pointer.pointerId
+        ) {
+          updateSelectionMarquee(pointer.clientX, pointer.clientY);
           return;
         }
 
-        if (activeItemDragRef.current) {
-          updateDraggedItemPosition(event.clientX, event.clientY);
+        if (
+          activeItemDragRef.current &&
+          activeItemDragRef.current.pointerId === pointer.pointerId
+        ) {
+          updateDraggedItemPosition(pointer.clientX, pointer.clientY);
           return;
         }
 
         const currentBoard = boardContainerRef.current;
-        if (!isPanningRef.current || !currentBoard) {
+        if (
+          !isPanningRef.current ||
+          !currentBoard ||
+          activePanPointerIdRef.current !== pointer.pointerId
+        ) {
           return;
         }
 
         currentBoard.x =
-          panOriginRef.current.x + (event.clientX - panStartRef.current.x);
+          panOriginRef.current.x + (pointer.clientX - panStartRef.current.x);
         currentBoard.y =
-          panOriginRef.current.y + (event.clientY - panStartRef.current.y);
+          panOriginRef.current.y + (pointer.clientY - panStartRef.current.y);
         drawBoardSurface();
         updateSelectedBoundsOverlay();
       };
 
       const onPointerUp = (event: PointerEvent) => {
-        if (activeAnnotationSessionRef.current) {
+        const pointer = getNormalizedPointerData(event);
+
+        if (
+          activeAnnotationSessionRef.current &&
+          activeAnnotationSessionRef.current.pointerId === pointer.pointerId
+        ) {
           commitAnnotationSession();
         }
 
-        if (activeSelectionBoxRef.current) {
+        if (
+          activeSelectionBoxRef.current &&
+          activeSelectionBoxRef.current.pointerId === pointer.pointerId
+        ) {
           const selectionBox = activeSelectionBoxRef.current;
           const movedDistance = Math.hypot(
-            event.clientX - selectionBox.startClient.x,
-            event.clientY - selectionBox.startClient.y,
+            pointer.clientX - selectionBox.startClient.x,
+            pointer.clientY - selectionBox.startClient.y,
           );
 
           if (
@@ -287,15 +326,22 @@ export const useCanvasBoardBootstrap = ({
           hideSelectionMarquee();
         }
 
-        if (activeItemDragRef.current) {
+        if (
+          activeItemDragRef.current &&
+          activeItemDragRef.current.pointerId === pointer.pointerId
+        ) {
           commitDraggedItemPatch();
         }
 
-        if (!isPanningRef.current) {
+        if (
+          !isPanningRef.current ||
+          activePanPointerIdRef.current !== pointer.pointerId
+        ) {
           return;
         }
 
         isPanningRef.current = false;
+        activePanPointerIdRef.current = null;
         if (boardGraphicRef.current) {
           boardGraphicRef.current.cursor =
             activeToolRef.current === "doodle" && !spacePanActiveRef.current
@@ -374,6 +420,7 @@ export const useCanvasBoardBootstrap = ({
         if (boardGraphicRef.current && !isPanningRef.current) {
           boardGraphicRef.current.cursor =
             activeToolRef.current === "doodle" ? "none" : "grab";
+          activePanPointerIdRef.current = null;
         }
       };
 
@@ -441,6 +488,7 @@ export const useCanvasBoardBootstrap = ({
   }, [
     activeAnnotationSessionRef,
     activeItemDragRef,
+    activePanPointerIdRef,
     activeSelectionBoxRef,
     activeToolRef,
     annotationLayerRef,

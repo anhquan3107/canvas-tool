@@ -117,6 +117,7 @@ export interface CaptureItem extends CanvasItemBase {
 export interface AnnotationStroke {
   id: string;
   points: number[];
+  pressures?: number[];
   color: string;
   size: number;
   tool: "brush" | "eraser";

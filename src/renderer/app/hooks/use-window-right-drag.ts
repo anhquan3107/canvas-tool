@@ -151,6 +151,10 @@ export const useWindowRightDrag = () => {
     };
 
     const handlePointerDown = (event: PointerEvent) => {
+      if (event.pointerType === "pen") {
+        return;
+      }
+
       if (isTypingTarget(event.target)) {
         return;
       }
@@ -239,6 +243,10 @@ export const useWindowRightDrag = () => {
     };
 
     const handlePointerMove = (event: PointerEvent) => {
+      if (event.pointerType === "pen") {
+        return;
+      }
+
       if (!dragState || (event.buttons & dragState.buttonMask) === 0) {
         return;
       }

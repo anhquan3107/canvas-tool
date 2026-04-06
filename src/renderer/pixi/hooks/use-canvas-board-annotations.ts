@@ -1,4 +1,4 @@
-import { useCallback, useRef, type MutableRefObject } from "react";
+import { useCallback, type MutableRefObject } from "react";
 import type { Graphics } from "pixi.js";
 import type { AnnotationStroke, ReferenceGroup } from "@shared/types/project";
 import { MIN_STROKE_POINT_DISTANCE } from "@renderer/pixi/constants";
@@ -10,6 +10,8 @@ import {
 import { distanceBetween } from "@renderer/pixi/utils/geometry";
 import type { ActiveAnnotationSessionState } from "@renderer/pixi/types";
 import type { DoodleMode } from "@renderer/features/tools/types";
+import type { NormalizedPointerData } from "@renderer/pixi/utils/pointer";
+import { resolvePointerPressure } from "@renderer/pixi/utils/pointer";
 
 interface CanvasPoint {
   x: number;
@@ -117,8 +119,8 @@ export const useCanvasBoardAnnotations = ({
   );
 
   const startAnnotationSession = useCallback(
-    (clientX: number, clientY: number) => {
-      const point = clientPointToCanvas(clientX, clientY);
+    (pointer: Pick<NormalizedPointerData, "clientX" | "clientY" | "pointerId" | "pointerType" | "pressure">) => {
+      const point = clientPointToCanvas(pointer.clientX, pointer.clientY);
       if (!point || !point.insideCanvas) {
         return;
       }
@@ -129,11 +131,13 @@ export const useCanvasBoardAnnotations = ({
       }
 
       const mode = doodleModeRef.current;
+      const pressure = resolvePointerPressure(pointer.pointerType, pointer.pressure);
 
       if (mode === "brush") {
         const draftStroke: AnnotationStroke = {
           id: crypto.randomUUID(),
           points: [point.x, point.y],
+          ...(pointer.pointerType === "pen" ? { pressures: [pressure] } : {}),
           color: doodleColorRef.current,
           size: doodleSizeRef.current,
           tool: "brush",
@@ -141,6 +145,7 @@ export const useCanvasBoardAnnotations = ({
         };
 
         activeAnnotationSessionRef.current = {
+          pointerId: pointer.pointerId,
           mode,
           draftStroke,
           annotations: groupRef.current.annotations,
@@ -157,15 +162,16 @@ export const useCanvasBoardAnnotations = ({
           ? eraseWholeStrokesAtPoint(
               groupRef.current.annotations,
               point,
-              doodleSizeRef.current,
+              doodleSizeRef.current * pressure,
             )
           : eraseStrokePixelsAtPointFromAnnotations(
               groupRef.current.annotations,
               point,
-              doodleSizeRef.current,
+              doodleSizeRef.current * pressure,
             );
 
       activeAnnotationSessionRef.current = {
+        pointerId: pointer.pointerId,
         mode,
         draftStroke: null,
         annotations: nextAnnotations,
@@ -191,16 +197,23 @@ export const useCanvasBoardAnnotations = ({
   );
 
   const updateAnnotationSession = useCallback(
-    (clientX: number, clientY: number) => {
+    (
+      pointer: Pick<
+        NormalizedPointerData,
+        "clientX" | "clientY" | "pointerId" | "pointerType" | "pressure"
+      >,
+    ) => {
       const session = activeAnnotationSessionRef.current;
-      if (!session) {
+      if (!session || session.pointerId !== pointer.pointerId) {
         return;
       }
 
-      const point = clientPointToCanvas(clientX, clientY);
+      const point = clientPointToCanvas(pointer.clientX, pointer.clientY);
       if (!point) {
         return;
       }
+
+      const pressure = resolvePointerPressure(pointer.pointerType, pointer.pressure);
 
       if (!point.insideCanvas) {
         if (session.mode === "brush") {
@@ -213,6 +226,9 @@ export const useCanvasBoardAnnotations = ({
             session.draftStroke = {
               ...session.draftStroke,
               points: [...session.draftStroke.points, point.x, point.y],
+              ...(session.draftStroke.pressures
+                ? { pressures: [...session.draftStroke.pressures, pressure] }
+                : {}),
             };
           }
 
@@ -235,6 +251,7 @@ export const useCanvasBoardAnnotations = ({
           session.draftStroke = {
             id: crypto.randomUUID(),
             points: [point.x, point.y],
+            ...(pointer.pointerType === "pen" ? { pressures: [pressure] } : {}),
             color: doodleColorRef.current,
             size: doodleSizeRef.current,
             tool: "brush",
@@ -257,6 +274,9 @@ export const useCanvasBoardAnnotations = ({
         session.draftStroke = {
           ...session.draftStroke,
           points: [...session.draftStroke.points, point.x, point.y],
+          ...(session.draftStroke.pressures
+            ? { pressures: [...session.draftStroke.pressures, pressure] }
+            : {}),
         };
         redrawDraftAnnotation(session.draftStroke);
         return;
@@ -267,12 +287,12 @@ export const useCanvasBoardAnnotations = ({
           ? eraseWholeStrokesAtPoint(
               session.annotations,
               point,
-              doodleSizeRef.current,
+              doodleSizeRef.current * pressure,
             )
           : eraseStrokePixelsAtPointFromAnnotations(
               session.annotations,
               point,
-              doodleSizeRef.current,
+              doodleSizeRef.current * pressure,
             );
 
       if (nextAnnotations === session.annotations) {

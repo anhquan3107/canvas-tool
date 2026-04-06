@@ -13,6 +13,10 @@ import {
   SELECTION_HIGHLIGHT_NAME,
 } from "@renderer/pixi/hooks/use-board-selection-visuals";
 import { renderBoardItemVisuals } from "@renderer/pixi/hooks/use-board-item-render";
+import {
+  getNormalizedPointerData,
+  isPenPointerType,
+} from "@renderer/pixi/utils/pointer";
 import type {
   ActiveItemDragState,
   ActiveSelectionBoxState,
@@ -47,6 +51,7 @@ interface UseCanvasBoardSceneOptions {
   activeItemDragRef: MutableRefObject<ActiveItemDragState | null>;
   activeSelectionBoxRef: MutableRefObject<ActiveSelectionBoxState | null>;
   isPanningRef: MutableRefObject<boolean>;
+  activePanPointerIdRef: MutableRefObject<number | null>;
   panStartRef: MutableRefObject<{ x: number; y: number }>;
   panOriginRef: MutableRefObject<{ x: number; y: number }>;
   cancelWheelZoomAnimationRef: MutableRefObject<(() => void) | null>;
@@ -57,7 +62,13 @@ interface UseCanvasBoardSceneOptions {
   syncViewFromGroup: () => void;
   hideSelectionMarquee: () => void;
   redrawAnnotations: (annotations?: ReferenceGroup["annotations"]) => void;
-  startAnnotationSession: (clientX: number, clientY: number) => void;
+  startAnnotationSession: (pointer: {
+    clientX: number;
+    clientY: number;
+    pointerId: number;
+    pointerType: string;
+    pressure: number;
+  }) => void;
 }
 
 export const useCanvasBoardScene = ({
@@ -81,6 +92,7 @@ export const useCanvasBoardScene = ({
   activeItemDragRef,
   activeSelectionBoxRef,
   isPanningRef,
+  activePanPointerIdRef,
   panStartRef,
   panOriginRef,
   cancelWheelZoomAnimationRef,
@@ -210,8 +222,11 @@ export const useCanvasBoardScene = ({
 
       itemNode.on("pointerdown", (event: FederatedPointerEvent) => {
         event.stopPropagation();
+        const pointer = getNormalizedPointerData(
+          event.nativeEvent as MouseEvent | PointerEvent,
+        );
 
-        if (event.nativeEvent.button === 2) {
+        if (pointer.button === 2 && !isPenPointerType(pointer.pointerType)) {
           const nextSelection = [item.id];
           selectionIdsRef.current = nextSelection;
           onSelectionChangeRef.current(nextSelection);
@@ -220,15 +235,16 @@ export const useCanvasBoardScene = ({
 
         const panByModifier =
           spacePanActiveRef.current ||
-          event.nativeEvent.altKey ||
-          event.nativeEvent.button === 1;
+          pointer.altKey ||
+          (pointer.button === 1 && !isPenPointerType(pointer.pointerType));
 
         if (panByModifier) {
           cancelWheelZoomAnimationRef.current?.();
           isPanningRef.current = true;
+          activePanPointerIdRef.current = pointer.pointerId;
           panStartRef.current = {
-            x: event.nativeEvent.clientX,
-            y: event.nativeEvent.clientY,
+            x: pointer.clientX,
+            y: pointer.clientY,
           };
           panOriginRef.current = {
             x: boardContainer.x,
@@ -241,7 +257,7 @@ export const useCanvasBoardScene = ({
         const now = performance.now();
         const previousPress = lastItemPressRef.current;
         if (
-          event.nativeEvent instanceof MouseEvent &&
+          pointer.pointerType === "mouse" &&
           previousPress?.itemId === item.id &&
           now - previousPress.time <= 320
         ) {
@@ -257,7 +273,7 @@ export const useCanvasBoardScene = ({
         };
 
         const currentSelection = selectionIdsRef.current;
-        if (event.nativeEvent.shiftKey) {
+        if (pointer.shiftKey) {
           const nextSelection = currentSelection.includes(item.id)
             ? currentSelection.filter((id) => id !== item.id)
             : [...currentSelection, item.id];
@@ -327,11 +343,12 @@ export const useCanvasBoardScene = ({
         }
 
         activeItemDragRef.current = {
+          pointerId: pointer.pointerId,
           itemId: item.id,
           itemLayer,
           startPointer: {
-            x: event.nativeEvent.clientX,
-            y: event.nativeEvent.clientY,
+            x: pointer.clientX,
+            y: pointer.clientY,
           },
           items: dragItems,
           patchBuffer: {},
@@ -347,21 +364,25 @@ export const useCanvasBoardScene = ({
 
     board.on("pointerdown", (event: FederatedPointerEvent) => {
       event.stopPropagation();
+      const pointer = getNormalizedPointerData(
+        event.nativeEvent as MouseEvent | PointerEvent,
+      );
 
-      if (event.nativeEvent.button === 2) {
+      if (pointer.button === 2 && !isPenPointerType(pointer.pointerType)) {
         return;
       }
 
       if (
         spacePanActiveRef.current ||
-        event.nativeEvent.altKey ||
-        event.nativeEvent.button === 1
+        pointer.altKey ||
+        (pointer.button === 1 && !isPenPointerType(pointer.pointerType))
       ) {
         cancelWheelZoomAnimationRef.current?.();
         isPanningRef.current = true;
+        activePanPointerIdRef.current = pointer.pointerId;
         panStartRef.current = {
-          x: event.nativeEvent.clientX,
-          y: event.nativeEvent.clientY,
+          x: pointer.clientX,
+          y: pointer.clientY,
         };
         panOriginRef.current = {
           x: boardContainer.x,
@@ -372,25 +393,24 @@ export const useCanvasBoardScene = ({
       }
 
       if (activeToolRef.current === "doodle") {
-        startAnnotationSession(
-          event.nativeEvent.clientX,
-          event.nativeEvent.clientY,
-        );
+        startAnnotationSession(pointer);
         return;
       }
 
       activeSelectionBoxRef.current = {
+        pointerId: pointer.pointerId,
         startClient: {
-          x: event.nativeEvent.clientX,
-          y: event.nativeEvent.clientY,
+          x: pointer.clientX,
+          y: pointer.clientY,
         },
-        additive: event.nativeEvent.shiftKey,
+        additive: pointer.shiftKey,
         baseSelection: selectionIdsRef.current,
       };
       hideSelectionMarquee();
     });
   }, [
     activeItemDragRef,
+    activePanPointerIdRef,
     activeSelectionBoxRef,
     activeToolRef,
     annotationLayerRef,

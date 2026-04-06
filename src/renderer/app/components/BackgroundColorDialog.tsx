@@ -124,6 +124,8 @@ export const BackgroundColorDialog = ({
   const squareCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const hueTrackRef = useRef<HTMLDivElement | null>(null);
   const previousOpenRef = useRef(false);
+  const activeSquarePointerIdRef = useRef<number | null>(null);
+  const activeHuePointerIdRef = useRef<number | null>(null);
   const [target, setTarget] = useState<ColorTarget>("canvas");
   const [draftCanvasColor, setDraftCanvasColor] = useState(canvasColor);
   const [draftBackgroundColor, setDraftBackgroundColor] = useState(backgroundColor);
@@ -267,42 +269,61 @@ export const BackgroundColorDialog = ({
   };
 
   const handleSquarePointerDown = (event: ReactPointerEvent<HTMLCanvasElement>) => {
+    event.preventDefault();
+    activeSquarePointerIdRef.current = event.pointerId;
     squarePointer(event.clientX, event.clientY);
-    event.currentTarget.setPointerCapture(event.pointerId);
-  };
-
-  const handleSquarePointerMove = (event: ReactPointerEvent<HTMLCanvasElement>) => {
-    if (!event.currentTarget.hasPointerCapture(event.pointerId)) {
-      return;
-    }
-
-    squarePointer(event.clientX, event.clientY);
-  };
-
-  const handleSquarePointerUp = (event: ReactPointerEvent<HTMLCanvasElement>) => {
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
   };
 
   const handleHuePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    activeHuePointerIdRef.current = event.pointerId;
     huePointer(event.clientY);
-    event.currentTarget.setPointerCapture(event.pointerId);
   };
 
-  const handleHuePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (!event.currentTarget.hasPointerCapture(event.pointerId)) {
+  useEffect(() => {
+    if (!open) {
+      activeSquarePointerIdRef.current = null;
+      activeHuePointerIdRef.current = null;
       return;
     }
 
-    huePointer(event.clientY);
-  };
+    const handlePointerMove = (event: PointerEvent) => {
+      if (event.pointerId === activeSquarePointerIdRef.current) {
+        squarePointer(event.clientX, event.clientY);
+      }
 
-  const handleHuePointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-  };
+      if (event.pointerId === activeHuePointerIdRef.current) {
+        huePointer(event.clientY);
+      }
+    };
+
+    const handlePointerEnd = (event: PointerEvent) => {
+      if (event.pointerId === activeSquarePointerIdRef.current) {
+        activeSquarePointerIdRef.current = null;
+      }
+
+      if (event.pointerId === activeHuePointerIdRef.current) {
+        activeHuePointerIdRef.current = null;
+      }
+    };
+
+    const handleBlur = () => {
+      activeSquarePointerIdRef.current = null;
+      activeHuePointerIdRef.current = null;
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerEnd);
+    window.addEventListener("pointercancel", handlePointerEnd);
+    window.addEventListener("blur", handleBlur);
+
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerEnd);
+      window.removeEventListener("pointercancel", handlePointerEnd);
+      window.removeEventListener("blur", handleBlur);
+    };
+  }, [open, hue, saturation, target, value]);
 
   const squareThumbStyle = useMemo(
     () => ({
@@ -352,8 +373,6 @@ export const BackgroundColorDialog = ({
             ref={squareCanvasRef}
             className="color-picker-square"
             onPointerDown={handleSquarePointerDown}
-            onPointerMove={handleSquarePointerMove}
-            onPointerUp={handleSquarePointerUp}
           />
           <span className="color-picker-square-thumb" style={squareThumbStyle} />
         </div>
@@ -363,8 +382,6 @@ export const BackgroundColorDialog = ({
             ref={hueTrackRef}
             className="color-picker-hue"
             onPointerDown={handleHuePointerDown}
-            onPointerMove={handleHuePointerMove}
-            onPointerUp={handleHuePointerUp}
           />
           <span className="color-picker-hue-thumb" style={hueThumbStyle} />
         </div>

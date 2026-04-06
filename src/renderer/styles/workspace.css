@@ -13,6 +13,11 @@
   background: #232323;
 }
 
+.canvas-stage.zoom-overlay-active {
+  top: -36px;
+  bottom: 0;
+}
+
 .canvas-overlay-column {
   position: absolute;
   z-index: 5;

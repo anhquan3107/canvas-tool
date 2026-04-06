@@ -1575,7 +1575,7 @@ const AppContent = () => {
         <div className="desktop-layout">
           <main className="workspace-panel">
             <div
-              className="canvas-stage"
+              className={`canvas-stage ${zoomOverlayOpen ? "zoom-overlay-active" : ""}`}
               ref={canvasStageRef}
               style={{
                 backgroundColor: hexToRgba(

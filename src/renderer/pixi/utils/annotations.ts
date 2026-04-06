@@ -10,6 +10,29 @@ const getPointPressure = (stroke: AnnotationStroke, pointIndex: number) =>
 const getPointSize = (stroke: AnnotationStroke, pointIndex: number) =>
   stroke.size * getPointPressure(stroke, pointIndex);
 
+const getRenderedPointSize = (stroke: AnnotationStroke, pointIndex: number) => {
+  const pointCount = getPointCount(stroke);
+  if (pointCount <= 1) {
+    return getPointSize(stroke, pointIndex);
+  }
+
+  if (pointIndex === 0) {
+    return (getPointSize(stroke, 0) + getPointSize(stroke, 1)) * 0.5;
+  }
+
+  if (pointIndex === pointCount - 1) {
+    return (
+      getPointSize(stroke, pointCount - 2) + getPointSize(stroke, pointCount - 1)
+    ) * 0.5;
+  }
+
+  return (
+    getPointSize(stroke, pointIndex - 1) +
+    getPointSize(stroke, pointIndex) +
+    getPointSize(stroke, pointIndex + 1)
+  ) / 3;
+};
+
 export const drawAnnotationStroke = (
   graphics: Graphics,
   stroke: AnnotationStroke,
@@ -25,12 +48,12 @@ export const drawAnnotationStroke = (
     return;
   }
 
-  for (let pointIndex = 0; pointIndex < pointCount; pointIndex += 1) {
+  for (let pointIndex = 1; pointIndex < pointCount - 1; pointIndex += 1) {
     const offset = pointIndex * 2;
     graphics.circle(
       stroke.points[offset],
       stroke.points[offset + 1],
-      getPointSize(stroke, pointIndex) * 0.5,
+      getRenderedPointSize(stroke, pointIndex) * 0.5,
     );
     graphics.fill({ color: stroke.color, alpha: 1 });
   }
@@ -42,7 +65,10 @@ export const drawAnnotationStroke = (
     graphics.lineTo(stroke.points[endOffset], stroke.points[endOffset + 1]);
     graphics.stroke({
       color: stroke.color,
-      width: (getPointSize(stroke, pointIndex) + getPointSize(stroke, pointIndex + 1)) * 0.5,
+      width:
+        (getRenderedPointSize(stroke, pointIndex) +
+          getRenderedPointSize(stroke, pointIndex + 1)) *
+        0.5,
       alpha: 1,
       cap: "round",
       join: "round",

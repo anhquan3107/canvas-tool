@@ -220,7 +220,38 @@ export const ColorWheel = ({
 
     event.preventDefault();
     activePointerIdRef.current = event.pointerId;
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // Some stylus targets refuse capture; window listeners still back us up.
+    }
     updateColorFromPointer(event.clientX, event.clientY);
+  };
+
+  const handleWheelPointerMove = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (
+      doodleMode !== "brush" ||
+      event.pointerId !== activePointerIdRef.current
+    ) {
+      return;
+    }
+
+    updateColorFromPointer(event.clientX, event.clientY);
+  };
+
+  const handleWheelPointerUp = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    if (event.pointerId !== activePointerIdRef.current) {
+      return;
+    }
+
+    activePointerIdRef.current = null;
+    try {
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+    } catch {
+      // Ignore failed pointer-capture cleanup.
+    }
   };
 
   useEffect(() => {
@@ -287,6 +318,9 @@ export const ColorWheel = ({
           className={doodleMode === "brush" ? "tool-wheel interactive" : "tool-wheel"}
           aria-label="Choose brush color"
           onPointerDown={handleWheelPointerDown}
+          onPointerMove={handleWheelPointerMove}
+          onPointerUp={handleWheelPointerUp}
+          onPointerCancel={handleWheelPointerUp}
         >
           <canvas ref={wheelCanvasRef} className="tool-wheel-canvas" />
           <span

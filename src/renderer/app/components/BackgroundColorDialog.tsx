@@ -126,6 +126,10 @@ export const BackgroundColorDialog = ({
   const previousOpenRef = useRef(false);
   const activeSquarePointerIdRef = useRef<number | null>(null);
   const activeHuePointerIdRef = useRef<number | null>(null);
+  const targetRef = useRef<ColorTarget>("canvas");
+  const hueRef = useRef(0);
+  const saturationRef = useRef(0);
+  const valueRef = useRef(0);
   const [target, setTarget] = useState<ColorTarget>("canvas");
   const [draftCanvasColor, setDraftCanvasColor] = useState(canvasColor);
   const [draftBackgroundColor, setDraftBackgroundColor] = useState(backgroundColor);
@@ -137,6 +141,22 @@ export const BackgroundColorDialog = ({
 
   const activeColor =
     target === "canvas" ? draftCanvasColor : draftBackgroundColor;
+
+  useEffect(() => {
+    targetRef.current = target;
+  }, [target]);
+
+  useEffect(() => {
+    hueRef.current = hue;
+  }, [hue]);
+
+  useEffect(() => {
+    saturationRef.current = saturation;
+  }, [saturation]);
+
+  useEffect(() => {
+    valueRef.current = value;
+  }, [value]);
 
   useEffect(() => {
     if (!open) {
@@ -236,12 +256,12 @@ export const BackgroundColorDialog = ({
     const rect = canvas.getBoundingClientRect();
     const nextSaturation = clamp((clientX - rect.left) / rect.width, 0, 1);
     const nextValue = clamp(1 - (clientY - rect.top) / rect.height, 0, 1);
-    const nextHex = hsvToHex(hue, nextSaturation, nextValue);
+    const nextHex = hsvToHex(hueRef.current, nextSaturation, nextValue);
 
     setSaturation(nextSaturation);
     setValue(nextValue);
     setHexInput(nextHex);
-    if (target === "canvas") {
+    if (targetRef.current === "canvas") {
       setDraftCanvasColor(nextHex);
     } else {
       setDraftBackgroundColor(nextHex);
@@ -257,11 +277,11 @@ export const BackgroundColorDialog = ({
     const rect = track.getBoundingClientRect();
     const ratio = clamp((clientY - rect.top) / rect.height, 0, 1);
     const nextHue = ratio * 360;
-    const nextHex = hsvToHex(nextHue, saturation, value);
+    const nextHex = hsvToHex(nextHue, saturationRef.current, valueRef.current);
 
     setHue(nextHue);
     setHexInput(nextHex);
-    if (target === "canvas") {
+    if (targetRef.current === "canvas") {
       setDraftCanvasColor(nextHex);
     } else {
       setDraftBackgroundColor(nextHex);
@@ -271,13 +291,69 @@ export const BackgroundColorDialog = ({
   const handleSquarePointerDown = (event: ReactPointerEvent<HTMLCanvasElement>) => {
     event.preventDefault();
     activeSquarePointerIdRef.current = event.pointerId;
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // Some stylus targets refuse capture; window listeners still back us up.
+    }
     squarePointer(event.clientX, event.clientY);
+  };
+
+  const handleSquarePointerMove = (event: ReactPointerEvent<HTMLCanvasElement>) => {
+    if (event.pointerId !== activeSquarePointerIdRef.current) {
+      return;
+    }
+
+    squarePointer(event.clientX, event.clientY);
+  };
+
+  const handleSquarePointerUp = (event: ReactPointerEvent<HTMLCanvasElement>) => {
+    if (event.pointerId !== activeSquarePointerIdRef.current) {
+      return;
+    }
+
+    activeSquarePointerIdRef.current = null;
+    try {
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+    } catch {
+      // Ignore failed pointer-capture cleanup.
+    }
   };
 
   const handleHuePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     event.preventDefault();
     activeHuePointerIdRef.current = event.pointerId;
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // Some stylus targets refuse capture; window listeners still back us up.
+    }
     huePointer(event.clientY);
+  };
+
+  const handleHuePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerId !== activeHuePointerIdRef.current) {
+      return;
+    }
+
+    huePointer(event.clientY);
+  };
+
+  const handleHuePointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerId !== activeHuePointerIdRef.current) {
+      return;
+    }
+
+    activeHuePointerIdRef.current = null;
+    try {
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+    } catch {
+      // Ignore failed pointer-capture cleanup.
+    }
   };
 
   useEffect(() => {
@@ -323,7 +399,7 @@ export const BackgroundColorDialog = ({
       window.removeEventListener("pointercancel", handlePointerEnd);
       window.removeEventListener("blur", handleBlur);
     };
-  }, [open, hue, saturation, target, value]);
+  }, [open]);
 
   const squareThumbStyle = useMemo(
     () => ({
@@ -373,6 +449,9 @@ export const BackgroundColorDialog = ({
             ref={squareCanvasRef}
             className="color-picker-square"
             onPointerDown={handleSquarePointerDown}
+            onPointerMove={handleSquarePointerMove}
+            onPointerUp={handleSquarePointerUp}
+            onPointerCancel={handleSquarePointerUp}
           />
           <span className="color-picker-square-thumb" style={squareThumbStyle} />
         </div>
@@ -382,6 +461,9 @@ export const BackgroundColorDialog = ({
             ref={hueTrackRef}
             className="color-picker-hue"
             onPointerDown={handleHuePointerDown}
+            onPointerMove={handleHuePointerMove}
+            onPointerUp={handleHuePointerUp}
+            onPointerCancel={handleHuePointerUp}
           />
           <span className="color-picker-hue-thumb" style={hueThumbStyle} />
         </div>

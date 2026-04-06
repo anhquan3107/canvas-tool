@@ -91,6 +91,8 @@ export const ZoomOverlay = ({
   const [panOrigin, setPanOrigin] = useState({ x: 0, y: 0 });
   const [spacePanActive, setSpacePanActive] = useState(false);
   const [slideshowBarVisible, setSlideshowBarVisible] = useState(false);
+  const [slideshowBarHovering, setSlideshowBarHovering] = useState(false);
+  const previousSlideshowSecondsRef = useRef(slideshowSeconds);
 
   const activeImage = useMemo(
     () => items.find((item) => item.id === activeImageId) ?? null,
@@ -283,6 +285,28 @@ export const ZoomOverlay = ({
   }, [clampPanForScale, scale]);
 
   useEffect(() => {
+    if (rulerEnabled) {
+      previousSlideshowSecondsRef.current = slideshowSeconds;
+      return;
+    }
+
+    if (previousSlideshowSecondsRef.current === slideshowSeconds) {
+      return;
+    }
+
+    previousSlideshowSecondsRef.current = slideshowSeconds;
+    setSlideshowBarVisible(true);
+
+    const timeoutId = window.setTimeout(() => {
+      if (!slideshowBarHovering) {
+        setSlideshowBarVisible(false);
+      }
+    }, 1400);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [rulerEnabled, slideshowBarHovering, slideshowSeconds]);
+
+  useEffect(() => {
     const isTypingTarget = (target: EventTarget | null) => {
       if (!(target instanceof HTMLElement)) {
         return false;
@@ -441,7 +465,11 @@ export const ZoomOverlay = ({
         <div
           className="zoom-slideshow-hotspot"
           onMouseEnter={() => setSlideshowBarVisible(true)}
-          onMouseLeave={() => setSlideshowBarVisible(false)}
+          onMouseLeave={() => {
+            if (!slideshowBarHovering) {
+              setSlideshowBarVisible(false);
+            }
+          }}
         />
       ) : null}
 
@@ -536,8 +564,14 @@ export const ZoomOverlay = ({
       ) : (
         <div
           className={`zoom-slideshow-bar ${slideshowBarVisible ? "visible" : ""}`}
-          onMouseEnter={() => setSlideshowBarVisible(true)}
-          onMouseLeave={() => setSlideshowBarVisible(false)}
+          onMouseEnter={() => {
+            setSlideshowBarHovering(true);
+            setSlideshowBarVisible(true);
+          }}
+          onMouseLeave={() => {
+            setSlideshowBarHovering(false);
+            setSlideshowBarVisible(false);
+          }}
         >
           <button type="button" onClick={onPrevious}>
             ⏮

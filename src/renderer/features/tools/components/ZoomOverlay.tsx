@@ -83,6 +83,7 @@ export const ZoomOverlay = ({
   onClose,
 }: ZoomOverlayProps) => {
   const viewportRef = useRef<HTMLDivElement | null>(null);
+  const panButtonMaskRef = useRef(0);
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
   const [scale, setScale] = useState(1);
   const [fitScale, setFitScale] = useState(1);
@@ -232,6 +233,7 @@ export const ZoomOverlay = ({
     }
 
     event.preventDefault();
+    panButtonMaskRef.current = event.button === 1 ? 4 : 1;
     setIsPanning(true);
     setPanOrigin({
       x: event.clientX - pan.x,
@@ -264,6 +266,11 @@ export const ZoomOverlay = ({
       return;
     }
 
+    if ((event.buttons & panButtonMaskRef.current) !== panButtonMaskRef.current) {
+      handlePointerUp();
+      return;
+    }
+
     event.preventDefault();
     setPan(
       clampPanForScale(
@@ -277,6 +284,7 @@ export const ZoomOverlay = ({
   };
 
   const handlePointerUp = () => {
+    panButtonMaskRef.current = 0;
     setIsPanning(false);
   };
 
@@ -339,14 +347,23 @@ export const ZoomOverlay = ({
 
       setSpacePanActive(false);
       setIsPanning(false);
+      panButtonMaskRef.current = 0;
+    };
+
+    const handleWindowBlur = () => {
+      setSpacePanActive(false);
+      setIsPanning(false);
+      panButtonMaskRef.current = 0;
     };
 
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
+    window.addEventListener("blur", handleWindowBlur);
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener("blur", handleWindowBlur);
     };
   }, []);
 
@@ -382,8 +399,6 @@ export const ZoomOverlay = ({
         onMouseMove={handlePointerMove}
         onMouseUp={handlePointerUp}
         onMouseLeave={() => {
-          handlePointerUp();
-          setSpacePanActive(false);
           setSlideshowBarVisible(false);
         }}
         onDoubleClick={(event) => {

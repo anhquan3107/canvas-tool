@@ -14,6 +14,16 @@
   height: 100%;
 }
 
+.topbar-reveal-zone {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 55;
+  height: 36px;
+  pointer-events: none;
+}
+
 .app-topbar {
   position: relative;
   z-index: 50;
@@ -39,6 +49,18 @@
   transform: translateY(-100%);
   border-bottom-color: transparent;
   pointer-events: none;
+}
+
+.desktop-frame.window-unfocused .topbar-reveal-zone {
+  pointer-events: auto;
+}
+
+.desktop-frame.window-unfocused .topbar-reveal-zone:hover + .app-topbar,
+.desktop-frame.window-unfocused .app-topbar:hover {
+  opacity: 1;
+  transform: translateY(0);
+  border-bottom-color: rgba(255, 255, 255, 0.05);
+  pointer-events: auto;
 }
 
 .app-drag-region,

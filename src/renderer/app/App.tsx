@@ -1450,6 +1450,7 @@ const AppContent = () => {
       onContextMenu={handleShellContextMenu}
     >
       <div className={`desktop-frame ${windowFocused ? "" : "window-unfocused"}`}>
+        <div className="topbar-reveal-zone" aria-hidden="true" />
         <TopBar
           activeGroup={activeGroup}
           activeTool={activeTool}

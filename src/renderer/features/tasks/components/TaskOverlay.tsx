@@ -1,4 +1,4 @@
-import { startTransition, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CalendarDays,
   Check,
@@ -25,6 +25,8 @@ interface TaskOverlayProps {
   onToggleExpanded: () => void;
   onSelectTask: (taskId: string) => void;
   onInteract: () => void;
+  onHoverChange: (hovered: boolean) => void;
+  onFocusWithinChange: (focused: boolean) => void;
   onCreateTask: () => void;
   onRenameTask: (taskId: string) => void;
   onDuplicateTask: (taskId: string) => void;
@@ -55,6 +57,8 @@ export const TaskOverlay = ({
   onToggleExpanded,
   onSelectTask,
   onInteract,
+  onHoverChange,
+  onFocusWithinChange,
   onCreateTask,
   onRenameTask,
   onDuplicateTask,
@@ -63,6 +67,7 @@ export const TaskOverlay = ({
   onCompleteTask,
   onLinkTaskToGroup,
 }: TaskOverlayProps) => {
+  const shellRef = useRef<HTMLElement | null>(null);
   const [renderPopover, setRenderPopover] = useState(expanded);
   const [renderPrimaryMeta, setRenderPrimaryMeta] = useState(Boolean(selectedTaskId));
   const [menuState, setMenuState] = useState<{
@@ -115,6 +120,40 @@ export const TaskOverlay = ({
       window.removeEventListener("blur", closeMenu);
     };
   }, [menuState]);
+
+  useEffect(() => {
+    const shell = shellRef.current;
+    if (!shell) {
+      return;
+    }
+
+    const syncState = () => {
+      onHoverChange(shell.matches(":hover"));
+      onFocusWithinChange(shell.contains(document.activeElement));
+    };
+
+    syncState();
+    const frameId = window.requestAnimationFrame(syncState);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [
+    expanded,
+    onFocusWithinChange,
+    onHoverChange,
+    primaryTask.id,
+    renderPopover,
+    selectedTaskId,
+    tasks.length,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      onHoverChange(false);
+      onFocusWithinChange(false);
+    };
+  }, [onFocusWithinChange, onHoverChange]);
 
   const linkedGroups = useMemo(
     () => new Map(groups.map((group) => [group.id, group.name])),
@@ -181,14 +220,12 @@ export const TaskOverlay = ({
           .filter(Boolean)
           .join(" ")}
         onClick={() => {
-          onInteract();
-          if (shouldExpandListOnClick) {
-            onToggleExpanded();
-          }
-          startTransition(() => {
-            onSelectTask(task.id);
-          });
-        }}
+        onInteract();
+        if (shouldExpandListOnClick) {
+          onToggleExpanded();
+        }
+        onSelectTask(task.id);
+      }}
         onContextMenu={(event) => openTaskMenu(event, task.id)}
       >
         <span className={`task-chip-dot ${toneClass}`} />
@@ -220,10 +257,27 @@ export const TaskOverlay = ({
 
   return (
     <section
+      ref={shellRef}
       className={`task-overlay-shell ${expanded ? "task-overlay-shell-open" : ""}`}
-      onPointerEnter={onInteract}
-      onPointerDown={onInteract}
-      onFocusCapture={onInteract}
+      onPointerEnter={() => {
+        onHoverChange(true);
+        onInteract();
+      }}
+      onPointerMove={() => onHoverChange(true)}
+      onPointerLeave={() => onHoverChange(false)}
+      onPointerDown={() => {
+        onHoverChange(true);
+        onInteract();
+      }}
+      onFocusCapture={() => {
+        onFocusWithinChange(true);
+        onInteract();
+      }}
+      onBlurCapture={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          onFocusWithinChange(false);
+        }
+      }}
     >
       <div className="task-summary-row">
         {renderTaskButton(primaryTask, true)}

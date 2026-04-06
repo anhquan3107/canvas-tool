@@ -391,6 +391,10 @@ const AppContent = () => {
     toggleTaskDetailPinned,
     registerTaskOverlayInteraction,
     registerTaskDetailInteraction,
+    setTaskOverlayHovering,
+    setTaskOverlayFocusWithin,
+    setTaskDetailHovering,
+    setTaskDetailFocusWithin,
     openTaskDialog,
     openEditTaskDialog,
     openRenameTaskDialog,
@@ -1641,6 +1645,8 @@ const AppContent = () => {
                           setTaskDetailOpen(true);
                         }}
                         onInteract={registerTaskOverlayInteraction}
+                        onHoverChange={setTaskOverlayHovering}
+                        onFocusWithinChange={setTaskOverlayFocusWithin}
                         onCreateTask={openTaskDialog}
                         onRenameTask={openRenameTaskDialog}
                         onDuplicateTask={handleDuplicateTask}
@@ -1694,6 +1700,8 @@ const AppContent = () => {
                         onCompleteTask={completeTask}
                         onLinkTaskToGroup={linkTaskToGroup}
                         onInteract={registerTaskDetailInteraction}
+                        onHoverChange={setTaskDetailHovering}
+                        onFocusWithinChange={setTaskDetailFocusWithin}
                         onAddTodo={addTodo}
                         onRemoveTodo={removeTodo}
                         onToggleTodo={toggleTodo}

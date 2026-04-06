@@ -51,6 +51,10 @@ export const useTaskFeature = ({
     useState(false);
   const [taskOverlayActivityVersion, setTaskOverlayActivityVersion] = useState(0);
   const [taskDetailActivityVersion, setTaskDetailActivityVersion] = useState(0);
+  const [taskOverlayHovered, setTaskOverlayHovered] = useState(false);
+  const [taskOverlayFocused, setTaskOverlayFocused] = useState(false);
+  const [taskDetailHovered, setTaskDetailHovered] = useState(false);
+  const [taskDetailFocused, setTaskDetailFocused] = useState(false);
 
   const orderedTasks = useMemo(
     () => [...tasks].sort((left, right) => left.order - right.order),
@@ -83,6 +87,34 @@ export const useTaskFeature = ({
     setTaskDetailActivityVersion((version) => version + 1);
   }, []);
 
+  const setTaskOverlayHovering = useCallback((hovered: boolean) => {
+    setTaskOverlayHovered(hovered);
+    if (hovered) {
+      registerTaskOverlayInteraction();
+    }
+  }, [registerTaskOverlayInteraction]);
+
+  const setTaskOverlayFocusWithin = useCallback((focused: boolean) => {
+    setTaskOverlayFocused(focused);
+    if (focused) {
+      registerTaskOverlayInteraction();
+    }
+  }, [registerTaskOverlayInteraction]);
+
+  const setTaskDetailHovering = useCallback((hovered: boolean) => {
+    setTaskDetailHovered(hovered);
+    if (hovered) {
+      registerTaskDetailInteraction();
+    }
+  }, [registerTaskDetailInteraction]);
+
+  const setTaskDetailFocusWithin = useCallback((focused: boolean) => {
+    setTaskDetailFocused(focused);
+    if (focused) {
+      registerTaskDetailInteraction();
+    }
+  }, [registerTaskDetailInteraction]);
+
   const selectTask = useCallback((taskId: string | null) => {
     setPendingTaskSelectionDismissal(false);
     setSelectedTaskId(taskId);
@@ -97,6 +129,9 @@ export const useTaskFeature = ({
     registerTaskOverlayInteraction();
     setTaskListExpanded((expanded) => {
       const nextExpanded = !expanded;
+      if (nextExpanded) {
+        setTaskOverlayHovered(true);
+      }
       if (!nextExpanded) {
         setTaskCreationPreviewActive(false);
       }
@@ -195,11 +230,13 @@ export const useTaskFeature = ({
 
     const nextTaskId = addTask(title, taskDates);
     setSelectedTaskId(nextTaskId);
+    setExportSelectedTaskId(nextTaskId);
     setTaskListExpanded(true);
     setTaskDetailOpen(true);
     setTaskCreationPreviewActive(true);
     setPendingTaskSelectionDismissal(false);
     setTaskDetailPinned(false);
+    setTaskOverlayHovered(true);
     setTaskDialogOpen(false);
     setTaskDialogMode("create");
     registerTaskOverlayInteraction();
@@ -233,11 +270,13 @@ export const useTaskFeature = ({
       }
 
       setSelectedTaskId(nextTaskId);
+      setExportSelectedTaskId(nextTaskId);
       setTaskListExpanded(true);
       setTaskDetailOpen(true);
       setTaskCreationPreviewActive(true);
       setPendingTaskSelectionDismissal(false);
       setTaskDetailPinned(false);
+      setTaskOverlayHovered(true);
       registerTaskOverlayInteraction();
       registerTaskDetailInteraction();
       pushToast("success", `Duplicated ${task.title}.`);
@@ -252,7 +291,7 @@ export const useTaskFeature = ({
   );
 
   useEffect(() => {
-    if (!taskCreationPreviewActive) {
+    if (!taskCreationPreviewActive || taskOverlayHovered || taskOverlayFocused) {
       return;
     }
 
@@ -268,10 +307,21 @@ export const useTaskFeature = ({
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [taskCreationPreviewActive, taskDetailPinned, taskOverlayActivityVersion]);
+  }, [
+    taskCreationPreviewActive,
+    taskDetailPinned,
+    taskOverlayActivityVersion,
+    taskOverlayFocused,
+    taskOverlayHovered,
+  ]);
 
   useEffect(() => {
-    if (!taskListExpanded || taskCreationPreviewActive) {
+    if (
+      !taskListExpanded ||
+      taskCreationPreviewActive ||
+      taskOverlayHovered ||
+      taskOverlayFocused
+    ) {
       return;
     }
 
@@ -282,10 +332,22 @@ export const useTaskFeature = ({
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [taskCreationPreviewActive, taskListExpanded, taskOverlayActivityVersion]);
+  }, [
+    taskCreationPreviewActive,
+    taskListExpanded,
+    taskOverlayActivityVersion,
+    taskOverlayFocused,
+    taskOverlayHovered,
+  ]);
 
   useEffect(() => {
-    if (!taskDetailOpen || taskDetailPinned || !selectedTaskId) {
+    if (
+      !taskDetailOpen ||
+      taskDetailPinned ||
+      !selectedTaskId ||
+      taskDetailHovered ||
+      taskDetailFocused
+    ) {
       return;
     }
 
@@ -297,7 +359,32 @@ export const useTaskFeature = ({
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [selectedTaskId, taskDetailActivityVersion, taskDetailOpen, taskDetailPinned]);
+  }, [
+    selectedTaskId,
+    taskDetailActivityVersion,
+    taskDetailFocused,
+    taskDetailHovered,
+    taskDetailOpen,
+    taskDetailPinned,
+  ]);
+
+  useEffect(() => {
+    if (primaryTask) {
+      return;
+    }
+
+    setTaskOverlayHovered(false);
+    setTaskOverlayFocused(false);
+  }, [primaryTask]);
+
+  useEffect(() => {
+    if (selectedTask) {
+      return;
+    }
+
+    setTaskDetailHovered(false);
+    setTaskDetailFocused(false);
+  }, [selectedTask]);
 
   useEffect(() => {
     if (!pendingTaskSelectionDismissal) {
@@ -383,6 +470,10 @@ export const useTaskFeature = ({
     toggleTaskDetailPinned,
     registerTaskOverlayInteraction,
     registerTaskDetailInteraction,
+    setTaskOverlayHovering,
+    setTaskOverlayFocusWithin,
+    setTaskDetailHovering,
+    setTaskDetailFocusWithin,
     openTaskDialog,
     openEditTaskDialog,
     openRenameTaskDialog,

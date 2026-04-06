@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { Pin } from "lucide-react";
 import type { ReferenceGroup, Task } from "@shared/types/project";
 import { TodoList } from "@renderer/features/tasks/components/TodoList";
@@ -15,6 +16,8 @@ interface TaskDetailPanelProps {
   onCompleteTask: (taskId: string, completed: boolean) => void;
   onLinkTaskToGroup: (taskId: string, groupId?: string) => void;
   onInteract: () => void;
+  onHoverChange: (hovered: boolean) => void;
+  onFocusWithinChange: (focused: boolean) => void;
   onAddTodo: (taskId: string, text: string) => void;
   onRemoveTodo: (taskId: string, todoId: string) => void;
   onToggleTodo: (taskId: string, todoId: string) => void;
@@ -34,6 +37,8 @@ export const TaskDetailPanel = ({
   onReveal,
   onTogglePinned,
   onInteract,
+  onHoverChange,
+  onFocusWithinChange,
   onAddTodo,
   onRemoveTodo,
   onToggleTodo,
@@ -41,15 +46,55 @@ export const TaskDetailPanel = ({
   onReorderTodo,
   onShowTodoGuide,
 }: TaskDetailPanelProps) => {
+  const shellRef = useRef<HTMLDivElement | null>(null);
   const doneCount = task.todos.filter((todo) => todo.completed).length;
   const activeCount = task.todos.length - doneCount;
 
+  useEffect(() => {
+    const shell = shellRef.current;
+    if (!shell) {
+      return;
+    }
+
+    const syncState = () => {
+      onHoverChange(shell.matches(":hover"));
+      onFocusWithinChange(shell.contains(document.activeElement));
+    };
+
+    syncState();
+    const frameId = window.requestAnimationFrame(syncState);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [onFocusWithinChange, onHoverChange, open, task.id, task.todos.length]);
+
+  useEffect(() => {
+    return () => {
+      onHoverChange(false);
+      onFocusWithinChange(false);
+    };
+  }, [onFocusWithinChange, onHoverChange]);
+
   return (
     <div
+      ref={shellRef}
       className={`task-detail-shell ${open ? "open" : ""}`}
-      onPointerEnter={onInteract}
+      onPointerEnter={() => {
+        onHoverChange(true);
+        onInteract();
+      }}
+      onPointerLeave={() => onHoverChange(false)}
       onPointerDown={onInteract}
-      onFocusCapture={onInteract}
+      onFocusCapture={() => {
+        onFocusWithinChange(true);
+        onInteract();
+      }}
+      onBlurCapture={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          onFocusWithinChange(false);
+        }
+      }}
       onKeyDownCapture={onInteract}
     >
       <div

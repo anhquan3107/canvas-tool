@@ -1,13 +1,71 @@
 import { app } from "electron";
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { AppSettings } from "../../shared/types/project";
+import type {
+  AppSettings,
+  WindowBoundsSnapshot,
+  WindowPlacementSettings,
+} from "../../shared/types/project";
 import {
   DEFAULT_SHORTCUT_BINDINGS,
   SHORTCUT_DEFINITIONS,
 } from "../../shared/shortcuts";
 
 const SETTINGS_FILE = "settings.json";
+
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value);
+
+const sanitizePlacement = (
+  placement: WindowBoundsSnapshot | undefined,
+): WindowBoundsSnapshot | undefined => {
+  if (!placement) {
+    return undefined;
+  }
+
+  if (
+    !isFiniteNumber(placement.x) ||
+    !isFiniteNumber(placement.y) ||
+    !isFiniteNumber(placement.width) ||
+    !isFiniteNumber(placement.height)
+  ) {
+    return undefined;
+  }
+
+  return {
+    x: Math.round(placement.x),
+    y: Math.round(placement.y),
+    width: Math.round(placement.width),
+    height: Math.round(placement.height),
+    isMaximized: placement.isMaximized === true,
+  };
+};
+
+export const sanitizeWindowPlacementSettings = (
+  placement: WindowPlacementSettings | undefined,
+): WindowPlacementSettings | undefined => {
+  if (!placement || typeof placement !== "object") {
+    return undefined;
+  }
+
+  const layouts = Object.fromEntries(
+    Object.entries(placement.layouts ?? {}).flatMap(([key, value]) => {
+      const sanitized = sanitizePlacement(value);
+      return sanitized ? [[key, sanitized]] : [];
+    }),
+  );
+
+  const lastBounds = sanitizePlacement(placement.lastBounds);
+
+  if (!lastBounds && Object.keys(layouts).length === 0) {
+    return undefined;
+  }
+
+  return {
+    lastBounds,
+    layouts,
+  };
+};
 
 const clampSavedWindowOpacity = (value: number | undefined) => {
   if (typeof value !== "number" || !Number.isFinite(value)) {
@@ -21,6 +79,7 @@ const defaultSettings = (): AppSettings => ({
   recentFiles: [],
   maxRecentFiles: 12,
   windowOpacity: 1,
+  windowPlacement: undefined,
   shortcuts: { ...DEFAULT_SHORTCUT_BINDINGS },
   seenTitleBarTooltips: [],
 });
@@ -95,6 +154,7 @@ export const readSettings = async (): Promise<AppSettings> => {
         typeof parsed.lastExportPath === "string"
           ? parsed.lastExportPath
           : undefined,
+      windowPlacement: sanitizeWindowPlacementSettings(parsed.windowPlacement),
       shortcuts: parsedShortcuts,
       seenTitleBarTooltips: Array.isArray(parsed.seenTitleBarTooltips)
         ? parsed.seenTitleBarTooltips.filter(

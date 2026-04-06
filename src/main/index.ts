@@ -3,6 +3,10 @@ import path from "node:path";
 import type { NativeMenuAction } from "../shared/types/ipc";
 import { guardWindowDevTools } from "./devtools-guard";
 import { setupIpcHandlers } from "./ipc/ipc-handlers";
+import {
+  getRestoredMainWindowPlacement,
+  watchMainWindowPlacement,
+} from "./window-placement";
 
 if (
   process.platform === "win32" &&
@@ -70,9 +74,17 @@ const registerAppShortcutOverrides = (window: BrowserWindow) => {
 };
 
 const createMainWindow = async () => {
-  const mainWindow = new BrowserWindow({
+  const restoredPlacement = await getRestoredMainWindowPlacement({
     width: 1440,
     height: 920,
+    minWidth: 1100,
+    minHeight: 700,
+  });
+  const mainWindow = new BrowserWindow({
+    width: restoredPlacement.bounds?.width ?? 1440,
+    height: restoredPlacement.bounds?.height ?? 920,
+    x: restoredPlacement.bounds?.x,
+    y: restoredPlacement.bounds?.y,
     minWidth: 1100,
     minHeight: 700,
     frame: false,
@@ -87,6 +99,7 @@ const createMainWindow = async () => {
   });
   guardWindowDevTools(mainWindow);
   registerAppShortcutOverrides(mainWindow);
+  watchMainWindowPlacement(mainWindow);
 
   setupIpcHandlers(mainWindow);
 
@@ -103,6 +116,10 @@ const createMainWindow = async () => {
   }
 
   mainWindow.webContents.setZoomFactor(1);
+
+  if (restoredPlacement.isMaximized) {
+    mainWindow.maximize();
+  }
 };
 
 const installMacApplicationMenu = () => {

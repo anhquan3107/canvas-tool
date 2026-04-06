@@ -21,8 +21,22 @@ export interface AppSettings {
   lastExportPath?: string;
   maxRecentFiles: number;
   windowOpacity?: number;
+  windowPlacement?: WindowPlacementSettings;
   shortcuts?: Partial<Record<ShortcutActionId, string>>;
   seenTitleBarTooltips?: string[];
+}
+
+export interface WindowBoundsSnapshot {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  isMaximized?: boolean;
+}
+
+export interface WindowPlacementSettings {
+  lastBounds?: WindowBoundsSnapshot;
+  layouts?: Record<string, WindowBoundsSnapshot>;
 }
 
 export interface CanvasSize {

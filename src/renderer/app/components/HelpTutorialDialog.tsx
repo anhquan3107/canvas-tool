@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import type { ShortcutActionId, ShortcutBindings } from "@shared/shortcuts";
 import { formatMenuShortcut } from "@renderer/app/components/MenuItemContent";
+import { DialogScrim } from "@renderer/ui/DialogScrim";
 
 interface HelpFeature {
   icon: LucideIcon;
@@ -203,7 +204,7 @@ export const HelpTutorialDialog = ({
   }
 
   return (
-    <div className="dialog-scrim" onClick={onClose}>
+    <DialogScrim onClose={onClose}>
       <div
         className="help-dialog"
         onClick={(event) => event.stopPropagation()}
@@ -269,6 +270,6 @@ export const HelpTutorialDialog = ({
           ))}
         </div>
       </div>
-    </div>
+    </DialogScrim>
   );
 };

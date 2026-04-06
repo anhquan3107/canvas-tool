@@ -6,6 +6,7 @@ import {
   type ShortcutSection,
 } from "@shared/shortcuts";
 import { keyboardEventToShortcut } from "@renderer/hooks/use-shortcuts";
+import { DialogScrim } from "@renderer/ui/DialogScrim";
 
 interface KeyboardShortcutsDialogProps {
   open: boolean;
@@ -76,7 +77,7 @@ export const KeyboardShortcutsDialog = ({
   };
 
   return (
-    <div className="dialog-scrim" role="presentation" onClick={onClose}>
+    <DialogScrim onClose={onClose} role="presentation">
       <div
         className="dialog-panel shortcut-dialog"
         role="dialog"
@@ -190,6 +191,6 @@ export const KeyboardShortcutsDialog = ({
           </div>
         </footer>
       </div>
-    </div>
+    </DialogScrim>
   );
 };

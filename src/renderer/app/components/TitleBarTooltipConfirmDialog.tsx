@@ -1,3 +1,5 @@
+import { DialogScrim } from "@renderer/ui/DialogScrim";
+
 const shortcutTokens = (shortcut?: string) => {
   if (!shortcut) {
     return [];
@@ -40,10 +42,10 @@ export const TitleBarTooltipConfirmDialog = ({
     .filter(Boolean);
 
   return (
-    <div
+    <DialogScrim
       className="dialog-scrim titlebar-tooltip-dialog-scrim"
       role="presentation"
-      onClick={onClose}
+      onClose={onClose}
     >
       <div
         className="dialog-card titlebar-tooltip-dialog"
@@ -93,6 +95,6 @@ export const TitleBarTooltipConfirmDialog = ({
           </button>
         </div>
       </div>
-    </div>
+    </DialogScrim>
   );
 };

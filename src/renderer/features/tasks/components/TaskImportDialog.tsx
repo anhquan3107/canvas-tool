@@ -1,4 +1,5 @@
 import type { TasksImportResult } from "@shared/types/ipc";
+import { DialogScrim } from "@renderer/ui/DialogScrim";
 
 type TaskImportMode = "merge" | "replace" | "skip-duplicates";
 
@@ -41,7 +42,7 @@ export const TaskImportDialog = ({
   const visibleTasks = preview.tasks.slice(0, 5);
 
   return (
-    <div className="dialog-scrim" onClick={onClose}>
+    <DialogScrim onClose={onClose}>
       <div
         className="dialog-card task-import-dialog"
         onClick={(event) => event.stopPropagation()}
@@ -135,6 +136,6 @@ export const TaskImportDialog = ({
           </button>
         </div>
       </div>
-    </div>
+    </DialogScrim>
   );
 };

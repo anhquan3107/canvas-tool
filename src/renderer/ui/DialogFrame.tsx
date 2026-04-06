@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { DialogScrim } from "@renderer/ui/DialogScrim";
 
 interface DialogFrameProps {
   title: string;
@@ -13,7 +14,7 @@ export const DialogFrame = ({
   onClose,
   className,
 }: DialogFrameProps) => (
-  <div className="dialog-scrim" onClick={onClose}>
+  <DialogScrim onClose={onClose}>
     <div
       className={`dialog-card${className ? ` ${className}` : ""}`}
       onClick={(event) => event.stopPropagation()}
@@ -23,5 +24,5 @@ export const DialogFrame = ({
       <h3>{title}</h3>
       {children}
     </div>
-  </div>
+  </DialogScrim>
 );

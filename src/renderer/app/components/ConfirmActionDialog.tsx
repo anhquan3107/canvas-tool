@@ -1,4 +1,5 @@
 import { AlertTriangle, Trash2 } from "lucide-react";
+import { DialogScrim } from "@renderer/ui/DialogScrim";
 
 interface ConfirmActionDialogProps {
   open: boolean;
@@ -22,7 +23,7 @@ export const ConfirmActionDialog = ({
   }
 
   return (
-    <div className="dialog-scrim" onClick={onCancel}>
+    <DialogScrim onClose={onCancel}>
       <div
         className="dialog-card confirm-action-dialog"
         onClick={(event) => event.stopPropagation()}
@@ -60,6 +61,6 @@ export const ConfirmActionDialog = ({
           </button>
         </div>
       </div>
-    </div>
+    </DialogScrim>
   );
 };

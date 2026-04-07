@@ -10,7 +10,6 @@ import { useWindowRightDrag } from "@renderer/app/hooks/use-window-right-drag";
 import type { CaptureQuality } from "@renderer/features/connect/types";
 import { CAPTURE_QUALITY_PROFILES } from "@renderer/features/connect/utils";
 
-const CAPTURE_WINDOW_TOPBAR_HIDE_DELAY_MS = 160;
 const CAPTURE_WINDOW_TOPBAR_HIDE_TRANSITION_MS = 180;
 
 const DEFAULT_CAPTURE_SESSION_STATE: CaptureSessionState = {
@@ -94,14 +93,7 @@ export const CaptureToolbarApp = () => {
       setTopbarVisible(true);
       return;
     }
-
-    const timeoutId = window.setTimeout(() => {
-      setTopbarVisible(false);
-    }, CAPTURE_WINDOW_TOPBAR_HIDE_DELAY_MS);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
+    setTopbarVisible(false);
   }, [
     effectiveWindowFocused,
     edgeRevealActive,
@@ -235,7 +227,9 @@ export const CaptureToolbarApp = () => {
       <header
         className="capture-window-topbar"
         data-window-left-drag="true"
-        onPointerDown={() => setTopbarPointerActive(true)}
+        onPointerDown={(event) => {
+          setTopbarPointerActive(event.button === 0);
+        }}
         onPointerEnter={() => setTopbarHovered(true)}
         onPointerLeave={() => setTopbarHovered(false)}
       >

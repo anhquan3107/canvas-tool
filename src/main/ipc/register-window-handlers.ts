@@ -30,6 +30,15 @@ export const registerWindowHandlers = (window: BrowserWindow) => {
     getTargetWindow(event)?.setTitle(safeTitle);
   });
 
+  ipcMain.handle("window:focus", (event) => {
+    const targetWindow = getTargetWindow(event);
+    if (!targetWindow.isVisible()) {
+      targetWindow.show();
+    }
+    targetWindow.moveTop();
+    targetWindow.focus();
+  });
+
   ipcMain.handle("window:minimize", (event) => {
     getTargetWindow(event)?.minimize();
   });

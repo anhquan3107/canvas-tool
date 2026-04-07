@@ -112,6 +112,9 @@ export const useCanvasBoardBootstrap = ({
 
     let mounted = true;
     let resizeObserver: ResizeObserver | null = null;
+    let resizeFrameId: number | null = null;
+    let lastHostWidth = -1;
+    let lastHostHeight = -1;
 
     const bootstrap = async () => {
       const app = await initializeBoardPixi({
@@ -181,10 +184,31 @@ export const useCanvasBoardBootstrap = ({
       window.addEventListener("pointerup", onPointerUp);
       window.addEventListener("pointercancel", onPointerUp);
 
+      const syncHostResize = () => {
+        resizeFrameId = null;
+        const nextWidth = host.clientWidth;
+        const nextHeight = host.clientHeight;
+
+        if (nextWidth === lastHostWidth && nextHeight === lastHostHeight) {
+          return;
+        }
+
+        lastHostWidth = nextWidth;
+        lastHostHeight = nextHeight;
+        drawBoardSurface();
+        updateSelectedBoundsOverlay();
+      };
+
       resizeObserver = new ResizeObserver(() => {
-        app.renderer.resize(host.clientWidth, host.clientHeight);
+        if (resizeFrameId !== null) {
+          return;
+        }
+
+        resizeFrameId = window.requestAnimationFrame(syncHostResize);
       });
       resizeObserver.observe(host);
+      lastHostWidth = host.clientWidth;
+      lastHostHeight = host.clientHeight;
       rebuildScene();
       setAppReady(true);
 
@@ -214,6 +238,9 @@ export const useCanvasBoardBootstrap = ({
 
       cleanupListeners?.();
       resizeObserver?.disconnect();
+      if (resizeFrameId !== null) {
+        window.cancelAnimationFrame(resizeFrameId);
+      }
       activeItemDragRef.current = null;
       host.replaceChildren();
       appRef.current?.destroy(true, { children: true });

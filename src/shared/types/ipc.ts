@@ -154,6 +154,12 @@ export interface CaptureWindowAspectRequest {
   chromeTopInset?: number;
 }
 
+export interface CaptureToolbarVisibilityRequest {
+  visible: boolean;
+}
+
+export type CaptureWindowFocusListener = (focused: boolean) => void;
+
 export interface DesktopApi {
   app: {
     getVersion: () => Promise<string>;
@@ -193,6 +199,7 @@ export interface DesktopApi {
   };
   window: {
     setTitle: (payload: AppWindowState) => Promise<void>;
+    focus: () => Promise<void>;
     minimize: () => Promise<void>;
     toggleAlwaysOnTop: () => Promise<AppWindowControlsState>;
     toggleMaximize: () => Promise<AppWindowControlsState>;
@@ -234,5 +241,9 @@ export interface DesktopApi {
     listSources: () => Promise<DesktopCaptureSource[]>;
     openWindow: (payload: OpenCaptureWindowRequest) => Promise<void>;
     updateWindowAspect: (payload: CaptureWindowAspectRequest) => Promise<void>;
+    setToolbarVisibility: (
+      payload: CaptureToolbarVisibilityRequest,
+    ) => Promise<void>;
+    onWindowFocusChanged: (listener: CaptureWindowFocusListener) => () => void;
   };
 }

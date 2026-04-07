@@ -14,21 +14,48 @@ export const useCanvasStage = () => {
       return;
     }
 
+    let frameId: number | null = null;
+    let lastWidth = -1;
+    let lastHeight = -1;
+
     const updateViewportSize = () => {
+      frameId = null;
+      const nextWidth = Math.round(node.clientWidth);
+      const nextHeight = Math.round(node.clientHeight);
+
+      if (nextWidth === lastWidth && nextHeight === lastHeight) {
+        return;
+      }
+
+      lastWidth = nextWidth;
+      lastHeight = nextHeight;
       setViewportSize({
-        width: Math.round(node.clientWidth),
-        height: Math.round(node.clientHeight),
+        width: nextWidth,
+        height: nextHeight,
       });
+    };
+
+    const scheduleViewportSizeUpdate = () => {
+      if (frameId !== null) {
+        return;
+      }
+
+      frameId = window.requestAnimationFrame(updateViewportSize);
     };
 
     updateViewportSize();
 
     const observer = new ResizeObserver(() => {
-      updateViewportSize();
+      scheduleViewportSizeUpdate();
     });
     observer.observe(node);
 
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId);
+      }
+    };
   }, []);
 
   return {

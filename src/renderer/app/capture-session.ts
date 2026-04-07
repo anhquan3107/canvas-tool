@@ -15,6 +15,7 @@ export interface CaptureSessionState {
   blurEnabled: boolean;
   bwEnabled: boolean;
   dialogOpen: boolean;
+  windowFocused: boolean;
   windowMaximized: boolean;
   windowAlwaysOnTop: boolean;
 }

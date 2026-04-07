@@ -1,5 +1,9 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { DesktopApi, NativeMenuAction } from "../shared/types/ipc";
+import type {
+  CaptureWindowFocusListener,
+  DesktopApi,
+  NativeMenuAction,
+} from "../shared/types/ipc";
 
 const desktopApi: DesktopApi = {
   app: {
@@ -47,6 +51,7 @@ const desktopApi: DesktopApi = {
   },
   window: {
     setTitle: (payload) => ipcRenderer.invoke("window:set-title", payload),
+    focus: () => ipcRenderer.invoke("window:focus"),
     minimize: () => ipcRenderer.invoke("window:minimize"),
     toggleAlwaysOnTop: () => ipcRenderer.invoke("window:toggle-always-on-top"),
     toggleMaximize: () => ipcRenderer.invoke("window:toggle-maximize"),
@@ -82,6 +87,25 @@ const desktopApi: DesktopApi = {
     openWindow: (payload) => ipcRenderer.invoke("capture:open-window", payload),
     updateWindowAspect: (payload) =>
       ipcRenderer.invoke("capture:update-window-aspect", payload),
+    setToolbarVisibility: (payload) =>
+      ipcRenderer.invoke("capture:set-toolbar-visibility", payload),
+    onWindowFocusChanged: (listener: CaptureWindowFocusListener) => {
+      const handleFocusChanged = (
+        _event: Electron.IpcRendererEvent,
+        focused: boolean,
+      ) => {
+        listener(focused);
+      };
+
+      ipcRenderer.on("capture:window-focus-changed", handleFocusChanged);
+
+      return () => {
+        ipcRenderer.removeListener(
+          "capture:window-focus-changed",
+          handleFocusChanged,
+        );
+      };
+    },
   },
 };
 

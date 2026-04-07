@@ -9,6 +9,7 @@ import path from "node:path";
 import { guardWindowDevTools } from "../devtools-guard";
 import {
   clearWindowActionTarget,
+  getWindowActionTarget,
   setWindowActionTarget,
 } from "../window-action-targets";
 import {
@@ -24,24 +25,23 @@ import {
   ensureCaptureWindowPayload,
 } from "./ipc-validators";
 
-const CAPTURE_TOOLBAR_HEIGHT = 40;
-const CAPTURE_TOOLBAR_SEAM_OVERLAP = 2;
+const CAPTURE_TOOLBAR_HEIGHT = 34;
+const CAPTURE_TOOLBAR_SEAM_OVERLAP = 1;
 
 const getCaptureToolbarBounds = (captureWindow: BrowserWindow) => {
   const bounds = captureWindow.getBounds();
   const display = screen.getDisplayMatching(bounds);
   return {
     x: bounds.x,
-    y: Math.max(
-      display.workArea.y,
-      bounds.y - CAPTURE_TOOLBAR_HEIGHT + CAPTURE_TOOLBAR_SEAM_OVERLAP,
-    ),
+    y: Math.max(display.workArea.y, bounds.y - CAPTURE_TOOLBAR_HEIGHT),
     width: bounds.width,
     height: CAPTURE_TOOLBAR_HEIGHT + CAPTURE_TOOLBAR_SEAM_OVERLAP,
   };
 };
 
 export const registerCaptureHandlers = (_window: BrowserWindow) => {
+  const toolbarVisibilityByWindow = new WeakMap<BrowserWindow, boolean>();
+
   const applyCaptureWindowAspect = (
     captureWindow: BrowserWindow,
     nextSourceSize: { width: number; height: number },
@@ -128,17 +128,20 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
       thickFrame: process.platform === "win32",
       transparent: false,
       backgroundColor: "#0f0f10",
+      roundedCorners: false,
       acceptFirstMouse: true,
       title: `Capture - ${payload.sourceName}`,
       webPreferences: {
         preload: path.join(__dirname, "../preload/index.js"),
         contextIsolation: true,
         nodeIntegration: false,
+        backgroundThrottling: false,
       },
     };
     const captureWindow = new BrowserWindow(captureWindowOptions);
     const toolbarWindow = new BrowserWindow({
       ...getCaptureToolbarBounds(captureWindow),
+      parent: captureWindow,
       show: false,
       resizable: false,
       movable: false,
@@ -150,11 +153,13 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
       transparent: true,
       hasShadow: false,
       backgroundColor: "#00000000",
+      roundedCorners: false,
       acceptFirstMouse: true,
       webPreferences: {
         preload: path.join(__dirname, "../preload/index.js"),
         contextIsolation: true,
         nodeIntegration: false,
+        backgroundThrottling: false,
       },
     });
 
@@ -163,8 +168,18 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
     captureWindow.setAspectRatio(
       initialSourceSize.width / initialSourceSize.height,
     );
+    toolbarVisibilityByWindow.set(toolbarWindow, false);
     toolbarWindow.setIgnoreMouseEvents(true, { forward: true });
     setWindowActionTarget(toolbarWindow, captureWindow);
+
+    const emitCaptureWindowFocus = () => {
+      if (!toolbarWindow.isDestroyed()) {
+        toolbarWindow.webContents.send(
+          "capture:window-focus-changed",
+          captureWindow.isFocused() || toolbarWindow.isFocused(),
+        );
+      }
+    };
 
     const syncToolbarWindow = () => {
       if (captureWindow.isDestroyed() || toolbarWindow.isDestroyed()) {
@@ -217,6 +232,7 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
 
     toolbarWindow.once("closed", () => {
       clearWindowActionTarget(toolbarWindow);
+      toolbarVisibilityByWindow.delete(toolbarWindow);
     });
 
     captureWindow.on("move", syncToolbarWindow);
@@ -230,6 +246,10 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
     captureWindow.on("hide", hideToolbarWindow);
     captureWindow.on("minimize", hideToolbarWindow);
     captureWindow.on("always-on-top-changed", syncToolbarWindow);
+    captureWindow.on("focus", emitCaptureWindowFocus);
+    captureWindow.on("blur", emitCaptureWindowFocus);
+    toolbarWindow.on("focus", emitCaptureWindowFocus);
+    toolbarWindow.on("blur", emitCaptureWindowFocus);
 
     const query = new URLSearchParams({
       sessionId,
@@ -277,6 +297,8 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
         },
       );
     }
+
+    emitCaptureWindowFocus();
   });
 
   ipcMain.handle("capture:update-window-aspect", (event, rawPayload) => {
@@ -297,6 +319,41 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
 
     if (!captureWindow.isVisible()) {
       captureWindow.show();
+    }
+  });
+
+  ipcMain.handle("capture:set-toolbar-visibility", (event, rawPayload) => {
+    if (
+      !rawPayload ||
+      typeof rawPayload !== "object" ||
+      typeof (rawPayload as { visible?: unknown }).visible !== "boolean"
+    ) {
+      throw new Error("Invalid capture toolbar visibility payload.");
+    }
+
+    const toolbarWindow = getSenderWindow(event.sender);
+    if (!toolbarWindow || toolbarWindow.isDestroyed()) {
+      return;
+    }
+
+    const captureWindow = getWindowActionTarget(toolbarWindow);
+    if (!captureWindow || captureWindow.isDestroyed()) {
+      return;
+    }
+
+    const visible = (rawPayload as { visible: boolean }).visible;
+    toolbarVisibilityByWindow.set(toolbarWindow, visible);
+
+    if (
+      visible &&
+      captureWindow.isVisible() &&
+      !captureWindow.isMinimized() &&
+      !captureWindow.isFullScreen()
+    ) {
+      toolbarWindow.setBounds(getCaptureToolbarBounds(captureWindow), false);
+      if (!toolbarWindow.isVisible()) {
+        toolbarWindow.showInactive();
+      }
     }
   });
 };

@@ -11,6 +11,7 @@ import type { CaptureQuality } from "@renderer/features/connect/types";
 import { CAPTURE_QUALITY_PROFILES } from "@renderer/features/connect/utils";
 
 const CAPTURE_WINDOW_TOPBAR_HIDE_DELAY_MS = 160;
+const CAPTURE_WINDOW_TOPBAR_HIDE_TRANSITION_MS = 180;
 
 const DEFAULT_CAPTURE_SESSION_STATE: CaptureSessionState = {
   sourceName: "Capture",
@@ -18,6 +19,7 @@ const DEFAULT_CAPTURE_SESSION_STATE: CaptureSessionState = {
   blurEnabled: false,
   bwEnabled: false,
   dialogOpen: false,
+  windowFocused: false,
   windowMaximized: false,
   windowAlwaysOnTop: false,
 };
@@ -27,6 +29,7 @@ export const CaptureToolbarApp = () => {
 
   const initial = useMemo(() => getCaptureLocationParams(), []);
   const channelRef = useRef<BroadcastChannel | null>(null);
+  const hideWindowTimeoutRef = useRef<number | null>(null);
   const [sessionState, setSessionState] = useState<CaptureSessionState>({
     ...DEFAULT_CAPTURE_SESSION_STATE,
     sourceName: initial.sourceName,
@@ -35,6 +38,8 @@ export const CaptureToolbarApp = () => {
   const [edgeRevealActive, setEdgeRevealActive] = useState(false);
   const [topbarHovered, setTopbarHovered] = useState(false);
   const [topbarVisible, setTopbarVisible] = useState(false);
+  const [topbarPointerActive, setTopbarPointerActive] = useState(false);
+  const [captureWindowFocused, setCaptureWindowFocused] = useState(false);
 
   const postMessage = useCallback((message: CaptureSessionMessage) => {
     channelRef.current?.postMessage(message);
@@ -71,8 +76,21 @@ export const CaptureToolbarApp = () => {
     };
   }, [initial.sessionId]);
 
+  useEffect(
+    () => window.desktopApi.capture.onWindowFocusChanged(setCaptureWindowFocused),
+    [],
+  );
+
+  const effectiveWindowFocused =
+    captureWindowFocused || sessionState.windowFocused;
+
   useEffect(() => {
-    if (edgeRevealActive || topbarHovered) {
+    if (
+      effectiveWindowFocused ||
+      edgeRevealActive ||
+      topbarHovered ||
+      topbarPointerActive
+    ) {
       setTopbarVisible(true);
       return;
     }
@@ -84,16 +102,106 @@ export const CaptureToolbarApp = () => {
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [edgeRevealActive, topbarHovered]);
+  }, [
+    effectiveWindowFocused,
+    edgeRevealActive,
+    topbarHovered,
+    topbarPointerActive,
+  ]);
 
   useEffect(() => {
-    void window.desktopApi.window
-      .setIgnoreMouseEvents({
-        ignore: !topbarVisible,
-        forward: true,
-      })
-      .catch(() => undefined);
+    if (effectiveWindowFocused || edgeRevealActive || topbarPointerActive) {
+      return;
+    }
+
+    setTopbarHovered(false);
+  }, [edgeRevealActive, effectiveWindowFocused, topbarPointerActive]);
+
+  useEffect(() => {
+    const clearHoverState = () => {
+      setTopbarHovered(false);
+      setTopbarPointerActive(false);
+    };
+
+    window.addEventListener("blur", clearHoverState);
+    document.addEventListener("visibilitychange", clearHoverState);
+
+    return () => {
+      window.removeEventListener("blur", clearHoverState);
+      document.removeEventListener("visibilitychange", clearHoverState);
+    };
+  }, []);
+
+  useEffect(() => {
+    const clearPointerActive = () => {
+      setTopbarPointerActive(false);
+    };
+
+    window.addEventListener("pointerup", clearPointerActive);
+    window.addEventListener("pointercancel", clearPointerActive);
+    window.addEventListener("mouseup", clearPointerActive);
+    window.addEventListener("blur", clearPointerActive);
+
+    return () => {
+      window.removeEventListener("pointerup", clearPointerActive);
+      window.removeEventListener("pointercancel", clearPointerActive);
+      window.removeEventListener("mouseup", clearPointerActive);
+      window.removeEventListener("blur", clearPointerActive);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (hideWindowTimeoutRef.current !== null) {
+      window.clearTimeout(hideWindowTimeoutRef.current);
+      hideWindowTimeoutRef.current = null;
+    }
+
+    if (topbarVisible) {
+      void window.desktopApi.capture
+        .setToolbarVisibility({
+          visible: true,
+        })
+        .catch(() => undefined);
+      void window.desktopApi.window
+        .setIgnoreMouseEvents({
+          ignore: false,
+          forward: true,
+        })
+        .catch(() => undefined);
+      return;
+    }
+
+    hideWindowTimeoutRef.current = window.setTimeout(() => {
+      hideWindowTimeoutRef.current = null;
+      void window.desktopApi.window
+        .setIgnoreMouseEvents({
+          ignore: true,
+          forward: true,
+        })
+        .catch(() => undefined);
+      void window.desktopApi.capture
+        .setToolbarVisibility({
+          visible: false,
+        })
+        .catch(() => undefined);
+    }, CAPTURE_WINDOW_TOPBAR_HIDE_TRANSITION_MS);
+
+    return () => {
+      if (hideWindowTimeoutRef.current !== null) {
+        window.clearTimeout(hideWindowTimeoutRef.current);
+        hideWindowTimeoutRef.current = null;
+      }
+    };
   }, [topbarVisible]);
+
+  useEffect(
+    () => () => {
+      if (hideWindowTimeoutRef.current !== null) {
+        window.clearTimeout(hideWindowTimeoutRef.current);
+      }
+    },
+    [],
+  );
 
   const syncWindowControlsState = (controls: AppWindowControlsState) => {
     setSessionState((previous) => ({
@@ -127,6 +235,7 @@ export const CaptureToolbarApp = () => {
       <header
         className="capture-window-topbar"
         data-window-left-drag="true"
+        onPointerDown={() => setTopbarPointerActive(true)}
         onPointerEnter={() => setTopbarHovered(true)}
         onPointerLeave={() => setTopbarHovered(false)}
       >

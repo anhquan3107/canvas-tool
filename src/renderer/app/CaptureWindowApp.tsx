@@ -6,6 +6,7 @@ import {
   type CaptureSessionMessage,
   type CaptureSessionState,
 } from "@renderer/app/capture-session";
+import { useWindowFocusState } from "@renderer/app/hooks/use-window-focus-state";
 import { useWindowResize } from "@renderer/app/hooks/use-window-resize";
 import { ConnectDialog } from "@renderer/features/connect/components/ConnectDialog";
 import { useWindowRightDrag } from "@renderer/app/hooks/use-window-right-drag";
@@ -42,7 +43,7 @@ const WINDOWS_WINDOW_PREVIEW_CROP: PreviewCropInsets = {
 };
 
 const CAPTURE_WINDOW_ASPECT_SYNC_DELAY_MS = 90;
-const CAPTURE_WINDOW_TOP_REVEAL_THRESHOLD = 18;
+const CAPTURE_WINDOW_TOP_REVEAL_THRESHOLD = 34;
 const CAPTURE_WINDOW_RESIZE_DIRECTIONS = [
   "n",
   "s",
@@ -79,6 +80,7 @@ const getEffectivePreviewSize = (
 
 export const CaptureWindowApp = () => {
   useWindowRightDrag();
+  const windowFocused = useWindowFocusState();
   const initial = useMemo(() => getCaptureLocationParams(), []);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -91,6 +93,7 @@ export const CaptureWindowApp = () => {
     blurEnabled: false,
     bwEnabled: false,
     dialogOpen: false,
+    windowFocused,
     windowMaximized: false,
     windowAlwaysOnTop: false,
   });
@@ -201,6 +204,7 @@ export const CaptureWindowApp = () => {
       blurEnabled,
       bwEnabled,
       dialogOpen,
+      windowFocused,
       windowMaximized,
       windowAlwaysOnTop,
     };
@@ -210,6 +214,7 @@ export const CaptureWindowApp = () => {
     dialogOpen,
     quality,
     sourceName,
+    windowFocused,
     windowAlwaysOnTop,
     windowMaximized,
   ]);
@@ -405,6 +410,7 @@ export const CaptureWindowApp = () => {
         blurEnabled,
         bwEnabled,
         dialogOpen,
+        windowFocused,
         windowMaximized,
         windowAlwaysOnTop,
       },
@@ -416,6 +422,7 @@ export const CaptureWindowApp = () => {
     postSessionMessage,
     quality,
     sourceName,
+    windowFocused,
     windowAlwaysOnTop,
     windowMaximized,
   ]);

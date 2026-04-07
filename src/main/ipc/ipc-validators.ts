@@ -1,4 +1,5 @@
 import type {
+  CaptureWindowAspectRequest,
   CanvasImageExportRequest,
   GroupImagesExportRequest,
   ImageSwatchExtractRequest,
@@ -227,6 +228,26 @@ export const ensureCaptureWindowPayload = (
   }
 
   return rawPayload;
+};
+
+export const ensureCaptureWindowAspectPayload = (
+  rawPayload: CaptureWindowAspectRequest,
+) => {
+  if (
+    !rawPayload ||
+    typeof rawPayload !== "object" ||
+    !Number.isFinite(rawPayload.sourceWidth) ||
+    !Number.isFinite(rawPayload.sourceHeight) ||
+    rawPayload.sourceWidth <= 0 ||
+    rawPayload.sourceHeight <= 0
+  ) {
+    throw new Error("Invalid capture window aspect payload.");
+  }
+
+  return {
+    sourceWidth: rawPayload.sourceWidth,
+    sourceHeight: rawPayload.sourceHeight,
+  };
 };
 
 export const ensureClipboardWriteImagePayload = (value: unknown) => {

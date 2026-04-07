@@ -1,11 +1,83 @@
 .capture-window-shell {
   position: relative;
-  display: grid;
-  grid-template-rows: 40px minmax(0, 1fr);
+  display: block;
   width: 100%;
   height: 100%;
   min-height: 0;
-  background: #151516;
+  overflow: hidden;
+  background: #0f0f10;
+}
+
+.capture-window-resize-handle {
+  position: absolute;
+  z-index: 80;
+  pointer-events: auto;
+}
+
+.capture-window-resize-n,
+.capture-window-resize-s {
+  left: 10px;
+  right: 10px;
+  height: 10px;
+}
+
+.capture-window-resize-e,
+.capture-window-resize-w {
+  top: 10px;
+  bottom: 10px;
+  width: 10px;
+}
+
+.capture-window-resize-n {
+  top: 0;
+  cursor: ns-resize;
+}
+
+.capture-window-resize-s {
+  bottom: 0;
+  cursor: ns-resize;
+}
+
+.capture-window-resize-e {
+  right: 0;
+  cursor: ew-resize;
+}
+
+.capture-window-resize-w {
+  left: 0;
+  cursor: ew-resize;
+}
+
+.capture-window-resize-ne,
+.capture-window-resize-nw,
+.capture-window-resize-se,
+.capture-window-resize-sw {
+  width: 18px;
+  height: 18px;
+}
+
+.capture-window-resize-ne {
+  top: 0;
+  right: 0;
+  cursor: nesw-resize;
+}
+
+.capture-window-resize-nw {
+  top: 0;
+  left: 0;
+  cursor: nwse-resize;
+}
+
+.capture-window-resize-se {
+  right: 0;
+  bottom: 0;
+  cursor: nwse-resize;
+}
+
+.capture-window-resize-sw {
+  left: 0;
+  bottom: 0;
+  cursor: nesw-resize;
 }
 
 .capture-topbar-reveal-zone {
@@ -19,7 +91,8 @@
 }
 
 .capture-window-topbar {
-  position: relative;
+  position: absolute;
+  inset: 0 0 auto 0;
   z-index: 50;
   display: flex;
   align-items: center;
@@ -138,21 +211,20 @@
 }
 
 .capture-window-body {
-  display: grid;
-  place-items: center;
+  width: 100%;
+  height: 100%;
   min-height: 0;
-  padding: 12px;
-  background: #151516;
+  padding: 0;
+  background: #0f0f10;
 }
 
 .capture-window-picker {
   width: 100%;
   height: 100%;
   overflow: auto;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0;
+  border: none;
   background: #171719;
-  box-shadow: var(--shadow);
 }
 
 .connect-dialog-embedded {
@@ -166,10 +238,10 @@
   width: 100%;
   height: 100%;
   overflow: hidden;
-  border-radius: 10px;
+  border-radius: 0;
   background: #0f0f10;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: var(--shadow);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.015);
 }
 
 .capture-preview-video {
@@ -182,7 +254,7 @@
 
 .capture-preview-footer {
   position: absolute;
-  inset: auto 14px 14px 14px;
+  inset: auto 10px 10px 10px;
   display: flex;
   justify-content: center;
   pointer-events: none;
@@ -190,7 +262,7 @@
 
 .capture-preview-message {
   position: absolute;
-  inset: auto 16px 16px;
+  inset: auto 12px 12px;
   padding: 10px 12px;
   border-radius: 8px;
   background: rgba(19, 19, 20, 0.88);
@@ -225,6 +297,6 @@
   }
 
   .capture-window-body {
-    padding: 8px;
+    padding: 0;
   }
 }

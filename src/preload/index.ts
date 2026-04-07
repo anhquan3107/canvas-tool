@@ -53,7 +53,15 @@ const desktopApi: DesktopApi = {
     close: () => ipcRenderer.invoke("window:close"),
     getControlsState: () => ipcRenderer.invoke("window:get-controls-state"),
     getPosition: () => ipcRenderer.invoke("window:get-position"),
+    getPositionSync: () => ipcRenderer.sendSync("window:get-position-sync"),
+    getBounds: () => ipcRenderer.invoke("window:get-bounds"),
+    getBoundsSync: () => ipcRenderer.sendSync("window:get-bounds-sync"),
     setPosition: (payload) => ipcRenderer.invoke("window:set-position", payload),
+    setPositionImmediate: (payload) =>
+      ipcRenderer.send("window:set-position-immediate", payload),
+    setBounds: (payload) => ipcRenderer.invoke("window:set-bounds", payload),
+    setBoundsImmediate: (payload) =>
+      ipcRenderer.send("window:set-bounds-immediate", payload),
     getOpacity: () => ipcRenderer.invoke("window:get-opacity"),
     setOpacity: (payload) => ipcRenderer.invoke("window:set-opacity", payload),
   },
@@ -70,6 +78,8 @@ const desktopApi: DesktopApi = {
   capture: {
     listSources: () => ipcRenderer.invoke("capture:list-sources"),
     openWindow: (payload) => ipcRenderer.invoke("capture:open-window", payload),
+    updateWindowAspect: (payload) =>
+      ipcRenderer.invoke("capture:update-window-aspect", payload),
   },
 };
 

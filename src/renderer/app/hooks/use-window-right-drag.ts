@@ -62,11 +62,24 @@ const isInteractiveTarget = (target: EventTarget | null) => {
   );
 };
 
+const getImmediateWindowPosition = () => {
+  try {
+    return window.desktopApi.window.getPositionSync();
+  } catch {
+    return null;
+  }
+};
+
 const getCachedWindowPosition = async (
   cachedPosition: { x: number; y: number } | null,
 ) => {
   if (cachedPosition) {
     return cachedPosition;
+  }
+
+  const immediatePosition = getImmediateWindowPosition();
+  if (immediatePosition) {
+    return immediatePosition;
   }
 
   return window.desktopApi.window.getPosition();
@@ -96,7 +109,6 @@ export const useWindowRightDrag = () => {
     let cachedWindowPosition: { x: number; y: number } | null = null;
     let pendingMove: { x: number; y: number } | null = null;
     let moveFrame: number | null = null;
-    let moveInFlight = false;
     const scheduleMove = () => {
       if (moveFrame === null) {
         moveFrame = window.requestAnimationFrame(flushMove);
@@ -105,23 +117,22 @@ export const useWindowRightDrag = () => {
 
     const flushMove = () => {
       moveFrame = null;
-      if (!pendingMove || moveInFlight) {
+      if (!pendingMove) {
         return;
       }
 
       const nextMove = pendingMove;
       pendingMove = null;
       cachedWindowPosition = nextMove;
-      moveInFlight = true;
-      void window.desktopApi.window
-        .setPosition(nextMove)
-        .catch(() => null)
-        .finally(() => {
-          moveInFlight = false;
-          if (pendingMove && moveFrame === null) {
-            moveFrame = window.requestAnimationFrame(flushMove);
-          }
-        });
+      try {
+        window.desktopApi.window.setPositionImmediate(nextMove);
+      } catch {
+        void window.desktopApi.window.setPosition(nextMove).catch(() => null);
+      }
+
+      if (pendingMove && moveFrame === null) {
+        moveFrame = window.requestAnimationFrame(flushMove);
+      }
     };
 
     const releasePointerCapture = () => {
@@ -173,7 +184,8 @@ export const useWindowRightDrag = () => {
       const token = ++dragToken;
       const button = event.button === 0 ? 0 : 2;
       const captureTarget = isElement(event.target) ? event.target : null;
-      const initialPosition = cachedWindowPosition;
+      const initialPosition = cachedWindowPosition ?? getImmediateWindowPosition();
+      cachedWindowPosition = initialPosition;
 
       if (captureTarget) {
         try {
@@ -300,7 +312,7 @@ export const useWindowRightDrag = () => {
     };
 
     const handlePointerUp = () => {
-      if (pendingMove && !moveInFlight) {
+      if (pendingMove) {
         scheduleMove();
       }
       if (dragState?.moved && dragState.button === 2) {
@@ -350,12 +362,15 @@ export const useWindowRightDrag = () => {
     window.addEventListener("contextmenu", handleContextMenu, true);
     window.addEventListener("blur", handleWindowBlur);
 
-    void window.desktopApi.window
-      .getPosition()
-      .then((position) => {
-        cachedWindowPosition = position;
-      })
-      .catch(() => null);
+    cachedWindowPosition = getImmediateWindowPosition();
+    if (!cachedWindowPosition) {
+      void window.desktopApi.window
+        .getPosition()
+        .then((position) => {
+          cachedWindowPosition = position;
+        })
+        .catch(() => null);
+    }
 
     gestureState.isRightMouseDown = false;
     gestureState.isDragging = false;

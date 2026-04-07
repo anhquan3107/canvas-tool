@@ -1,4 +1,4 @@
-import { BrowserWindow, app, type WebContents } from "electron";
+import { BrowserWindow, app, screen, type WebContents } from "electron";
 import path from "node:path";
 import type { OpenCaptureWindowRequest } from "../../shared/types/ipc";
 import type { Project } from "../../shared/types/project";
@@ -72,28 +72,108 @@ export const toDataUrl = (contentType: string, buffer: Buffer) => {
 export const getSenderWindow = (sender: WebContents) =>
   BrowserWindow.fromWebContents(sender);
 
-export const getCaptureWindowBounds = (payload: OpenCaptureWindowRequest) => {
-  const sourceWidth = Math.max(320, payload.sourceWidth ?? 1280);
-  const sourceHeight = Math.max(180, payload.sourceHeight ?? 720);
-  const aspectRatio = sourceWidth / sourceHeight || 16 / 9;
-  const maxWidth = 1320;
-  const maxHeight = 920;
-  const minWidth = 760;
-  const preferredWidth = Math.min(maxWidth, Math.max(minWidth, sourceWidth));
-  const preferredHeight = Math.round(preferredWidth / aspectRatio);
+const CAPTURE_WINDOW_MIN_EDGE = 220;
+const CAPTURE_WINDOW_WORKAREA_MARGIN = 48;
+const CAPTURE_WINDOW_DEFAULT_WIDTH_RATIO = 0.62;
+const CAPTURE_WINDOW_DEFAULT_HEIGHT_RATIO = 0.58;
+const CAPTURE_WINDOW_DEFAULT_MAX_WIDTH = 1120;
+const CAPTURE_WINDOW_DEFAULT_MAX_HEIGHT = 760;
 
-  if (preferredHeight <= maxHeight) {
-    return {
-      width: preferredWidth,
-      height: Math.max(520, preferredHeight + 52),
-    };
-  }
+export const normalizeCaptureSourceSize = (
+  sourceWidth?: number,
+  sourceHeight?: number,
+) => ({
+  width: Math.max(1, Math.round(sourceWidth ?? 1280)),
+  height: Math.max(1, Math.round(sourceHeight ?? 720)),
+});
 
-  const fittedHeight = maxHeight;
+export const getCaptureWindowMinimumSize = (sourceSize: {
+  width: number;
+  height: number;
+}) => {
+  const scale = Math.max(
+    CAPTURE_WINDOW_MIN_EDGE / Math.max(1, sourceSize.width),
+    CAPTURE_WINDOW_MIN_EDGE / Math.max(1, sourceSize.height),
+  );
+
   return {
-    width: Math.round(fittedHeight * aspectRatio),
-    height: fittedHeight + 52,
+    width: Math.max(160, Math.round(sourceSize.width * scale)),
+    height: Math.max(160, Math.round(sourceSize.height * scale)),
   };
+};
+
+export const getCaptureWindowBoundsForSource = (
+  sourceSize: { width: number; height: number },
+  scale = 1,
+) => {
+  const desiredWidth = Math.max(1, sourceSize.width * scale);
+  const desiredHeight = Math.max(1, sourceSize.height * scale);
+  const workArea = screen.getPrimaryDisplay().workAreaSize;
+  const maxWidth = Math.max(320, workArea.width - CAPTURE_WINDOW_WORKAREA_MARGIN);
+  const maxHeight = Math.max(220, workArea.height - CAPTURE_WINDOW_WORKAREA_MARGIN);
+  const fitScale = Math.min(1, maxWidth / desiredWidth, maxHeight / desiredHeight);
+
+  return {
+    width: Math.max(160, Math.round(desiredWidth * fitScale)),
+    height: Math.max(160, Math.round(desiredHeight * fitScale)),
+  };
+};
+
+export const getCaptureWindowBoundsWithinBox = (
+  sourceSize: { width: number; height: number },
+  targetBox: { width: number; height: number },
+) => {
+  const normalizedSourceSize = normalizeCaptureSourceSize(
+    sourceSize.width,
+    sourceSize.height,
+  );
+  const boundedWidth = Math.max(160, Math.round(targetBox.width));
+  const boundedHeight = Math.max(160, Math.round(targetBox.height));
+  const fitScale = Math.min(
+    boundedWidth / Math.max(1, normalizedSourceSize.width),
+    boundedHeight / Math.max(1, normalizedSourceSize.height),
+  );
+
+  return {
+    width: Math.max(160, Math.round(normalizedSourceSize.width * fitScale)),
+    height: Math.max(160, Math.round(normalizedSourceSize.height * fitScale)),
+  };
+};
+
+const getCaptureWindowDefaultTargetBox = () => {
+  const workArea = screen.getPrimaryDisplay().workAreaSize;
+  const availableWidth = Math.max(
+    320,
+    workArea.width - CAPTURE_WINDOW_WORKAREA_MARGIN,
+  );
+  const availableHeight = Math.max(
+    220,
+    workArea.height - CAPTURE_WINDOW_WORKAREA_MARGIN,
+  );
+
+  return {
+    width: Math.min(
+      availableWidth,
+      Math.min(
+        CAPTURE_WINDOW_DEFAULT_MAX_WIDTH,
+        Math.round(availableWidth * CAPTURE_WINDOW_DEFAULT_WIDTH_RATIO),
+      ),
+    ),
+    height: Math.min(
+      availableHeight,
+      Math.min(
+        CAPTURE_WINDOW_DEFAULT_MAX_HEIGHT,
+        Math.round(availableHeight * CAPTURE_WINDOW_DEFAULT_HEIGHT_RATIO),
+      ),
+    ),
+  };
+};
+
+export const getCaptureWindowBounds = (payload: OpenCaptureWindowRequest) => {
+  return getCaptureWindowBoundsWithinBox(
+    normalizeCaptureSourceSize(payload.sourceWidth, payload.sourceHeight),
+    getCaptureWindowDefaultTargetBox(),
+  );
 };
 
 export const updateWindowTitle = (

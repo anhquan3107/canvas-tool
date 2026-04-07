@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_SHORTCUT_BINDINGS, resolveShortcutBindings } from "@shared/shortcuts";
 import { useWindowFocusState } from "@renderer/app/hooks/use-window-focus-state";
+import { useWindowResize } from "@renderer/app/hooks/use-window-resize";
 import { ConnectDialog } from "@renderer/features/connect/components/ConnectDialog";
 import { useWindowRightDrag } from "@renderer/app/hooks/use-window-right-drag";
 import type {
@@ -33,6 +34,41 @@ const WINDOWS_WINDOW_PREVIEW_CROP: PreviewCropInsets = {
   right: 4,
   bottom: 5,
   left: 4,
+};
+
+const CAPTURE_WINDOW_ASPECT_SYNC_DELAY_MS = 90;
+const CAPTURE_WINDOW_RESIZE_DIRECTIONS = [
+  "n",
+  "s",
+  "e",
+  "w",
+  "ne",
+  "nw",
+  "se",
+  "sw",
+] as const;
+
+const getEffectivePreviewSize = (
+  video: HTMLVideoElement,
+  cropInsets: PreviewCropInsets,
+) => {
+  const width = Math.round(
+    video.videoWidth - cropInsets.left - cropInsets.right,
+  );
+  const height = Math.round(
+    video.videoHeight - cropInsets.top - cropInsets.bottom,
+  );
+
+  if (
+    !Number.isFinite(width) ||
+    !Number.isFinite(height) ||
+    width <= 0 ||
+    height <= 0
+  ) {
+    return null;
+  }
+
+  return { width, height };
 };
 
 const getInitialParams = () => {
@@ -80,6 +116,7 @@ export const CaptureWindowApp = () => {
   const [windowMaximized, setWindowMaximized] = useState(false);
   const [windowAlwaysOnTop, setWindowAlwaysOnTop] = useState(false);
   const [shortcutBindings, setShortcutBindings] = useState(DEFAULT_SHORTCUT_BINDINGS);
+  useWindowResize(!windowMaximized);
 
   const loadSources = useCallback(async () => {
     setLoadingSources(true);
@@ -245,6 +282,87 @@ export const CaptureWindowApp = () => {
     setPreviewCropInsets(WINDOWS_WINDOW_PREVIEW_CROP);
   }, [dialogOpen, quality, sourceId, sourceKind]);
 
+  useEffect(() => {
+    if (dialogOpen) {
+      return;
+    }
+
+    const video = videoRef.current;
+    if (!video) {
+      return;
+    }
+
+    let lastReportedSignature = "";
+    let pendingSignature = "";
+    let pendingSize: { width: number; height: number } | null = null;
+    let syncTimeoutId: number | null = null;
+
+    const flushCaptureWindowAspect = () => {
+      syncTimeoutId = null;
+      if (!pendingSize) {
+        return;
+      }
+
+      const nextSize = pendingSize;
+      const nextSignature = pendingSignature;
+      pendingSize = null;
+      pendingSignature = "";
+      lastReportedSignature = nextSignature;
+      void window.desktopApi.capture
+        .updateWindowAspect({
+          sourceWidth: nextSize.width,
+          sourceHeight: nextSize.height,
+        })
+        .catch(() => undefined);
+    };
+
+    const syncCaptureWindowAspect = () => {
+      const nextSize = getEffectivePreviewSize(video, previewCropInsets);
+      if (!nextSize) {
+        return;
+      }
+
+      const nextSignature = `${nextSize.width}x${nextSize.height}`;
+      if (
+        nextSignature === lastReportedSignature ||
+        nextSignature === pendingSignature
+      ) {
+        return;
+      }
+
+      pendingSignature = nextSignature;
+      pendingSize = nextSize;
+      if (syncTimeoutId !== null) {
+        window.clearTimeout(syncTimeoutId);
+      }
+      syncTimeoutId = window.setTimeout(
+        flushCaptureWindowAspect,
+        CAPTURE_WINDOW_ASPECT_SYNC_DELAY_MS,
+      );
+    };
+
+    syncCaptureWindowAspect();
+    video.addEventListener("loadedmetadata", syncCaptureWindowAspect);
+    video.addEventListener("resize", syncCaptureWindowAspect);
+    video.addEventListener("playing", syncCaptureWindowAspect);
+
+    return () => {
+      if (syncTimeoutId !== null) {
+        window.clearTimeout(syncTimeoutId);
+      }
+      video.removeEventListener("loadedmetadata", syncCaptureWindowAspect);
+      video.removeEventListener("resize", syncCaptureWindowAspect);
+      video.removeEventListener("playing", syncCaptureWindowAspect);
+    };
+  }, [
+    dialogOpen,
+    previewCropInsets.bottom,
+    previewCropInsets.left,
+    previewCropInsets.right,
+    previewCropInsets.top,
+    sourceId,
+  ]);
+
   const handleConfirmSource = () => {
     const nextSource = sources.find((source) => source.id === selectedSourceId);
     if (!nextSource) {
@@ -281,6 +399,17 @@ export const CaptureWindowApp = () => {
     <div
       className={`capture-window-shell ${windowFocused ? "" : "window-unfocused"}`}
     >
+      {!windowMaximized
+        ? CAPTURE_WINDOW_RESIZE_DIRECTIONS.map((direction) => (
+            <div
+              key={direction}
+              className={`capture-window-resize-handle capture-window-resize-${direction}`}
+              data-window-resize={direction}
+              data-window-no-drag="true"
+              aria-hidden="true"
+            />
+          ))
+        : null}
       <div className="capture-topbar-reveal-zone" aria-hidden="true" />
       <header className="capture-window-topbar" data-window-left-drag="true">
         <div className="capture-window-drag-region" data-window-left-drag="true">

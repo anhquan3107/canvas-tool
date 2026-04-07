@@ -82,6 +82,11 @@ export interface AppWindowPosition {
   y: number;
 }
 
+export interface AppWindowBounds extends AppWindowPosition {
+  width: number;
+  height: number;
+}
+
 export interface AppWindowOpacityRequest {
   opacity: number;
   persist?: boolean;
@@ -138,6 +143,11 @@ export interface OpenCaptureWindowRequest {
   sourceHeight?: number;
 }
 
+export interface CaptureWindowAspectRequest {
+  sourceWidth: number;
+  sourceHeight: number;
+}
+
 export interface DesktopApi {
   app: {
     getVersion: () => Promise<string>;
@@ -183,7 +193,13 @@ export interface DesktopApi {
     close: () => Promise<void>;
     getControlsState: () => Promise<AppWindowControlsState>;
     getPosition: () => Promise<AppWindowPosition>;
+    getPositionSync: () => AppWindowPosition;
+    getBounds: () => Promise<AppWindowBounds>;
+    getBoundsSync: () => AppWindowBounds;
     setPosition: (payload: AppWindowPosition) => Promise<void>;
+    setPositionImmediate: (payload: AppWindowPosition) => void;
+    setBounds: (payload: AppWindowBounds) => Promise<void>;
+    setBoundsImmediate: (payload: AppWindowBounds) => void;
     getOpacity: () => Promise<number>;
     setOpacity: (payload: AppWindowOpacityRequest) => Promise<number>;
   };
@@ -210,5 +226,6 @@ export interface DesktopApi {
   capture: {
     listSources: () => Promise<DesktopCaptureSource[]>;
     openWindow: (payload: OpenCaptureWindowRequest) => Promise<void>;
+    updateWindowAspect: (payload: CaptureWindowAspectRequest) => Promise<void>;
   };
 }

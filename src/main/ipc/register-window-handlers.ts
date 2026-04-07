@@ -1,5 +1,6 @@
 import { ipcMain, type BrowserWindow } from "electron";
 import type {
+  AppWindowBounds,
   AppWindowOpacityRequest,
   AppWindowPosition,
   AppWindowState,
@@ -64,9 +65,52 @@ export const registerWindowHandlers = (window: BrowserWindow) => {
     return { x, y };
   });
 
+  ipcMain.on("window:get-position-sync", (event) => {
+    const targetWindow = getSenderWindow(event.sender) ?? window;
+    const [x, y] = targetWindow.getPosition();
+    event.returnValue = { x, y } satisfies AppWindowPosition;
+  });
+
+  ipcMain.handle("window:get-bounds", (event): AppWindowBounds => {
+    const targetWindow = getSenderWindow(event.sender) ?? window;
+    const { x, y, width, height } = targetWindow.getBounds();
+    return { x, y, width, height };
+  });
+
+  ipcMain.on("window:get-bounds-sync", (event) => {
+    const targetWindow = getSenderWindow(event.sender) ?? window;
+    const { x, y, width, height } = targetWindow.getBounds();
+    event.returnValue = { x, y, width, height } satisfies AppWindowBounds;
+  });
+
   ipcMain.handle("window:set-position", (event, payload: AppWindowPosition) => {
     const targetWindow = getSenderWindow(event.sender) ?? window;
     targetWindow.setPosition(Math.round(payload.x), Math.round(payload.y));
+  });
+
+  ipcMain.on("window:set-position-immediate", (event, payload: AppWindowPosition) => {
+    const targetWindow = getSenderWindow(event.sender) ?? window;
+    targetWindow.setPosition(Math.round(payload.x), Math.round(payload.y));
+  });
+
+  ipcMain.handle("window:set-bounds", (event, payload: AppWindowBounds) => {
+    const targetWindow = getSenderWindow(event.sender) ?? window;
+    targetWindow.setBounds({
+      x: Math.round(payload.x),
+      y: Math.round(payload.y),
+      width: Math.round(payload.width),
+      height: Math.round(payload.height),
+    });
+  });
+
+  ipcMain.on("window:set-bounds-immediate", (event, payload: AppWindowBounds) => {
+    const targetWindow = getSenderWindow(event.sender) ?? window;
+    targetWindow.setBounds({
+      x: Math.round(payload.x),
+      y: Math.round(payload.y),
+      width: Math.round(payload.width),
+      height: Math.round(payload.height),
+    });
   });
 
   ipcMain.handle("window:get-opacity", () => getSavedWindowOpacity());

@@ -1,10 +1,65 @@
-import { BrowserWindow, desktopCapturer, ipcMain, type BrowserWindowConstructorOptions } from "electron";
+import {
+  BrowserWindow,
+  desktopCapturer,
+  ipcMain,
+  type BrowserWindowConstructorOptions,
+} from "electron";
 import path from "node:path";
 import { guardWindowDevTools } from "../devtools-guard";
-import { getCaptureWindowBounds } from "./ipc-utils";
-import { ensureCaptureWindowPayload } from "./ipc-validators";
+import {
+  getCaptureWindowBounds,
+  getCaptureWindowBoundsWithinBox,
+  getCaptureWindowBoundsForSource,
+  getCaptureWindowMinimumSize,
+  getSenderWindow,
+  normalizeCaptureSourceSize,
+} from "./ipc-utils";
+import {
+  ensureCaptureWindowAspectPayload,
+  ensureCaptureWindowPayload,
+} from "./ipc-validators";
 
 export const registerCaptureHandlers = (_window: BrowserWindow) => {
+  const applyCaptureWindowAspect = (
+    captureWindow: BrowserWindow,
+    nextSourceSize: { width: number; height: number },
+    preserveScale: boolean,
+  ) => {
+    const normalizedSourceSize = normalizeCaptureSourceSize(
+      nextSourceSize.width,
+      nextSourceSize.height,
+    );
+    const currentBounds = captureWindow.getBounds();
+    const nextBounds = preserveScale
+      ? getCaptureWindowBoundsWithinBox(normalizedSourceSize, {
+          width: currentBounds.width,
+          height: currentBounds.height,
+        })
+      : getCaptureWindowBoundsForSource(normalizedSourceSize);
+    const minimumSize = getCaptureWindowMinimumSize(normalizedSourceSize);
+    const shouldResizeWindow =
+      !captureWindow.isMaximized() &&
+      !captureWindow.isFullScreen() &&
+      (Math.abs(currentBounds.width - nextBounds.width) > 1 ||
+        Math.abs(currentBounds.height - nextBounds.height) > 1);
+
+    captureWindow.setAspectRatio(
+      normalizedSourceSize.width / normalizedSourceSize.height,
+    );
+    captureWindow.setMinimumSize(minimumSize.width, minimumSize.height);
+
+    if (shouldResizeWindow) {
+      captureWindow.setBounds(
+        {
+          ...currentBounds,
+          width: nextBounds.width,
+          height: nextBounds.height,
+        },
+        false,
+      );
+    }
+  };
+
   ipcMain.handle("capture:list-sources", async () => {
     const sources = await desktopCapturer.getSources({
       types: ["window"],
@@ -34,14 +89,22 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
   ipcMain.handle("capture:open-window", async (_, rawPayload) => {
     const payload = ensureCaptureWindowPayload(rawPayload);
     const bounds = getCaptureWindowBounds(payload);
+    const initialSourceSize = normalizeCaptureSourceSize(
+      payload.sourceWidth,
+      payload.sourceHeight,
+    );
+    const minimumSize = getCaptureWindowMinimumSize(initialSourceSize);
     const captureWindowOptions: BrowserWindowConstructorOptions = {
       width: bounds.width,
       height: bounds.height,
-      minWidth: 640,
-      minHeight: 420,
+      minWidth: minimumSize.width,
+      minHeight: minimumSize.height,
+      show: false,
+      resizable: true,
       frame: false,
-      transparent: true,
-      backgroundColor: "#00000000",
+      thickFrame: process.platform === "win32",
+      transparent: false,
+      backgroundColor: "#0f0f10",
       title: `Capture - ${payload.sourceName}`,
       webPreferences: {
         preload: path.join(__dirname, "../preload/index.js"),
@@ -51,6 +114,23 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
     };
     const captureWindow = new BrowserWindow(captureWindowOptions);
     guardWindowDevTools(captureWindow);
+    captureWindow.setAspectRatio(
+      initialSourceSize.width / initialSourceSize.height,
+    );
+
+    let revealTimeout: ReturnType<typeof setTimeout> | null = setTimeout(() => {
+      revealTimeout = null;
+      if (!captureWindow.isDestroyed()) {
+        captureWindow.show();
+      }
+    }, 1500);
+
+    captureWindow.once("closed", () => {
+      if (revealTimeout) {
+        clearTimeout(revealTimeout);
+        revealTimeout = null;
+      }
+    });
 
     const query = new URLSearchParams({
       mode: "capture",
@@ -76,6 +156,27 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
           },
         },
       );
+    }
+  });
+
+  ipcMain.handle("capture:update-window-aspect", (event, rawPayload) => {
+    const payload = ensureCaptureWindowAspectPayload(rawPayload);
+    const captureWindow = getSenderWindow(event.sender);
+    if (!captureWindow || captureWindow.isDestroyed()) {
+      return;
+    }
+
+    applyCaptureWindowAspect(
+      captureWindow,
+      {
+        width: payload.sourceWidth,
+        height: payload.sourceHeight,
+      },
+      true,
+    );
+
+    if (!captureWindow.isVisible()) {
+      captureWindow.show();
     }
   });
 };

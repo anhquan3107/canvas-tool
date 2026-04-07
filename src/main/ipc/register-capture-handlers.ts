@@ -19,41 +19,56 @@ import {
   ensureCaptureWindowPayload,
 } from "./ipc-validators";
 
+const INITIAL_CAPTURE_TOPBAR_INSET = 40;
+
 export const registerCaptureHandlers = (_window: BrowserWindow) => {
+  const chromeTopInsetByWindow = new WeakMap<BrowserWindow, number>();
+
   const applyCaptureWindowAspect = (
     captureWindow: BrowserWindow,
     nextSourceSize: { width: number; height: number },
     preserveScale: boolean,
+    chromeTopInset = 0,
   ) => {
     const normalizedSourceSize = normalizeCaptureSourceSize(
       nextSourceSize.width,
       nextSourceSize.height,
     );
+    const previousChromeTopInset =
+      chromeTopInsetByWindow.get(captureWindow) ?? INITIAL_CAPTURE_TOPBAR_INSET;
+    const nextChromeTopInset = Math.max(0, Math.round(chromeTopInset));
     const currentBounds = captureWindow.getBounds();
+    const currentContentBounds = {
+      width: currentBounds.width,
+      height: Math.max(160, currentBounds.height - previousChromeTopInset),
+    };
     const nextBounds = preserveScale
-      ? getCaptureWindowBoundsWithinBox(normalizedSourceSize, {
-          width: currentBounds.width,
-          height: currentBounds.height,
-        })
+      ? getCaptureWindowBoundsWithinBox(normalizedSourceSize, currentContentBounds)
       : getCaptureWindowBoundsForSource(normalizedSourceSize);
     const minimumSize = getCaptureWindowMinimumSize(normalizedSourceSize);
     const shouldResizeWindow =
       !captureWindow.isMaximized() &&
       !captureWindow.isFullScreen() &&
       (Math.abs(currentBounds.width - nextBounds.width) > 1 ||
-        Math.abs(currentBounds.height - nextBounds.height) > 1);
+        Math.abs(
+          currentBounds.height - (nextBounds.height + nextChromeTopInset),
+        ) > 1);
 
+    chromeTopInsetByWindow.set(captureWindow, nextChromeTopInset);
     captureWindow.setAspectRatio(
       normalizedSourceSize.width / normalizedSourceSize.height,
     );
-    captureWindow.setMinimumSize(minimumSize.width, minimumSize.height);
+    captureWindow.setMinimumSize(
+      minimumSize.width,
+      minimumSize.height + nextChromeTopInset,
+    );
 
     if (shouldResizeWindow) {
       captureWindow.setBounds(
         {
           ...currentBounds,
           width: nextBounds.width,
-          height: nextBounds.height,
+          height: nextBounds.height + nextChromeTopInset,
         },
         false,
       );
@@ -96,9 +111,9 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
     const minimumSize = getCaptureWindowMinimumSize(initialSourceSize);
     const captureWindowOptions: BrowserWindowConstructorOptions = {
       width: bounds.width,
-      height: bounds.height,
+      height: bounds.height + INITIAL_CAPTURE_TOPBAR_INSET,
       minWidth: minimumSize.width,
-      minHeight: minimumSize.height,
+      minHeight: minimumSize.height + INITIAL_CAPTURE_TOPBAR_INSET,
       show: false,
       resizable: true,
       frame: false,
@@ -114,6 +129,7 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
     };
     const captureWindow = new BrowserWindow(captureWindowOptions);
     guardWindowDevTools(captureWindow);
+    chromeTopInsetByWindow.set(captureWindow, INITIAL_CAPTURE_TOPBAR_INSET);
     captureWindow.setAspectRatio(
       initialSourceSize.width / initialSourceSize.height,
     );
@@ -173,6 +189,7 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
         height: payload.sourceHeight,
       },
       true,
+      payload.chromeTopInset,
     );
 
     if (!captureWindow.isVisible()) {

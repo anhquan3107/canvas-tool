@@ -247,6 +247,11 @@ export const ensureCaptureWindowAspectPayload = (
   return {
     sourceWidth: rawPayload.sourceWidth,
     sourceHeight: rawPayload.sourceHeight,
+    chromeTopInset:
+      typeof rawPayload.chromeTopInset === "number" &&
+      Number.isFinite(rawPayload.chromeTopInset)
+        ? Math.max(0, Math.round(rawPayload.chromeTopInset))
+        : undefined,
   };
 };
 

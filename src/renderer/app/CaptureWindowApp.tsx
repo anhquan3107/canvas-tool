@@ -37,6 +37,7 @@ const WINDOWS_WINDOW_PREVIEW_CROP: PreviewCropInsets = {
 };
 
 const CAPTURE_WINDOW_ASPECT_SYNC_DELAY_MS = 90;
+const CAPTURE_WINDOW_TOPBAR_HEIGHT = 40;
 const CAPTURE_WINDOW_RESIZE_DIRECTIONS = [
   "n",
   "s",
@@ -116,7 +117,10 @@ export const CaptureWindowApp = () => {
   const [windowMaximized, setWindowMaximized] = useState(false);
   const [windowAlwaysOnTop, setWindowAlwaysOnTop] = useState(false);
   const [shortcutBindings, setShortcutBindings] = useState(DEFAULT_SHORTCUT_BINDINGS);
+  const [revealZoneHovered, setRevealZoneHovered] = useState(false);
+  const [topbarHovered, setTopbarHovered] = useState(false);
   useWindowResize(!windowMaximized);
+  const topbarDocked = windowFocused || revealZoneHovered || topbarHovered;
 
   const loadSources = useCallback(async () => {
     setLoadingSources(true);
@@ -312,6 +316,7 @@ export const CaptureWindowApp = () => {
         .updateWindowAspect({
           sourceWidth: nextSize.width,
           sourceHeight: nextSize.height,
+          chromeTopInset: topbarDocked ? CAPTURE_WINDOW_TOPBAR_HEIGHT : 0,
         })
         .catch(() => undefined);
     };
@@ -322,7 +327,9 @@ export const CaptureWindowApp = () => {
         return;
       }
 
-      const nextSignature = `${nextSize.width}x${nextSize.height}`;
+      const nextSignature = `${nextSize.width}x${nextSize.height}:${
+        topbarDocked ? CAPTURE_WINDOW_TOPBAR_HEIGHT : 0
+      }`;
       if (
         nextSignature === lastReportedSignature ||
         nextSignature === pendingSignature
@@ -361,6 +368,7 @@ export const CaptureWindowApp = () => {
     previewCropInsets.right,
     previewCropInsets.top,
     sourceId,
+    topbarDocked,
   ]);
 
   const handleConfirmSource = () => {
@@ -397,7 +405,9 @@ export const CaptureWindowApp = () => {
 
   return (
     <div
-      className={`capture-window-shell ${windowFocused ? "" : "window-unfocused"}`}
+      className={`capture-window-shell ${
+        windowFocused ? "" : "window-unfocused"
+      } ${topbarDocked ? "topbar-docked" : ""}`}
     >
       {!windowMaximized
         ? CAPTURE_WINDOW_RESIZE_DIRECTIONS.map((direction) => (
@@ -410,8 +420,18 @@ export const CaptureWindowApp = () => {
             />
           ))
         : null}
-      <div className="capture-topbar-reveal-zone" aria-hidden="true" />
-      <header className="capture-window-topbar" data-window-left-drag="true">
+      <div
+        className="capture-topbar-reveal-zone"
+        aria-hidden="true"
+        onPointerEnter={() => setRevealZoneHovered(true)}
+        onPointerLeave={() => setRevealZoneHovered(false)}
+      />
+      <header
+        className="capture-window-topbar"
+        data-window-left-drag="true"
+        onPointerEnter={() => setTopbarHovered(true)}
+        onPointerLeave={() => setTopbarHovered(false)}
+      >
         <div className="capture-window-drag-region" data-window-left-drag="true">
           <div className="capture-window-toolbar" data-window-no-drag="true">
             <button

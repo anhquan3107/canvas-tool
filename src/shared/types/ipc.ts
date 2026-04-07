@@ -146,6 +146,7 @@ export interface OpenCaptureWindowRequest {
 export interface CaptureWindowAspectRequest {
   sourceWidth: number;
   sourceHeight: number;
+  chromeTopInset?: number;
 }
 
 export interface DesktopApi {

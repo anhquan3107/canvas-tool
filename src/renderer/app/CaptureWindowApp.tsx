@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_SHORTCUT_BINDINGS, resolveShortcutBindings } from "@shared/shortcuts";
-import { useWindowFocusState } from "@renderer/app/hooks/use-window-focus-state";
+import {
+  createCaptureSessionChannel,
+  getCaptureLocationParams,
+  type CaptureSessionMessage,
+  type CaptureSessionState,
+} from "@renderer/app/capture-session";
 import { useWindowResize } from "@renderer/app/hooks/use-window-resize";
 import { ConnectDialog } from "@renderer/features/connect/components/ConnectDialog";
 import { useWindowRightDrag } from "@renderer/app/hooks/use-window-right-drag";
@@ -37,7 +42,7 @@ const WINDOWS_WINDOW_PREVIEW_CROP: PreviewCropInsets = {
 };
 
 const CAPTURE_WINDOW_ASPECT_SYNC_DELAY_MS = 90;
-const CAPTURE_WINDOW_TOPBAR_HEIGHT = 40;
+const CAPTURE_WINDOW_TOP_REVEAL_THRESHOLD = 18;
 const CAPTURE_WINDOW_RESIZE_DIRECTIONS = [
   "n",
   "s",
@@ -72,32 +77,23 @@ const getEffectivePreviewSize = (
   return { width, height };
 };
 
-const getInitialParams = () => {
-  const params = new URLSearchParams(window.location.search);
-  const qualityParam = params.get("quality");
-  const quality: CaptureQuality =
-    qualityParam === "low" || qualityParam === "high" ? qualityParam : "medium";
-  const sourceKindParam = params.get("sourceKind");
-  const sourceKind: "window" | "screen" =
-    sourceKindParam === "screen" || sourceKindParam === "window"
-      ? sourceKindParam
-      : "window";
-
-  return {
-    sourceId: params.get("sourceId") ?? "",
-    sourceName: params.get("sourceName") ?? "Capture",
-    sourceKind,
-    quality,
-  };
-};
-
 export const CaptureWindowApp = () => {
   useWindowRightDrag();
-  const windowFocused = useWindowFocusState();
-
-  const initial = useMemo(() => getInitialParams(), []);
+  const initial = useMemo(() => getCaptureLocationParams(), []);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const channelRef = useRef<BroadcastChannel | null>(null);
+  const loadSourcesRef = useRef<() => Promise<void>>(async () => undefined);
+  const edgeRevealActiveRef = useRef(false);
+  const sessionStateRef = useRef<CaptureSessionState>({
+    sourceName: initial.sourceName,
+    quality: initial.quality,
+    blurEnabled: false,
+    bwEnabled: false,
+    dialogOpen: false,
+    windowMaximized: false,
+    windowAlwaysOnTop: false,
+  });
   const [sourceId, setSourceId] = useState(initial.sourceId);
   const [sourceName, setSourceName] = useState(initial.sourceName);
   const [sourceKind, setSourceKind] = useState<"window" | "screen">(initial.sourceKind);
@@ -117,10 +113,7 @@ export const CaptureWindowApp = () => {
   const [windowMaximized, setWindowMaximized] = useState(false);
   const [windowAlwaysOnTop, setWindowAlwaysOnTop] = useState(false);
   const [shortcutBindings, setShortcutBindings] = useState(DEFAULT_SHORTCUT_BINDINGS);
-  const [revealZoneHovered, setRevealZoneHovered] = useState(false);
-  const [topbarHovered, setTopbarHovered] = useState(false);
   useWindowResize(!windowMaximized);
-  const topbarDocked = windowFocused || revealZoneHovered || topbarHovered;
 
   const loadSources = useCallback(async () => {
     setLoadingSources(true);
@@ -137,6 +130,11 @@ export const CaptureWindowApp = () => {
       setLoadingSources(false);
     }
   }, [sourceId]);
+  loadSourcesRef.current = loadSources;
+
+  const postSessionMessage = useCallback((message: CaptureSessionMessage) => {
+    channelRef.current?.postMessage(message);
+  }, []);
 
   useEffect(() => {
     void window.desktopApi.window
@@ -195,6 +193,26 @@ export const CaptureWindowApp = () => {
   useEffect(() => {
     setPreviewCropInsets(NO_PREVIEW_CROP);
   }, [quality, sourceId, sourceKind]);
+
+  useEffect(() => {
+    sessionStateRef.current = {
+      sourceName,
+      quality,
+      blurEnabled,
+      bwEnabled,
+      dialogOpen,
+      windowMaximized,
+      windowAlwaysOnTop,
+    };
+  }, [
+    blurEnabled,
+    bwEnabled,
+    dialogOpen,
+    quality,
+    sourceName,
+    windowAlwaysOnTop,
+    windowMaximized,
+  ]);
 
   useEffect(() => {
     if (!sourceId) {
@@ -287,6 +305,122 @@ export const CaptureWindowApp = () => {
   }, [dialogOpen, quality, sourceId, sourceKind]);
 
   useEffect(() => {
+    const handlePointerMove = (event: PointerEvent) => {
+      const active = event.clientY <= CAPTURE_WINDOW_TOP_REVEAL_THRESHOLD;
+      if (edgeRevealActiveRef.current === active) {
+        return;
+      }
+
+      edgeRevealActiveRef.current = active;
+      postSessionMessage({
+        type: "set-edge-active",
+        active,
+      });
+    };
+
+    const clearEdgeReveal = () => {
+      if (!edgeRevealActiveRef.current) {
+        return;
+      }
+
+      edgeRevealActiveRef.current = false;
+      postSessionMessage({
+        type: "set-edge-active",
+        active: false,
+      });
+    };
+
+    window.addEventListener("pointermove", handlePointerMove, true);
+    window.addEventListener("pointerleave", clearEdgeReveal);
+    window.addEventListener("blur", clearEdgeReveal);
+
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove, true);
+      window.removeEventListener("pointerleave", clearEdgeReveal);
+      window.removeEventListener("blur", clearEdgeReveal);
+    };
+  }, [postSessionMessage]);
+
+  useEffect(() => {
+    const channel = createCaptureSessionChannel(initial.sessionId);
+    const handleMessage = (event: MessageEvent<CaptureSessionMessage>) => {
+      const message = event.data;
+      if (!message || typeof message !== "object") {
+        return;
+      }
+
+      switch (message.type) {
+        case "request-state":
+          channel.postMessage({
+            type: "state",
+            state: sessionStateRef.current,
+          });
+          break;
+        case "set-dialog-open":
+          setDialogOpen(message.open);
+          if (message.open) {
+            void loadSourcesRef.current();
+          }
+          break;
+        case "set-quality":
+          setQuality(message.quality);
+          break;
+        case "toggle-blur":
+          setBlurEnabled((previous) => !previous);
+          break;
+        case "toggle-bw":
+          setBwEnabled((previous) => !previous);
+          break;
+        case "set-window-controls-state":
+          setWindowMaximized(message.controls.isMaximized);
+          setWindowAlwaysOnTop(message.controls.isAlwaysOnTop);
+          break;
+        default:
+          break;
+      }
+    };
+
+    channelRef.current = channel;
+    channel.addEventListener("message", handleMessage);
+    channel.postMessage({
+      type: "state",
+      state: sessionStateRef.current,
+    });
+
+    return () => {
+      channel.removeEventListener("message", handleMessage);
+      channel.close();
+      if (channelRef.current === channel) {
+        channelRef.current = null;
+      }
+    };
+  }, [initial.sessionId]);
+
+  useEffect(() => {
+    postSessionMessage({
+      type: "state",
+      state: {
+        sourceName,
+        quality,
+        blurEnabled,
+        bwEnabled,
+        dialogOpen,
+        windowMaximized,
+        windowAlwaysOnTop,
+      },
+    });
+  }, [
+    blurEnabled,
+    bwEnabled,
+    dialogOpen,
+    postSessionMessage,
+    quality,
+    sourceName,
+    windowAlwaysOnTop,
+    windowMaximized,
+  ]);
+
+  useEffect(() => {
     if (dialogOpen) {
       return;
     }
@@ -316,7 +450,6 @@ export const CaptureWindowApp = () => {
         .updateWindowAspect({
           sourceWidth: nextSize.width,
           sourceHeight: nextSize.height,
-          chromeTopInset: topbarDocked ? CAPTURE_WINDOW_TOPBAR_HEIGHT : 0,
         })
         .catch(() => undefined);
     };
@@ -327,9 +460,7 @@ export const CaptureWindowApp = () => {
         return;
       }
 
-      const nextSignature = `${nextSize.width}x${nextSize.height}:${
-        topbarDocked ? CAPTURE_WINDOW_TOPBAR_HEIGHT : 0
-      }`;
+      const nextSignature = `${nextSize.width}x${nextSize.height}`;
       if (
         nextSignature === lastReportedSignature ||
         nextSignature === pendingSignature
@@ -368,7 +499,6 @@ export const CaptureWindowApp = () => {
     previewCropInsets.right,
     previewCropInsets.top,
     sourceId,
-    topbarDocked,
   ]);
 
   const handleConfirmSource = () => {
@@ -404,11 +534,7 @@ export const CaptureWindowApp = () => {
   };
 
   return (
-    <div
-      className={`capture-window-shell ${
-        windowFocused ? "" : "window-unfocused"
-      } ${topbarDocked ? "topbar-docked" : ""}`}
-    >
+    <div className="capture-window-shell">
       {!windowMaximized
         ? CAPTURE_WINDOW_RESIZE_DIRECTIONS.map((direction) => (
             <div
@@ -420,116 +546,6 @@ export const CaptureWindowApp = () => {
             />
           ))
         : null}
-      <div
-        className="capture-topbar-reveal-zone"
-        aria-hidden="true"
-        onPointerEnter={() => setRevealZoneHovered(true)}
-        onPointerLeave={() => setRevealZoneHovered(false)}
-      />
-      <header
-        className="capture-window-topbar"
-        data-window-left-drag="true"
-        onPointerEnter={() => setTopbarHovered(true)}
-        onPointerLeave={() => setTopbarHovered(false)}
-      >
-        <div className="capture-window-drag-region" data-window-left-drag="true">
-          <div className="capture-window-toolbar" data-window-no-drag="true">
-            <button
-              type="button"
-              className="toolbar-button"
-              onClick={() => {
-                setDialogOpen(true);
-                void loadSources();
-              }}
-            >
-              Capture
-            </button>
-
-            <div className="capture-quality-switch">
-              {(Object.keys(CAPTURE_QUALITY_PROFILES) as CaptureQuality[]).map(
-                (option) => (
-                  <button
-                    key={option}
-                    type="button"
-                    className={`toolbar-button ${
-                      option === quality ? "active" : ""
-                    }`}
-                    onClick={() => setQuality(option)}
-                  >
-                    {CAPTURE_QUALITY_PROFILES[option].label}
-                  </button>
-                ),
-              )}
-            </div>
-
-            <button
-              type="button"
-              className={`toolbar-button ${blurEnabled ? "active" : ""}`}
-              onClick={() => setBlurEnabled((previous) => !previous)}
-              title="Blur"
-            >
-              Blur
-            </button>
-            <button
-              type="button"
-              className={`toolbar-button ${bwEnabled ? "active" : ""}`}
-              onClick={() => setBwEnabled((previous) => !previous)}
-              title="B&W"
-            >
-              B&amp;W
-            </button>
-          </div>
-          <div className="capture-window-drag-spacer" />
-        </div>
-
-        <div className="window-cluster" data-window-no-drag="true">
-          <button
-            type="button"
-            className={`window-button ${windowAlwaysOnTop ? "active" : ""}`}
-            onClick={() =>
-              void window.desktopApi.window
-                .toggleAlwaysOnTop()
-                .then((state) => {
-                  setWindowMaximized(state.isMaximized);
-                  setWindowAlwaysOnTop(state.isAlwaysOnTop);
-                })
-            }
-            title="Always on top"
-            aria-label="Toggle always on top"
-          >
-            ⇪
-          </button>
-          <button
-            type="button"
-            className="window-button"
-            onClick={() => void window.desktopApi.window.minimize()}
-          >
-            -
-          </button>
-          <button
-            type="button"
-            className="window-button"
-            onClick={() =>
-              void window.desktopApi.window
-                .toggleMaximize()
-                .then((state) => {
-                  setWindowMaximized(state.isMaximized);
-                  setWindowAlwaysOnTop(state.isAlwaysOnTop);
-                })
-            }
-          >
-            {windowMaximized ? "❐" : "□"}
-          </button>
-          <button
-            type="button"
-            className="window-button close"
-            onClick={() => void window.desktopApi.window.close()}
-          >
-            ×
-          </button>
-        </div>
-      </header>
-
       <main className="capture-window-body">
         {dialogOpen ? (
           <div className="capture-window-picker">

@@ -92,6 +92,11 @@ export interface AppWindowOpacityRequest {
   persist?: boolean;
 }
 
+export interface AppWindowIgnoreMouseRequest {
+  ignore: boolean;
+  forward?: boolean;
+}
+
 export type NativeMenuAction =
   | "open-project"
   | "save-project"
@@ -201,6 +206,7 @@ export interface DesktopApi {
     setPositionImmediate: (payload: AppWindowPosition) => void;
     setBounds: (payload: AppWindowBounds) => Promise<void>;
     setBoundsImmediate: (payload: AppWindowBounds) => void;
+    setIgnoreMouseEvents: (payload: AppWindowIgnoreMouseRequest) => Promise<void>;
     getOpacity: () => Promise<number>;
     setOpacity: (payload: AppWindowOpacityRequest) => Promise<number>;
   };

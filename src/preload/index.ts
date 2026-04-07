@@ -62,6 +62,8 @@ const desktopApi: DesktopApi = {
     setBounds: (payload) => ipcRenderer.invoke("window:set-bounds", payload),
     setBoundsImmediate: (payload) =>
       ipcRenderer.send("window:set-bounds-immediate", payload),
+    setIgnoreMouseEvents: (payload) =>
+      ipcRenderer.invoke("window:set-ignore-mouse-events", payload),
     getOpacity: () => ipcRenderer.invoke("window:get-opacity"),
     setOpacity: (payload) => ipcRenderer.invoke("window:set-opacity", payload),
   },

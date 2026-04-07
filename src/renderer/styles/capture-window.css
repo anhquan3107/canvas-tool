@@ -1,6 +1,4 @@
 .capture-window-shell {
-  --capture-topbar-height: 40px;
-  --capture-topbar-offset: 0px;
   position: relative;
   display: block;
   width: 100%;
@@ -10,8 +8,12 @@
   background: #0f0f10;
 }
 
-.capture-window-shell.topbar-docked {
-  --capture-topbar-offset: var(--capture-topbar-height);
+.capture-toolbar-shell {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
 }
 
 .capture-window-resize-handle {
@@ -86,19 +88,9 @@
   cursor: nesw-resize;
 }
 
-.capture-topbar-reveal-zone {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 55;
-  height: 40px;
-  pointer-events: none;
-}
-
 .capture-window-topbar {
   position: absolute;
-  inset: 0 0 auto 0;
+  inset: 0;
   z-index: 50;
   display: flex;
   align-items: center;
@@ -106,35 +98,25 @@
   gap: 16px;
   padding: 6px 8px 6px 10px;
   background: #1f1e21;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: none;
   -webkit-app-region: no-drag;
   user-select: none;
   overflow: visible;
   transform: translateY(0);
   transition:
     transform 180ms ease,
-    opacity 160ms ease,
-    border-color 160ms ease;
+    opacity 160ms ease;
 }
 
-.capture-window-shell.window-unfocused .capture-window-topbar {
+.capture-toolbar-shell.toolbar-hidden .capture-window-topbar {
   opacity: 0;
   transform: translateY(calc(100% + 8px));
-  border-bottom-color: transparent;
   pointer-events: none;
 }
 
-.capture-window-shell.window-unfocused .capture-topbar-reveal-zone {
-  pointer-events: auto;
-}
-
-.capture-window-shell.window-unfocused
-  .capture-topbar-reveal-zone:hover
-  + .capture-window-topbar,
-.capture-window-shell.window-unfocused .capture-window-topbar:hover {
+.capture-toolbar-shell.toolbar-visible .capture-window-topbar {
   opacity: 1;
   transform: translateY(0);
-  border-bottom-color: rgba(255, 255, 255, 0.05);
   pointer-events: auto;
 }
 
@@ -218,13 +200,13 @@
 
 .capture-window-body {
   position: absolute;
-  inset: var(--capture-topbar-offset) 0 0 0;
+  inset: 0;
   width: 100%;
   height: auto;
   min-height: 0;
   padding: 0;
   background: #0f0f10;
-  transition: inset 180ms ease;
+  transition: none;
 }
 
 .capture-window-picker {
@@ -303,9 +285,5 @@
   .capture-window-topbar {
     gap: 10px;
     padding: 6px;
-  }
-
-  .capture-window-body {
-    padding: 0;
   }
 }

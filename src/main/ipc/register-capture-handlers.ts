@@ -2,14 +2,19 @@ import {
   BrowserWindow,
   desktopCapturer,
   ipcMain,
+  screen,
   type BrowserWindowConstructorOptions,
 } from "electron";
 import path from "node:path";
 import { guardWindowDevTools } from "../devtools-guard";
 import {
+  clearWindowActionTarget,
+  setWindowActionTarget,
+} from "../window-action-targets";
+import {
   getCaptureWindowBounds,
-  getCaptureWindowBoundsWithinBox,
   getCaptureWindowBoundsForSource,
+  getCaptureWindowBoundsWithinBox,
   getCaptureWindowMinimumSize,
   getSenderWindow,
   normalizeCaptureSourceSize,
@@ -19,56 +24,58 @@ import {
   ensureCaptureWindowPayload,
 } from "./ipc-validators";
 
-const INITIAL_CAPTURE_TOPBAR_INSET = 40;
+const CAPTURE_TOOLBAR_HEIGHT = 40;
+const CAPTURE_TOOLBAR_SEAM_OVERLAP = 2;
+
+const getCaptureToolbarBounds = (captureWindow: BrowserWindow) => {
+  const bounds = captureWindow.getBounds();
+  const display = screen.getDisplayMatching(bounds);
+  return {
+    x: bounds.x,
+    y: Math.max(
+      display.workArea.y,
+      bounds.y - CAPTURE_TOOLBAR_HEIGHT + CAPTURE_TOOLBAR_SEAM_OVERLAP,
+    ),
+    width: bounds.width,
+    height: CAPTURE_TOOLBAR_HEIGHT + CAPTURE_TOOLBAR_SEAM_OVERLAP,
+  };
+};
 
 export const registerCaptureHandlers = (_window: BrowserWindow) => {
-  const chromeTopInsetByWindow = new WeakMap<BrowserWindow, number>();
-
   const applyCaptureWindowAspect = (
     captureWindow: BrowserWindow,
     nextSourceSize: { width: number; height: number },
     preserveScale: boolean,
-    chromeTopInset = 0,
   ) => {
     const normalizedSourceSize = normalizeCaptureSourceSize(
       nextSourceSize.width,
       nextSourceSize.height,
     );
-    const previousChromeTopInset =
-      chromeTopInsetByWindow.get(captureWindow) ?? INITIAL_CAPTURE_TOPBAR_INSET;
-    const nextChromeTopInset = Math.max(0, Math.round(chromeTopInset));
     const currentBounds = captureWindow.getBounds();
-    const currentContentBounds = {
-      width: currentBounds.width,
-      height: Math.max(160, currentBounds.height - previousChromeTopInset),
-    };
     const nextBounds = preserveScale
-      ? getCaptureWindowBoundsWithinBox(normalizedSourceSize, currentContentBounds)
+      ? getCaptureWindowBoundsWithinBox(normalizedSourceSize, {
+          width: currentBounds.width,
+          height: currentBounds.height,
+        })
       : getCaptureWindowBoundsForSource(normalizedSourceSize);
     const minimumSize = getCaptureWindowMinimumSize(normalizedSourceSize);
     const shouldResizeWindow =
       !captureWindow.isMaximized() &&
       !captureWindow.isFullScreen() &&
       (Math.abs(currentBounds.width - nextBounds.width) > 1 ||
-        Math.abs(
-          currentBounds.height - (nextBounds.height + nextChromeTopInset),
-        ) > 1);
+        Math.abs(currentBounds.height - nextBounds.height) > 1);
 
-    chromeTopInsetByWindow.set(captureWindow, nextChromeTopInset);
     captureWindow.setAspectRatio(
       normalizedSourceSize.width / normalizedSourceSize.height,
     );
-    captureWindow.setMinimumSize(
-      minimumSize.width,
-      minimumSize.height + nextChromeTopInset,
-    );
+    captureWindow.setMinimumSize(minimumSize.width, minimumSize.height);
 
     if (shouldResizeWindow) {
       captureWindow.setBounds(
         {
           ...currentBounds,
           width: nextBounds.width,
-          height: nextBounds.height + nextChromeTopInset,
+          height: nextBounds.height,
         },
         false,
       );
@@ -103,23 +110,25 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
 
   ipcMain.handle("capture:open-window", async (_, rawPayload) => {
     const payload = ensureCaptureWindowPayload(rawPayload);
-    const bounds = getCaptureWindowBounds(payload);
+    const initialBounds = getCaptureWindowBounds(payload);
     const initialSourceSize = normalizeCaptureSourceSize(
       payload.sourceWidth,
       payload.sourceHeight,
     );
     const minimumSize = getCaptureWindowMinimumSize(initialSourceSize);
+    const sessionId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     const captureWindowOptions: BrowserWindowConstructorOptions = {
-      width: bounds.width,
-      height: bounds.height + INITIAL_CAPTURE_TOPBAR_INSET,
+      width: initialBounds.width,
+      height: initialBounds.height,
       minWidth: minimumSize.width,
-      minHeight: minimumSize.height + INITIAL_CAPTURE_TOPBAR_INSET,
+      minHeight: minimumSize.height,
       show: false,
       resizable: true,
       frame: false,
       thickFrame: process.platform === "win32",
       transparent: false,
       backgroundColor: "#0f0f10",
+      acceptFirstMouse: true,
       title: `Capture - ${payload.sourceName}`,
       webPreferences: {
         preload: path.join(__dirname, "../preload/index.js"),
@@ -128,16 +137,69 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
       },
     };
     const captureWindow = new BrowserWindow(captureWindowOptions);
+    const toolbarWindow = new BrowserWindow({
+      ...getCaptureToolbarBounds(captureWindow),
+      show: false,
+      resizable: false,
+      movable: false,
+      minimizable: false,
+      maximizable: false,
+      fullscreenable: false,
+      skipTaskbar: true,
+      frame: false,
+      transparent: true,
+      hasShadow: false,
+      backgroundColor: "#00000000",
+      acceptFirstMouse: true,
+      webPreferences: {
+        preload: path.join(__dirname, "../preload/index.js"),
+        contextIsolation: true,
+        nodeIntegration: false,
+      },
+    });
+
     guardWindowDevTools(captureWindow);
-    chromeTopInsetByWindow.set(captureWindow, INITIAL_CAPTURE_TOPBAR_INSET);
+    guardWindowDevTools(toolbarWindow);
     captureWindow.setAspectRatio(
       initialSourceSize.width / initialSourceSize.height,
     );
+    toolbarWindow.setIgnoreMouseEvents(true, { forward: true });
+    setWindowActionTarget(toolbarWindow, captureWindow);
+
+    const syncToolbarWindow = () => {
+      if (captureWindow.isDestroyed() || toolbarWindow.isDestroyed()) {
+        return;
+      }
+
+      toolbarWindow.setAlwaysOnTop(captureWindow.isAlwaysOnTop());
+      toolbarWindow.setBounds(getCaptureToolbarBounds(captureWindow), false);
+
+      if (
+        captureWindow.isVisible() &&
+        !captureWindow.isMinimized() &&
+        !captureWindow.isFullScreen()
+      ) {
+        if (!toolbarWindow.isVisible()) {
+          toolbarWindow.showInactive();
+        }
+      } else if (toolbarWindow.isVisible()) {
+        toolbarWindow.hide();
+      }
+    };
+
+    const hideToolbarWindow = () => {
+      if (!toolbarWindow.isDestroyed() && toolbarWindow.isVisible()) {
+        toolbarWindow.hide();
+      }
+    };
 
     let revealTimeout: ReturnType<typeof setTimeout> | null = setTimeout(() => {
       revealTimeout = null;
       if (!captureWindow.isDestroyed()) {
         captureWindow.show();
+      }
+      if (!toolbarWindow.isDestroyed()) {
+        syncToolbarWindow();
       }
     }, 1500);
 
@@ -146,9 +208,31 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
         clearTimeout(revealTimeout);
         revealTimeout = null;
       }
+
+      clearWindowActionTarget(toolbarWindow);
+      if (!toolbarWindow.isDestroyed()) {
+        toolbarWindow.close();
+      }
     });
 
+    toolbarWindow.once("closed", () => {
+      clearWindowActionTarget(toolbarWindow);
+    });
+
+    captureWindow.on("move", syncToolbarWindow);
+    captureWindow.on("resize", syncToolbarWindow);
+    captureWindow.on("show", syncToolbarWindow);
+    captureWindow.on("restore", syncToolbarWindow);
+    captureWindow.on("maximize", syncToolbarWindow);
+    captureWindow.on("unmaximize", syncToolbarWindow);
+    captureWindow.on("enter-full-screen", syncToolbarWindow);
+    captureWindow.on("leave-full-screen", syncToolbarWindow);
+    captureWindow.on("hide", hideToolbarWindow);
+    captureWindow.on("minimize", hideToolbarWindow);
+    captureWindow.on("always-on-top-changed", syncToolbarWindow);
+
     const query = new URLSearchParams({
+      sessionId,
       mode: "capture",
       sourceId: payload.sourceId,
       sourceName: payload.sourceName,
@@ -159,6 +243,14 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
     const devServerUrl = process.env.VITE_DEV_SERVER_URL;
     if (devServerUrl) {
       await captureWindow.loadURL(`${devServerUrl}?${query}`);
+      await toolbarWindow.loadURL(
+        `${devServerUrl}?${new URLSearchParams({
+          mode: "capture-toolbar",
+          sessionId,
+          sourceName: payload.sourceName,
+          quality: payload.quality,
+        }).toString()}`,
+      );
     } else {
       await captureWindow.loadFile(
         path.join(__dirname, "../renderer/index.html"),
@@ -168,6 +260,18 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
             sourceId: payload.sourceId,
             sourceName: payload.sourceName,
             sourceKind: payload.sourceKind ?? "window",
+            quality: payload.quality,
+            sessionId,
+          },
+        },
+      );
+      await toolbarWindow.loadFile(
+        path.join(__dirname, "../renderer/index.html"),
+        {
+          query: {
+            mode: "capture-toolbar",
+            sessionId,
+            sourceName: payload.sourceName,
             quality: payload.quality,
           },
         },
@@ -189,7 +293,6 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
         height: payload.sourceHeight,
       },
       true,
-      payload.chromeTopInset,
     );
 
     if (!captureWindow.isVisible()) {

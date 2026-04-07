@@ -1,11 +1,16 @@
 import { useEffect, useState } from "react";
 import type { Project } from "@shared/types/project";
+import { CaptureToolbarApp } from "@renderer/app/CaptureToolbarApp";
 import { CaptureWindowApp } from "@renderer/app/CaptureWindowApp";
 import { AppShell } from "@renderer/app/app-shell/AppShell";
 import { ProjectProvider } from "@renderer/state/project-store";
 
 export const App = () => {
   const mode = new URLSearchParams(window.location.search).get("mode");
+  if (mode === "capture-toolbar") {
+    return <CaptureToolbarApp />;
+  }
+
   if (mode === "capture") {
     return <CaptureWindowApp />;
   }

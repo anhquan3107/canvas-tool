@@ -28,13 +28,7 @@ interface CreateBoardGlobalPointerHandlersOptions {
       buttons: number;
     },
   ) => void;
-  updateAnnotationSession: (pointer: {
-    clientX: number;
-    clientY: number;
-    pointerId: number;
-    pointerType: string;
-    pressure: number;
-  }) => void;
+  updateAnnotationSession: (clientX: number, clientY: number) => void;
   updateSelectionMarquee: (clientX: number, clientY: number) => void;
   updateDraggedItemPosition: (clientX: number, clientY: number) => void;
   commitAnnotationSession: () => void;
@@ -44,9 +38,25 @@ interface CreateBoardGlobalPointerHandlersOptions {
   drawBoardSurface: () => void;
   updateSelectedBoundsOverlay: () => void;
   onSelectionChangeRef: MutableRefObject<(itemIds: string[]) => void>;
-  boardGraphicRef: MutableRefObject<{ cursor: string } | null>;
+  boardGraphicRef: MutableRefObject<{ cursor?: string } | null>;
   boardContainerRef: MutableRefObject<{ x: number; y: number } | null>;
 }
+
+type PointerLifecycleEvent =
+  | PointerEvent
+  | MouseEvent
+  | {
+      clientX: number;
+      clientY: number;
+      button?: number;
+      buttons?: number;
+      altKey?: boolean;
+      shiftKey?: boolean;
+      pointerId?: number;
+      pointerType?: string;
+      pressure?: number;
+      nativeEvent?: PointerEvent | MouseEvent | null;
+    };
 
 export const createBoardGlobalPointerHandlers = ({
   isPanningRef,
@@ -90,40 +100,38 @@ export const createBoardGlobalPointerHandlers = ({
     hideDoodleCursor();
   };
 
-  const onPointerMove = (event: PointerEvent) => {
+  const onPointerMove = (event: PointerLifecycleEvent) => {
     const pointer = getNormalizedPointerData(event);
     updateDoodleCursor(pointer.clientX, pointer.clientY, pointer);
 
     if (
-      activeAnnotationSessionRef.current &&
-      activeAnnotationSessionRef.current.pointerId === pointer.pointerId
+      pointer.buttons === 0 &&
+      (activeAnnotationSessionRef.current ||
+        activeSelectionBoxRef.current ||
+        activeItemDragRef.current ||
+        isPanningRef.current)
     ) {
-      updateAnnotationSession(pointer);
+      onPointerUp(event);
       return;
     }
 
-    if (
-      activeSelectionBoxRef.current &&
-      activeSelectionBoxRef.current.pointerId === pointer.pointerId
-    ) {
+    if (activeToolRef.current === "doodle" && activeAnnotationSessionRef.current) {
+      updateAnnotationSession(pointer.clientX, pointer.clientY);
+      return;
+    }
+
+    if (activeSelectionBoxRef.current) {
       updateSelectionMarquee(pointer.clientX, pointer.clientY);
       return;
     }
 
-    if (
-      activeItemDragRef.current &&
-      activeItemDragRef.current.pointerId === pointer.pointerId
-    ) {
+    if (activeItemDragRef.current) {
       updateDraggedItemPosition(pointer.clientX, pointer.clientY);
       return;
     }
 
     const currentBoard = boardContainerRef.current;
-    if (
-      !isPanningRef.current ||
-      !currentBoard ||
-      activePanPointerIdRef.current !== pointer.pointerId
-    ) {
+    if (!isPanningRef.current || !currentBoard) {
       return;
     }
 
@@ -135,20 +143,14 @@ export const createBoardGlobalPointerHandlers = ({
     updateSelectedBoundsOverlay();
   };
 
-  const onPointerUp = (event: PointerEvent) => {
+  const onPointerUp = (event: PointerLifecycleEvent) => {
     const pointer = getNormalizedPointerData(event);
 
-    if (
-      activeAnnotationSessionRef.current &&
-      activeAnnotationSessionRef.current.pointerId === pointer.pointerId
-    ) {
+    if (activeAnnotationSessionRef.current) {
       commitAnnotationSession();
     }
 
-    if (
-      activeSelectionBoxRef.current &&
-      activeSelectionBoxRef.current.pointerId === pointer.pointerId
-    ) {
+    if (activeSelectionBoxRef.current) {
       const selectionBox = activeSelectionBoxRef.current;
       const movedDistance = Math.hypot(
         pointer.clientX - selectionBox.startClient.x,
@@ -167,17 +169,11 @@ export const createBoardGlobalPointerHandlers = ({
       hideSelectionMarquee();
     }
 
-    if (
-      activeItemDragRef.current &&
-      activeItemDragRef.current.pointerId === pointer.pointerId
-    ) {
+    if (activeItemDragRef.current) {
       commitDraggedItemPatch();
     }
 
-    if (
-      !isPanningRef.current ||
-      activePanPointerIdRef.current !== pointer.pointerId
-    ) {
+    if (!isPanningRef.current) {
       return;
     }
 

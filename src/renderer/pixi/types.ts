@@ -60,7 +60,6 @@ export interface DragItemState {
 }
 
 export interface ActiveItemDragState {
-  pointerId: number;
   itemId: string;
   itemLayer: Container;
   startPointer: { x: number; y: number };
@@ -71,20 +70,16 @@ export interface ActiveItemDragState {
 }
 
 export interface ActiveSelectionBoxState {
-  pointerId: number;
   startClient: { x: number; y: number };
   additive: boolean;
   baseSelection: string[];
 }
 
 export interface ActiveAnnotationSessionState {
-  pointerId: number;
   mode: DoodleMode;
   draftStroke: AnnotationStroke | null;
   annotations: AnnotationStroke[];
   lastPoint: { x: number; y: number };
-  lastInputPoint: { x: number; y: number };
-  lastPressure: number;
   changed: boolean;
   outsideCanvas: boolean;
 }

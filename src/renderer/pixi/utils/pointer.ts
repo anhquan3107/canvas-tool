@@ -47,29 +47,95 @@ export const getDisplayPressureScale = (
   return resolvePointerPressure(pointerType, pressure, PEN_DISPLAY_PRESSURE_FLOOR);
 };
 
+type PointerLikeEvent = {
+  clientX: number;
+  clientY: number;
+  button?: number;
+  buttons?: number;
+  altKey?: boolean;
+  shiftKey?: boolean;
+  pointerId?: number;
+  pointerType?: string;
+  pressure?: number;
+  nativeEvent?: Partial<PointerLikeEvent> | null;
+};
+
 export const getNormalizedPointerData = (
-  nativeEvent: MouseEvent | PointerEvent,
+  nativeEvent: MouseEvent | PointerEvent | PointerLikeEvent,
 ): NormalizedPointerData => {
+  const rawEvent =
+    "nativeEvent" in nativeEvent &&
+    nativeEvent.nativeEvent &&
+    typeof nativeEvent.nativeEvent === "object"
+      ? nativeEvent.nativeEvent
+      : null;
+
+  const clientX =
+    rawEvent && typeof rawEvent.clientX === "number" && Number.isFinite(rawEvent.clientX)
+      ? rawEvent.clientX
+      : nativeEvent.clientX;
+  const clientY =
+    rawEvent && typeof rawEvent.clientY === "number" && Number.isFinite(rawEvent.clientY)
+      ? rawEvent.clientY
+      : nativeEvent.clientY;
   const pointerType =
-    "pointerType" in nativeEvent && typeof nativeEvent.pointerType === "string"
+    "pointerType" in nativeEvent &&
+    typeof nativeEvent.pointerType === "string" &&
+    nativeEvent.pointerType.length > 0
       ? nativeEvent.pointerType
+      : rawEvent &&
+          typeof rawEvent.pointerType === "string" &&
+          rawEvent.pointerType.length > 0
+        ? rawEvent.pointerType
       : "mouse";
   const pointerId =
-    "pointerId" in nativeEvent && typeof nativeEvent.pointerId === "number"
+    "pointerId" in nativeEvent &&
+    typeof nativeEvent.pointerId === "number" &&
+    Number.isFinite(nativeEvent.pointerId)
       ? nativeEvent.pointerId
+      : rawEvent &&
+          typeof rawEvent.pointerId === "number" &&
+          Number.isFinite(rawEvent.pointerId)
+        ? rawEvent.pointerId
       : 1;
   const pressure =
-    "pressure" in nativeEvent && typeof nativeEvent.pressure === "number"
+    "pressure" in nativeEvent &&
+    typeof nativeEvent.pressure === "number" &&
+    Number.isFinite(nativeEvent.pressure)
       ? nativeEvent.pressure
+      : rawEvent &&
+          typeof rawEvent.pressure === "number" &&
+          Number.isFinite(rawEvent.pressure)
+        ? rawEvent.pressure
       : 1;
 
   return {
-    clientX: nativeEvent.clientX,
-    clientY: nativeEvent.clientY,
-    button: nativeEvent.button,
-    buttons: nativeEvent.buttons,
-    altKey: nativeEvent.altKey,
-    shiftKey: nativeEvent.shiftKey,
+    clientX,
+    clientY,
+    button:
+      typeof nativeEvent.button === "number" && Number.isFinite(nativeEvent.button)
+        ? nativeEvent.button
+        : rawEvent &&
+            typeof rawEvent.button === "number" &&
+            Number.isFinite(rawEvent.button)
+          ? rawEvent.button
+        : 0,
+    buttons:
+      typeof nativeEvent.buttons === "number" && Number.isFinite(nativeEvent.buttons)
+        ? nativeEvent.buttons
+        : rawEvent &&
+            typeof rawEvent.buttons === "number" &&
+            Number.isFinite(rawEvent.buttons)
+          ? rawEvent.buttons
+        : 1,
+    altKey: Boolean(
+      typeof nativeEvent.altKey === "boolean" ? nativeEvent.altKey : rawEvent?.altKey,
+    ),
+    shiftKey: Boolean(
+      typeof nativeEvent.shiftKey === "boolean"
+        ? nativeEvent.shiftKey
+        : rawEvent?.shiftKey,
+    ),
     pointerId,
     pointerType,
     pressure,

@@ -28,7 +28,7 @@ interface UseAppCanvasActionsOptions {
   cropSession: CropSession;
   pushToast: PushToast;
   resetView: () => void;
-  selectedStatusImage: { id: string } | undefined;
+  selectedStatusImage: { id: string } | null | undefined;
   setActiveTool: Dispatch<SetStateAction<ToolMode | null>>;
   setBrushSize: Dispatch<SetStateAction<number>>;
   setCropSession: Dispatch<SetStateAction<CropSession>>;

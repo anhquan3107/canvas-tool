@@ -22,6 +22,19 @@ interface CanvasPoint {
   insideCanvas: boolean;
 }
 
+const BRUSH_SMOOTHING_MIN_ALPHA = 0.42;
+const BRUSH_SMOOTHING_MAX_ALPHA = 0.88;
+const BRUSH_PRESSURE_SMOOTHING = 0.42;
+
+const lerp = (start: number, end: number, alpha: number) =>
+  start + (end - start) * alpha;
+
+const getBrushPositionAlpha = (distance: number) =>
+  Math.min(
+    BRUSH_SMOOTHING_MAX_ALPHA,
+    Math.max(BRUSH_SMOOTHING_MIN_ALPHA, distance / 10),
+  );
+
 interface UseCanvasBoardAnnotationsOptions {
   annotationLayerRef: MutableRefObject<Graphics | null>;
   annotationPreviewLayerRef: MutableRefObject<Graphics | null>;
@@ -158,6 +171,8 @@ export const useCanvasBoardAnnotations = ({
           draftStroke,
           annotations: groupRef.current.annotations,
           lastPoint: point,
+          lastInputPoint: point,
+          lastPressure: pressure,
           changed: false,
           outsideCanvas: false,
         };
@@ -184,6 +199,8 @@ export const useCanvasBoardAnnotations = ({
         draftStroke: null,
         annotations: nextAnnotations,
         lastPoint: point,
+        lastInputPoint: point,
+        lastPressure: pressure,
         changed: nextAnnotations !== groupRef.current.annotations,
         outsideCanvas: false,
       };
@@ -228,15 +245,29 @@ export const useCanvasBoardAnnotations = ({
           if (
             !session.outsideCanvas &&
             session.draftStroke &&
-            distanceBetween(session.lastPoint, point) >= MIN_STROKE_POINT_DISTANCE
+            distanceBetween(session.lastInputPoint, point) >= MIN_STROKE_POINT_DISTANCE
           ) {
-            session.lastPoint = point;
+            const positionAlpha = getBrushPositionAlpha(
+              distanceBetween(session.lastInputPoint, point),
+            );
+            const nextPressure = lerp(
+              session.lastPressure,
+              pressure,
+              BRUSH_PRESSURE_SMOOTHING,
+            );
+            const nextPoint = {
+              x: lerp(session.lastPoint.x, point.x, positionAlpha),
+              y: lerp(session.lastPoint.y, point.y, positionAlpha),
+            };
+            session.lastInputPoint = point;
+            session.lastPoint = nextPoint;
+            session.lastPressure = nextPressure;
             const nextPressures = session.draftStroke.pressures
-              ? [...session.draftStroke.pressures, pressure]
+              ? [...session.draftStroke.pressures, nextPressure]
               : undefined;
             session.draftStroke = {
               ...session.draftStroke,
-              points: [...session.draftStroke.points, point.x, point.y],
+              points: [...session.draftStroke.points, nextPoint.x, nextPoint.y],
               ...(nextPressures ? { pressures: nextPressures } : {}),
             };
           }
@@ -255,6 +286,8 @@ export const useCanvasBoardAnnotations = ({
       if (session.outsideCanvas) {
         session.outsideCanvas = false;
         session.lastPoint = point;
+        session.lastInputPoint = point;
+        session.lastPressure = pressure;
 
         if (session.mode === "brush") {
           session.draftStroke = {
@@ -272,25 +305,42 @@ export const useCanvasBoardAnnotations = ({
       }
 
       if (
-        distanceBetween(session.lastPoint, point) < MIN_STROKE_POINT_DISTANCE
+        distanceBetween(session.lastInputPoint, point) < MIN_STROKE_POINT_DISTANCE
       ) {
         return;
       }
 
-      session.lastPoint = point;
-
       if (session.mode === "brush" && session.draftStroke) {
+        const positionAlpha = getBrushPositionAlpha(
+          distanceBetween(session.lastInputPoint, point),
+        );
+        const nextPressure = lerp(
+          session.lastPressure,
+          pressure,
+          BRUSH_PRESSURE_SMOOTHING,
+        );
+        const nextPoint = {
+          x: lerp(session.lastPoint.x, point.x, positionAlpha),
+          y: lerp(session.lastPoint.y, point.y, positionAlpha),
+        };
+        session.lastInputPoint = point;
+        session.lastPoint = nextPoint;
+        session.lastPressure = nextPressure;
         const nextPressures = session.draftStroke.pressures
-          ? [...session.draftStroke.pressures, pressure]
+          ? [...session.draftStroke.pressures, nextPressure]
           : undefined;
         session.draftStroke = {
           ...session.draftStroke,
-          points: [...session.draftStroke.points, point.x, point.y],
+          points: [...session.draftStroke.points, nextPoint.x, nextPoint.y],
           ...(nextPressures ? { pressures: nextPressures } : {}),
         };
         redrawDraftAnnotation(session.draftStroke);
         return;
       }
+
+      session.lastInputPoint = point;
+      session.lastPoint = point;
+      session.lastPressure = pressure;
 
       const nextAnnotations =
         session.mode === "erase-line"

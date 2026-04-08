@@ -81,6 +81,8 @@ export interface ActiveAnnotationSessionState {
   draftStroke: AnnotationStroke | null;
   annotations: AnnotationStroke[];
   lastPoint: { x: number; y: number };
+  lastInputPoint: { x: number; y: number };
+  lastPressure: number;
   changed: boolean;
   outsideCanvas: boolean;
 }

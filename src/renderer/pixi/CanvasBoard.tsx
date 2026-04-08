@@ -31,6 +31,7 @@ import type {
   TransformHandle,
 } from "@renderer/pixi/types";
 import { drawItemFrame } from "@renderer/pixi/utils/item-frame";
+import type { NormalizedPointerData } from "@renderer/pixi/utils/pointer";
 
 const SELECTION_DIM_ALPHA = 0.34;
 const SELECTION_HIGHLIGHT_NAME = "selection-highlight";
@@ -108,7 +109,12 @@ export const CanvasBoard = ({
   } | null>(null);
   const updateSelectedBoundsOverlayRef = useRef<() => void>(() => {});
   const spacePanActiveRef = useRef(false);
-  const lastPointerClientRef = useRef<{ x: number; y: number } | null>(null);
+  const lastPointerClientRef = useRef<
+    Pick<
+      NormalizedPointerData,
+      "clientX" | "clientY" | "pointerType" | "pressure" | "buttons"
+    > | null
+  >(null);
   const lastItemPressRef = useRef<{ itemId: string; time: number } | null>(null);
   const cropSessionRef = useRef<CropSession | null>(cropSession);
   const [appReady, setAppReady] = useState(false);
@@ -193,7 +199,7 @@ export const CanvasBoard = ({
 
     const lastPointer = lastPointerClientRef.current;
     if (lastPointer) {
-      updateDoodleCursor(lastPointer.x, lastPointer.y);
+      updateDoodleCursor(lastPointer.clientX, lastPointer.clientY, lastPointer);
     }
   }, [activeTool]);
 
@@ -201,7 +207,7 @@ export const CanvasBoard = ({
     doodleModeRef.current = doodleMode;
     const lastPointer = lastPointerClientRef.current;
     if (lastPointer) {
-      updateDoodleCursor(lastPointer.x, lastPointer.y);
+      updateDoodleCursor(lastPointer.clientX, lastPointer.clientY, lastPointer);
     }
   }, [doodleMode]);
 
@@ -209,7 +215,7 @@ export const CanvasBoard = ({
     doodleColorRef.current = doodleColor;
     const lastPointer = lastPointerClientRef.current;
     if (lastPointer) {
-      updateDoodleCursor(lastPointer.x, lastPointer.y);
+      updateDoodleCursor(lastPointer.clientX, lastPointer.clientY, lastPointer);
     }
   }, [doodleColor]);
 
@@ -217,7 +223,7 @@ export const CanvasBoard = ({
     doodleSizeRef.current = doodleSize;
     const lastPointer = lastPointerClientRef.current;
     if (lastPointer) {
-      updateDoodleCursor(lastPointer.x, lastPointer.y);
+      updateDoodleCursor(lastPointer.clientX, lastPointer.clientY, lastPointer);
     }
   }, [doodleSize]);
 
@@ -549,7 +555,7 @@ export const CanvasBoard = ({
 
     const lastPointer = lastPointerClientRef.current;
     if (lastPointer) {
-      updateDoodleCursor(lastPointer.x, lastPointer.y);
+      updateDoodleCursor(lastPointer.clientX, lastPointer.clientY, lastPointer);
     }
   }, [appReady, group.zoom, updateDoodleCursor]);
 

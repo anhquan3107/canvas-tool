@@ -76,6 +76,7 @@ export interface ActiveSelectionBoxState {
 }
 
 export interface ActiveAnnotationSessionState {
+  pointerId: number;
   mode: DoodleMode;
   draftStroke: AnnotationStroke | null;
   annotations: AnnotationStroke[];

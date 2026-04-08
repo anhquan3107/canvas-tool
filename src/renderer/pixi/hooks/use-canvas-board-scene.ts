@@ -13,6 +13,10 @@ import {
   SELECTION_HIGHLIGHT_NAME,
 } from "@renderer/pixi/hooks/use-board-selection-visuals";
 import { renderBoardItemVisuals } from "@renderer/pixi/hooks/use-board-item-render";
+import {
+  getNormalizedPointerData,
+  type NormalizedPointerData,
+} from "@renderer/pixi/utils/pointer";
 import type {
   ActiveItemDragState,
   ActiveSelectionBoxState,
@@ -57,7 +61,12 @@ interface UseCanvasBoardSceneOptions {
   syncViewFromGroup: () => void;
   hideSelectionMarquee: () => void;
   redrawAnnotations: (annotations?: ReferenceGroup["annotations"]) => void;
-  startAnnotationSession: (clientX: number, clientY: number) => void;
+  startAnnotationSession: (
+    pointer: Pick<
+      NormalizedPointerData,
+      "clientX" | "clientY" | "pointerId" | "pointerType" | "pressure"
+    >,
+  ) => void;
 }
 
 export const useCanvasBoardScene = ({
@@ -373,8 +382,7 @@ export const useCanvasBoardScene = ({
 
       if (activeToolRef.current === "doodle") {
         startAnnotationSession(
-          event.nativeEvent.clientX,
-          event.nativeEvent.clientY,
+          getNormalizedPointerData(event.nativeEvent as MouseEvent | PointerEvent),
         );
         return;
       }

@@ -7,6 +7,10 @@ import type {
 } from "@renderer/pixi/types";
 import { clamp } from "@renderer/pixi/utils/geometry";
 import { MARQUEE_DRAG_THRESHOLD } from "@renderer/pixi/constants";
+import {
+  getNormalizedPointerData,
+  type NormalizedPointerData,
+} from "@renderer/pixi/utils/pointer";
 
 interface UseCanvasBoardBootstrapOptions {
   hostRef: MutableRefObject<HTMLDivElement | null>;
@@ -31,8 +35,20 @@ interface UseCanvasBoardBootstrapOptions {
   selectionIdsRef: MutableRefObject<string[]>;
   onSelectionChangeRef: MutableRefObject<(itemIds: string[]) => void>;
   hideDoodleCursor: () => void;
-  updateDoodleCursor: (clientX: number, clientY: number) => void;
-  updateAnnotationSession: (clientX: number, clientY: number) => void;
+  updateDoodleCursor: (
+    clientX: number,
+    clientY: number,
+    pointerState?: Pick<
+      NormalizedPointerData,
+      "pointerType" | "pressure" | "buttons"
+    >,
+  ) => void;
+  updateAnnotationSession: (
+    pointer: Pick<
+      NormalizedPointerData,
+      "clientX" | "clientY" | "pointerId" | "pointerType" | "pressure"
+    >,
+  ) => void;
   updateSelectionMarquee: (clientX: number, clientY: number) => void;
   updateDraggedItemPosition: (clientX: number, clientY: number) => void;
   commitAnnotationSession: () => void;
@@ -233,20 +249,21 @@ export const useCanvasBoardBootstrap = ({
       cancelWheelZoomAnimationRef.current = cancelWheelZoomAnimation;
 
       const onPointerMove = (event: PointerEvent) => {
-        updateDoodleCursor(event.clientX, event.clientY);
+        const pointer = getNormalizedPointerData(event);
+        updateDoodleCursor(pointer.clientX, pointer.clientY, pointer);
 
         if (activeAnnotationSessionRef.current) {
-          updateAnnotationSession(event.clientX, event.clientY);
+          updateAnnotationSession(pointer);
           return;
         }
 
         if (activeSelectionBoxRef.current) {
-          updateSelectionMarquee(event.clientX, event.clientY);
+          updateSelectionMarquee(pointer.clientX, pointer.clientY);
           return;
         }
 
         if (activeItemDragRef.current) {
-          updateDraggedItemPosition(event.clientX, event.clientY);
+          updateDraggedItemPosition(pointer.clientX, pointer.clientY);
           return;
         }
 
@@ -256,23 +273,28 @@ export const useCanvasBoardBootstrap = ({
         }
 
         currentBoard.x =
-          panOriginRef.current.x + (event.clientX - panStartRef.current.x);
+          panOriginRef.current.x + (pointer.clientX - panStartRef.current.x);
         currentBoard.y =
-          panOriginRef.current.y + (event.clientY - panStartRef.current.y);
+          panOriginRef.current.y + (pointer.clientY - panStartRef.current.y);
         drawBoardSurface();
         updateSelectedBoundsOverlay();
       };
 
       const onPointerUp = (event: PointerEvent) => {
-        if (activeAnnotationSessionRef.current) {
+        const pointer = getNormalizedPointerData(event);
+
+        if (
+          activeAnnotationSessionRef.current &&
+          activeAnnotationSessionRef.current.pointerId === pointer.pointerId
+        ) {
           commitAnnotationSession();
         }
 
         if (activeSelectionBoxRef.current) {
           const selectionBox = activeSelectionBoxRef.current;
           const movedDistance = Math.hypot(
-            event.clientX - selectionBox.startClient.x,
-            event.clientY - selectionBox.startClient.y,
+            pointer.clientX - selectionBox.startClient.x,
+            pointer.clientY - selectionBox.startClient.y,
           );
 
           if (

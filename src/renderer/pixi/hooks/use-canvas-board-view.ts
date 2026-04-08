@@ -3,6 +3,10 @@ import { Rectangle, type Container, type Graphics } from "pixi.js";
 import { ZERO_INSETS } from "@renderer/pixi/constants";
 import { hexToPixiColor, hexToRgba } from "@renderer/pixi/utils/color";
 import { clamp } from "@renderer/pixi/utils/geometry";
+import {
+  getDisplayPressureScale,
+  type NormalizedPointerData,
+} from "@renderer/pixi/utils/pointer";
 import type {
   ActiveSelectionTransformState,
   ActiveItemDragState,
@@ -41,7 +45,12 @@ interface UseCanvasBoardViewOptions {
   doodleModeRef: MutableRefObject<DoodleMode>;
   doodleColorRef: MutableRefObject<string>;
   doodleSizeRef: MutableRefObject<number>;
-  lastPointerClientRef: MutableRefObject<{ x: number; y: number } | null>;
+  lastPointerClientRef: MutableRefObject<
+    Pick<
+      NormalizedPointerData,
+      "clientX" | "clientY" | "pointerType" | "pressure" | "buttons"
+    > | null
+  >;
 }
 
 export const useCanvasBoardView = ({
@@ -105,8 +114,21 @@ export const useCanvasBoardView = ({
   }, [selectedBoundsOverlayRef]);
 
   const updateDoodleCursor = useCallback(
-    (clientX: number, clientY: number) => {
-      lastPointerClientRef.current = { x: clientX, y: clientY };
+    (
+      clientX: number,
+      clientY: number,
+      pointerState?: Pick<
+        NormalizedPointerData,
+        "pointerType" | "pressure" | "buttons"
+      >,
+    ) => {
+      lastPointerClientRef.current = {
+        clientX,
+        clientY,
+        pointerType: pointerState?.pointerType ?? "mouse",
+        pressure: pointerState?.pressure ?? 1,
+        buttons: pointerState?.buttons ?? 0,
+      };
 
       const host = hostRef.current;
       const cursorOverlay = cursorOverlayRef.current;
@@ -131,7 +153,15 @@ export const useCanvasBoardView = ({
         return;
       }
 
-      const size = Math.max(10, doodleSizeRef.current * boardContainer.scale.x);
+      const pressureScale = getDisplayPressureScale(
+        pointerState?.pointerType,
+        pointerState?.pressure,
+        pointerState?.buttons,
+      );
+      const size = Math.max(
+        10,
+        doodleSizeRef.current * pressureScale * boardContainer.scale.x,
+      );
       const localX = clientX - rect.left;
       const localY = clientY - rect.top;
       const erasing =

@@ -14,7 +14,7 @@
 }
 
 .canvas-stage.zoom-overlay-active {
-  top: -36px;
+  top: 0;
   bottom: 0;
 }
 

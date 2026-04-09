@@ -4,6 +4,8 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+  type TransitionEvent as ReactTransitionEvent,
 } from "react";
 import { DEFAULT_GROUP_BACKGROUND_COLOR } from "@shared/project-defaults";
 import { AppDialogs } from "@renderer/app/components/AppDialogs";
@@ -63,11 +65,24 @@ type CropSession = {
 } | null;
 
 const clampWindowOpacity = (value: number) => Math.min(1, Math.max(0.05, value));
+const TOPBAR_SLIDE_TRANSITION_MS = 180;
+const TOPBAR_HIDE_DELAY_MS = 1500;
 
 export const AppShell = () => {
   useWindowRightDrag();
   const windowFocused = useWindowFocusState();
   const appShellRef = useRef<HTMLDivElement | null>(null);
+  const topbarRef = useRef<HTMLElement | null>(null);
+  const topbarRevealZoneRef = useRef<HTMLDivElement | null>(null);
+  const topbarQueuedVisibilityRef = useRef<boolean | null>(null);
+  const topbarTransitionTimerRef = useRef<number | null>(null);
+  const topbarHideDelayTimerRef = useRef<number | null>(null);
+  const [topbarRevealZoneHovered, setTopbarRevealZoneHovered] = useState(false);
+  const [topbarHovered, setTopbarHovered] = useState(false);
+  const [topbarVisible, setTopbarVisible] = useState(true);
+  const [topbarAnimating, setTopbarAnimating] = useState(false);
+  const topbarVisibleRef = useRef(true);
+  const topbarAnimatingRef = useRef(false);
 
   const {
     recentFiles,
@@ -105,6 +120,174 @@ export const AppShell = () => {
     previousActiveGroupIdRef,
     lastSavedSignatureRef,
   } = useAppUiState();
+
+  useEffect(() => {
+    topbarVisibleRef.current = topbarVisible;
+  }, [topbarVisible]);
+
+  useEffect(() => {
+    topbarAnimatingRef.current = topbarAnimating;
+  }, [topbarAnimating]);
+
+  const clearTopbarTransitionTimer = useCallback(() => {
+    if (topbarTransitionTimerRef.current === null) {
+      return;
+    }
+
+    window.clearTimeout(topbarTransitionTimerRef.current);
+    topbarTransitionTimerRef.current = null;
+  }, []);
+
+  const clearTopbarHideDelayTimer = useCallback(() => {
+    if (topbarHideDelayTimerRef.current === null) {
+      return;
+    }
+
+    window.clearTimeout(topbarHideDelayTimerRef.current);
+    topbarHideDelayTimerRef.current = null;
+  }, []);
+
+  const requestTopbarVisibility = useCallback(
+    (nextVisible: boolean) => {
+      clearTopbarTransitionTimer();
+
+      if (windowFocused) {
+        topbarQueuedVisibilityRef.current = null;
+        if (!topbarVisibleRef.current) {
+          setTopbarVisible(true);
+        }
+        if (topbarAnimatingRef.current) {
+          setTopbarAnimating(false);
+        }
+        return;
+      }
+
+      if (topbarAnimatingRef.current) {
+        topbarQueuedVisibilityRef.current = nextVisible;
+        return;
+      }
+
+      if (topbarVisibleRef.current === nextVisible) {
+        topbarQueuedVisibilityRef.current = null;
+        return;
+      }
+
+      topbarQueuedVisibilityRef.current = null;
+      setTopbarAnimating(true);
+      setTopbarVisible(nextVisible);
+      topbarTransitionTimerRef.current = window.setTimeout(() => {
+        topbarTransitionTimerRef.current = null;
+        if (!topbarAnimatingRef.current) {
+          return;
+        }
+
+        setTopbarAnimating(false);
+      }, TOPBAR_SLIDE_TRANSITION_MS + 80);
+    },
+    [clearTopbarTransitionTimer, windowFocused],
+  );
+
+  const handleTopbarTransitionEnd = useCallback(
+    (event: ReactTransitionEvent<HTMLElement>) => {
+      if (
+        event.target !== event.currentTarget ||
+        event.propertyName !== "transform" ||
+        !topbarAnimatingRef.current
+      ) {
+        return;
+      }
+
+      clearTopbarTransitionTimer();
+      setTopbarAnimating(false);
+
+      const queuedVisibility = topbarQueuedVisibilityRef.current;
+      topbarQueuedVisibilityRef.current = null;
+      if (
+        typeof queuedVisibility === "boolean" &&
+        queuedVisibility !== topbarVisibleRef.current
+      ) {
+        window.requestAnimationFrame(() => {
+          requestTopbarVisibility(queuedVisibility);
+        });
+      }
+    },
+    [clearTopbarTransitionTimer, requestTopbarVisibility],
+  );
+
+  useEffect(() => {
+    if (windowFocused) {
+      clearTopbarHideDelayTimer();
+      setTopbarRevealZoneHovered(false);
+      setTopbarHovered(false);
+      requestTopbarVisibility(true);
+      return;
+    }
+
+    if (topbarRevealZoneHovered || topbarHovered) {
+      clearTopbarHideDelayTimer();
+      requestTopbarVisibility(true);
+      return;
+    }
+
+    clearTopbarHideDelayTimer();
+    topbarHideDelayTimerRef.current = window.setTimeout(() => {
+      topbarHideDelayTimerRef.current = null;
+      requestTopbarVisibility(false);
+    }, TOPBAR_HIDE_DELAY_MS);
+  }, [
+    clearTopbarHideDelayTimer,
+    requestTopbarVisibility,
+    topbarHovered,
+    topbarRevealZoneHovered,
+    windowFocused,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      clearTopbarHideDelayTimer();
+      clearTopbarTransitionTimer();
+    };
+  }, [clearTopbarHideDelayTimer, clearTopbarTransitionTimer]);
+
+  const handleTopbarRevealZonePointerEnter = useCallback(() => {
+    if (windowFocused) {
+      return;
+    }
+
+    setTopbarRevealZoneHovered(true);
+  }, [windowFocused]);
+
+  const handleTopbarRevealZonePointerLeave = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (topbarRef.current?.contains(event.relatedTarget as Node | null)) {
+        return;
+      }
+
+      setTopbarRevealZoneHovered(false);
+    },
+    [],
+  );
+
+  const handleTopbarPointerEnter = useCallback(() => {
+    if (windowFocused) {
+      return;
+    }
+
+    setTopbarHovered(true);
+  }, [windowFocused]);
+
+  const handleTopbarPointerLeave = useCallback(
+    (event: ReactPointerEvent<HTMLElement>) => {
+      if (
+        topbarRevealZoneRef.current?.contains(event.relatedTarget as Node | null)
+      ) {
+        return;
+      }
+
+      setTopbarHovered(false);
+    },
+    [],
+  );
 
   const {
     project,
@@ -591,8 +774,7 @@ export const AppShell = () => {
       return;
     }
 
-    hasInitializedViewRef.current = true;
-    requestAnimationFrame(() => {
+    const frameId = window.requestAnimationFrame(() => {
       if (
         activeGroupRef.current?.id !== activeGroup.id ||
         (activeGroupRef.current?.items.length ?? 0) > 0
@@ -600,8 +782,13 @@ export const AppShell = () => {
         return;
       }
 
+      hasInitializedViewRef.current = true;
       resetView();
     });
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
   }, [activeGroup, hasInitializedViewRef, resetView, viewportSize]);
 
   useEffect(() => {
@@ -621,9 +808,9 @@ export const AppShell = () => {
       return;
     }
 
-    centeredGroupIdsRef.current.add(activeGroup.id);
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
+    let secondFrameId: number | null = null;
+    const firstFrameId = window.requestAnimationFrame(() => {
+      secondFrameId = window.requestAnimationFrame(() => {
         if (
           activeGroupRef.current?.id !== activeGroup.id ||
           (activeGroupRef.current?.items.length ?? 0) > 0
@@ -631,9 +818,17 @@ export const AppShell = () => {
           return;
         }
 
+        centeredGroupIdsRef.current.add(activeGroup.id);
         resetView();
       });
     });
+
+    return () => {
+      window.cancelAnimationFrame(firstFrameId);
+      if (secondFrameId !== null) {
+        window.cancelAnimationFrame(secondFrameId);
+      }
+    };
   }, [activeGroup, centeredGroupIdsRef, resetView, viewportSize]);
 
   useEffect(() => {
@@ -880,9 +1075,21 @@ export const AppShell = () => {
       onPointerCancelCapture={handleShellPointerUpCapture}
       onContextMenu={handleShellContextMenu}
     >
-      <div className={`desktop-frame ${windowFocused ? "" : "window-unfocused"}`}>
-        <div className="topbar-reveal-zone" aria-hidden="true" />
+      <div
+        className={`desktop-frame ${windowFocused ? "" : "window-unfocused"} ${
+          topbarVisible ? "topbar-revealed" : ""
+        } ${topbarAnimating ? "topbar-animating" : ""}`}
+      >
+        <div
+          ref={topbarRevealZoneRef}
+          className="topbar-reveal-zone"
+          aria-hidden="true"
+          onPointerEnter={handleTopbarRevealZonePointerEnter}
+          onPointerLeave={handleTopbarRevealZonePointerLeave}
+        />
         <TopBar
+          className={topbarVisible ? "is-revealed" : "is-hidden"}
+          rootRef={topbarRef}
           activeGroup={activeGroup}
           activeTool={activeTool}
           shortcutBindings={shortcutBindings}
@@ -996,6 +1203,9 @@ export const AppShell = () => {
           onToggleMaximize={handleToggleMaximize}
           onCloseWindow={handleCloseWindow}
           onMarkTitleBarTooltipSeen={markTitleBarTooltipSeen}
+          onPointerEnter={handleTopbarPointerEnter}
+          onPointerLeave={handleTopbarPointerLeave}
+          onTransitionEnd={handleTopbarTransitionEnd}
         />
 
         <div className="desktop-layout">

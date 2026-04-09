@@ -55,12 +55,15 @@
   pointer-events: auto;
 }
 
-.desktop-frame.window-unfocused .topbar-reveal-zone:hover + .app-topbar,
-.desktop-frame.window-unfocused .app-topbar:hover {
+.desktop-frame.window-unfocused.topbar-revealed .app-topbar {
   opacity: 1;
   transform: translateY(0);
   border-bottom-color: rgba(255, 255, 255, 0.05);
   pointer-events: auto;
+}
+
+.desktop-frame.window-unfocused.topbar-animating .app-topbar {
+  will-change: transform, opacity;
 }
 
 .app-drag-region,

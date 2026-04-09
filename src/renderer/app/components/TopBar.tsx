@@ -1,4 +1,9 @@
-import { useState } from "react";
+import {
+  useState,
+  type PointerEventHandler,
+  type RefObject,
+  type TransitionEventHandler,
+} from "react";
 import type { ReferenceGroup } from "@shared/types/project";
 import type { ShortcutBindings } from "@shared/shortcuts";
 import { TopBarHoverTooltip } from "@renderer/app/components/TopBarHoverTooltip";
@@ -65,6 +70,11 @@ interface TopBarProps {
   onToggleMaximize: () => void;
   onCloseWindow: () => void;
   onMarkTitleBarTooltipSeen: (tooltipId: string) => void;
+  className?: string;
+  rootRef?: RefObject<HTMLElement | null>;
+  onPointerEnter?: PointerEventHandler<HTMLElement>;
+  onPointerLeave?: PointerEventHandler<HTMLElement>;
+  onTransitionEnd?: TransitionEventHandler<HTMLElement>;
 }
 
 export const TopBar = ({
@@ -118,6 +128,11 @@ export const TopBar = ({
   onToggleMaximize,
   onCloseWindow,
   onMarkTitleBarTooltipSeen,
+  className,
+  rootRef,
+  onPointerEnter,
+  onPointerLeave,
+  onTransitionEnd,
 }: TopBarProps) => {
   const [pendingTitleBarAction, setPendingTitleBarAction] =
     useState<PendingTitleBarAction | null>(null);
@@ -140,7 +155,14 @@ export const TopBar = ({
 
   return (
     <>
-      <header className="app-topbar" data-window-left-drag="true">
+      <header
+        ref={rootRef}
+        className={className ? `app-topbar ${className}` : "app-topbar"}
+        data-window-left-drag="true"
+        onPointerEnter={onPointerEnter}
+        onPointerLeave={onPointerLeave}
+        onTransitionEnd={onTransitionEnd}
+      >
         <div className="app-drag-region" data-window-left-drag="true">
           <button
             type="button"

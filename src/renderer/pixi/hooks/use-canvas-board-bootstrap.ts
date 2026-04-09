@@ -253,6 +253,12 @@ export const useCanvasBoardBootstrap = ({
         updateDoodleCursor(pointer.clientX, pointer.clientY, pointer);
 
         if (activeAnnotationSessionRef.current) {
+          if (typeof event.getCoalescedEvents === "function") {
+            event.getCoalescedEvents().forEach((coalescedEvent) => {
+              updateAnnotationSession(getNormalizedPointerData(coalescedEvent));
+            });
+          }
+
           updateAnnotationSession(pointer);
           return;
         }

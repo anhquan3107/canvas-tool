@@ -79,6 +79,7 @@ export interface ActiveAnnotationSessionState {
   pointerId: number;
   mode: DoodleMode;
   draftStroke: AnnotationStroke | null;
+  draftRenderedPointCount: number;
   annotations: AnnotationStroke[];
   lastPoint: { x: number; y: number };
   lastInputPoint: { x: number; y: number };

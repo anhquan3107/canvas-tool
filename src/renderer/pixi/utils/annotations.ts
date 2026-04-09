@@ -16,19 +16,35 @@ const getRenderedPointSize = (stroke: AnnotationStroke, pointIndex: number) =>
 export const drawAnnotationStroke = (
   graphics: Graphics,
   stroke: AnnotationStroke,
+  startPointIndex = 0,
 ) => {
   const pointCount = getPointCount(stroke);
-  if (pointCount === 0) {
+  if (pointCount === 0 || startPointIndex >= pointCount) {
     return;
   }
 
   if (pointCount === 1) {
-    graphics.circle(stroke.points[0], stroke.points[1], getPointSize(stroke, 0) * 0.5);
-    graphics.fill({ color: stroke.color, alpha: 1 });
+    if (startPointIndex === 0) {
+      graphics.circle(
+        stroke.points[0],
+        stroke.points[1],
+        getPointSize(stroke, 0) * 0.5,
+      );
+      graphics.fill({ color: stroke.color, alpha: 1 });
+    }
     return;
   }
 
-  for (let pointIndex = 0; pointIndex < pointCount - 1; pointIndex += 1) {
+  const segmentStartIndex = Math.max(
+    0,
+    Math.min(pointCount - 2, startPointIndex > 0 ? startPointIndex - 1 : 0),
+  );
+
+  for (
+    let pointIndex = segmentStartIndex;
+    pointIndex < pointCount - 1;
+    pointIndex += 1
+  ) {
     const startOffset = pointIndex * 2;
     const endOffset = startOffset + 2;
     const startX = stroke.points[startOffset];
@@ -37,33 +53,15 @@ export const drawAnnotationStroke = (
     const endY = stroke.points[endOffset + 1];
     const startSize = getRenderedPointSize(stroke, pointIndex);
     const endSize = getRenderedPointSize(stroke, pointIndex + 1);
-    const segmentDistance = Math.hypot(endX - startX, endY - startY);
-    const segmentSteps = Math.max(1, Math.ceil(segmentDistance / 2));
-
-    let previousX = startX;
-    let previousY = startY;
-    let previousSize = startSize;
-
-    for (let step = 1; step <= segmentSteps; step += 1) {
-      const progress = step / segmentSteps;
-      const nextX = startX + (endX - startX) * progress;
-      const nextY = startY + (endY - startY) * progress;
-      const nextSize = startSize + (endSize - startSize) * progress;
-
-      graphics.moveTo(previousX, previousY);
-      graphics.lineTo(nextX, nextY);
-      graphics.stroke({
-        color: stroke.color,
-        width: Math.max(0.01, (previousSize + nextSize) * 0.5),
-        alpha: 1,
-        cap: "round",
-        join: "round",
-      });
-
-      previousX = nextX;
-      previousY = nextY;
-      previousSize = nextSize;
-    }
+    graphics.moveTo(startX, startY);
+    graphics.lineTo(endX, endY);
+    graphics.stroke({
+      color: stroke.color,
+      width: Math.max(0.01, (startSize + endSize) * 0.5),
+      alpha: 1,
+      cap: "round",
+      join: "round",
+    });
   }
 };
 

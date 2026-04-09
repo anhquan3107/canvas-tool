@@ -64,6 +64,10 @@ export const useCanvasBoardAnnotations = ({
   doodleSizeRef,
   clientPointToCanvas,
 }: UseCanvasBoardAnnotationsOptions) => {
+  const clearDraftAnnotation = useCallback(() => {
+    annotationPreviewLayerRef.current?.clear();
+  }, [annotationPreviewLayerRef]);
+
   const redrawAnnotations = useCallback(
     (annotations = groupRef.current.annotations) => {
       const annotationLayer = annotationLayerRef.current;
@@ -81,9 +85,8 @@ export const useCanvasBoardAnnotations = ({
 
   const redrawDraftAnnotation = useCallback(
     (stroke: AnnotationStroke | null) => {
-      const annotationLayer = annotationLayerRef.current;
       const previewLayer = annotationPreviewLayerRef.current;
-      if (!annotationLayer || !previewLayer) {
+      if (!previewLayer) {
         return;
       }
 
@@ -92,7 +95,19 @@ export const useCanvasBoardAnnotations = ({
         drawAnnotationStroke(previewLayer, stroke);
       }
     },
-    [annotationLayerRef, annotationPreviewLayerRef],
+    [annotationPreviewLayerRef],
+  );
+
+  const appendDraftAnnotation = useCallback(
+    (stroke: AnnotationStroke, renderedPointCount: number) => {
+      const previewLayer = annotationPreviewLayerRef.current;
+      if (!previewLayer) {
+        return;
+      }
+
+      drawAnnotationStroke(previewLayer, stroke, renderedPointCount);
+    },
+    [annotationPreviewLayerRef],
   );
 
   const commitBrushDraftStroke = useCallback(
@@ -101,10 +116,19 @@ export const useCanvasBoardAnnotations = ({
         return session;
       }
 
+      const committedStroke: AnnotationStroke = {
+        ...session.draftStroke,
+        points: [...session.draftStroke.points],
+        ...(session.draftStroke.pressures
+          ? { pressures: [...session.draftStroke.pressures] }
+          : {}),
+      };
+
       return {
         ...session,
-        annotations: [...session.annotations, session.draftStroke],
+        annotations: [...session.annotations, committedStroke],
         draftStroke: null,
+        draftRenderedPointCount: 0,
         changed: true,
       };
     },
@@ -115,7 +139,7 @@ export const useCanvasBoardAnnotations = ({
     (session: ActiveAnnotationSessionState) => {
       const committedSession = commitBrushDraftStroke(session);
       activeAnnotationSessionRef.current = null;
-      redrawDraftAnnotation(null);
+      clearDraftAnnotation();
 
       if (committedSession.changed) {
         redrawAnnotations(committedSession.annotations);
@@ -127,11 +151,51 @@ export const useCanvasBoardAnnotations = ({
     },
     [
       activeAnnotationSessionRef,
+      clearDraftAnnotation,
       groupRef,
       onAnnotationsChangeRef,
       redrawAnnotations,
-      redrawDraftAnnotation,
     ],
+  );
+
+  const appendBrushPoint = useCallback(
+    (
+      session: ActiveAnnotationSessionState,
+      point: { x: number; y: number },
+      pressure: number,
+    ) => {
+      if (session.mode !== "brush" || !session.draftStroke) {
+        return false;
+      }
+
+      const inputDistance = distanceBetween(session.lastInputPoint, point);
+      if (inputDistance < MIN_STROKE_POINT_DISTANCE) {
+        return false;
+      }
+
+      const positionAlpha = getBrushPositionAlpha(inputDistance);
+      const nextPressure = lerp(
+        session.lastPressure,
+        pressure,
+        BRUSH_PRESSURE_SMOOTHING,
+      );
+      const nextPoint = {
+        x: lerp(session.lastPoint.x, point.x, positionAlpha),
+        y: lerp(session.lastPoint.y, point.y, positionAlpha),
+      };
+
+      session.lastInputPoint = point;
+      session.lastPoint = nextPoint;
+      session.lastPressure = nextPressure;
+      session.draftStroke.points.push(nextPoint.x, nextPoint.y);
+      session.draftStroke.pressures?.push(nextPressure);
+      appendDraftAnnotation(session.draftStroke, session.draftRenderedPointCount);
+      session.draftRenderedPointCount = Math.floor(
+        session.draftStroke.points.length / 2,
+      );
+      return true;
+    },
+    [appendDraftAnnotation],
   );
 
   const startAnnotationSession = useCallback(
@@ -169,6 +233,7 @@ export const useCanvasBoardAnnotations = ({
           pointerId: pointer.pointerId,
           mode,
           draftStroke,
+          draftRenderedPointCount: 1,
           annotations: groupRef.current.annotations,
           lastPoint: point,
           lastInputPoint: point,
@@ -193,13 +258,14 @@ export const useCanvasBoardAnnotations = ({
               doodleSizeRef.current * pressure,
             );
 
-      activeAnnotationSessionRef.current = {
-        pointerId: pointer.pointerId,
-        mode,
-        draftStroke: null,
-        annotations: nextAnnotations,
-        lastPoint: point,
-        lastInputPoint: point,
+        activeAnnotationSessionRef.current = {
+          pointerId: pointer.pointerId,
+          mode,
+          draftStroke: null,
+          draftRenderedPointCount: 0,
+          annotations: nextAnnotations,
+          lastPoint: point,
+          lastInputPoint: point,
         lastPressure: pressure,
         changed: nextAnnotations !== groupRef.current.annotations,
         outsideCanvas: false,
@@ -242,41 +308,15 @@ export const useCanvasBoardAnnotations = ({
 
       if (!point.insideCanvas) {
         if (session.mode === "brush") {
-          if (
-            !session.outsideCanvas &&
-            session.draftStroke &&
-            distanceBetween(session.lastInputPoint, point) >= MIN_STROKE_POINT_DISTANCE
-          ) {
-            const positionAlpha = getBrushPositionAlpha(
-              distanceBetween(session.lastInputPoint, point),
-            );
-            const nextPressure = lerp(
-              session.lastPressure,
-              pressure,
-              BRUSH_PRESSURE_SMOOTHING,
-            );
-            const nextPoint = {
-              x: lerp(session.lastPoint.x, point.x, positionAlpha),
-              y: lerp(session.lastPoint.y, point.y, positionAlpha),
-            };
-            session.lastInputPoint = point;
-            session.lastPoint = nextPoint;
-            session.lastPressure = nextPressure;
-            const nextPressures = session.draftStroke.pressures
-              ? [...session.draftStroke.pressures, nextPressure]
-              : undefined;
-            session.draftStroke = {
-              ...session.draftStroke,
-              points: [...session.draftStroke.points, nextPoint.x, nextPoint.y],
-              ...(nextPressures ? { pressures: nextPressures } : {}),
-            };
+          if (!session.outsideCanvas) {
+            appendBrushPoint(session, point, pressure);
           }
 
           const nextSession = commitBrushDraftStroke(session);
           nextSession.outsideCanvas = true;
           activeAnnotationSessionRef.current = nextSession;
           redrawAnnotations(nextSession.annotations);
-          redrawDraftAnnotation(null);
+          clearDraftAnnotation();
         } else {
           session.outsideCanvas = true;
         }
@@ -299,42 +339,20 @@ export const useCanvasBoardAnnotations = ({
             tool: "brush",
             createdAt: new Date().toISOString(),
           };
+          session.draftRenderedPointCount = 1;
           redrawDraftAnnotation(session.draftStroke);
           return;
         }
       }
 
-      if (
-        distanceBetween(session.lastInputPoint, point) < MIN_STROKE_POINT_DISTANCE
-      ) {
+      if (session.mode === "brush" && session.draftStroke) {
+        appendBrushPoint(session, point, pressure);
         return;
       }
 
-      if (session.mode === "brush" && session.draftStroke) {
-        const positionAlpha = getBrushPositionAlpha(
-          distanceBetween(session.lastInputPoint, point),
-        );
-        const nextPressure = lerp(
-          session.lastPressure,
-          pressure,
-          BRUSH_PRESSURE_SMOOTHING,
-        );
-        const nextPoint = {
-          x: lerp(session.lastPoint.x, point.x, positionAlpha),
-          y: lerp(session.lastPoint.y, point.y, positionAlpha),
-        };
-        session.lastInputPoint = point;
-        session.lastPoint = nextPoint;
-        session.lastPressure = nextPressure;
-        const nextPressures = session.draftStroke.pressures
-          ? [...session.draftStroke.pressures, nextPressure]
-          : undefined;
-        session.draftStroke = {
-          ...session.draftStroke,
-          points: [...session.draftStroke.points, nextPoint.x, nextPoint.y],
-          ...(nextPressures ? { pressures: nextPressures } : {}),
-        };
-        redrawDraftAnnotation(session.draftStroke);
+      if (
+        distanceBetween(session.lastInputPoint, point) < MIN_STROKE_POINT_DISTANCE
+      ) {
         return;
       }
 
@@ -365,7 +383,9 @@ export const useCanvasBoardAnnotations = ({
     },
     [
       activeAnnotationSessionRef,
+      appendBrushPoint,
       clientPointToCanvas,
+      clearDraftAnnotation,
       doodleSizeRef,
       finalizeAnnotationSession,
       redrawAnnotations,
@@ -383,8 +403,8 @@ export const useCanvasBoardAnnotations = ({
 
   const cancelAnnotationSession = useCallback(() => {
     activeAnnotationSessionRef.current = null;
-    redrawDraftAnnotation(null);
-  }, [activeAnnotationSessionRef, redrawDraftAnnotation]);
+    clearDraftAnnotation();
+  }, [activeAnnotationSessionRef, clearDraftAnnotation]);
 
   return {
     redrawAnnotations,

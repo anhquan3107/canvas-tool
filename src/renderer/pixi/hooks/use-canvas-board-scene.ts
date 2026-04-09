@@ -11,6 +11,7 @@ import {
   applySelectionVisualState,
   SELECTION_HIGHLIGHT_ALPHA,
   SELECTION_HIGHLIGHT_NAME,
+  syncSelectionItemOrder,
 } from "@renderer/pixi/hooks/use-board-selection-visuals";
 import { renderBoardItemVisuals } from "@renderer/pixi/hooks/use-board-item-render";
 import {
@@ -351,6 +352,13 @@ export const useCanvasBoardScene = ({
 
       itemLayer.addChild(itemNode);
     });
+
+    syncSelectionItemOrder(
+      itemLayer,
+      itemNodeByIdRef.current,
+      scene.items,
+      selectionIdsRef.current,
+    );
 
     redrawAnnotations(scene.annotations);
 

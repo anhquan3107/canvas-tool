@@ -12,6 +12,10 @@ import {
   Rectangle,
 } from "pixi.js";
 import type { CanvasItem, CaptureItem, ImageItem } from "@shared/types/project";
+import {
+  applySelectionVisualState,
+  syncSelectionItemOrder,
+} from "@renderer/pixi/hooks/use-board-selection-visuals";
 import { useCaptureSessions } from "@renderer/pixi/hooks/use-capture-sessions";
 import { useCanvasBoardAnnotations } from "@renderer/pixi/hooks/use-canvas-board-annotations";
 import { useCanvasBoardBootstrap } from "@renderer/pixi/hooks/use-canvas-board-bootstrap";
@@ -32,9 +36,6 @@ import type {
 } from "@renderer/pixi/types";
 import { drawItemFrame } from "@renderer/pixi/utils/item-frame";
 import type { NormalizedPointerData } from "@renderer/pixi/utils/pointer";
-
-const SELECTION_DIM_ALPHA = 0.34;
-const SELECTION_HIGHLIGHT_NAME = "selection-highlight";
 
 export const CanvasBoard = ({
   group,
@@ -138,21 +139,16 @@ export const CanvasBoard = ({
     });
 
     itemNodeByIdRef.current.forEach((itemNode, id) => {
-      const hasSelection = selectedItemIds.length > 0;
-      const isSelected = selectedItemIds.includes(id);
-      itemNode.alpha = hasSelection ? (isSelected ? 1 : SELECTION_DIM_ALPHA) : 1;
-
-      const highlightOverlay = itemNode.getChildByName(
-        SELECTION_HIGHLIGHT_NAME,
-      ) as Graphics | null;
-      if (!highlightOverlay) {
-        return;
-      }
-
-      highlightOverlay.alpha = hasSelection && isSelected ? 0.08 : 0;
-      highlightOverlay.visible = !hasSelection || isSelected;
+      applySelectionVisualState(itemNode, id, selectedItemIds);
     });
-  }, [selectedItemIds]);
+
+    syncSelectionItemOrder(
+      itemLayerRef.current,
+      itemNodeByIdRef.current,
+      group.items,
+      selectedItemIds,
+    );
+  }, [group.items, selectedItemIds]);
 
   useEffect(() => {
     groupRef.current = group;

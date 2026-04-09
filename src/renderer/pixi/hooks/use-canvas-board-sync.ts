@@ -1,10 +1,11 @@
 import { useEffect } from "react";
 import { drawItemFrame } from "@renderer/pixi/utils/item-frame";
+import {
+  applySelectionVisualState,
+  syncSelectionItemOrder,
+} from "@renderer/pixi/hooks/use-board-selection-visuals";
 import type { CanvasBoardProps } from "@renderer/pixi/types";
 import type { useCanvasBoardRefs } from "@renderer/pixi/hooks/use-canvas-board-refs";
-
-const SELECTION_DIM_ALPHA = 0.34;
-const SELECTION_HIGHLIGHT_NAME = "selection-highlight";
 
 interface UseCanvasBoardSyncOptions
   extends Pick<
@@ -80,21 +81,16 @@ export const useCanvasBoardSync = ({
     });
 
     refs.itemNodeByIdRef.current.forEach((itemNode, id) => {
-      const hasSelection = selectedItemIds.length > 0;
-      const isSelected = selectedItemIds.includes(id);
-      itemNode.alpha = hasSelection ? (isSelected ? 1 : SELECTION_DIM_ALPHA) : 1;
-
-      const highlightOverlay = itemNode.getChildByName(
-        SELECTION_HIGHLIGHT_NAME,
-      );
-      if (!highlightOverlay) {
-        return;
-      }
-
-      highlightOverlay.alpha = hasSelection && isSelected ? 0.08 : 0;
-      highlightOverlay.visible = !hasSelection || isSelected;
+      applySelectionVisualState(itemNode, id, selectedItemIds);
     });
-  }, [refs, selectedItemIds]);
+
+    syncSelectionItemOrder(
+      refs.itemLayerRef.current,
+      refs.itemNodeByIdRef.current,
+      group.items,
+      selectedItemIds,
+    );
+  }, [group.items, refs, selectedItemIds]);
 
   useEffect(() => {
     refs.groupRef.current = group;

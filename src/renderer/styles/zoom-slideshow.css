@@ -16,6 +16,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 286px;
   padding: 8px 10px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 10px;
@@ -46,9 +47,16 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  min-width: 126px;
   margin-left: 4px;
   font-size: 12px;
   color: var(--text-soft);
+}
+
+.zoom-slideshow-timer span {
+  min-width: 3ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
 .zoom-slideshow-timer input[type="range"] {

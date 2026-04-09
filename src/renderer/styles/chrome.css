@@ -57,6 +57,10 @@
   pointer-events: auto;
 }
 
+.desktop-frame.window-unfocused.topbar-revealed .topbar-reveal-zone {
+  pointer-events: none;
+}
+
 .desktop-frame.window-unfocused.topbar-revealed .app-topbar {
   opacity: 1;
   transform: translateY(0);

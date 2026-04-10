@@ -107,6 +107,49 @@
   gap: 12px;
 }
 
+.canvas-size-aspect-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  color: rgba(232, 232, 228, 0.82);
+  font-size: 11px;
+  line-height: 1.3;
+  cursor: pointer;
+}
+
+.canvas-size-aspect-toggle input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.canvas-size-aspect-toggle-ui {
+  position: relative;
+  width: 13px;
+  height: 13px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  flex: 0 0 auto;
+}
+
+.canvas-size-aspect-toggle input:checked + .canvas-size-aspect-toggle-ui::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 0px;
+  width: 4px;
+  height: 8px;
+  border-right: 2px solid rgba(243, 168, 76, 0.96);
+  border-bottom: 2px solid rgba(243, 168, 76, 0.96);
+  transform: rotate(40deg);
+}
+
+.canvas-size-aspect-toggle:hover .canvas-size-aspect-toggle-ui {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+}
+
 .group-name-dialog .group-dialog-input {
   min-height: 34px;
   font-size: 12px;

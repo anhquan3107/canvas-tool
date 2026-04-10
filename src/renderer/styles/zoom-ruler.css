@@ -8,7 +8,9 @@
   width: min(360px, calc(100% - 32px));
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: #1f1f21;
-  box-shadow: 0 22px 52px rgba(0, 0, 0, 0.46);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.14),
+    0 6px 16px rgba(0, 0, 0, 0.22);
   transform: translate(-50%, -50%);
 }
 

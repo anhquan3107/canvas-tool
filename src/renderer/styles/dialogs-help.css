@@ -5,7 +5,9 @@
   flex-direction: column;
   border: 1px solid var(--line-strong);
   background: rgba(31, 31, 33, 0.98);
-  box-shadow: 0 30px 72px rgba(0, 0, 0, 0.52);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.14),
+    0 8px 20px rgba(0, 0, 0, 0.24);
   overflow: hidden;
 }
 

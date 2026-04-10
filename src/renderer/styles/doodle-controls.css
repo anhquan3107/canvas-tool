@@ -33,7 +33,9 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
   cursor: default;
-  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.22);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.16),
+    0 2px 6px rgba(0, 0, 0, 0.12);
 }
 
 .doodle-tools-toggle:hover,
@@ -41,6 +43,9 @@
   border-color: rgba(255, 255, 255, 0.18);
   background: rgba(18, 18, 21, 0.98);
   color: rgba(255, 255, 255, 0.9);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.18),
+    0 3px 8px rgba(0, 0, 0, 0.14);
 }
 
 .doodle-tools-toggle.active {
@@ -83,6 +88,9 @@
   color: var(--text-soft);
   font-size: 12px;
   cursor: default;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.16),
+    0 2px 6px rgba(0, 0, 0, 0.12);
 }
 
 .doodle-mode-button:hover,
@@ -90,6 +98,9 @@
   border-color: rgba(255, 255, 255, 0.18);
   background: rgba(18, 18, 21, 0.98);
   color: rgba(255, 255, 255, 0.9);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.18),
+    0 3px 8px rgba(0, 0, 0, 0.14);
 }
 
 .doodle-mode-button.active {
@@ -115,6 +126,9 @@
   color: var(--text-soft);
   font-size: 11px;
   cursor: default;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.16),
+    0 2px 6px rgba(0, 0, 0, 0.12);
 }
 
 .doodle-submode-button:hover,
@@ -122,6 +136,9 @@
   border-color: rgba(255, 255, 255, 0.18);
   background: rgba(18, 18, 21, 0.98);
   color: rgba(255, 255, 255, 0.9);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.18),
+    0 3px 8px rgba(0, 0, 0, 0.14);
 }
 
 .doodle-submode-button.active {

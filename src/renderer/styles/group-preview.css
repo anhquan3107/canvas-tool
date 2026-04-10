@@ -98,6 +98,20 @@
   box-shadow: 0 10px 20px rgba(0, 0, 0, 0.16);
 }
 
+.group-preview-row-collapsed .group-preview-item,
+.group-preview-row-collapsed .group-preview-empty,
+.group-preview-row-collapsed .group-preview-overlay {
+  display: none;
+}
+
+.group-preview-row-collapsed .group-preview-row-visual {
+  background-image: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.12),
+    rgba(255, 255, 255, 0)
+  );
+}
+
 .group-preview-row-collapsed:hover {
   transform: scale(1.045);
 }

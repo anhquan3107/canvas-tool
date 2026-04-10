@@ -19,26 +19,20 @@ export const drawSwatchTray = (
   const borderAlpha = 0.18;
   const borderWidth = 0.06;
   const maxInnerWidth = Math.max(0, safeWidth - 20);
-  const maxInnerHeight = Math.max(0, safeHeight - 20);
 
   let chipWidth = desiredChipWidth;
   let chipHeight = chipWidth;
-  let visibleColors = [...paletteColors];
-  let columns = Math.max(
-    1,
-    Math.floor((maxInnerWidth + chipGap) / (chipWidth + chipGap)),
-  );
-  let rows = Math.max(1, Math.ceil(visibleColors.length / columns));
+  const visibleColors = paletteColors.slice(0, 16);
+  if (visibleColors.length === 0) {
+    return;
+  }
 
   while (chipWidth > minChipWidth) {
-    columns = Math.max(
-      1,
-      Math.floor((maxInnerWidth + chipGap) / (chipWidth + chipGap)),
-    );
-    rows = Math.max(1, Math.ceil(visibleColors.length / columns));
-    const stripHeight = rows * chipHeight + Math.max(0, rows - 1) * chipGap;
+    const stripWidth =
+      visibleColors.length * chipWidth +
+      Math.max(0, visibleColors.length - 1) * chipGap;
 
-    if (stripHeight <= maxInnerHeight) {
+    if (stripWidth <= maxInnerWidth) {
       break;
     }
 
@@ -46,26 +40,10 @@ export const drawSwatchTray = (
     chipHeight = chipWidth;
   }
 
-  columns = Math.max(
-    1,
-    Math.floor((maxInnerWidth + chipGap) / (chipWidth + chipGap)),
-  );
-  const maxRows = Math.max(
-    1,
-    Math.floor((maxInnerHeight + chipGap) / (chipHeight + chipGap)),
-  );
-  const maxVisibleCount = Math.max(1, columns * maxRows);
-  visibleColors = visibleColors.slice(0, maxVisibleCount);
-  rows = Math.max(1, Math.ceil(visibleColors.length / columns));
-  const colorsInLastRow =
-    visibleColors.length - Math.max(0, rows - 1) * columns;
-  const stripWidth =
-    Math.min(columns, visibleColors.length) * chipWidth +
-    Math.max(0, Math.min(columns, visibleColors.length) - 1) * chipGap;
-  const lastRowWidth =
-    colorsInLastRow * chipWidth + Math.max(0, colorsInLastRow - 1) * chipGap;
-  const trayWidth = Math.max(stripWidth, lastRowWidth);
-  const stripHeight = rows * chipHeight + Math.max(0, rows - 1) * chipGap;
+  const trayWidth =
+    visibleColors.length * chipWidth +
+    Math.max(0, visibleColors.length - 1) * chipGap;
+  const stripHeight = chipHeight;
   const edgeInset = 1;
   const stripX = edgeInset;
   const stripY = Math.max(edgeInset, safeHeight - stripHeight - edgeInset);
@@ -110,10 +88,8 @@ export const drawSwatchTray = (
   itemNode.addChild(tooltip);
 
   visibleColors.forEach((colorHex, index) => {
-    const column = index % columns;
-    const row = Math.floor(index / columns);
-    const swatchX = stripX + column * (chipWidth + chipGap);
-    const swatchY = stripY + row * (chipHeight + chipGap);
+    const swatchX = stripX + index * (chipWidth + chipGap);
+    const swatchY = stripY;
     const swatch = new Graphics();
     swatch.rect(swatchX, swatchY, chipWidth, chipHeight);
     swatch.fill(hexToPixiColor(colorHex));

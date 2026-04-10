@@ -5,34 +5,39 @@
   z-index: 16;
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  width: min(372px, calc(100% - 40px));
-  padding: 18px 18px 16px;
+  width: min(360px, calc(100% - 32px));
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-  background:
-    linear-gradient(180deg, rgba(44, 44, 48, 0.96), rgba(24, 24, 28, 0.94));
-  box-shadow:
-    0 28px 70px rgba(0, 0, 0, 0.48),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  background: #1f1f21;
+  box-shadow: 0 22px 52px rgba(0, 0, 0, 0.46);
   transform: translate(-50%, -50%);
-  backdrop-filter: blur(16px);
 }
 
-.zoom-ruler-header {
-  padding: 0 2px 2px;
+.zoom-ruler-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 0 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: #2a2930;
 }
 
-.zoom-ruler-header strong {
-  display: block;
-  font-size: 18px;
-  font-weight: 700;
-  color: #f0ece6;
-  letter-spacing: 0.01em;
+.zoom-ruler-topbar-label {
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.zoom-ruler-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px 16px;
 }
 
 .zoom-ruler-header p {
-  margin-top: 6px;
+  margin: 0;
   font-size: 12px;
   line-height: 1.45;
   color: rgba(224, 219, 212, 0.68);
@@ -41,12 +46,12 @@
 .zoom-ruler-field {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 12px 12px 10px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0;
   background: rgba(255, 255, 255, 0.03);
-  font-size: 13px;
+  font-size: 11px;
   color: var(--text);
 }
 
@@ -61,65 +66,83 @@
 }
 
 .zoom-ruler-slider-row strong {
-  min-width: 34px;
-  padding: 6px 8px;
-  border-radius: 8px;
+  min-width: 28px;
+  padding: 4px 6px;
+  border-radius: 0;
   background: rgba(255, 255, 255, 0.05);
-  font-size: 12px;
+  font-size: 11px;
   text-align: center;
   color: rgba(234, 229, 222, 0.82);
 }
 
 .zoom-ruler-colors {
   border: none;
-  padding: 12px 12px 10px;
+  padding: 10px 12px;
   margin: 0;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0;
   background: rgba(255, 255, 255, 0.03);
 }
 
 .zoom-ruler-colors legend {
   padding: 0 4px;
   margin-bottom: 8px;
-  font-size: 13px;
-  color: var(--text);
+  font-size: 10px;
+  color: rgba(214, 214, 210, 0.52);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .zoom-ruler-color-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px 12px;
+  gap: 8px 10px;
 }
 
 .zoom-ruler-color-option {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: 11px;
   color: rgba(228, 223, 216, 0.8);
-  padding: 6px 8px;
-  border-radius: 999px;
+  padding: 4px 6px;
+  border-radius: 0;
   background: rgba(255, 255, 255, 0.02);
 }
 
 .zoom-ruler-color-dot {
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 50%;
-  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.04);
 }
 
 .zoom-ruler-actions {
   display: flex;
   justify-content: center;
-  gap: 12px;
-  margin-top: 2px;
+  gap: 10px;
 }
 
 .zoom-ruler-actions button {
-  min-width: 96px;
-  min-height: 38px;
-  border-radius: 10px;
+  min-width: 90px;
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.84);
+  font-size: 11px;
+}
+
+.zoom-ruler-actions button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.zoom-ruler-actions button:first-child {
+  border-color: rgba(243, 168, 76, 0.5);
+  background: rgba(243, 168, 76, 0.16);
+  color: var(--text);
+  font-weight: 600;
 }

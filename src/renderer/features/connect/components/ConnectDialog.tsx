@@ -118,7 +118,11 @@ export const ConnectDialog = ({
   }
 
   return (
-    <DialogFrame title="Connect Capture" onClose={onClose}>
+    <DialogFrame
+      className="connect-dialog-card"
+      title="Connect Capture"
+      onClose={onClose}
+    >
       {content}
     </DialogFrame>
   );

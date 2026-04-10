@@ -1,19 +1,22 @@
 .dialog-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 24px;
+  gap: 12px;
 }
 
 .dialog-field {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  margin-bottom: 22px;
+  gap: 6px;
+  margin-bottom: 12px;
 }
 
 .dialog-field label {
-  font-size: 14px;
-  color: var(--text);
+  font-size: 10px;
+  color: rgba(214, 214, 210, 0.52);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .dialog-date-preview {
@@ -25,16 +28,16 @@
 }
 
 .dialog-duration {
-  margin-bottom: 24px;
+  margin-bottom: 12px;
   text-align: center;
-  font-size: 15px;
+  font-size: 11px;
   color: var(--text-soft);
 }
 
 .dialog-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
+  gap: 10px;
 }
 
 .dialog-actions-triple {
@@ -42,24 +45,25 @@
 }
 
 .dialog-actions.compact {
-  max-width: 230px;
+  max-width: 180px;
   margin: 0 auto;
-  gap: 10px;
+  gap: 8px;
 }
 
 .color-picker-toggle-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-  margin-bottom: 18px;
+  gap: 10px;
+  margin-bottom: 10px;
 }
 
 .color-picker-target {
-  padding: 12px 14px;
-  border-radius: 4px;
+  min-height: 30px;
+  padding: 0 12px;
+  border-radius: 0;
   background: rgba(255, 255, 255, 0.04);
   color: var(--text-soft);
-  font-size: 14px;
+  font-size: 11px;
   text-align: center;
 }
 
@@ -72,8 +76,8 @@
 .color-picker-body {
   display: flex;
   align-items: stretch;
-  gap: 16px;
-  margin-bottom: 18px;
+  gap: 10px;
+  margin-bottom: 10px;
 }
 
 .color-picker-square-shell,
@@ -84,17 +88,17 @@
 
 .color-picker-square {
   display: block;
-  width: 320px;
-  height: 320px;
-  border-radius: 2px;
+  width: 248px;
+  height: 248px;
+  border-radius: 0;
   cursor: crosshair;
 }
 
 .color-picker-hue {
   display: block;
-  width: 22px;
-  height: 320px;
-  border-radius: 2px;
+  width: 18px;
+  height: 248px;
+  border-radius: 0;
   cursor: ns-resize;
   background: linear-gradient(
     180deg,
@@ -134,8 +138,8 @@
 }
 
 .color-picker-meta-grid {
-  gap: 18px;
-  margin-bottom: 8px;
+  gap: 12px;
+  margin-bottom: 4px;
 }
 
 .color-picker-opacity-field {
@@ -204,7 +208,7 @@
 
 .color-picker-preview {
   width: 100%;
-  height: 42px;
+  height: 34px;
   border: 1px solid var(--line-strong);
   background: rgba(255, 255, 255, 0.02);
 }
@@ -212,38 +216,39 @@
 .connect-dialog-section {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin-bottom: 22px;
+  gap: 8px;
+  margin-bottom: 14px;
 }
 
 .connect-dialog-copy {
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.5;
   color: var(--text-soft);
 }
 
 .connect-dialog-label {
-  font-size: 12px;
+  font-size: 10px;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-dim);
+  letter-spacing: 0.12em;
+  color: rgba(214, 214, 210, 0.52);
+  font-weight: 700;
 }
 
 .capture-source-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-  max-height: 340px;
+  gap: 10px;
+  max-height: 280px;
   overflow-y: auto;
 }
 
 .capture-source-card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 10px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0;
   background: rgba(255, 255, 255, 0.03);
   text-align: left;
 }
@@ -324,12 +329,13 @@
 }
 
 .dialog-button {
-  min-height: 48px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
-  background: #363539;
-  font-size: 16px;
-  color: var(--text);
+  min-height: 30px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.84);
   transition:
     background 140ms ease,
     border-color 140ms ease,
@@ -337,30 +343,33 @@
 }
 
 .dialog-button:hover {
-  background: #403f44;
-  border-color: rgba(255, 255, 255, 0.14);
-  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.1);
+  transform: none;
 }
 
 .dialog-button.primary {
-  font-weight: 700;
+  border-color: rgba(243, 168, 76, 0.5);
+  background: rgba(243, 168, 76, 0.16);
+  color: var(--text);
+  font-weight: 600;
 }
 
 .dialog-button-danger {
-  background: #a54b3e;
+  background: rgba(196, 72, 72, 0.18);
   border: 1px solid rgba(230, 174, 160, 0.18);
   color: #fff4ef;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .dialog-button-danger:hover {
-  background: #b45647;
+  background: rgba(196, 72, 72, 0.24);
   border-color: rgba(255, 223, 214, 0.28);
 }
 
 .dialog-copy {
-  margin-bottom: 24px;
-  font-size: 14px;
+  margin-bottom: 10px;
+  font-size: 12px;
   line-height: 1.5;
   color: var(--text-soft);
 }

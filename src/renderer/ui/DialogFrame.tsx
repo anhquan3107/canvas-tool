@@ -20,9 +20,12 @@ export const DialogFrame = ({
       onClick={(event) => event.stopPropagation()}
       role="dialog"
       aria-modal="true"
+      aria-label={title}
     >
-      <h3>{title}</h3>
-      {children}
+      <div className="dialog-frame-topbar">
+        <span className="dialog-frame-topbar-label">{title}</span>
+      </div>
+      <div className="dialog-frame-body">{children}</div>
     </div>
   </DialogScrim>
 );

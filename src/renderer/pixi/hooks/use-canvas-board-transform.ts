@@ -40,6 +40,7 @@ interface UseCanvasBoardTransformOptions {
     ((size: { width: number; height: number } | null) => void) | undefined
   >;
   onItemsPatchRef: RefObject<(updates: Record<string, any>) => void>;
+  onLockedInteractionRef: RefObject<(() => void) | undefined>;
   onCropRectChange?: (rect: CropRect) => void;
 }
 
@@ -57,6 +58,7 @@ export const useCanvasBoardTransform = ({
   updateSelectedBoundsOverlayRef,
   onCanvasSizePreviewChangeRef,
   onItemsPatchRef,
+  onLockedInteractionRef,
   onCropRectChange,
 }: UseCanvasBoardTransformOptions) => {
   const getItemBounds = useCallback((item: CanvasItem) => {
@@ -371,6 +373,11 @@ export const useCanvasBoardTransform = ({
         return;
       }
 
+      if (group.locked) {
+        onLockedInteractionRef.current?.();
+        return;
+      }
+
       const handle = event.currentTarget.dataset.handle as TransformHandle | undefined;
       if (!handle) {
         return;
@@ -394,11 +401,6 @@ export const useCanvasBoardTransform = ({
         };
         return;
       }
-
-      if (group.locked) {
-        return;
-      }
-
       const selectedItems = group.items.filter(
         (item): item is ImageItem | CaptureItem =>
           selectedItemIds.includes(item.id) && item.visible && !item.locked,
@@ -456,6 +458,7 @@ export const useCanvasBoardTransform = ({
       cropSessionRef,
       getItemBounds,
       groupRef,
+      onLockedInteractionRef,
       selectedItemIds,
     ],
   );

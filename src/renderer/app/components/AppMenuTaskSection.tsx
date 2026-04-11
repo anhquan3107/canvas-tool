@@ -5,6 +5,7 @@ import { getMenuActionContentProps } from "@renderer/app/menu/menu-action-config
 
 interface AppMenuTaskSectionProps {
   shortcutBindings: ShortcutBindings;
+  canvasLocked?: boolean;
   canExportSelectedTask: boolean;
   canExportAnyTask: boolean;
   onCreateTask?: () => void;
@@ -17,6 +18,7 @@ interface AppMenuTaskSectionProps {
 
 export const AppMenuTaskSection = ({
   shortcutBindings,
+  canvasLocked = false,
   canExportSelectedTask,
   canExportAnyTask,
   onCreateTask,
@@ -31,17 +33,26 @@ export const AppMenuTaskSection = ({
   const exportSubmenu = (
     <div
       className="app-menu-submenu"
-      onPointerEnter={() => setTaskExportOpen(true)}
+      onPointerEnter={() => {
+        if (!canvasLocked) {
+          setTaskExportOpen(true);
+        }
+      }}
       onPointerLeave={() => setTaskExportOpen(false)}
     >
       <button
         type="button"
         className="app-menu-submenu-trigger"
-        onClick={() => setTaskExportOpen((open) => !open)}
+        disabled={canvasLocked}
+        onClick={() => {
+          if (!canvasLocked) {
+            setTaskExportOpen((open) => !open);
+          }
+        }}
       >
         <MenuItemContent icon="task" label="Export Tasks" submenu />
       </button>
-      {taskExportOpen ? (
+      {taskExportOpen && !canvasLocked ? (
         <div className="app-menu app-menu-submenu-panel">
           <button
             type="button"
@@ -96,10 +107,9 @@ export const AppMenuTaskSection = ({
 
   return (
     <>
-      <button type="button" onClick={onCreateTask}>
+      <button type="button" onClick={onCreateTask} disabled={canvasLocked}>
         <MenuItemContent {...getMenuActionContentProps(shortcutBindings, "addTask")} />
       </button>
-      {exportSubmenu}
     </>
   );
 };

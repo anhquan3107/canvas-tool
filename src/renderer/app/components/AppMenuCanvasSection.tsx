@@ -40,25 +40,30 @@ export const AppMenuCanvasSection = ({
 }: AppMenuCanvasSectionProps) => {
   const [canvasArrangeOpen, setCanvasArrangeOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
+  const canvasActionsDisabled = canvasLocked;
 
   return (
     <>
-      <button type="button" onClick={onResetView}>
+      <button type="button" onClick={onResetView} disabled={canvasActionsDisabled}>
         <MenuItemContent
           {...getMenuActionContentProps(shortcutBindings, "resetView")}
         />
       </button>
-      <button type="button" onClick={onFitCanvasToContent}>
+      <button
+        type="button"
+        onClick={onFitCanvasToContent}
+        disabled={canvasActionsDisabled}
+      >
         <MenuItemContent
           {...getMenuActionContentProps(shortcutBindings, "fitCanvasToContent")}
         />
       </button>
-      <button type="button" onClick={onChangeCanvasSize}>
+      <button type="button" onClick={onChangeCanvasSize} disabled={canvasActionsDisabled}>
         <MenuItemContent
           {...getMenuActionContentProps(shortcutBindings, "changeCanvasSize")}
         />
       </button>
-      <button type="button" onClick={onToggleSwatches}>
+      <button type="button" onClick={onToggleSwatches} disabled={canvasActionsDisabled}>
         <MenuItemContent
           {...getMenuActionContentProps(shortcutBindings, "toggleSwatches")}
         />
@@ -73,7 +78,7 @@ export const AppMenuCanvasSection = ({
         />
       </button>
       <div className="app-menu-divider" />
-      <button type="button" onClick={onCreateGroup}>
+      <button type="button" onClick={onCreateGroup} disabled={canvasActionsDisabled}>
         <MenuItemContent
           {...getMenuActionContentProps(shortcutBindings, "createGroup")}
         />
@@ -81,7 +86,7 @@ export const AppMenuCanvasSection = ({
       <button
         type="button"
         onClick={onDeleteCurrentGroup}
-        disabled={!canDeleteActiveGroup}
+        disabled={!canDeleteActiveGroup || canvasActionsDisabled}
       >
         <MenuItemContent
           {...getMenuActionContentProps(shortcutBindings, "deleteCurrentGroup")}
@@ -89,17 +94,26 @@ export const AppMenuCanvasSection = ({
       </button>
       <div
         className="app-menu-submenu"
-        onPointerEnter={() => setCanvasArrangeOpen(true)}
+        onPointerEnter={() => {
+          if (!canvasActionsDisabled) {
+            setCanvasArrangeOpen(true);
+          }
+        }}
         onPointerLeave={() => setCanvasArrangeOpen(false)}
       >
         <button
           type="button"
           className="app-menu-submenu-trigger"
-          onClick={() => setCanvasArrangeOpen((open) => !open)}
+          disabled={canvasActionsDisabled}
+          onClick={() => {
+            if (!canvasActionsDisabled) {
+              setCanvasArrangeOpen((open) => !open);
+            }
+          }}
         >
           <MenuItemContent icon="arrange" label="Arrange" submenu />
         </button>
-        {canvasArrangeOpen ? (
+        {canvasArrangeOpen && !canvasActionsDisabled ? (
           <div className="app-menu app-menu-submenu-panel">
             <button type="button" onClick={onAutoArrange}>
               <MenuItemContent
@@ -110,24 +124,33 @@ export const AppMenuCanvasSection = ({
         ) : null}
       </div>
       <div className="app-menu-divider" />
-      <button type="button" onClick={onShowBackgroundColor}>
+      <button type="button" onClick={onShowBackgroundColor} disabled={canvasActionsDisabled}>
         <MenuItemContent
           {...getMenuActionContentProps(shortcutBindings, "changeBackgroundColor")}
         />
       </button>
       <div
         className="app-menu-submenu"
-        onPointerEnter={() => setFilterOpen(true)}
+        onPointerEnter={() => {
+          if (!canvasActionsDisabled) {
+            setFilterOpen(true);
+          }
+        }}
         onPointerLeave={() => setFilterOpen(false)}
       >
         <button
           type="button"
           className="app-menu-submenu-trigger"
-          onClick={() => setFilterOpen((open) => !open)}
+          disabled={canvasActionsDisabled}
+          onClick={() => {
+            if (!canvasActionsDisabled) {
+              setFilterOpen((open) => !open);
+            }
+          }}
         >
           <MenuItemContent icon="filter" label="Filter" submenu />
         </button>
-        {filterOpen ? (
+        {filterOpen && !canvasActionsDisabled ? (
           <div className="app-menu app-menu-submenu-panel">
             <button type="button" onClick={onToggleBlackAndWhite}>
               <MenuItemContent
@@ -146,7 +169,7 @@ export const AppMenuCanvasSection = ({
         ) : null}
       </div>
       <div className="app-menu-divider" />
-      <button type="button" onClick={onActivateDoodle}>
+      <button type="button" onClick={onActivateDoodle} disabled={canvasActionsDisabled}>
         <MenuItemContent {...getMenuActionContentProps(shortcutBindings, "doodle")} />
       </button>
     </>

@@ -22,6 +22,7 @@ interface UseCanvasBoardBootstrapOptions {
   annotationMaskRef: MutableRefObject<Graphics | null>;
   annotationLayerRef: MutableRefObject<Graphics | null>;
   annotationPreviewLayerRef: MutableRefObject<Graphics | null>;
+  groupRef: MutableRefObject<{ locked: boolean }>;
   viewCommitTimerRef: MutableRefObject<number | null>;
   isPanningRef: MutableRefObject<boolean>;
   panStartRef: MutableRefObject<{ x: number; y: number }>;
@@ -34,6 +35,7 @@ interface UseCanvasBoardBootstrapOptions {
   spacePanActiveRef: MutableRefObject<boolean>;
   selectionIdsRef: MutableRefObject<string[]>;
   onSelectionChangeRef: MutableRefObject<(itemIds: string[]) => void>;
+  onLockedInteractionRef: MutableRefObject<(() => void) | undefined>;
   hideDoodleCursor: () => void;
   updateDoodleCursor: (
     clientX: number,
@@ -74,6 +76,7 @@ export const useCanvasBoardBootstrap = ({
   annotationMaskRef,
   annotationLayerRef,
   annotationPreviewLayerRef,
+  groupRef,
   viewCommitTimerRef,
   isPanningRef,
   panStartRef,
@@ -86,6 +89,7 @@ export const useCanvasBoardBootstrap = ({
   spacePanActiveRef,
   selectionIdsRef,
   onSelectionChangeRef,
+  onLockedInteractionRef,
   hideDoodleCursor,
   updateDoodleCursor,
   updateAnnotationSession,
@@ -339,6 +343,12 @@ export const useCanvasBoardBootstrap = ({
           return;
         }
 
+        if (groupRef.current.locked) {
+          event.preventDefault();
+          onLockedInteractionRef.current?.();
+          return;
+        }
+
         event.preventDefault();
 
         const rect = host.getBoundingClientRect();
@@ -476,6 +486,7 @@ export const useCanvasBoardBootstrap = ({
     appRef,
     boardContainerRef,
     boardGraphicRef,
+    groupRef,
     captureSessionByIdRef,
     commitAnnotationSession,
     commitDraggedItemPatch,
@@ -489,6 +500,7 @@ export const useCanvasBoardBootstrap = ({
     itemLayerRef,
     annotationMaskRef,
     onSelectionChangeRef,
+    onLockedInteractionRef,
     panOriginRef,
     panStartRef,
     rebuildScene,

@@ -31,6 +31,7 @@ interface TopBarProps {
   canExportSelectedTask: boolean;
   canExportAnyTask: boolean;
   canvasLocked: boolean;
+  lockedCanvasInteractionPulse: boolean;
   canUndo: boolean;
   canRedo: boolean;
   windowMaximized: boolean;
@@ -89,6 +90,7 @@ export const TopBar = ({
   canExportSelectedTask,
   canExportAnyTask,
   canvasLocked,
+  lockedCanvasInteractionPulse,
   canUndo,
   canRedo,
   windowMaximized,
@@ -241,6 +243,8 @@ export const TopBar = ({
 
         <TopBarWindowControls
           shortcutBindings={shortcutBindings}
+          canvasLocked={canvasLocked}
+          lockedCanvasInteractionPulse={lockedCanvasInteractionPulse}
           windowAlwaysOnTop={windowAlwaysOnTop}
           windowMaximized={windowMaximized}
           onShowShortcuts={onShowShortcuts}

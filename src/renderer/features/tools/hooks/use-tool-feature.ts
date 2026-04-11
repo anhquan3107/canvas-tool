@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReferenceGroup } from "@shared/types/project";
 import { TOOL_LABELS } from "@renderer/features/tools/constants";
 import type { DoodleMode, ToolMode } from "@renderer/features/tools/types";
@@ -24,11 +24,40 @@ export const useToolFeature = ({
   const [doodleColor, setDoodleColor] = useState("#f38ba8");
   const [brushSize, setBrushSize] = useState(18);
   const [eraserSize, setEraserSize] = useState(24);
+  const lastBlurByGroupRef = useRef(new Map<string, number>());
+
+  useEffect(() => {
+    if (!activeGroup || activeGroup.filters.blur <= 0) {
+      return;
+    }
+
+    lastBlurByGroupRef.current.set(activeGroup.id, activeGroup.filters.blur);
+  }, [activeGroup]);
+
+  const getRememberedBlurAmount = useCallback((groupId: string) => {
+    const remembered = lastBlurByGroupRef.current.get(groupId);
+    return typeof remembered === "number" && remembered > 0 ? remembered : 8;
+  }, []);
 
   const handleToolButton = useCallback(
     (tool: ToolMode) => {
       if (tool === "blur") {
-        setActiveTool((previous) => (previous === tool ? null : tool));
+        if (!activeGroup) {
+          return;
+        }
+
+        if (activeTool === "blur") {
+          setActiveTool(null);
+          return;
+        }
+
+        if (activeGroup.filters.blur <= 0) {
+          setGroupFilters(activeGroup.id, {
+            blur: getRememberedBlurAmount(activeGroup.id),
+          });
+        }
+
+        setActiveTool("blur");
         return;
       }
 
@@ -58,7 +87,14 @@ export const useToolFeature = ({
       setActiveTool((previous) => (previous === tool ? null : tool));
       pushToast("info", `${TOOL_LABELS[tool]} is not wired yet in this MVP.`);
     },
-    [activeGroup, onConnectRequested, pushToast, setGroupFilters],
+    [
+      activeGroup,
+      activeTool,
+      getRememberedBlurAmount,
+      onConnectRequested,
+      pushToast,
+      setGroupFilters,
+    ],
   );
 
   const toggleBlur = useCallback(() => {
@@ -66,7 +102,20 @@ export const useToolFeature = ({
       return;
     }
 
-    const nextBlur = activeGroup.filters.blur > 0 ? 0 : 8;
+    if (activeTool === "blur") {
+      if (activeGroup.filters.blur > 0) {
+        setGroupFilters(activeGroup.id, {
+          blur: 0,
+        });
+      }
+      setActiveTool(null);
+      return;
+    }
+
+    const nextBlur =
+      activeGroup.filters.blur > 0
+        ? 0
+        : getRememberedBlurAmount(activeGroup.id);
     setGroupFilters(activeGroup.id, {
       blur: nextBlur,
     });
@@ -77,7 +126,7 @@ export const useToolFeature = ({
 
       return previous === "blur" ? null : previous;
     });
-  }, [activeGroup, setGroupFilters]);
+  }, [activeGroup, activeTool, getRememberedBlurAmount, setGroupFilters]);
 
   const toggleBlackAndWhite = useCallback(() => {
     if (!activeGroup) {

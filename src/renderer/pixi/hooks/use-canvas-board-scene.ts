@@ -45,6 +45,7 @@ interface UseCanvasBoardSceneOptions {
   selectionIdsRef: MutableRefObject<string[]>;
   groupRef: MutableRefObject<ReferenceGroup>;
   onSelectionChangeRef: MutableRefObject<(itemIds: string[]) => void>;
+  onLockedInteractionRef: MutableRefObject<(() => void) | undefined>;
   onItemDoubleClickRef: MutableRefObject<((itemId: string) => void) | undefined>;
   activeToolRef: MutableRefObject<string | null>;
   showSwatchesRef: MutableRefObject<boolean>;
@@ -84,6 +85,7 @@ export const useCanvasBoardScene = ({
   selectionIdsRef,
   groupRef,
   onSelectionChangeRef,
+  onLockedInteractionRef,
   onItemDoubleClickRef,
   activeToolRef,
   showSwatchesRef,
@@ -220,6 +222,11 @@ export const useCanvasBoardScene = ({
 
       itemNode.on("pointerdown", (event: FederatedPointerEvent) => {
         event.stopPropagation();
+
+        if (groupRef.current.locked) {
+          onLockedInteractionRef.current?.();
+          return;
+        }
 
         if (event.nativeEvent.button === 2) {
           const nextSelection = [item.id];
@@ -365,6 +372,11 @@ export const useCanvasBoardScene = ({
     board.on("pointerdown", (event: FederatedPointerEvent) => {
       event.stopPropagation();
 
+      if (groupRef.current.locked) {
+        onLockedInteractionRef.current?.();
+        return;
+      }
+
       if (event.nativeEvent.button === 2) {
         return;
       }
@@ -424,6 +436,7 @@ export const useCanvasBoardScene = ({
     isPanningRef,
     itemLayerRef,
     itemNodeByIdRef,
+    onLockedInteractionRef,
     onSelectionChangeRef,
     onItemDoubleClickRef,
     cancelWheelZoomAnimationRef,

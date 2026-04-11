@@ -167,6 +167,7 @@ export const AppMenu = ({
       {selectedCount > 0 ? (
         <AppMenuEditSection
           shortcutBindings={shortcutBindings}
+          canvasLocked={canvasLocked}
           selectedCount={selectedCount}
           canCropSelected={canCropSelected}
           canExportSwatch={canExportSwatch}
@@ -224,6 +225,7 @@ export const AppMenu = ({
           <div className="app-menu-divider" />
           <AppMenuTaskSection
             shortcutBindings={shortcutBindings}
+            canvasLocked={canvasLocked}
             canExportSelectedTask={canExportSelectedTask}
             canExportAnyTask={canExportAnyTask}
             onCreateTask={onCreateTask}
@@ -236,6 +238,7 @@ export const AppMenu = ({
           <div className="app-menu-divider" />
           <AppMenuEditSection
             shortcutBindings={shortcutBindings}
+            canvasLocked={canvasLocked}
             selectedCount={selectedCount}
             canCropSelected={canCropSelected}
             canExportSwatch={canExportSwatch}

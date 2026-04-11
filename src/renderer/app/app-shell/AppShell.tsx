@@ -77,10 +77,13 @@ export const AppShell = () => {
   const topbarQueuedVisibilityRef = useRef<boolean | null>(null);
   const topbarTransitionTimerRef = useRef<number | null>(null);
   const topbarHideDelayTimerRef = useRef<number | null>(null);
+  const lockedCanvasIndicatorTimerRef = useRef<number | null>(null);
   const [topbarRevealZoneHovered, setTopbarRevealZoneHovered] = useState(false);
   const [topbarHovered, setTopbarHovered] = useState(false);
   const [topbarVisible, setTopbarVisible] = useState(true);
   const [topbarAnimating, setTopbarAnimating] = useState(false);
+  const [lockedCanvasInteractionPulse, setLockedCanvasInteractionPulse] =
+    useState(false);
   const topbarVisibleRef = useRef(true);
   const topbarAnimatingRef = useRef(false);
 
@@ -757,6 +760,70 @@ export const AppShell = () => {
     activeGroupRef.current = activeGroup;
   }, [activeGroup]);
 
+  useEffect(
+    () => () => {
+      if (lockedCanvasIndicatorTimerRef.current !== null) {
+        window.clearTimeout(lockedCanvasIndicatorTimerRef.current);
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!activeGroup?.locked || !cropSession) {
+      return;
+    }
+
+    setCropSession(null);
+  }, [activeGroup?.locked, cropSession]);
+
+  useEffect(() => {
+    if (!activeGroup?.locked || selectedItemIds.length === 0) {
+      return;
+    }
+
+    setSelectedItemIds([]);
+  }, [activeGroup?.locked, selectedItemIds.length, setSelectedItemIds]);
+
+  const handleToggleCanvasLock = useCallback(() => {
+    if (!activeGroup) {
+      return;
+    }
+
+    if (!activeGroup.locked) {
+      if (cropSession) {
+        setCropSession(null);
+      }
+      if (selectedItemIds.length > 0) {
+        setSelectedItemIds([]);
+      }
+    }
+
+    toggleCanvasLock();
+  }, [
+    activeGroup,
+    cropSession,
+    selectedItemIds.length,
+    setCropSession,
+    setSelectedItemIds,
+    toggleCanvasLock,
+  ]);
+
+  const handleLockedCanvasInteraction = useCallback(() => {
+    if (!activeGroup?.locked) {
+      return;
+    }
+
+    setLockedCanvasInteractionPulse(true);
+    if (lockedCanvasIndicatorTimerRef.current !== null) {
+      window.clearTimeout(lockedCanvasIndicatorTimerRef.current);
+    }
+    lockedCanvasIndicatorTimerRef.current = window.setTimeout(() => {
+      setLockedCanvasInteractionPulse(false);
+      lockedCanvasIndicatorTimerRef.current = null;
+    }, 420);
+  }, [activeGroup?.locked]);
+
   useEffect(() => {
     const fileName = project.filePath?.split(/[\\/]/).at(-1);
     void window.desktopApi.window.setTitle({
@@ -946,7 +1013,7 @@ export const AppShell = () => {
             handleShowShortcutsShortcut();
             break;
           case "toggle-canvas-lock":
-            toggleCanvasLock();
+            handleToggleCanvasLock();
             break;
           case "toggle-swatches":
             handleToggleSwatches();
@@ -977,10 +1044,10 @@ export const AppShell = () => {
     handleFitCanvasToWindow,
     handleOpenCanvasSizeDialog,
     handleShowShortcutsShortcut,
+    handleToggleCanvasLock,
     handleToggleSwatches,
     handleZoomCanvas,
     resetView,
-    toggleCanvasLock,
   ]);
 
   const handleToolbarToolClick = useCallback(
@@ -1037,7 +1104,7 @@ export const AppShell = () => {
     resetView,
     fitCanvasToWindow: handleFitCanvasToWindow,
     openCanvasSizeDialog: handleOpenCanvasSizeDialog,
-    toggleCanvasLock,
+    toggleCanvasLock: handleToggleCanvasLock,
     toggleSwatches: handleToggleSwatches,
     showSettings: handleShowShortcutsShortcut,
     clearTransientUi,
@@ -1101,6 +1168,7 @@ export const AppShell = () => {
           canExportSelectedTask={Boolean(exportSelectedTask)}
           canExportAnyTask={project.tasks.length > 0}
           canvasLocked={activeGroup?.locked ?? false}
+          lockedCanvasInteractionPulse={lockedCanvasInteractionPulse}
           canUndo={canUndo}
           canRedo={canRedo}
           windowMaximized={windowMaximized}
@@ -1154,7 +1222,7 @@ export const AppShell = () => {
           }}
           onToggleCanvasLock={() => {
             setSettingsOpen(false);
-            toggleCanvasLock();
+            handleToggleCanvasLock();
           }}
           onToggleSwatches={() => {
             setSettingsOpen(false);
@@ -1246,6 +1314,7 @@ export const AppShell = () => {
                   onItemDoubleClick={(itemId) => {
                     openZoomOverlay(itemId);
                   }}
+                  onLockedInteraction={handleLockedCanvasInteraction}
                   onCanvasSizePreviewChange={setCanvasSizePreview}
                   onExportReady={(exportCanvas) => {
                     exportCanvasImageRef.current = exportCanvas;
@@ -1483,7 +1552,7 @@ export const AppShell = () => {
           onChangeCanvasSize={handleOpenCanvasSizeDialog}
           onToggleCanvasLock={() => {
             setMenuState(null);
-            toggleCanvasLock();
+            handleToggleCanvasLock();
           }}
           onToggleSwatches={() => {
             setMenuState(null);

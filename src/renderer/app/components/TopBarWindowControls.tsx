@@ -1,10 +1,12 @@
-import { Settings } from "lucide-react";
+import { Lock, Settings } from "lucide-react";
 import type { ShortcutBindings } from "@shared/shortcuts";
 import { TopBarHoverTooltip } from "@renderer/app/components/TopBarHoverTooltip";
 import { formatMenuShortcut } from "@renderer/app/components/MenuItemContent";
 
 interface TopBarWindowControlsProps {
   shortcutBindings: ShortcutBindings;
+  canvasLocked: boolean;
+  lockedCanvasInteractionPulse: boolean;
   windowAlwaysOnTop: boolean;
   windowMaximized: boolean;
   onShowShortcuts: () => void;
@@ -16,6 +18,8 @@ interface TopBarWindowControlsProps {
 
 export const TopBarWindowControls = ({
   shortcutBindings,
+  canvasLocked,
+  lockedCanvasInteractionPulse,
   windowAlwaysOnTop,
   windowMaximized,
   onShowShortcuts,
@@ -38,6 +42,18 @@ export const TopBarWindowControls = ({
         <Settings size={13} strokeWidth={1.9} />
       </button>
     </TopBarHoverTooltip>
+    {canvasLocked ? (
+      <TopBarHoverTooltip label="Canvas locked">
+        <span
+          className={`chrome-chip topbar-lock-indicator ${
+            lockedCanvasInteractionPulse ? "blocked" : ""
+          }`}
+          aria-label="Canvas locked"
+        >
+          <Lock size={13} strokeWidth={1.9} />
+        </span>
+      </TopBarHoverTooltip>
+    ) : null}
     <TopBarHoverTooltip
       label={`Keep window on top (${formatMenuShortcut(shortcutBindings, "window.toggleAlwaysOnTop")})`}
     >

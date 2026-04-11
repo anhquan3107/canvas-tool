@@ -53,6 +53,7 @@ export const CanvasBoard = ({
   onItemsPatch,
   onAnnotationsChange,
   onItemDoubleClick,
+  onLockedInteraction,
   onCanvasSizePreviewChange,
   onExportReady,
 }: CanvasBoardProps) => {
@@ -83,6 +84,7 @@ export const CanvasBoard = ({
   const onViewChangeRef = useRef(onViewChange);
   const onAnnotationsChangeRef = useRef(onAnnotationsChange);
   const onItemDoubleClickRef = useRef(onItemDoubleClick);
+  const onLockedInteractionRef = useRef(onLockedInteraction);
   const onCanvasSizePreviewChangeRef = useRef(onCanvasSizePreviewChange);
   const onExportReadyRef = useRef(onExportReady);
   const activeToolRef = useRef(activeTool);
@@ -177,6 +179,10 @@ export const CanvasBoard = ({
   useEffect(() => {
     onItemDoubleClickRef.current = onItemDoubleClick;
   }, [onItemDoubleClick]);
+
+  useEffect(() => {
+    onLockedInteractionRef.current = onLockedInteraction;
+  }, [onLockedInteraction]);
 
   useEffect(() => {
     onCanvasSizePreviewChangeRef.current = onCanvasSizePreviewChange;
@@ -283,6 +289,7 @@ export const CanvasBoard = ({
     updateSelectedBoundsOverlayRef,
     onCanvasSizePreviewChangeRef,
     onItemsPatchRef,
+    onLockedInteractionRef,
     onCropRectChange,
   });
 
@@ -350,6 +357,7 @@ export const CanvasBoard = ({
     selectionIdsRef,
     groupRef,
     onSelectionChangeRef,
+    onLockedInteractionRef,
     activeToolRef,
     showSwatchesRef,
     renderTokenRef,
@@ -397,6 +405,7 @@ export const CanvasBoard = ({
     annotationMaskRef,
     annotationLayerRef,
     annotationPreviewLayerRef,
+    groupRef,
     viewCommitTimerRef,
     isPanningRef,
     panStartRef,
@@ -409,6 +418,7 @@ export const CanvasBoard = ({
     spacePanActiveRef,
     selectionIdsRef,
     onSelectionChangeRef,
+    onLockedInteractionRef,
     hideDoodleCursor,
     updateDoodleCursor,
     updateAnnotationSession,

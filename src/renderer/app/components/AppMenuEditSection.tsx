@@ -4,6 +4,7 @@ import { getMenuActionContentProps } from "@renderer/app/menu/menu-action-config
 
 interface AppMenuEditSectionProps {
   shortcutBindings: ShortcutBindings;
+  canvasLocked: boolean;
   selectedCount: number;
   canCropSelected: boolean;
   canExportSwatch: boolean;
@@ -25,6 +26,7 @@ interface AppMenuEditSectionProps {
 
 export const AppMenuEditSection = ({
   shortcutBindings,
+  canvasLocked,
   selectedCount,
   canCropSelected,
   canExportSwatch,
@@ -49,13 +51,13 @@ export const AppMenuEditSection = ({
         <button type="button" onClick={onCopySelected}>
           <MenuItemContent {...getMenuActionContentProps(shortcutBindings, "copy")} />
         </button>
-        <button type="button" onClick={onCutSelected}>
+        <button type="button" onClick={onCutSelected} disabled={canvasLocked}>
           <MenuItemContent {...getMenuActionContentProps(shortcutBindings, "cut")} />
         </button>
-        <button type="button" onClick={onPaste} disabled={!canPaste}>
+        <button type="button" onClick={onPaste} disabled={!canPaste || canvasLocked}>
           <MenuItemContent {...getMenuActionContentProps(shortcutBindings, "paste")} />
         </button>
-        <button type="button" onClick={onArrangeSelectedAuto}>
+        <button type="button" onClick={onArrangeSelectedAuto} disabled={canvasLocked}>
           <MenuItemContent
             {...getMenuActionContentProps(shortcutBindings, "autoArrange")}
           />
@@ -64,17 +66,21 @@ export const AppMenuEditSection = ({
         <button
           type="button"
           onClick={onCropSelected}
-          disabled={!canCropSelected}
+          disabled={!canCropSelected || canvasLocked}
         >
           <MenuItemContent {...getMenuActionContentProps(shortcutBindings, "crop")} />
         </button>
-        <button type="button" onClick={onFlipSelectedHorizontally}>
+        <button
+          type="button"
+          onClick={onFlipSelectedHorizontally}
+          disabled={canvasLocked}
+        >
           <MenuItemContent
             {...getMenuActionContentProps(shortcutBindings, "flipHorizontal")}
           />
         </button>
         <div className="app-menu-divider" />
-        <button type="button" onClick={onDeleteSelected}>
+        <button type="button" onClick={onDeleteSelected} disabled={canvasLocked}>
           <MenuItemContent {...getMenuActionContentProps(shortcutBindings, "delete")} />
         </button>
         <div className="app-menu-divider" />
@@ -93,14 +99,14 @@ export const AppMenuEditSection = ({
 
   return (
     <>
-      <button type="button" onClick={onUndo} disabled={!canUndo}>
+      <button type="button" onClick={onUndo} disabled={!canUndo || canvasLocked}>
         <MenuItemContent {...getMenuActionContentProps(shortcutBindings, "undo")} />
       </button>
-      <button type="button" onClick={onRedo} disabled={!canRedo}>
+      <button type="button" onClick={onRedo} disabled={!canRedo || canvasLocked}>
         <MenuItemContent {...getMenuActionContentProps(shortcutBindings, "redo")} />
       </button>
       {canPaste ? (
-        <button type="button" onClick={onPaste}>
+        <button type="button" onClick={onPaste} disabled={canvasLocked}>
           <MenuItemContent {...getMenuActionContentProps(shortcutBindings, "paste")} />
         </button>
       ) : null}
@@ -110,11 +116,15 @@ export const AppMenuEditSection = ({
           <button
             type="button"
             onClick={onCropSelected}
-            disabled={!canCropSelected}
+            disabled={!canCropSelected || canvasLocked}
           >
             <MenuItemContent {...getMenuActionContentProps(shortcutBindings, "crop")} />
           </button>
-          <button type="button" onClick={onFlipSelectedHorizontally}>
+          <button
+            type="button"
+            onClick={onFlipSelectedHorizontally}
+            disabled={canvasLocked}
+          >
             <MenuItemContent
               {...getMenuActionContentProps(shortcutBindings, "flipHorizontal")}
             />

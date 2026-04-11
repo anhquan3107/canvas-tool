@@ -63,6 +63,11 @@ export const useAppCanvasActions = ({
   zoomOverlayOpen,
 }: UseAppCanvasActionsOptions) => {
   const toggleCropSelectedImage = useCallback(() => {
+    if (activeGroup?.locked) {
+      pushToast("info", "Canvas is locked.");
+      return;
+    }
+
     if (!selectedStatusImage) {
       pushToast("info", "Select exactly one image to crop.");
       return;
@@ -83,6 +88,7 @@ export const useAppCanvasActions = ({
       "Crop mode active. Adjust handles, then press C again to apply.",
     );
   }, [
+    activeGroup?.locked,
     applyCropToSelectedImage,
     cropSession,
     pushToast,

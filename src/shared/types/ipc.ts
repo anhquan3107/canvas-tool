@@ -21,6 +21,11 @@ export interface ProjectExportResult {
   filePath: string;
 }
 
+export interface ProjectOperationProgress {
+  message: string;
+  progress: number;
+}
+
 export interface SwatchExportRequest {
   swatches: Array<{
     colorHex: string;
@@ -196,6 +201,9 @@ export interface DesktopApi {
     ) => Promise<ProjectExportResult | null>;
     importTasks: () => Promise<TasksImportResult | null>;
     getRecentFiles: () => Promise<string[]>;
+    onOperationProgress: (
+      listener: (progress: ProjectOperationProgress) => void,
+    ) => () => void;
   };
   window: {
     setTitle: (payload: AppWindowState) => Promise<void>;

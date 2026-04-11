@@ -37,6 +37,17 @@ const getExportDefaultPath = async (fileName: string) => {
 };
 
 export const registerExportHandlers = (window: BrowserWindow) => {
+  const sendOperationProgress = (
+    event: Electron.IpcMainEvent | Electron.IpcMainInvokeEvent,
+    message: string,
+    progress: number,
+  ) => {
+    event.sender.send("project:operation-progress", {
+      message,
+      progress,
+    });
+  };
+
   ipcMain.handle(
     "project:export-swatch-aco",
     async (event, rawPayload: unknown): Promise<ProjectExportResult | null> => {
@@ -71,7 +82,9 @@ export const registerExportHandlers = (window: BrowserWindow) => {
         ? dialogResult.filePath
         : `${dialogResult.filePath}.aco`;
 
+      sendOperationProgress(event, "Exporting swatches 20%", 20);
       await fs.writeFile(safePath, createAcoBuffer(payload.swatches));
+      sendOperationProgress(event, "Exporting swatches 86%", 86);
       await setLastExportPath(path.dirname(safePath));
       return { filePath: safePath };
     },
@@ -102,11 +115,13 @@ export const registerExportHandlers = (window: BrowserWindow) => {
         : `${dialogResult.filePath}.png`;
       const outputExtension = path.extname(safePath).toLowerCase();
 
+      sendOperationProgress(event, "Exporting canvas image 18%", 18);
       if (outputExtension === ".jpg" || outputExtension === ".jpeg") {
         await fs.writeFile(
           safePath,
           nativeImage.createFromDataURL(payload.dataUrl).toJPEG(92),
         );
+        sendOperationProgress(event, "Exporting canvas image 86%", 86);
         await setLastExportPath(path.dirname(safePath));
         return { filePath: safePath };
       }
@@ -115,6 +130,7 @@ export const registerExportHandlers = (window: BrowserWindow) => {
         outputExtension === ".png" ? safePath : `${safePath}.png`;
       const { buffer } = decodeDataUrl(payload.dataUrl);
       await fs.writeFile(finalPath, buffer);
+      sendOperationProgress(event, "Exporting canvas image 86%", 86);
       await setLastExportPath(path.dirname(finalPath));
       return { filePath: finalPath };
     },
@@ -149,35 +165,44 @@ export const registerExportHandlers = (window: BrowserWindow) => {
       const folderPath = dialogResult.filePaths[0];
       await fs.mkdir(folderPath, { recursive: true });
 
-      await Promise.all(
-        payload.images.map(async (image, index) => {
-          const safeStem =
-            sanitizeFileStem(image.label ?? `Image ${index + 1}`) ||
-            `Image ${index + 1}`;
+      sendOperationProgress(event, "Exporting images 16%", 16);
 
-          if (image.assetPath.startsWith("data:")) {
-            const { mimeType, buffer } = decodeDataUrl(image.assetPath);
-            const extension =
-              mimeType === "image/jpeg"
-                ? "jpg"
-                : mimeType === "image/webp"
-                  ? "webp"
-                  : "png";
-            await fs.writeFile(
-              path.join(folderPath, `${safeStem}.${extension}`),
-              buffer,
-            );
-            return;
-          }
+      for (const [index, image] of payload.images.entries()) {
+        const safeStem =
+          sanitizeFileStem(image.label ?? `Image ${index + 1}`) ||
+          `Image ${index + 1}`;
 
+        if (image.assetPath.startsWith("data:")) {
+          const { mimeType, buffer } = decodeDataUrl(image.assetPath);
+          const extension =
+            mimeType === "image/jpeg"
+              ? "jpg"
+              : mimeType === "image/webp"
+                ? "webp"
+                : "png";
+          await fs.writeFile(
+            path.join(folderPath, `${safeStem}.${extension}`),
+            buffer,
+          );
+        } else {
           const parsedExtension =
             path.extname(image.assetPath).replace(".", "") || "png";
           await fs.copyFile(
             image.assetPath,
             path.join(folderPath, `${safeStem}.${parsedExtension}`),
           );
-        }),
-      );
+        }
+
+        const progress = Math.min(
+          92,
+          Math.round(((index + 1) / payload.images.length) * 76) + 16,
+        );
+        sendOperationProgress(
+          event,
+          `Exporting images ${progress}%`,
+          progress,
+        );
+      }
 
       await setLastExportPath(folderPath);
       return { filePath: folderPath };
@@ -204,11 +229,13 @@ export const registerExportHandlers = (window: BrowserWindow) => {
       const safePath = dialogResult.filePath.endsWith(".html")
         ? dialogResult.filePath
         : `${dialogResult.filePath}.html`;
+      sendOperationProgress(event, "Exporting task HTML 18%", 18);
       await fs.writeFile(
         safePath,
         renderTasksHtml(payload.projectTitle, payload.tasks),
         "utf8",
       );
+      sendOperationProgress(event, "Exporting task HTML 86%", 86);
       await setLastExportPath(path.dirname(safePath));
       return { filePath: safePath };
     },
@@ -234,11 +261,13 @@ export const registerExportHandlers = (window: BrowserWindow) => {
       const safePath = dialogResult.filePath.endsWith(".txt")
         ? dialogResult.filePath
         : `${dialogResult.filePath}.txt`;
+      sendOperationProgress(event, "Exporting task TXT 18%", 18);
       await fs.writeFile(
         safePath,
         renderTasksTxt(payload.projectTitle, payload.tasks),
         "utf8",
       );
+      sendOperationProgress(event, "Exporting task TXT 86%", 86);
       await setLastExportPath(path.dirname(safePath));
       return { filePath: safePath };
     },

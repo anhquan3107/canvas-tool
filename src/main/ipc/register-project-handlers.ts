@@ -5,6 +5,17 @@ import { canvasDialogFilter, getSenderWindow, updateWindowTitle } from "./ipc-ut
 import { ensureSavePayload } from "./ipc-validators";
 
 export const registerProjectHandlers = (window: BrowserWindow) => {
+  const sendOperationProgress = (
+    event: Electron.IpcMainEvent | Electron.IpcMainInvokeEvent,
+    message: string,
+    progress: number,
+  ) => {
+    event.sender.send("project:operation-progress", {
+      message,
+      progress,
+    });
+  };
+
   ipcMain.handle("project:open", async (event) => {
     const targetWindow = getSenderWindow(event.sender) ?? window;
     const result = await dialog.showOpenDialog(targetWindow, {
@@ -19,7 +30,9 @@ export const registerProjectHandlers = (window: BrowserWindow) => {
     const filePath = result.filePaths[0];
 
     try {
+      sendOperationProgress(event, "Loading canvas 16%", 16);
       const project = await loadCanvasProject(filePath);
+      sendOperationProgress(event, "Loading canvas 82%", 82);
       await addRecentFile(filePath);
       updateWindowTitle(window, project);
       return { project, filePath };
@@ -37,7 +50,7 @@ export const registerProjectHandlers = (window: BrowserWindow) => {
     }
   });
 
-  ipcMain.handle("project:save", async (_, rawPayload: unknown) => {
+  ipcMain.handle("project:save", async (event, rawPayload: unknown) => {
     const payload = ensureSavePayload(rawPayload);
     const currentProject = {
       ...payload.project,
@@ -50,7 +63,9 @@ export const registerProjectHandlers = (window: BrowserWindow) => {
       throw new Error("Missing file path. Use Save As first.");
     }
 
+    sendOperationProgress(event, "Saving canvas 18%", 18);
     const savedPath = await saveCanvasProject(currentProject, targetPath);
+    sendOperationProgress(event, "Saving canvas 84%", 84);
     await addRecentFile(savedPath);
 
     const projectWithPath = {
@@ -65,7 +80,7 @@ export const registerProjectHandlers = (window: BrowserWindow) => {
     };
   });
 
-  ipcMain.handle("project:save-as", async (_, rawPayload: unknown) => {
+  ipcMain.handle("project:save-as", async (event, rawPayload: unknown) => {
     const payload = ensureSavePayload(rawPayload);
 
     const dialogResult = await dialog.showSaveDialog(window, {
@@ -77,6 +92,7 @@ export const registerProjectHandlers = (window: BrowserWindow) => {
       return null;
     }
 
+    sendOperationProgress(event, "Saving canvas 18%", 18);
     const savedPath = await saveCanvasProject(
       {
         ...payload.project,
@@ -85,6 +101,7 @@ export const registerProjectHandlers = (window: BrowserWindow) => {
       dialogResult.filePath,
     );
 
+    sendOperationProgress(event, "Saving canvas 84%", 84);
     await addRecentFile(savedPath);
 
     updateWindowTitle(window, {

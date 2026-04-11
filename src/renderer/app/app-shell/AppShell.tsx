@@ -335,8 +335,39 @@ export const AppShell = () => {
   const [taskImportPreview, setTaskImportPreview] =
     useState<TaskImportPreviewState | null>(null);
 
-  const { toast, pushToast } = useToast();
+  const { toast, pushToast, beginProgressToast } = useToast();
+  const progressToastControllerRef = useRef<ReturnType<typeof beginProgressToast> | null>(
+    null,
+  );
   const { importQueue, setImportQueue } = useImportQueueSession(project);
+
+  useEffect(() => {
+    if (!toast || typeof toast.progress !== "number") {
+      progressToastControllerRef.current = null;
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    const detachProgressListener = window.desktopApi.project.onOperationProgress(
+      (progress) => {
+        const label = progress.message.replace(/\s+\d+%$/, "");
+        if (!progressToastControllerRef.current) {
+          progressToastControllerRef.current = beginProgressToast(
+            label,
+            progress.progress,
+          );
+          return;
+        }
+
+        progressToastControllerRef.current.update(
+          progress.progress,
+          progress.message,
+        );
+      },
+    );
+
+    return detachProgressListener;
+  }, [beginProgressToast]);
 
   useEffect(() => {
     let cancelled = false;
@@ -651,6 +682,7 @@ export const AppShell = () => {
     setSelectedItemIds,
     setLastImportedItemIds,
     pushToast,
+    beginProgressToast,
     refreshRecents,
     runHistoryBatch,
   });

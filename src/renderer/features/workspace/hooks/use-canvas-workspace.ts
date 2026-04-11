@@ -35,6 +35,7 @@ export const useCanvasWorkspace = ({
   setSelectedItemIds,
   setLastImportedItemIds,
   pushToast,
+  beginProgressToast,
   refreshRecents,
   runHistoryBatch,
 }: UseCanvasWorkspaceOptions) => {
@@ -130,6 +131,7 @@ export const useCanvasWorkspace = ({
     setSelectedItemIds,
     setLastImportedItemIds,
     pushToast,
+    beginProgressToast,
     runHistoryBatch,
     ensureCanvasFitsItems,
   });

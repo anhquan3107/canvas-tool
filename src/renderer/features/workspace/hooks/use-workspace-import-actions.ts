@@ -20,6 +20,7 @@ import {
   stripBlockedSuffix,
   type ImportQueueEntry,
 } from "@renderer/features/import/import-queue";
+import type { ProgressToastController } from "@renderer/hooks/use-toast";
 import type { ImagePatch, ToastKind } from "@renderer/features/workspace/types";
 import {
   buildAutoArrangeUpdates,
@@ -40,6 +41,10 @@ interface UseWorkspaceImportActionsOptions {
   setSelectedItemIds: Dispatch<SetStateAction<string[]>>;
   setLastImportedItemIds: Dispatch<SetStateAction<string[]>>;
   pushToast: (kind: ToastKind, message: string) => void;
+  beginProgressToast: (
+    label: string,
+    initialProgress?: number,
+  ) => ProgressToastController;
   runHistoryBatch: (callback: () => void) => void;
   ensureCanvasFitsItems: (
     groupId: string,
@@ -72,6 +77,7 @@ export const useWorkspaceImportActions = ({
   setSelectedItemIds,
   setLastImportedItemIds,
   pushToast,
+  beginProgressToast,
   runHistoryBatch,
   ensureCanvasFitsItems,
 }: UseWorkspaceImportActionsOptions) => {
@@ -99,6 +105,11 @@ export const useWorkspaceImportActions = ({
         return;
       }
 
+      const importProgress =
+        payload.source === "drop"
+          ? beginProgressToast("Importing images", 12)
+          : null;
+
       try {
         const importedItems = await buildImageItemsFromPayload({
           payload,
@@ -108,8 +119,10 @@ export const useWorkspaceImportActions = ({
           resolveRemoteUrl: async (url) =>
             window.desktopApi.import.fetchRemoteImageDataUrl({ url }),
         });
+        importProgress?.update(56, "Importing images 56%");
 
         if (importedItems.length === 0) {
+          importProgress?.clear();
           pushToast("info", "No importable images found.");
           return;
         }
@@ -187,6 +200,7 @@ export const useWorkspaceImportActions = ({
             },
           );
         });
+        importProgress?.update(86, "Importing images 86%");
 
         const blockedItemIds = importedItems
           .filter((item) => item.previewStatus === "blocked")
@@ -208,22 +222,41 @@ export const useWorkspaceImportActions = ({
         );
 
         if (blockedCount > 0) {
-          pushToast(
-            "info",
-            `Imported ${importedItems.length} item(s); ${blockedCount} remote preview(s) blocked.`,
-          );
+          if (importProgress) {
+            importProgress.complete(
+              "info",
+              `Imported ${importedItems.length} item(s); ${blockedCount} remote preview(s) blocked.`,
+            );
+          } else {
+            pushToast(
+              "info",
+              `Imported ${importedItems.length} item(s); ${blockedCount} remote preview(s) blocked.`,
+            );
+          }
         } else {
-          pushToast("success", `Imported ${importedItems.length} image item(s).`);
+          if (importProgress) {
+            importProgress.complete(
+              "success",
+              `Imported ${importedItems.length} image item(s).`,
+            );
+          } else {
+            pushToast("success", `Imported ${importedItems.length} image item(s).`);
+          }
         }
       } catch (error) {
         console.error("Image import failed", error);
-        pushToast("error", "Image import failed.");
+        if (importProgress) {
+          importProgress.complete("error", "Image import failed.");
+        } else {
+          pushToast("error", "Image import failed.");
+        }
       }
     },
     [
       activeGroup,
       addGroupItems,
       autoArrangeOnImport,
+      beginProgressToast,
       ensureCanvasFitsItems,
       patchGroupItems,
       pushToast,

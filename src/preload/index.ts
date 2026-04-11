@@ -3,6 +3,7 @@ import type {
   CaptureWindowFocusListener,
   DesktopApi,
   NativeMenuAction,
+  ProjectOperationProgress,
 } from "../shared/types/ipc";
 
 const desktopApi: DesktopApi = {
@@ -48,6 +49,20 @@ const desktopApi: DesktopApi = {
       ipcRenderer.invoke("project:export-swatch-aco", payload),
     importTasks: () => ipcRenderer.invoke("project:import-tasks"),
     getRecentFiles: () => ipcRenderer.invoke("project:get-recent-files"),
+    onOperationProgress: (listener) => {
+      const handleProgress = (
+        _event: Electron.IpcRendererEvent,
+        progress: ProjectOperationProgress,
+      ) => {
+        listener(progress);
+      };
+
+      ipcRenderer.on("project:operation-progress", handleProgress);
+
+      return () => {
+        ipcRenderer.removeListener("project:operation-progress", handleProgress);
+      };
+    },
   },
   window: {
     setTitle: (payload) => ipcRenderer.invoke("window:set-title", payload),

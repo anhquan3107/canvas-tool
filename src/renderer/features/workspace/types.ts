@@ -7,6 +7,7 @@ import type {
   ReferenceGroup,
 } from "@shared/types/project";
 import type { ImportQueueEntry } from "@renderer/features/import/import-queue";
+import type { ProgressToastController } from "@renderer/hooks/use-toast";
 
 export type ToastKind = "success" | "error" | "info";
 export type ImagePatch = Partial<Omit<ImageItem, "id" | "type">>;
@@ -47,6 +48,10 @@ export interface UseCanvasWorkspaceOptions {
   setSelectedItemIds: Dispatch<SetStateAction<string[]>>;
   setLastImportedItemIds: Dispatch<SetStateAction<string[]>>;
   pushToast: (kind: ToastKind, message: string) => void;
+  beginProgressToast: (
+    label: string,
+    initialProgress?: number,
+  ) => ProgressToastController;
   refreshRecents: () => void;
   runHistoryBatch: (callback: () => void) => void;
 }

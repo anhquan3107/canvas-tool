@@ -11,6 +11,7 @@ import { ConfirmCloseDialog } from "@renderer/app/components/ConfirmCloseDialog"
 import { HelpTutorialDialog } from "@renderer/app/components/HelpTutorialDialog";
 import { KeyboardShortcutsDialog } from "@renderer/app/components/KeyboardShortcutsDialog";
 import { TitleBarTooltipConfirmDialog } from "@renderer/app/components/TitleBarTooltipConfirmDialog";
+import type { ToastState } from "@renderer/hooks/use-toast";
 import { ConnectDialog } from "@renderer/features/connect/components/ConnectDialog";
 import type { CaptureQuality, CaptureSource } from "@renderer/features/connect/types";
 import { GroupDialog } from "@renderer/features/groups/components/GroupDialog";
@@ -80,7 +81,7 @@ interface AppDialogsProps {
   taskDates: TaskDateRange;
   taskDialogOpen: boolean;
   taskDuration: number;
-  toast: { kind: "success" | "error" | "info"; message: string } | null;
+  toast: ToastState | null;
   updateShortcutDraftBinding: (actionId: ShortcutActionId, binding: string) => void;
   onBackgroundColorDialogClose: () => void;
   onBackgroundColorPreviewChange: (colors: {
@@ -279,8 +280,20 @@ export const AppDialogs = ({
     />
 
     {toast ? (
-      <div className={`app-toast app-toast-${toast.kind}`}>
-        {toast.message}
+      <div
+        className={`app-toast app-toast-${toast.kind} ${
+          typeof toast.progress === "number" ? "app-toast-progress" : ""
+        }`}
+      >
+        <div className="app-toast-message">{toast.message}</div>
+        {typeof toast.progress === "number" ? (
+          <div className="app-toast-progress-track" aria-hidden="true">
+            <div
+              className="app-toast-progress-fill"
+              style={{ width: `${toast.progress}%` }}
+            />
+          </div>
+        ) : null}
       </div>
     ) : null}
   </>

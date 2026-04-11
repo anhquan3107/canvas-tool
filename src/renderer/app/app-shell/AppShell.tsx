@@ -645,6 +645,7 @@ export const AppShell = () => {
     setGroupCanvasSize,
     setGroupColors,
     setGroupLocked,
+    setGroupAnnotations,
     setImportQueue,
     setClipboardItems,
     setSelectedItemIds,

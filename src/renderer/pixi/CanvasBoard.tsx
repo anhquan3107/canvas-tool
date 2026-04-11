@@ -642,7 +642,7 @@ export const CanvasBoard = ({
         const exportCanvas = app.renderer.extract.canvas({
           target: boardContainer,
           frame: new Rectangle(0, 0, group.canvasSize.width, group.canvasSize.height),
-          resolution: Math.max(window.devicePixelRatio || 1, 2),
+          resolution: 1,
         });
 
         if (

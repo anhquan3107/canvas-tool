@@ -1,5 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
 import type {
+  AnnotationStroke,
   CanvasItem,
   ImageItem,
   Project,
@@ -37,6 +38,10 @@ export interface UseCanvasWorkspaceOptions {
     colors: Partial<Pick<ReferenceGroup, "canvasColor" | "backgroundColor">>,
   ) => void;
   setGroupLocked: (groupId: string, locked: boolean) => void;
+  setGroupAnnotations: (
+    groupId: string,
+    annotations: AnnotationStroke[],
+  ) => void;
   setImportQueue: Dispatch<SetStateAction<ImportQueueEntry[]>>;
   setClipboardItems: Dispatch<SetStateAction<CanvasItem[]>>;
   setSelectedItemIds: Dispatch<SetStateAction<string[]>>;

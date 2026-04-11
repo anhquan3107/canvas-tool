@@ -4,7 +4,7 @@ import {
   DEFAULT_GROUP_BACKGROUND_COLOR,
   DEFAULT_GROUP_CANVAS_COLOR,
 } from "@shared/project-defaults";
-import type { ReferenceGroup } from "@shared/types/project";
+import type { AnnotationStroke, ReferenceGroup } from "@shared/types/project";
 import type { ImagePatch, ToastKind } from "@renderer/features/workspace/types";
 import {
   getFittedCanvas,
@@ -28,6 +28,10 @@ interface UseWorkspaceViewActionsOptions {
     colors: Partial<Pick<ReferenceGroup, "canvasColor" | "backgroundColor">>,
   ) => void;
   setGroupLocked: (groupId: string, locked: boolean) => void;
+  setGroupAnnotations: (
+    groupId: string,
+    annotations: AnnotationStroke[],
+  ) => void;
   pushToast: (kind: ToastKind, message: string) => void;
   runHistoryBatch: (callback: () => void) => void;
   focusGroupOnItems: (
@@ -60,11 +64,23 @@ export const useWorkspaceViewActions = ({
   setGroupCanvasSize,
   setGroupColors,
   setGroupLocked,
+  setGroupAnnotations,
   pushToast,
   runHistoryBatch,
   focusGroupOnItems,
   ensureCanvasFitsItems,
 }: UseWorkspaceViewActionsOptions) => {
+  const scaleAnnotationStroke = useCallback(
+    (stroke: AnnotationStroke, scaleX: number, scaleY: number): AnnotationStroke => ({
+      ...stroke,
+      points: stroke.points.map((value, index) =>
+        index % 2 === 0 ? value * scaleX : value * scaleY,
+      ),
+      size: stroke.size * ((Math.abs(scaleX) + Math.abs(scaleY)) * 0.5),
+    }),
+    [],
+  );
+
   const handleBoardViewChange = useCallback(
     (zoom: number, panX: number, panY: number) => {
       if (!activeGroupId) {
@@ -175,14 +191,47 @@ export const useWorkspaceViewActions = ({
 
       const nextWidth = Math.max(MIN_CANVAS_WIDTH, Math.round(width));
       const nextHeight = Math.max(MIN_CANVAS_HEIGHT, Math.round(height));
+      const currentWidth = Math.max(1, activeGroup.canvasSize.width);
+      const currentHeight = Math.max(1, activeGroup.canvasSize.height);
+      const scaleX = nextWidth / currentWidth;
+      const scaleY = nextHeight / currentHeight;
+      const itemUpdates = activeGroup.items.reduce<Record<string, ImagePatch>>(
+        (updates, item) => {
+          updates[item.id] = {
+            x: item.x * scaleX,
+            y: item.y * scaleY,
+            width: item.width * scaleX,
+            height: item.height * scaleY,
+          };
+          return updates;
+        },
+        {},
+      );
+      const nextAnnotations = activeGroup.annotations.map((stroke) =>
+        scaleAnnotationStroke(stroke, scaleX, scaleY),
+      );
 
       runHistoryBatch(() => {
+        if (activeGroup.items.length > 0) {
+          patchGroupItems(activeGroup.id, itemUpdates);
+        }
+        if (activeGroup.annotations.length > 0) {
+          setGroupAnnotations(activeGroup.id, nextAnnotations);
+        }
         setGroupCanvasSize(activeGroup.id, nextWidth, nextHeight);
       });
 
       pushToast("success", `Canvas resized to ${nextWidth} x ${nextHeight}.`);
     },
-    [activeGroup, pushToast, runHistoryBatch, setGroupCanvasSize],
+    [
+      activeGroup,
+      patchGroupItems,
+      pushToast,
+      runHistoryBatch,
+      scaleAnnotationStroke,
+      setGroupAnnotations,
+      setGroupCanvasSize,
+    ],
   );
 
   const toggleCanvasLock = useCallback(() => {

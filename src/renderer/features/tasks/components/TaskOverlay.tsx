@@ -39,6 +39,7 @@ interface TaskOverlayProps {
 const TASK_MENU_WIDTH = 164;
 const TASK_MENU_MARGIN = 12;
 const TASK_META_HIDE_DURATION_MS = 640;
+const MAX_TASK_TITLE_CHARS = 100;
 
 const getTaskToneClass = (task: Task) => {
   if (isTaskComplete(task)) {
@@ -46,6 +47,15 @@ const getTaskToneClass = (task: Task) => {
   }
 
   return `task-tone-${getTaskDeadlineTone(task.endDate)}`;
+};
+
+const getDisplayTaskTitle = (title: string) => {
+  const normalized = title.trim();
+  if (normalized.length <= MAX_TASK_TITLE_CHARS) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, MAX_TASK_TITLE_CHARS).trimEnd()}...`;
 };
 
 export const TaskOverlay = ({
@@ -194,6 +204,9 @@ export const TaskOverlay = ({
       ? linkedGroups.get(task.linkedGroupId) ?? null
       : null;
     const compactExpanded = compact && task.id === selectedTaskId;
+    const displayTitle = compactExpanded
+      ? task.title.trim()
+      : getDisplayTaskTitle(task.title);
     const showCompactMeta = compact && task.id === selectedTaskId;
     const shouldExpandListOnClick =
       compact &&
@@ -227,10 +240,11 @@ export const TaskOverlay = ({
         onSelectTask(task.id);
       }}
         onContextMenu={(event) => openTaskMenu(event, task.id)}
+        title={task.title}
       >
         <span className={`task-chip-dot ${toneClass}`} />
         <span className={compact ? "task-summary-copy" : "task-list-item-copy"}>
-          <strong>{task.title}</strong>
+          <strong>{displayTitle}</strong>
           {!compact ? (
             <>
               <small>{formatTaskDateRange(task.startDate, task.endDate)}</small>

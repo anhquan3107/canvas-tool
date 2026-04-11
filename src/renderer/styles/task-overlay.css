@@ -4,6 +4,10 @@
   gap: 10px;
 }
 
+.canvas-overlay-column.top-left > .task-overlay-shell:first-child {
+  margin-top: 34px;
+}
+
 .task-overlay-shell {
   position: relative;
   display: flex;
@@ -88,7 +92,14 @@
   max-width: min(220px, calc(100vw - 118px));
 }
 
+.task-overlay-shell-open .task-summary-card-primary,
+.task-overlay-shell-open .task-summary-card-stack {
+  width: fit-content;
+  max-width: min(620px, calc(100vw - 64px));
+}
+
 .task-summary-card-expanded {
+  width: fit-content;
   max-width: min(620px, calc(100vw - 64px));
   min-height: 36px;
   height: auto;
@@ -104,13 +115,15 @@
   align-items: center;
   gap: 10px;
   flex-wrap: nowrap;
+  width: fit-content;
+  max-width: 100%;
 }
 
 .task-summary-card-expanded .task-summary-copy strong {
   flex: 0 1 auto;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow: visible;
+  text-overflow: clip;
   white-space: nowrap;
 }
 
@@ -150,7 +163,7 @@
   overflow: hidden;
   max-width: 0;
   opacity: 0;
-  transform: translate3d(-10px, 4px, 0) scale(0.985);
+  transform: translateX(-12px);
   pointer-events: none;
   will-change: max-width, opacity, transform;
 }
@@ -164,14 +177,14 @@
 .task-summary-meta.shown {
   max-width: 360px;
   opacity: 1;
-  transform: translate3d(0, 0, 0) scale(1);
+  transform: translateX(0);
   animation: task-summary-meta-in 480ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .task-summary-meta.hidden {
   max-width: 0;
   opacity: 0;
-  transform: translate3d(-10px, 4px, 0) scale(0.985);
+  transform: translateX(12px);
   animation: task-summary-meta-out 620ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
@@ -187,8 +200,6 @@
   font-style: normal;
 }
 
-.task-summary-card-expanded .task-summary-copy small,
-.task-summary-card-expanded .task-summary-copy em,
 .task-list-item-copy strong,
 .task-list-item-copy small,
 .task-list-item-copy em {
@@ -225,6 +236,7 @@
 
 .task-summary-meta small,
 .task-summary-meta em {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -435,23 +447,23 @@
 @keyframes task-summary-meta-in {
   from {
     opacity: 0;
-    transform: translate3d(-10px, 4px, 0) scale(0.985);
+    transform: translateX(-12px);
   }
 
   to {
     opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
+    transform: translateX(0);
   }
 }
 
 @keyframes task-summary-meta-out {
   from {
     opacity: 1;
-    transform: translate3d(0, 0, 0) scale(1);
+    transform: translateX(0);
   }
 
   to {
     opacity: 0;
-    transform: translate3d(-10px, 4px, 0) scale(0.985);
+    transform: translateX(12px);
   }
 }

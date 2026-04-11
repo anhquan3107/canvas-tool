@@ -43,6 +43,8 @@ export const useTaskDetailPanel = ({
   const [taskOverlayFocused, setTaskOverlayFocused] = useState(false);
   const [taskDetailHovered, setTaskDetailHovered] = useState(false);
   const [taskDetailFocused, setTaskDetailFocused] = useState(false);
+  const [collapseAfterDeadlineQueued, setCollapseAfterDeadlineQueued] =
+    useState(false);
 
   const registerTaskOverlayInteraction = useCallback(() => {
     setTaskOverlayActivityVersion((version) => version + 1);
@@ -98,9 +100,11 @@ export const useTaskDetailPanel = ({
       const nextExpanded = !expanded;
       if (nextExpanded) {
         setTaskOverlayHovered(true);
+        setCollapseAfterDeadlineQueued(false);
       }
       if (!nextExpanded) {
         setTaskCreationPreviewActive(false);
+        setCollapseAfterDeadlineQueued(false);
       }
       return nextExpanded;
     });
@@ -119,30 +123,60 @@ export const useTaskDetailPanel = ({
   }, [registerTaskDetailInteraction, setPendingTaskSelectionDismissal]);
 
   useEffect(() => {
-    if (!taskCreationPreviewActive || taskOverlayHovered || taskOverlayFocused) {
+    const clearInteractionState = () => {
+      setTaskOverlayHovered(false);
+      setTaskOverlayFocused(false);
+      setTaskDetailHovered(false);
+      setTaskDetailFocused(false);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== "visible") {
+        clearInteractionState();
+      }
+    };
+
+    window.addEventListener("blur", clearInteractionState);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("blur", clearInteractionState);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!taskCreationPreviewActive || taskOverlayHovered) {
       return;
     }
 
     const timeoutId = window.setTimeout(() => {
-      setTaskListExpanded(false);
       if (!taskDetailPinned) {
         setTaskDetailOpen(false);
         setPendingTaskSelectionDismissal(true);
       }
       setTaskCreationPreviewActive(false);
+
+      if (selectedTaskId) {
+        setCollapseAfterDeadlineQueued(true);
+        return;
+      }
+
+      setTaskListExpanded(false);
     }, TASK_IDLE_TIMEOUT_MS);
 
     return () => {
       window.clearTimeout(timeoutId);
     };
   }, [
+    setCollapseAfterDeadlineQueued,
+    selectedTaskId,
     setPendingTaskSelectionDismissal,
     setTaskCreationPreviewActive,
     setTaskListExpanded,
     taskCreationPreviewActive,
     taskDetailPinned,
     taskOverlayActivityVersion,
-    taskOverlayFocused,
     taskOverlayHovered,
   ]);
 
@@ -150,13 +184,18 @@ export const useTaskDetailPanel = ({
     if (
       !taskListExpanded ||
       taskCreationPreviewActive ||
-      taskOverlayHovered ||
-      taskOverlayFocused
+      taskOverlayHovered
     ) {
       return;
     }
 
     const timeoutId = window.setTimeout(() => {
+      if (selectedTaskId) {
+        setPendingTaskSelectionDismissal(true);
+        setCollapseAfterDeadlineQueued(true);
+        return;
+      }
+
       setTaskListExpanded(false);
     }, TASK_IDLE_TIMEOUT_MS);
 
@@ -164,13 +203,38 @@ export const useTaskDetailPanel = ({
       window.clearTimeout(timeoutId);
     };
   }, [
+    setCollapseAfterDeadlineQueued,
+    selectedTaskId,
+    setPendingTaskSelectionDismissal,
     setTaskListExpanded,
     taskCreationPreviewActive,
     taskListExpanded,
     taskOverlayActivityVersion,
-    taskOverlayFocused,
     taskOverlayHovered,
   ]);
+
+  useEffect(() => {
+    if (!collapseAfterDeadlineQueued) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setTaskListExpanded(false);
+      setCollapseAfterDeadlineQueued(false);
+    }, TASK_SELECTION_HIDE_DURATION_MS + TASK_IDLE_TIMEOUT_MS);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [collapseAfterDeadlineQueued, setTaskListExpanded]);
+
+  useEffect(() => {
+    if (taskListExpanded) {
+      return;
+    }
+
+    setCollapseAfterDeadlineQueued(false);
+  }, [taskListExpanded]);
 
   useEffect(() => {
     if (

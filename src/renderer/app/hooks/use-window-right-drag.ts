@@ -6,13 +6,14 @@ const CONTEXT_MENU_SUPPRESS_MS = 700;
 type RightMouseGestureState = {
   isRightMouseDown: boolean;
   isDragging: boolean;
+  pointerType: string | null;
   startX: number;
   startY: number;
   suppressCurrentContextMenu: boolean;
   suppressContextMenuUntil: number;
 };
 
-const getRightMouseGestureState = () => {
+export const getWindowRightMouseGestureState = () => {
   const targetWindow = window as Window & {
     __canvasToolRightMouseGesture?: RightMouseGestureState;
   };
@@ -21,6 +22,7 @@ const getRightMouseGestureState = () => {
     targetWindow.__canvasToolRightMouseGesture = {
       isRightMouseDown: false,
       isDragging: false,
+      pointerType: null,
       startX: 0,
       startY: 0,
       suppressCurrentContextMenu: false,
@@ -30,6 +32,9 @@ const getRightMouseGestureState = () => {
 
   return targetWindow.__canvasToolRightMouseGesture;
 };
+
+const isSupportedRightDragPointerType = (pointerType: string) =>
+  pointerType === "mouse" || pointerType === "pen";
 
 const isElement = (target: EventTarget | null): target is HTMLElement =>
   target instanceof HTMLElement;
@@ -135,7 +140,7 @@ const getCachedWindowPosition = async (
 
 export const useWindowRightDrag = () => {
   useEffect(() => {
-    const gestureState = getRightMouseGestureState();
+    const gestureState = getWindowRightMouseGestureState();
     let dragToken = 0;
     let dragState:
       | {
@@ -183,6 +188,27 @@ export const useWindowRightDrag = () => {
       }
     };
 
+    const flushPendingMoveImmediately = () => {
+      const nextMove = normalizeWindowPosition(pendingMove);
+      pendingMove = null;
+
+      if (moveFrame !== null) {
+        window.cancelAnimationFrame(moveFrame);
+        moveFrame = null;
+      }
+
+      if (!nextMove) {
+        return;
+      }
+
+      cachedWindowPosition = nextMove;
+      try {
+        window.desktopApi.window.setPositionImmediate(nextMove);
+      } catch {
+        void window.desktopApi.window.setPosition(nextMove).catch(() => null);
+      }
+    };
+
     const releasePointerCapture = () => {
       if (!dragState?.captureTarget) {
         return;
@@ -223,7 +249,7 @@ export const useWindowRightDrag = () => {
       const rightDragTarget =
         event.button === 2 &&
         (event.buttons & 2) === 2 &&
-        event.pointerType === "mouse";
+        isSupportedRightDragPointerType(event.pointerType);
 
       if (!leftDragTarget && !rightDragTarget) {
         return;
@@ -234,10 +260,12 @@ export const useWindowRightDrag = () => {
         return;
       }
 
+      flushPendingMoveImmediately();
+
       const token = ++dragToken;
       const button = event.button === 0 ? 0 : 2;
       const captureTarget = isElement(event.target) ? event.target : null;
-      const initialPosition = cachedWindowPosition ?? getImmediateWindowPosition();
+      const initialPosition = getImmediateWindowPosition() ?? cachedWindowPosition;
       cachedWindowPosition = isFinitePosition(initialPosition)
         ? initialPosition
         : null;
@@ -269,6 +297,7 @@ export const useWindowRightDrag = () => {
       if (button === 2) {
         gestureState.isRightMouseDown = true;
         gestureState.isDragging = false;
+        gestureState.pointerType = event.pointerType;
         gestureState.startX = event.clientX;
         gestureState.startY = event.clientY;
         gestureState.suppressCurrentContextMenu = false;
@@ -318,10 +347,14 @@ export const useWindowRightDrag = () => {
         return;
       }
 
-      if (dragState.button === 2 && event.pointerType !== "mouse") {
+      if (
+        dragState.button === 2 &&
+        !isSupportedRightDragPointerType(event.pointerType)
+      ) {
         dragToken += 1;
         gestureState.isRightMouseDown = false;
         gestureState.isDragging = false;
+        gestureState.pointerType = null;
         gestureState.suppressCurrentContextMenu = false;
         clearDrag(true);
         return;
@@ -396,12 +429,14 @@ export const useWindowRightDrag = () => {
       if (dragState?.button === 2) {
         gestureState.isRightMouseDown = false;
         gestureState.isDragging = false;
+        gestureState.pointerType = null;
       }
       dragToken += 1;
       clearDrag(false);
     };
 
     const handleContextMenu = (event: MouseEvent) => {
+      const shouldSuppressWhileRightPointerDown = gestureState.isRightMouseDown;
       const shouldSuppressForCurrentInteraction =
         gestureState.suppressCurrentContextMenu;
       const shouldSuppressForActiveDrag =
@@ -410,6 +445,7 @@ export const useWindowRightDrag = () => {
         performance.now() <= gestureState.suppressContextMenuUntil;
 
       if (
+        !shouldSuppressWhileRightPointerDown &&
         !shouldSuppressForCurrentInteraction &&
         !shouldSuppressForActiveDrag &&
         !shouldSuppressForRecentDrag
@@ -423,6 +459,7 @@ export const useWindowRightDrag = () => {
     const handleWindowBlur = () => {
       gestureState.isRightMouseDown = false;
       gestureState.isDragging = false;
+      gestureState.pointerType = null;
       gestureState.suppressCurrentContextMenu = false;
       dragToken += 1;
       clearDrag(true);
@@ -450,6 +487,7 @@ export const useWindowRightDrag = () => {
 
     gestureState.isRightMouseDown = false;
     gestureState.isDragging = false;
+    gestureState.pointerType = null;
     gestureState.suppressCurrentContextMenu = false;
     gestureState.suppressContextMenuUntil = 0;
 
@@ -462,6 +500,7 @@ export const useWindowRightDrag = () => {
       window.removeEventListener("blur", handleWindowBlur);
       gestureState.isRightMouseDown = false;
       gestureState.isDragging = false;
+      gestureState.pointerType = null;
       gestureState.suppressCurrentContextMenu = false;
       gestureState.suppressContextMenuUntil = 0;
       clearDrag(true);

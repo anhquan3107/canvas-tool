@@ -1,10 +1,53 @@
 import { contextBridge, ipcRenderer } from "electron";
 import type {
+  AppWindowBounds,
   CaptureWindowFocusListener,
   DesktopApi,
   NativeMenuAction,
   ProjectOperationProgress,
+  AppWindowPosition,
 } from "../shared/types/ipc";
+
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value);
+
+const sanitizeWindowPosition = (
+  payload: AppWindowPosition | null | undefined,
+): AppWindowPosition | null => {
+  if (
+    payload == null ||
+    !isFiniteNumber(payload.x) ||
+    !isFiniteNumber(payload.y)
+  ) {
+    return null;
+  }
+
+  return {
+    x: Math.round(payload.x),
+    y: Math.round(payload.y),
+  };
+};
+
+const sanitizeWindowBounds = (
+  payload: AppWindowBounds | null | undefined,
+): AppWindowBounds | null => {
+  if (
+    payload == null ||
+    !isFiniteNumber(payload.x) ||
+    !isFiniteNumber(payload.y) ||
+    !isFiniteNumber(payload.width) ||
+    !isFiniteNumber(payload.height)
+  ) {
+    return null;
+  }
+
+  return {
+    x: Math.round(payload.x),
+    y: Math.round(payload.y),
+    width: Math.round(payload.width),
+    height: Math.round(payload.height),
+  };
+};
 
 const desktopApi: DesktopApi = {
   app: {
@@ -76,12 +119,38 @@ const desktopApi: DesktopApi = {
     getPositionSync: () => ipcRenderer.sendSync("window:get-position-sync"),
     getBounds: () => ipcRenderer.invoke("window:get-bounds"),
     getBoundsSync: () => ipcRenderer.sendSync("window:get-bounds-sync"),
-    setPosition: (payload) => ipcRenderer.invoke("window:set-position", payload),
-    setPositionImmediate: (payload) =>
-      ipcRenderer.send("window:set-position-immediate", payload),
-    setBounds: (payload) => ipcRenderer.invoke("window:set-bounds", payload),
-    setBoundsImmediate: (payload) =>
-      ipcRenderer.send("window:set-bounds-immediate", payload),
+    setPosition: (payload) => {
+      const nextPayload = sanitizeWindowPosition(payload);
+      if (!nextPayload) {
+        return Promise.resolve();
+      }
+
+      return ipcRenderer.invoke("window:set-position", nextPayload);
+    },
+    setPositionImmediate: (payload) => {
+      const nextPayload = sanitizeWindowPosition(payload);
+      if (!nextPayload) {
+        return;
+      }
+
+      ipcRenderer.send("window:set-position-immediate", nextPayload);
+    },
+    setBounds: (payload) => {
+      const nextPayload = sanitizeWindowBounds(payload);
+      if (!nextPayload) {
+        return Promise.resolve();
+      }
+
+      return ipcRenderer.invoke("window:set-bounds", nextPayload);
+    },
+    setBoundsImmediate: (payload) => {
+      const nextPayload = sanitizeWindowBounds(payload);
+      if (!nextPayload) {
+        return;
+      }
+
+      ipcRenderer.send("window:set-bounds-immediate", nextPayload);
+    },
     setIgnoreMouseEvents: (payload) =>
       ipcRenderer.invoke("window:set-ignore-mouse-events", payload),
     getOpacity: () => ipcRenderer.invoke("window:get-opacity"),

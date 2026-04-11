@@ -229,9 +229,6 @@ export const useCanvasBoardScene = ({
         }
 
         if (event.nativeEvent.button === 2) {
-          const nextSelection = [item.id];
-          selectionIdsRef.current = nextSelection;
-          onSelectionChangeRef.current(nextSelection);
           return;
         }
 

@@ -8,6 +8,7 @@ import {
   type SetStateAction,
 } from "react";
 import type { BackgroundColorPreviewState } from "./use-app-background-actions";
+import { getWindowRightMouseGestureState } from "@renderer/app/hooks/use-window-right-drag";
 
 type MenuState = {
   x: number;
@@ -22,6 +23,7 @@ type CropSession = {
 type ShellRightClickGesture = {
   active: boolean;
   moved: boolean;
+  pointerType: string | null;
   startX: number;
   startY: number;
 };
@@ -54,6 +56,15 @@ interface UseAppMenuActionsOptions {
 }
 
 const SHELL_RIGHT_CLICK_DRAG_THRESHOLD = 5;
+
+const isWindowRightDragContextMenuSuppressed = () => {
+  const gesture = getWindowRightMouseGestureState();
+  return (
+    gesture.suppressCurrentContextMenu ||
+    (gesture.isRightMouseDown && gesture.isDragging) ||
+    performance.now() <= gesture.suppressContextMenuUntil
+  );
+};
 
 const isTypingElement = (target: EventTarget | null) => {
   if (!(target instanceof HTMLElement)) {
@@ -109,6 +120,7 @@ export const useAppMenuActions = ({
   const shellRightClickGestureRef = useRef<ShellRightClickGesture>({
     active: false,
     moved: false,
+    pointerType: null,
     startX: 0,
     startY: 0,
   });
@@ -194,6 +206,7 @@ export const useAppMenuActions = ({
       shellRightClickGestureRef.current = {
         active: false,
         moved: false,
+        pointerType: null,
         startX: 0,
         startY: 0,
       };
@@ -215,6 +228,7 @@ export const useAppMenuActions = ({
         shellRightClickGestureRef.current = {
           active: false,
           moved: false,
+          pointerType: null,
           startX: 0,
           startY: 0,
         };
@@ -224,6 +238,7 @@ export const useAppMenuActions = ({
       shellRightClickGestureRef.current = {
         active: true,
         moved: false,
+        pointerType: event.pointerType,
         startX: event.clientX,
         startY: event.clientY,
       };
@@ -264,11 +279,16 @@ export const useAppMenuActions = ({
       shellRightClickGestureRef.current = {
         active: false,
         moved: false,
+        pointerType: null,
         startX: 0,
         startY: 0,
       };
 
       if (!shouldOpenMenu) {
+        return;
+      }
+
+      if (isWindowRightDragContextMenuSuppressed()) {
         return;
       }
 
@@ -288,7 +308,8 @@ export const useAppMenuActions = ({
 
       if (
         wasDefaultPrevented ||
-        shouldIgnoreShellRightClickTarget(event.target)
+        shouldIgnoreShellRightClickTarget(event.target) ||
+        isWindowRightDragContextMenuSuppressed()
       ) {
         return;
       }
@@ -296,6 +317,7 @@ export const useAppMenuActions = ({
       shellRightClickGestureRef.current = {
         active: false,
         moved: false,
+        pointerType: null,
         startX: 0,
         startY: 0,
       };

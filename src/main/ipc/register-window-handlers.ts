@@ -21,6 +21,14 @@ export const registerWindowHandlers = (window: BrowserWindow) => {
   const getTargetWindow = (
     event: Electron.IpcMainEvent | Electron.IpcMainInvokeEvent,
   ) => getWindowActionTarget(getSenderWindow(event.sender)) ?? window;
+  const isFiniteNumber = (value: unknown): value is number =>
+    typeof value === "number" && Number.isFinite(value);
+  const isValidWindowPosition = (
+    payload: AppWindowPosition | null | undefined,
+  ): payload is AppWindowPosition =>
+    payload != null &&
+    isFiniteNumber(payload.x) &&
+    isFiniteNumber(payload.y);
 
   ipcMain.handle("window:set-title", (event, payload: AppWindowState) => {
     const safeTitle = payload.fileName
@@ -103,11 +111,17 @@ export const registerWindowHandlers = (window: BrowserWindow) => {
 
   ipcMain.handle("window:set-position", (event, payload: AppWindowPosition) => {
     const targetWindow = getTargetWindow(event);
+    if (!isValidWindowPosition(payload)) {
+      return;
+    }
     targetWindow.setPosition(Math.round(payload.x), Math.round(payload.y));
   });
 
   ipcMain.on("window:set-position-immediate", (event, payload: AppWindowPosition) => {
     const targetWindow = getTargetWindow(event);
+    if (!isValidWindowPosition(payload)) {
+      return;
+    }
     targetWindow.setPosition(Math.round(payload.x), Math.round(payload.y));
   });
 

@@ -283,9 +283,29 @@ export const useAppMenuActions = ({
 
   const handleShellContextMenu = useCallback(
     (event: ReactMouseEvent<HTMLDivElement>) => {
+      const wasDefaultPrevented = event.defaultPrevented;
       event.preventDefault();
+
+      if (
+        wasDefaultPrevented ||
+        shouldIgnoreShellRightClickTarget(event.target)
+      ) {
+        return;
+      }
+
+      shellRightClickGestureRef.current = {
+        active: false,
+        moved: false,
+        startX: 0,
+        startY: 0,
+      };
+
+      setMenuState({
+        x: event.clientX,
+        y: event.clientY,
+      });
     },
-    [],
+    [setMenuState],
   );
 
   return {

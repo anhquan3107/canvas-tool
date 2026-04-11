@@ -34,6 +34,53 @@ const getRightMouseGestureState = () => {
 const isElement = (target: EventTarget | null): target is HTMLElement =>
   target instanceof HTMLElement;
 
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value);
+
+const isFinitePosition = (
+  value: { x: number; y: number } | null,
+): value is { x: number; y: number } =>
+  value !== null && isFiniteNumber(value.x) && isFiniteNumber(value.y);
+
+const MIN_NATIVE_WINDOW_COORD = -2147483648;
+const MAX_NATIVE_WINDOW_COORD = 2147483647;
+
+const getPointerScreenPosition = (event: PointerEvent) => {
+  const fallbackX = window.screenX + event.clientX;
+  const fallbackY = window.screenY + event.clientY;
+  const preferFallback = event.pointerType === "pen";
+  const x =
+    preferFallback || !isFiniteNumber(event.screenX) ? fallbackX : event.screenX;
+  const y =
+    preferFallback || !isFiniteNumber(event.screenY) ? fallbackY : event.screenY;
+
+  if (!isFiniteNumber(x) || !isFiniteNumber(y)) {
+    return null;
+  }
+
+  return { x, y };
+};
+
+const normalizeWindowPosition = (value: { x: number; y: number } | null) => {
+  if (!isFinitePosition(value)) {
+    return null;
+  }
+
+  const x = Math.max(
+    MIN_NATIVE_WINDOW_COORD,
+    Math.min(MAX_NATIVE_WINDOW_COORD, Math.round(value.x)),
+  );
+  const y = Math.max(
+    MIN_NATIVE_WINDOW_COORD,
+    Math.min(MAX_NATIVE_WINDOW_COORD, Math.round(value.y)),
+  );
+  if (!Number.isSafeInteger(x) || !Number.isSafeInteger(y)) {
+    return null;
+  }
+
+  return { x, y };
+};
+
 const isTypingTarget = (target: EventTarget | null) => {
   if (!isElement(target)) {
     return false;
@@ -73,16 +120,17 @@ const getImmediateWindowPosition = () => {
 const getCachedWindowPosition = async (
   cachedPosition: { x: number; y: number } | null,
 ) => {
-  if (cachedPosition) {
+  if (isFinitePosition(cachedPosition)) {
     return cachedPosition;
   }
 
   const immediatePosition = getImmediateWindowPosition();
-  if (immediatePosition) {
+  if (isFinitePosition(immediatePosition)) {
     return immediatePosition;
   }
 
-  return window.desktopApi.window.getPosition();
+  const nextPosition = await window.desktopApi.window.getPosition();
+  return isFinitePosition(nextPosition) ? nextPosition : null;
 };
 
 export const useWindowRightDrag = () => {
@@ -117,11 +165,11 @@ export const useWindowRightDrag = () => {
 
     const flushMove = () => {
       moveFrame = null;
-      if (!pendingMove) {
+      const nextMove = normalizeWindowPosition(pendingMove);
+      if (!nextMove) {
+        pendingMove = null;
         return;
       }
-
-      const nextMove = pendingMove;
       pendingMove = null;
       cachedWindowPosition = nextMove;
       try {
@@ -162,22 +210,27 @@ export const useWindowRightDrag = () => {
     };
 
     const handlePointerDown = (event: PointerEvent) => {
-      if (event.pointerType === "pen") {
-        return;
-      }
-
       if (isTypingTarget(event.target)) {
         return;
       }
 
       const leftDragTarget =
         event.button === 0 &&
+        (event.buttons & 1) === 1 &&
         isElement(event.target) &&
         event.target.closest("[data-window-left-drag='true']") &&
         !isInteractiveTarget(event.target);
-      const rightDragTarget = event.button === 2;
+      const rightDragTarget =
+        event.button === 2 &&
+        (event.buttons & 2) === 2 &&
+        event.pointerType === "mouse";
 
       if (!leftDragTarget && !rightDragTarget) {
+        return;
+      }
+
+      const pointerScreenPosition = getPointerScreenPosition(event);
+      if (!pointerScreenPosition) {
         return;
       }
 
@@ -185,7 +238,9 @@ export const useWindowRightDrag = () => {
       const button = event.button === 0 ? 0 : 2;
       const captureTarget = isElement(event.target) ? event.target : null;
       const initialPosition = cachedWindowPosition ?? getImmediateWindowPosition();
-      cachedWindowPosition = initialPosition;
+      cachedWindowPosition = isFinitePosition(initialPosition)
+        ? initialPosition
+        : null;
 
       if (captureTarget) {
         try {
@@ -201,13 +256,13 @@ export const useWindowRightDrag = () => {
         buttonMask: button === 0 ? 1 : 2,
         pointerId: event.pointerId,
         captureTarget,
-        startScreenX: event.screenX,
-        startScreenY: event.screenY,
-        windowX: initialPosition?.x ?? 0,
-        windowY: initialPosition?.y ?? 0,
-        lastScreenX: event.screenX,
-        lastScreenY: event.screenY,
-        ready: initialPosition !== null,
+        startScreenX: pointerScreenPosition.x,
+        startScreenY: pointerScreenPosition.y,
+        windowX: cachedWindowPosition?.x ?? 0,
+        windowY: cachedWindowPosition?.y ?? 0,
+        lastScreenX: pointerScreenPosition.x,
+        lastScreenY: pointerScreenPosition.y,
+        ready: cachedWindowPosition !== null,
         moved: false,
       };
 
@@ -219,12 +274,16 @@ export const useWindowRightDrag = () => {
         gestureState.suppressCurrentContextMenu = false;
       }
 
-      if (initialPosition) {
+      if (cachedWindowPosition) {
         return;
       }
 
       void getCachedWindowPosition(cachedWindowPosition).then((position) => {
         if (token !== dragToken || dragState?.token !== token) {
+          return;
+        }
+
+        if (!isFinitePosition(position)) {
           return;
         }
 
@@ -255,16 +314,26 @@ export const useWindowRightDrag = () => {
     };
 
     const handlePointerMove = (event: PointerEvent) => {
-      if (event.pointerType === "pen") {
-        return;
-      }
-
       if (!dragState || (event.buttons & dragState.buttonMask) === 0) {
         return;
       }
 
-      const deltaX = event.screenX - dragState.startScreenX;
-      const deltaY = event.screenY - dragState.startScreenY;
+      if (dragState.button === 2 && event.pointerType !== "mouse") {
+        dragToken += 1;
+        gestureState.isRightMouseDown = false;
+        gestureState.isDragging = false;
+        gestureState.suppressCurrentContextMenu = false;
+        clearDrag(true);
+        return;
+      }
+
+      const pointerScreenPosition = getPointerScreenPosition(event);
+      if (!pointerScreenPosition) {
+        return;
+      }
+
+      const deltaX = pointerScreenPosition.x - dragState.startScreenX;
+      const deltaY = pointerScreenPosition.y - dragState.startScreenY;
       if (
         !dragState.moved &&
         Math.hypot(deltaX, deltaY) < DRAG_THRESHOLD
@@ -283,23 +352,27 @@ export const useWindowRightDrag = () => {
       if (!dragState.ready) {
         dragState = {
           ...dragState,
-          lastScreenX: event.screenX,
-          lastScreenY: event.screenY,
+          lastScreenX: pointerScreenPosition.x,
+          lastScreenY: pointerScreenPosition.y,
         };
         return;
       }
 
-      const stepDeltaX = event.screenX - dragState.lastScreenX;
-      const stepDeltaY = event.screenY - dragState.lastScreenY;
+      const stepDeltaX = pointerScreenPosition.x - dragState.lastScreenX;
+      const stepDeltaY = pointerScreenPosition.y - dragState.lastScreenY;
       const nextMove = {
         x: dragState.windowX + stepDeltaX,
         y: dragState.windowY + stepDeltaY,
       };
 
+      if (!isFinitePosition(nextMove)) {
+        return;
+      }
+
       dragState = {
         ...dragState,
-        lastScreenX: event.screenX,
-        lastScreenY: event.screenY,
+        lastScreenX: pointerScreenPosition.x,
+        lastScreenY: pointerScreenPosition.y,
         windowX: nextMove.x,
         windowY: nextMove.y,
       };
@@ -362,12 +435,15 @@ export const useWindowRightDrag = () => {
     window.addEventListener("contextmenu", handleContextMenu, true);
     window.addEventListener("blur", handleWindowBlur);
 
-    cachedWindowPosition = getImmediateWindowPosition();
+    const initialCachedPosition = getImmediateWindowPosition();
+    cachedWindowPosition = isFinitePosition(initialCachedPosition)
+      ? initialCachedPosition
+      : null;
     if (!cachedWindowPosition) {
       void window.desktopApi.window
         .getPosition()
         .then((position) => {
-          cachedWindowPosition = position;
+          cachedWindowPosition = isFinitePosition(position) ? position : null;
         })
         .catch(() => null);
     }

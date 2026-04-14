@@ -29,14 +29,30 @@ interface RestoredWindowPlacement {
 const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max);
 
-const isActiveDisplay = (display: Display) =>
-  display.detected !== false &&
-  display.workArea.width >= MIN_VISIBLE_SIZE &&
-  display.workArea.height >= MIN_VISIBLE_SIZE;
+const isLikelyUsableDisplay = (display: Display) => {
+  if (display.detected === false) {
+    return false;
+  }
+
+  if (
+    display.workArea.width < MIN_VISIBLE_SIZE ||
+    display.workArea.height < MIN_VISIBLE_SIZE
+  ) {
+    return false;
+  }
+
+  // Inference: on some Windows setups a powered-off external monitor can still
+  // remain in the display list, but report no meaningful refresh rate.
+  if (!display.internal && display.displayFrequency <= 1) {
+    return false;
+  }
+
+  return true;
+};
 
 const getDisplayLayoutKey = (displays: Display[]) =>
   displays
-    .filter(isActiveDisplay)
+    .filter(isLikelyUsableDisplay)
     .map((display) => {
       return getDisplaySnapshotKey(display);
     })
@@ -134,7 +150,8 @@ const resolvePlacementBounds = (
   const savedDisplayById =
     typeof saved.displayId === "number"
       ? displays.find(
-          (display) => display.id === saved.displayId && isActiveDisplay(display),
+          (display) =>
+            display.id === saved.displayId && isLikelyUsableDisplay(display),
         )
       : undefined;
 
@@ -151,7 +168,7 @@ const resolvePlacementBounds = (
     }
   }
 
-  const activeDisplays = displays.filter(isActiveDisplay);
+  const activeDisplays = displays.filter(isLikelyUsableDisplay);
   const visibleDisplay = activeDisplays.find((display) =>
     isBoundsVisibleOnDisplay(rawBounds, display),
   );
@@ -162,7 +179,7 @@ const resolvePlacementBounds = (
 
   const primaryDisplay = screen.getPrimaryDisplay();
   const fallbackDisplay =
-    (isActiveDisplay(primaryDisplay) ? primaryDisplay : activeDisplays[0]) ??
+    (isLikelyUsableDisplay(primaryDisplay) ? primaryDisplay : activeDisplays[0]) ??
     primaryDisplay;
 
   return fitBoundsIntoDisplay(rawBounds, fallbackDisplay, defaults);

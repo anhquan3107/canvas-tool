@@ -32,28 +32,35 @@ const clamp = (value: number, min: number, max: number) =>
 const getDisplayLayoutKey = (displays: Display[]) =>
   displays
     .map((display) => {
-      const { x, y, width, height } = display.bounds;
-      const {
-        x: workX,
-        y: workY,
-        width: workWidth,
-        height: workHeight,
-      } = display.workArea;
-
-      return `${x},${y},${width},${height}:${workX},${workY},${workWidth},${workHeight}:${display.scaleFactor}`;
+      return getDisplaySnapshotKey(display);
     })
     .sort()
     .join("|");
 
+const getDisplaySnapshotKey = (display: Display) => {
+  const { x, y, width, height } = display.bounds;
+  const {
+    x: workX,
+    y: workY,
+    width: workWidth,
+    height: workHeight,
+  } = display.workArea;
+
+  return `${x},${y},${width},${height}:${workX},${workY},${workWidth},${workHeight}:${display.scaleFactor}:${display.rotation}`;
+};
+
 const toPlacement = (
   bounds: Rectangle,
   isMaximized: boolean,
+  display: Display,
 ): WindowBoundsSnapshot => ({
   x: Math.round(bounds.x),
   y: Math.round(bounds.y),
   width: Math.round(bounds.width),
   height: Math.round(bounds.height),
   isMaximized,
+  displayId: display.id,
+  displayKey: getDisplaySnapshotKey(display),
 });
 
 const getVisibleArea = (bounds: Rectangle, workArea: Rectangle) => {
@@ -118,6 +125,24 @@ const resolvePlacementBounds = (
     width: saved.width,
     height: saved.height,
   };
+  const savedDisplayById =
+    typeof saved.displayId === "number"
+      ? displays.find((display) => display.id === saved.displayId)
+      : undefined;
+
+  if (savedDisplayById) {
+    const savedDisplayMatchesState =
+      !saved.displayKey ||
+      getDisplaySnapshotKey(savedDisplayById) === saved.displayKey;
+
+    if (
+      savedDisplayMatchesState ||
+      isBoundsVisibleOnDisplay(rawBounds, savedDisplayById)
+    ) {
+      return fitBoundsIntoDisplay(rawBounds, savedDisplayById, defaults);
+    }
+  }
+
   const visibleDisplay = displays.find((display) =>
     isBoundsVisibleOnDisplay(rawBounds, display),
   );
@@ -178,7 +203,12 @@ export const watchMainWindowPlacement = (window: BrowserWindow) => {
 
     const layoutKey = getDisplayLayoutKey(screen.getAllDisplays());
     const bounds = window.isMaximized() ? window.getNormalBounds() : window.getBounds();
-    const placement = toPlacement(bounds, window.isMaximized());
+    const placementDisplay = screen.getDisplayMatching(bounds);
+    const placement = toPlacement(
+      bounds,
+      window.isMaximized(),
+      placementDisplay,
+    );
     const serializedPlacement = `${layoutKey}:${JSON.stringify(placement)}`;
 
     if (serializedPlacement === lastSerializedPlacement) {

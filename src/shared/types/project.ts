@@ -32,6 +32,8 @@ export interface WindowBoundsSnapshot {
   width: number;
   height: number;
   isMaximized?: boolean;
+  displayId?: number;
+  displayKey?: string;
 }
 
 export interface WindowPlacementSettings {

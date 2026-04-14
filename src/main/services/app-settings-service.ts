@@ -38,6 +38,16 @@ const sanitizePlacement = (
     width: Math.round(placement.width),
     height: Math.round(placement.height),
     isMaximized: placement.isMaximized === true,
+    displayId:
+      typeof placement.displayId === "number" &&
+      Number.isFinite(placement.displayId)
+        ? Math.round(placement.displayId)
+        : undefined,
+    displayKey:
+      typeof placement.displayKey === "string" &&
+      placement.displayKey.trim().length > 0
+        ? placement.displayKey.trim()
+        : undefined,
   };
 };
 

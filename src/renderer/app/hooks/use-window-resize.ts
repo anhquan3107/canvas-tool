@@ -100,6 +100,31 @@ const isSameBounds = (left: AppWindowBounds, right: AppWindowBounds) =>
 const clampStepDelta = (value: number, maxStepDelta: number) =>
   Math.max(-maxStepDelta, Math.min(maxStepDelta, value));
 
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value);
+
+const isWindowsPointerCoordinatePlatform = () =>
+  /win/i.test(
+    ((navigator as Navigator & { userAgentData?: { platform?: string } })
+      .userAgentData?.platform ?? navigator.platform ?? ""),
+  );
+
+const getPointerScreenPosition = (event: PointerEvent) => {
+  const fallbackX = window.screenX + event.clientX;
+  const fallbackY = window.screenY + event.clientY;
+  const preferFallback = isWindowsPointerCoordinatePlatform();
+  const x =
+    preferFallback || !isFiniteNumber(event.screenX) ? fallbackX : event.screenX;
+  const y =
+    preferFallback || !isFiniteNumber(event.screenY) ? fallbackY : event.screenY;
+
+  if (!isFiniteNumber(x) || !isFiniteNumber(y)) {
+    return null;
+  }
+
+  return { x, y };
+};
+
 export const useWindowResize = (
   enabled: boolean,
   options?: UseWindowResizeOptions,
@@ -183,6 +208,11 @@ export const useWindowResize = (
         return;
       }
 
+      const pointerScreenPosition = getPointerScreenPosition(event);
+      if (!pointerScreenPosition) {
+        return;
+      }
+
       try {
         target.setPointerCapture(event.pointerId);
       } catch {
@@ -194,10 +224,10 @@ export const useWindowResize = (
         direction,
         aspectRatio:
           startBounds.width / Math.max(1, startBounds.height),
-        startScreenX: event.screenX,
-        startScreenY: event.screenY,
-        lastScreenX: event.screenX,
-        lastScreenY: event.screenY,
+        startScreenX: pointerScreenPosition.x,
+        startScreenY: pointerScreenPosition.y,
+        lastScreenX: pointerScreenPosition.x,
+        lastScreenY: pointerScreenPosition.y,
         startBounds,
         latestBounds: startBounds,
       };
@@ -209,13 +239,18 @@ export const useWindowResize = (
         return;
       }
 
+      const pointerScreenPosition = getPointerScreenPosition(event);
+      if (!pointerScreenPosition) {
+        return;
+      }
+
       if (mode === "live") {
         const stepDeltaX = clampStepDelta(
-          event.screenX - resizeState.lastScreenX,
+          pointerScreenPosition.x - resizeState.lastScreenX,
           maxStepDelta,
         );
         const stepDeltaY = clampStepDelta(
-          event.screenY - resizeState.lastScreenY,
+          pointerScreenPosition.y - resizeState.lastScreenY,
           maxStepDelta,
         );
 
@@ -234,14 +269,14 @@ export const useWindowResize = (
 
         resizeState = {
           ...resizeState,
-          lastScreenX: event.screenX,
-          lastScreenY: event.screenY,
+          lastScreenX: pointerScreenPosition.x,
+          lastScreenY: pointerScreenPosition.y,
           latestBounds: nextBounds,
         };
         applyResize(nextBounds);
       } else {
-        const deltaX = event.screenX - resizeState.startScreenX;
-        const deltaY = event.screenY - resizeState.startScreenY;
+        const deltaX = pointerScreenPosition.x - resizeState.startScreenX;
+        const deltaY = pointerScreenPosition.y - resizeState.startScreenY;
         const nextBounds = getResizedBounds(
           resizeState.startBounds,
           resizeState.direction,
@@ -253,8 +288,8 @@ export const useWindowResize = (
         resizeState = {
           ...resizeState,
           latestBounds: nextBounds,
-          lastScreenX: event.screenX,
-          lastScreenY: event.screenY,
+          lastScreenX: pointerScreenPosition.x,
+          lastScreenY: pointerScreenPosition.y,
         };
         queueResize(nextBounds);
       }

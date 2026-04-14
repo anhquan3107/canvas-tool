@@ -50,10 +50,18 @@ const isFinitePosition = (
 const MIN_NATIVE_WINDOW_COORD = -2147483648;
 const MAX_NATIVE_WINDOW_COORD = 2147483647;
 
+const isWindowsPointerCoordinatePlatform = () =>
+  /win/i.test(
+    ((navigator as Navigator & { userAgentData?: { platform?: string } })
+      .userAgentData?.platform ?? navigator.platform ?? ""),
+  );
+
 const getPointerScreenPosition = (event: PointerEvent) => {
   const fallbackX = window.screenX + event.clientX;
   const fallbackY = window.screenY + event.clientY;
-  const preferFallback = event.pointerType === "pen";
+  // Keep coordinates in the same DIP space as BrowserWindow bounds on Windows.
+  const preferFallback =
+    event.pointerType === "pen" || isWindowsPointerCoordinatePlatform();
   const x =
     preferFallback || !isFiniteNumber(event.screenX) ? fallbackX : event.screenX;
   const y =

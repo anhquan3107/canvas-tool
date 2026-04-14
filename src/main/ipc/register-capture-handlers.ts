@@ -28,6 +28,22 @@ import {
 const CAPTURE_TOOLBAR_HEIGHT = 34;
 const CAPTURE_TOOLBAR_SEAM_OVERLAP = 1;
 
+type BrowserWindowResizeEdge =
+  | "top"
+  | "bottom"
+  | "left"
+  | "right"
+  | "top-left"
+  | "top-right"
+  | "bottom-left"
+  | "bottom-right";
+
+const BLOCKED_CAPTURE_RESIZE_EDGES = new Set<BrowserWindowResizeEdge>([
+  "top",
+  "top-left",
+  "top-right",
+]);
+
 const getCaptureToolbarBoundsForBounds = (bounds: Electron.Rectangle) => {
   const display = screen.getDisplayMatching(bounds);
   return {
@@ -127,7 +143,7 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
       show: false,
       resizable: true,
       frame: false,
-      thickFrame: process.platform === "win32",
+      thickFrame: false,
       transparent: false,
       backgroundColor: "#0f0f10",
       roundedCorners: false,
@@ -259,7 +275,14 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
     captureWindow.on("will-move", (_event, nextBounds) => {
       syncToolbarWindowToBounds(nextBounds);
     });
-    captureWindow.on("will-resize", (_event, nextBounds) => {
+    captureWindow.on("will-resize", (event, nextBounds, details) => {
+      const edge = details?.edge as BrowserWindowResizeEdge | undefined;
+      if (edge && BLOCKED_CAPTURE_RESIZE_EDGES.has(edge)) {
+        event.preventDefault();
+        syncToolbarWindowToBounds(captureWindow.getBounds());
+        return;
+      }
+
       syncToolbarWindowToBounds(nextBounds);
     });
     captureWindow.on("show", syncToolbarWindow);

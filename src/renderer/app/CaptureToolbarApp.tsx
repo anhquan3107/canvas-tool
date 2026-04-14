@@ -12,7 +12,7 @@ import type { CaptureQuality } from "@renderer/features/connect/types";
 import { CAPTURE_QUALITY_PROFILES } from "@renderer/features/connect/utils";
 
 const CAPTURE_WINDOW_TOPBAR_HIDE_TRANSITION_MS = 180;
-const CAPTURE_TOOLBAR_RESIZE_DIRECTIONS = ["n", "e", "w", "ne", "nw"] as const;
+const CAPTURE_TOOLBAR_RESIZE_DIRECTIONS = ["e", "w", "ne", "nw"] as const;
 
 const DEFAULT_CAPTURE_SESSION_STATE: CaptureSessionState = {
   sourceName: "Capture",
@@ -31,6 +31,7 @@ export const CaptureToolbarApp = () => {
   const initial = useMemo(() => getCaptureLocationParams(), []);
   const channelRef = useRef<BroadcastChannel | null>(null);
   const hideWindowTimeoutRef = useRef<number | null>(null);
+  const focusCaptureOnReleaseRef = useRef(false);
   const [sessionState, setSessionState] = useState<CaptureSessionState>({
     ...DEFAULT_CAPTURE_SESSION_STATE,
     sourceName: initial.sourceName,
@@ -41,15 +42,36 @@ export const CaptureToolbarApp = () => {
   const [topbarVisible, setTopbarVisible] = useState(false);
   const [topbarPointerActive, setTopbarPointerActive] = useState(false);
   const [captureWindowFocused, setCaptureWindowFocused] = useState(false);
-  const customResizeEnabled =
-    !sessionState.windowMaximized &&
-    typeof navigator !== "undefined" &&
-    navigator.userAgent.includes("Windows");
-  useWindowResize(customResizeEnabled);
+  const customResizeEnabled = !sessionState.windowMaximized;
+  useWindowResize(customResizeEnabled, {
+    mode: "live",
+    maxStepDelta: 96,
+  });
 
   const postMessage = useCallback((message: CaptureSessionMessage) => {
     channelRef.current?.postMessage(message);
   }, []);
+
+  const focusCaptureWindow = useCallback(() => {
+    void window.desktopApi.window.focus().catch(() => undefined);
+  }, []);
+
+  const queueCaptureFocusOnRelease = useCallback(() => {
+    focusCaptureOnReleaseRef.current = true;
+  }, []);
+
+  const clearQueuedCaptureFocus = useCallback(() => {
+    focusCaptureOnReleaseRef.current = false;
+  }, []);
+
+  const flushQueuedCaptureFocus = useCallback(() => {
+    if (!focusCaptureOnReleaseRef.current) {
+      return;
+    }
+
+    focusCaptureOnReleaseRef.current = false;
+    focusCaptureWindow();
+  }, [focusCaptureWindow]);
 
   useEffect(() => {
     const channel = createCaptureSessionChannel(initial.sessionId);
@@ -120,6 +142,7 @@ export const CaptureToolbarApp = () => {
     const clearHoverState = () => {
       setTopbarHovered(false);
       setTopbarPointerActive(false);
+      clearQueuedCaptureFocus();
     };
 
     window.addEventListener("blur", clearHoverState);
@@ -129,25 +152,31 @@ export const CaptureToolbarApp = () => {
       window.removeEventListener("blur", clearHoverState);
       document.removeEventListener("visibilitychange", clearHoverState);
     };
-  }, []);
+  }, [clearQueuedCaptureFocus]);
 
   useEffect(() => {
-    const clearPointerActive = () => {
+    const handlePointerFinish = () => {
       setTopbarPointerActive(false);
+      flushQueuedCaptureFocus();
     };
 
-    window.addEventListener("pointerup", clearPointerActive);
-    window.addEventListener("pointercancel", clearPointerActive);
-    window.addEventListener("mouseup", clearPointerActive);
-    window.addEventListener("blur", clearPointerActive);
+    const handleWindowBlur = () => {
+      setTopbarPointerActive(false);
+      clearQueuedCaptureFocus();
+    };
+
+    window.addEventListener("pointerup", handlePointerFinish);
+    window.addEventListener("pointercancel", handlePointerFinish);
+    window.addEventListener("mouseup", handlePointerFinish);
+    window.addEventListener("blur", handleWindowBlur);
 
     return () => {
-      window.removeEventListener("pointerup", clearPointerActive);
-      window.removeEventListener("pointercancel", clearPointerActive);
-      window.removeEventListener("mouseup", clearPointerActive);
-      window.removeEventListener("blur", clearPointerActive);
+      window.removeEventListener("pointerup", handlePointerFinish);
+      window.removeEventListener("pointercancel", handlePointerFinish);
+      window.removeEventListener("mouseup", handlePointerFinish);
+      window.removeEventListener("blur", handleWindowBlur);
     };
-  }, []);
+  }, [clearQueuedCaptureFocus, flushQueuedCaptureFocus]);
 
   useEffect(() => {
     if (hideWindowTimeoutRef.current !== null) {
@@ -238,6 +267,15 @@ export const CaptureToolbarApp = () => {
               className={`capture-window-resize-handle capture-window-resize-${direction}`}
               data-window-resize={direction}
               data-window-no-drag="true"
+              onPointerDown={(event) => {
+                if (event.button !== 0) {
+                  clearQueuedCaptureFocus();
+                  return;
+                }
+
+                setTopbarPointerActive(true);
+                queueCaptureFocusOnRelease();
+              }}
               aria-hidden="true"
             />
           ))
@@ -246,7 +284,25 @@ export const CaptureToolbarApp = () => {
         className="capture-window-topbar"
         data-window-left-drag="true"
         onPointerDown={(event) => {
-          setTopbarPointerActive(event.button === 0);
+          if (event.button !== 0) {
+            setTopbarPointerActive(false);
+            clearQueuedCaptureFocus();
+            return;
+          }
+
+          setTopbarPointerActive(true);
+          const target = event.target;
+          if (!(target instanceof HTMLElement)) {
+            queueCaptureFocusOnRelease();
+            return;
+          }
+
+          if (target.closest("[data-window-no-drag='true']")) {
+            clearQueuedCaptureFocus();
+            return;
+          }
+
+          queueCaptureFocusOnRelease();
         }}
         onPointerEnter={() => setTopbarHovered(true)}
         onPointerLeave={() => setTopbarHovered(false)}

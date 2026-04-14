@@ -2,8 +2,15 @@ import { useEffect } from "react";
 import type { AppWindowBounds } from "@shared/types/ipc";
 
 const MIN_RESIZE_EDGE = 160;
+const DEFAULT_MAX_STEP_DELTA = 48;
 
 type ResizeDirection = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
+type ResizeMode = "frame" | "live";
+
+type UseWindowResizeOptions = {
+  mode?: ResizeMode;
+  maxStepDelta?: number;
+};
 
 type ResizeState = {
   pointerId: number;
@@ -11,6 +18,8 @@ type ResizeState = {
   aspectRatio: number;
   startScreenX: number;
   startScreenY: number;
+  lastScreenX: number;
+  lastScreenY: number;
   startBounds: AppWindowBounds;
   latestBounds: AppWindowBounds;
 };
@@ -82,7 +91,22 @@ const getSynchronousBounds = () => {
   }
 };
 
-export const useWindowResize = (enabled: boolean) => {
+const isSameBounds = (left: AppWindowBounds, right: AppWindowBounds) =>
+  left.x === right.x &&
+  left.y === right.y &&
+  left.width === right.width &&
+  left.height === right.height;
+
+const clampStepDelta = (value: number, maxStepDelta: number) =>
+  Math.max(-maxStepDelta, Math.min(maxStepDelta, value));
+
+export const useWindowResize = (
+  enabled: boolean,
+  options?: UseWindowResizeOptions,
+) => {
+  const mode = options?.mode ?? "frame";
+  const maxStepDelta = Math.max(1, options?.maxStepDelta ?? DEFAULT_MAX_STEP_DELTA);
+
   useEffect(() => {
     if (!enabled) {
       return;
@@ -91,6 +115,20 @@ export const useWindowResize = (enabled: boolean) => {
     let resizeState: ResizeState | null = null;
     let pendingBounds: AppWindowBounds | null = null;
     let frameId: number | null = null;
+    let lastAppliedBounds: AppWindowBounds | null = null;
+
+    const applyResize = (nextBounds: AppWindowBounds) => {
+      if (lastAppliedBounds && isSameBounds(lastAppliedBounds, nextBounds)) {
+        return;
+      }
+
+      lastAppliedBounds = nextBounds;
+      try {
+        window.desktopApi.window.setBoundsImmediate(nextBounds);
+      } catch {
+        void window.desktopApi.window.setBounds(nextBounds).catch(() => null);
+      }
+    };
 
     const flushResize = () => {
       frameId = null;
@@ -100,11 +138,7 @@ export const useWindowResize = (enabled: boolean) => {
 
       const nextBounds = pendingBounds;
       pendingBounds = null;
-      try {
-        window.desktopApi.window.setBoundsImmediate(nextBounds);
-      } catch {
-        void window.desktopApi.window.setBounds(nextBounds).catch(() => null);
-      }
+      applyResize(nextBounds);
 
       if (pendingBounds && frameId === null) {
         frameId = window.requestAnimationFrame(flushResize);
@@ -121,6 +155,7 @@ export const useWindowResize = (enabled: boolean) => {
     const clearResizeState = () => {
       resizeState = null;
       pendingBounds = null;
+      lastAppliedBounds = null;
       if (frameId !== null) {
         window.cancelAnimationFrame(frameId);
         frameId = null;
@@ -161,6 +196,8 @@ export const useWindowResize = (enabled: boolean) => {
           startBounds.width / Math.max(1, startBounds.height),
         startScreenX: event.screenX,
         startScreenY: event.screenY,
+        lastScreenX: event.screenX,
+        lastScreenY: event.screenY,
         startBounds,
         latestBounds: startBounds,
       };
@@ -172,21 +209,56 @@ export const useWindowResize = (enabled: boolean) => {
         return;
       }
 
-      const deltaX = event.screenX - resizeState.startScreenX;
-      const deltaY = event.screenY - resizeState.startScreenY;
-      const nextBounds = getResizedBounds(
-        resizeState.startBounds,
-        resizeState.direction,
-        resizeState.aspectRatio,
-        deltaX,
-        deltaY,
-      );
+      if (mode === "live") {
+        const stepDeltaX = clampStepDelta(
+          event.screenX - resizeState.lastScreenX,
+          maxStepDelta,
+        );
+        const stepDeltaY = clampStepDelta(
+          event.screenY - resizeState.lastScreenY,
+          maxStepDelta,
+        );
 
-      resizeState = {
-        ...resizeState,
-        latestBounds: nextBounds,
-      };
-      queueResize(nextBounds);
+        if (stepDeltaX === 0 && stepDeltaY === 0) {
+          return;
+        }
+
+        const baseBounds = resizeState.latestBounds;
+        const nextBounds = getResizedBounds(
+          baseBounds,
+          resizeState.direction,
+          resizeState.aspectRatio,
+          stepDeltaX,
+          stepDeltaY,
+        );
+
+        resizeState = {
+          ...resizeState,
+          lastScreenX: event.screenX,
+          lastScreenY: event.screenY,
+          latestBounds: nextBounds,
+        };
+        applyResize(nextBounds);
+      } else {
+        const deltaX = event.screenX - resizeState.startScreenX;
+        const deltaY = event.screenY - resizeState.startScreenY;
+        const nextBounds = getResizedBounds(
+          resizeState.startBounds,
+          resizeState.direction,
+          resizeState.aspectRatio,
+          deltaX,
+          deltaY,
+        );
+
+        resizeState = {
+          ...resizeState,
+          latestBounds: nextBounds,
+          lastScreenX: event.screenX,
+          lastScreenY: event.screenY,
+        };
+        queueResize(nextBounds);
+      }
+
       event.preventDefault();
     };
 
@@ -195,7 +267,11 @@ export const useWindowResize = (enabled: boolean) => {
         return;
       }
 
-      queueResize(resizeState.latestBounds);
+      if (mode === "live") {
+        applyResize(resizeState.latestBounds);
+      } else {
+        queueResize(resizeState.latestBounds);
+      }
       resizeState = null;
       event.preventDefault();
     };
@@ -218,5 +294,5 @@ export const useWindowResize = (enabled: boolean) => {
       window.removeEventListener("blur", handleWindowBlur);
       clearResizeState();
     };
-  }, [enabled]);
+  }, [enabled, mode, maxStepDelta]);
 };

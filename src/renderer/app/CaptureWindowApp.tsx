@@ -45,12 +45,9 @@ const WINDOWS_WINDOW_PREVIEW_CROP: PreviewCropInsets = {
 const CAPTURE_WINDOW_ASPECT_SYNC_DELAY_MS = 90;
 const CAPTURE_WINDOW_TOP_REVEAL_THRESHOLD = 34;
 const CAPTURE_WINDOW_RESIZE_DIRECTIONS = [
-  "n",
   "s",
   "e",
   "w",
-  "ne",
-  "nw",
   "se",
   "sw",
 ] as const;

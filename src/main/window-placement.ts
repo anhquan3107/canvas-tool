@@ -14,7 +14,7 @@ import {
 const WINDOW_STATE_SAVE_DELAY_MS = 180;
 const MIN_VISIBLE_SIZE = 80;
 
-interface WindowPlacementDefaults {
+export interface WindowPlacementDefaults {
   width: number;
   height: number;
   minWidth: number;
@@ -29,7 +29,7 @@ interface RestoredWindowPlacement {
 const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max);
 
-const isLikelyUsableDisplay = (display: Display) => {
+export const isLikelyUsableDisplay = (display: Display) => {
   if (display.detected === false) {
     return false;
   }
@@ -99,14 +99,14 @@ const getVisibleArea = (bounds: Rectangle, workArea: Rectangle) => {
   };
 };
 
-const isBoundsVisibleOnDisplay = (bounds: Rectangle, display: Display) => {
+export const isBoundsVisibleOnDisplay = (bounds: Rectangle, display: Display) => {
   const visible = getVisibleArea(bounds, display.workArea);
   return (
     visible.width >= MIN_VISIBLE_SIZE && visible.height >= MIN_VISIBLE_SIZE
   );
 };
 
-const fitBoundsIntoDisplay = (
+export const fitBoundsIntoDisplay = (
   bounds: Rectangle,
   display: Display,
   defaults: WindowPlacementDefaults,

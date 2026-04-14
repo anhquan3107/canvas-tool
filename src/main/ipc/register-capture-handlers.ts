@@ -102,7 +102,7 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
 
   ipcMain.handle("capture:list-sources", async () => {
     const sources = await desktopCapturer.getSources({
-      types: ["window"],
+      types: ["window", "screen"],
       fetchWindowIcons: true,
       thumbnailSize: {
         width: 320,

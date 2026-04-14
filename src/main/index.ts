@@ -2,6 +2,7 @@ import { app, BrowserWindow, Menu, type MenuItemConstructorOptions } from "elect
 import path from "node:path";
 import type { NativeMenuAction } from "../shared/types/ipc";
 import { guardWindowDevTools } from "./devtools-guard";
+import { watchDisplayAvailability } from "./display-watch";
 import { setupIpcHandlers } from "./ipc/ipc-handlers";
 import {
   getRestoredMainWindowPlacement,
@@ -240,8 +241,13 @@ const installMacApplicationMenu = () => {
 };
 
 app.whenReady().then(async () => {
+  const stopWatchingDisplayAvailability = watchDisplayAvailability();
   installMacApplicationMenu();
   await createMainWindow();
+
+  app.once("will-quit", () => {
+    stopWatchingDisplayAvailability();
+  });
 
   app.on("activate", async () => {
     if (BrowserWindow.getAllWindows().length === 0) {

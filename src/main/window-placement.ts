@@ -29,8 +29,14 @@ interface RestoredWindowPlacement {
 const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max);
 
+const isActiveDisplay = (display: Display) =>
+  display.detected !== false &&
+  display.workArea.width >= MIN_VISIBLE_SIZE &&
+  display.workArea.height >= MIN_VISIBLE_SIZE;
+
 const getDisplayLayoutKey = (displays: Display[]) =>
   displays
+    .filter(isActiveDisplay)
     .map((display) => {
       return getDisplaySnapshotKey(display);
     })
@@ -127,7 +133,9 @@ const resolvePlacementBounds = (
   };
   const savedDisplayById =
     typeof saved.displayId === "number"
-      ? displays.find((display) => display.id === saved.displayId)
+      ? displays.find(
+          (display) => display.id === saved.displayId && isActiveDisplay(display),
+        )
       : undefined;
 
   if (savedDisplayById) {
@@ -143,7 +151,8 @@ const resolvePlacementBounds = (
     }
   }
 
-  const visibleDisplay = displays.find((display) =>
+  const activeDisplays = displays.filter(isActiveDisplay);
+  const visibleDisplay = activeDisplays.find((display) =>
     isBoundsVisibleOnDisplay(rawBounds, display),
   );
 
@@ -151,7 +160,12 @@ const resolvePlacementBounds = (
     return fitBoundsIntoDisplay(rawBounds, visibleDisplay, defaults);
   }
 
-  return fitBoundsIntoDisplay(rawBounds, screen.getPrimaryDisplay(), defaults);
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const fallbackDisplay =
+    (isActiveDisplay(primaryDisplay) ? primaryDisplay : activeDisplays[0]) ??
+    primaryDisplay;
+
+  return fitBoundsIntoDisplay(rawBounds, fallbackDisplay, defaults);
 };
 
 export const getRestoredMainWindowPlacement = async (
@@ -201,7 +215,8 @@ export const watchMainWindowPlacement = (window: BrowserWindow) => {
       return;
     }
 
-    const layoutKey = getDisplayLayoutKey(screen.getAllDisplays());
+    const currentDisplays = screen.getAllDisplays();
+    const layoutKey = getDisplayLayoutKey(currentDisplays);
     const bounds = window.isMaximized() ? window.getNormalBounds() : window.getBounds();
     const placementDisplay = screen.getDisplayMatching(bounds);
     const placement = toPlacement(

@@ -6,11 +6,13 @@ import {
   type CaptureSessionMessage,
   type CaptureSessionState,
 } from "@renderer/app/capture-session";
+import { useWindowResize } from "@renderer/app/hooks/use-window-resize";
 import { useWindowRightDrag } from "@renderer/app/hooks/use-window-right-drag";
 import type { CaptureQuality } from "@renderer/features/connect/types";
 import { CAPTURE_QUALITY_PROFILES } from "@renderer/features/connect/utils";
 
 const CAPTURE_WINDOW_TOPBAR_HIDE_TRANSITION_MS = 180;
+const CAPTURE_TOOLBAR_RESIZE_DIRECTIONS = ["n", "e", "w", "ne", "nw"] as const;
 
 const DEFAULT_CAPTURE_SESSION_STATE: CaptureSessionState = {
   sourceName: "Capture",
@@ -39,6 +41,11 @@ export const CaptureToolbarApp = () => {
   const [topbarVisible, setTopbarVisible] = useState(false);
   const [topbarPointerActive, setTopbarPointerActive] = useState(false);
   const [captureWindowFocused, setCaptureWindowFocused] = useState(false);
+  const customResizeEnabled =
+    !sessionState.windowMaximized &&
+    typeof navigator !== "undefined" &&
+    navigator.userAgent.includes("Windows");
+  useWindowResize(customResizeEnabled);
 
   const postMessage = useCallback((message: CaptureSessionMessage) => {
     channelRef.current?.postMessage(message);
@@ -224,6 +231,17 @@ export const CaptureToolbarApp = () => {
         topbarVisible ? "toolbar-visible" : "toolbar-hidden"
       }`}
     >
+      {customResizeEnabled
+        ? CAPTURE_TOOLBAR_RESIZE_DIRECTIONS.map((direction) => (
+            <div
+              key={direction}
+              className={`capture-window-resize-handle capture-window-resize-${direction}`}
+              data-window-resize={direction}
+              data-window-no-drag="true"
+              aria-hidden="true"
+            />
+          ))
+        : null}
       <header
         className="capture-window-topbar"
         data-window-left-drag="true"

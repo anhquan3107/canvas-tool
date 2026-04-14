@@ -12,6 +12,78 @@
   height: 100%;
 }
 
+.app-window-resize-handle {
+  position: absolute;
+  z-index: 85;
+  pointer-events: auto;
+}
+
+.app-window-resize-n,
+.app-window-resize-s {
+  left: 12px;
+  right: 12px;
+  height: 4px;
+}
+
+.app-window-resize-e,
+.app-window-resize-w {
+  top: 12px;
+  bottom: 12px;
+  width: 4px;
+}
+
+.app-window-resize-n {
+  top: 0;
+  cursor: ns-resize;
+}
+
+.app-window-resize-s {
+  bottom: 0;
+  cursor: ns-resize;
+}
+
+.app-window-resize-e {
+  right: 0;
+  cursor: ew-resize;
+}
+
+.app-window-resize-w {
+  left: 0;
+  cursor: ew-resize;
+}
+
+.app-window-resize-ne,
+.app-window-resize-nw,
+.app-window-resize-se,
+.app-window-resize-sw {
+  width: 12px;
+  height: 12px;
+}
+
+.app-window-resize-ne {
+  top: 0;
+  right: 0;
+  cursor: nesw-resize;
+}
+
+.app-window-resize-nw {
+  top: 0;
+  left: 0;
+  cursor: nwse-resize;
+}
+
+.app-window-resize-se {
+  right: 0;
+  bottom: 0;
+  cursor: nwse-resize;
+}
+
+.app-window-resize-sw {
+  left: 0;
+  bottom: 0;
+  cursor: nesw-resize;
+}
+
 .topbar-reveal-zone {
   position: absolute;
   top: 0;

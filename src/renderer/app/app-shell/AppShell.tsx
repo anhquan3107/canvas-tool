@@ -25,6 +25,7 @@ import { useShortcutSettings } from "@renderer/app/hooks/use-shortcut-settings";
 import { useWindowControls } from "@renderer/app/hooks/use-window-controls";
 import { useWindowFocusState } from "@renderer/app/hooks/use-window-focus-state";
 import { useWindowRightDrag } from "@renderer/app/hooks/use-window-right-drag";
+import { useWindowResize } from "@renderer/app/hooks/use-window-resize";
 import {
   type BackgroundColorPreviewState,
   useAppBackgroundActions,
@@ -67,10 +68,23 @@ type CropSession = {
 const clampWindowOpacity = (value: number) => Math.min(1, Math.max(0.05, value));
 const TOPBAR_SLIDE_TRANSITION_MS = 180;
 const TOPBAR_HIDE_DELAY_MS = 1500;
+const APP_WINDOW_RESIZE_DIRECTIONS = [
+  "n",
+  "s",
+  "e",
+  "w",
+  "ne",
+  "nw",
+  "se",
+  "sw",
+] as const;
 
 export const AppShell = () => {
   useWindowRightDrag();
   const windowFocused = useWindowFocusState();
+  const customResizeSupported =
+    typeof navigator !== "undefined" &&
+    navigator.userAgent.includes("Windows");
   const appShellRef = useRef<HTMLDivElement | null>(null);
   const topbarRef = useRef<HTMLElement | null>(null);
   const topbarRevealZoneRef = useRef<HTMLDivElement | null>(null);
@@ -743,6 +757,7 @@ export const AppShell = () => {
     handleSaveProject,
     handleSaveProjectAs,
   });
+  useWindowResize(customResizeSupported && !windowMaximized);
 
   const {
     clearTransientUi,
@@ -1175,6 +1190,17 @@ export const AppShell = () => {
       onPointerCancelCapture={handleShellPointerUpCapture}
       onContextMenu={handleShellContextMenu}
     >
+      {customResizeSupported && !windowMaximized
+        ? APP_WINDOW_RESIZE_DIRECTIONS.map((direction) => (
+            <div
+              key={direction}
+              className={`app-window-resize-handle app-window-resize-${direction}`}
+              data-window-resize={direction}
+              data-window-no-drag="true"
+              aria-hidden="true"
+            />
+          ))
+        : null}
       <div
         className={`desktop-frame ${windowFocused ? "" : "window-unfocused"} ${
           topbarVisible ? "topbar-revealed" : ""

@@ -104,8 +104,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 4px 8px 4px 10px;
+  gap: 10px;
+  padding: 4px 8px 4px 9px;
   background: #1f1e21;
   border-bottom: none;
   border-radius: 0;
@@ -151,11 +151,12 @@
   align-items: center;
   gap: 10px;
   min-width: 0;
+  overflow: hidden;
 }
 
 .capture-window-drag-spacer {
-  flex: 1 1 32px;
-  min-width: 24px;
+  flex: 1 1 16px;
+  min-width: 8px;
   min-height: 22px;
 }
 
@@ -194,6 +195,17 @@
   flex-wrap: nowrap;
   gap: 2px;
   min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.capture-window-toolbar::-webkit-scrollbar {
+  display: none;
+}
+
+.capture-window-toolbar .toolbar-button {
+  flex: 0 0 auto;
 }
 
 .capture-quality-switch {
@@ -201,6 +213,7 @@
   align-items: center;
   gap: 2px;
   flex-wrap: nowrap;
+  flex: 0 0 auto;
 }
 
 .capture-blur-control {
@@ -230,6 +243,8 @@
 .capture-window-topbar .window-cluster {
   flex: 0 0 auto;
   align-self: center;
+  margin-left: auto;
+  gap: 4px;
 }
 
 .capture-window-body {
@@ -327,5 +342,9 @@
   .capture-window-topbar {
     gap: 10px;
     padding: 6px;
+  }
+
+  .capture-window-drag-spacer {
+    display: none;
   }
 }

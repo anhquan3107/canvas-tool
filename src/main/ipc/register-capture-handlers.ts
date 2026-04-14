@@ -28,8 +28,7 @@ import {
 const CAPTURE_TOOLBAR_HEIGHT = 34;
 const CAPTURE_TOOLBAR_SEAM_OVERLAP = 1;
 
-const getCaptureToolbarBounds = (captureWindow: BrowserWindow) => {
-  const bounds = captureWindow.getBounds();
+const getCaptureToolbarBoundsForBounds = (bounds: Electron.Rectangle) => {
   const display = screen.getDisplayMatching(bounds);
   return {
     x: bounds.x,
@@ -38,6 +37,9 @@ const getCaptureToolbarBounds = (captureWindow: BrowserWindow) => {
     height: CAPTURE_TOOLBAR_HEIGHT + CAPTURE_TOOLBAR_SEAM_OVERLAP,
   };
 };
+
+const getCaptureToolbarBounds = (captureWindow: BrowserWindow) =>
+  getCaptureToolbarBoundsForBounds(captureWindow.getBounds());
 
 export const registerCaptureHandlers = (_window: BrowserWindow) => {
   const toolbarVisibilityByWindow = new WeakMap<BrowserWindow, boolean>();
@@ -181,13 +183,26 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
       }
     };
 
-    const syncToolbarWindow = () => {
+    const syncToolbarWindowToBounds = (
+      captureBounds: Electron.Rectangle | null = null,
+    ) => {
       if (captureWindow.isDestroyed() || toolbarWindow.isDestroyed()) {
         return;
       }
 
+      const nextCaptureBounds = captureBounds ?? captureWindow.getBounds();
+      const nextToolbarBounds = getCaptureToolbarBoundsForBounds(nextCaptureBounds);
+      const currentToolbarBounds = toolbarWindow.getBounds();
+
       toolbarWindow.setAlwaysOnTop(captureWindow.isAlwaysOnTop());
-      toolbarWindow.setBounds(getCaptureToolbarBounds(captureWindow), false);
+      if (
+        currentToolbarBounds.x !== nextToolbarBounds.x ||
+        currentToolbarBounds.y !== nextToolbarBounds.y ||
+        currentToolbarBounds.width !== nextToolbarBounds.width ||
+        currentToolbarBounds.height !== nextToolbarBounds.height
+      ) {
+        toolbarWindow.setBounds(nextToolbarBounds, false);
+      }
 
       if (
         captureWindow.isVisible() &&
@@ -200,6 +215,10 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
       } else if (toolbarWindow.isVisible()) {
         toolbarWindow.hide();
       }
+    };
+
+    const syncToolbarWindow = () => {
+      syncToolbarWindowToBounds();
     };
 
     const hideToolbarWindow = () => {
@@ -237,6 +256,12 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
 
     captureWindow.on("move", syncToolbarWindow);
     captureWindow.on("resize", syncToolbarWindow);
+    captureWindow.on("will-move", (_event, nextBounds) => {
+      syncToolbarWindowToBounds(nextBounds);
+    });
+    captureWindow.on("will-resize", (_event, nextBounds) => {
+      syncToolbarWindowToBounds(nextBounds);
+    });
     captureWindow.on("show", syncToolbarWindow);
     captureWindow.on("restore", syncToolbarWindow);
     captureWindow.on("maximize", syncToolbarWindow);

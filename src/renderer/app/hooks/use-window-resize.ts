@@ -138,6 +138,10 @@ export const useWindowResize = (enabled: boolean) => {
         return;
       }
 
+      if (event.button !== 0) {
+        return;
+      }
+
       const direction = rawDirection as ResizeDirection;
       const startBounds = getSynchronousBounds();
       if (!startBounds) {

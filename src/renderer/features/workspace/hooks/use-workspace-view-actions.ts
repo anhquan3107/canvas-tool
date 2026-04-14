@@ -5,6 +5,7 @@ import {
   DEFAULT_GROUP_CANVAS_COLOR,
 } from "@shared/project-defaults";
 import type { AnnotationStroke, ReferenceGroup } from "@shared/types/project";
+import type { CanvasBoardViewState } from "@renderer/pixi/types";
 import type { ImagePatch, ToastKind } from "@renderer/features/workspace/types";
 import {
   getFittedCanvas,
@@ -52,7 +53,7 @@ interface UseWorkspaceViewActionsOptions {
       visible?: boolean;
     }>,
     currentSize: { width: number; height: number },
-    currentView?: { zoom: number; panX: number; panY: number },
+    currentView?: CanvasBoardViewState,
   ) => void;
 }
 
@@ -93,7 +94,10 @@ export const useWorkspaceViewActions = ({
   );
 
   const handleBoardItemsPatch = useCallback(
-    (updates: Record<string, ImagePatch>) => {
+    (
+      updates: Record<string, ImagePatch>,
+      currentView?: CanvasBoardViewState,
+    ) => {
       if (!activeGroupId) {
         return;
       }
@@ -111,11 +115,16 @@ export const useWorkspaceViewActions = ({
             ...item,
             ...updates[item.id],
           }));
-          ensureCanvasFitsItems(activeGroupId, nextItems, activeGroup.canvasSize, {
-            zoom: activeGroup.zoom,
-            panX: activeGroup.panX,
-            panY: activeGroup.panY,
-          });
+          ensureCanvasFitsItems(
+            activeGroupId,
+            nextItems,
+            activeGroup.canvasSize,
+            currentView ?? {
+              zoom: activeGroup.zoom,
+              panX: activeGroup.panX,
+              panY: activeGroup.panY,
+            },
+          );
         }
       });
     },

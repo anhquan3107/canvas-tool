@@ -12,6 +12,7 @@ import type {
   ActiveItemDragState,
   CanvasInsets,
   CanvasItemPatch,
+  CanvasBoardViewState,
 } from "@renderer/pixi/types";
 
 interface UseCanvasBoardDragOptions {
@@ -19,8 +20,12 @@ interface UseCanvasBoardDragOptions {
   hostRef: MutableRefObject<HTMLDivElement | null>;
   boardContainerRef: MutableRefObject<Container | null>;
   groupRef: MutableRefObject<ReferenceGroup>;
+  previewInsetsRef: MutableRefObject<CanvasInsets>;
   onItemsPatchRef: MutableRefObject<
-    (updates: Record<string, CanvasItemPatch>) => void
+    (
+      updates: Record<string, CanvasItemPatch>,
+      currentView?: CanvasBoardViewState,
+    ) => void
   >;
   setPreviewInsets: (nextInsets: CanvasInsets) => void;
   updateSelectedBoundsOverlay: () => void;
@@ -32,6 +37,7 @@ export const useCanvasBoardDrag = ({
   hostRef,
   boardContainerRef,
   groupRef,
+  previewInsetsRef,
   onItemsPatchRef,
   setPreviewInsets,
   updateSelectedBoundsOverlay,
@@ -270,18 +276,20 @@ export const useCanvasBoardDrag = ({
         const resolvedY = snappedOnY
           ? Math.round(item.startPos.y + translateY)
           : item.startPos.y + translateY;
+        const committedX = Math.round(resolvedX);
+        const committedY = Math.round(resolvedY);
 
-        item.itemNode.position.set(resolvedX, resolvedY);
+        item.itemNode.position.set(committedX, committedY);
         activeDrag.patchBuffer[item.itemId] = {
           ...activeDrag.patchBuffer[item.itemId],
-          x: Math.round(resolvedX),
-          y: Math.round(resolvedY),
+          x: committedX,
+          y: committedY,
         };
 
-        minX = Math.min(minX, resolvedX);
-        minY = Math.min(minY, resolvedY);
-        maxX = Math.max(maxX, resolvedX + item.visualWidth);
-        maxY = Math.max(maxY, resolvedY + item.visualHeight);
+        minX = Math.min(minX, committedX);
+        minY = Math.min(minY, committedY);
+        maxX = Math.max(maxX, committedX + item.visualWidth);
+        maxY = Math.max(maxY, committedY + item.visualHeight);
       });
 
       setPreviewInsets({
@@ -335,7 +343,16 @@ export const useCanvasBoardDrag = ({
     }
 
     if (Object.keys(activeDrag.patchBuffer).length > 0) {
-      onItemsPatchRef.current({ ...activeDrag.patchBuffer });
+      const boardContainer = boardContainerRef.current;
+      const currentView = boardContainer
+        ? ({
+            zoom: boardContainer.scale.x,
+            panX: boardContainer.x,
+            panY: boardContainer.y,
+            previewInsets: { ...previewInsetsRef.current },
+          } satisfies CanvasBoardViewState)
+        : undefined;
+      onItemsPatchRef.current({ ...activeDrag.patchBuffer }, currentView);
       updateSelectedBoundsOverlay();
       return;
     }
@@ -344,8 +361,10 @@ export const useCanvasBoardDrag = ({
     updateSelectedBoundsOverlay();
   }, [
     activeItemDragRef,
+    boardContainerRef,
     cancelAutoPanLoop,
     onItemsPatchRef,
+    previewInsetsRef,
     setPreviewInsets,
     updateSelectedBoundsOverlay,
   ]);

@@ -323,6 +323,7 @@ export const CanvasBoard = ({
       hostRef,
       boardContainerRef,
       groupRef,
+      previewInsetsRef,
       onItemsPatchRef,
       setPreviewInsets,
       updateSelectedBoundsOverlay,
@@ -473,7 +474,18 @@ export const CanvasBoard = ({
       viewCommitTimerRef.current = null;
     }
 
-    preserveLiveBoardView();
+    const hasLivePreviewInsets =
+      previewInsetsRef.current.left !== 0 ||
+      previewInsetsRef.current.top !== 0 ||
+      previewInsetsRef.current.right !== 0 ||
+      previewInsetsRef.current.bottom !== 0;
+
+    // When a drag/transform preview expanded left or top, group state already
+    // contains the corrected committed pan. Reusing the temporary preview pan
+    // here would reintroduce the snap on rebuild.
+    if (!hasLivePreviewInsets) {
+      preserveLiveBoardView();
+    }
 
     previewInsetsRef.current = ZERO_INSETS;
     onCanvasSizePreviewChangeRef.current?.(null);

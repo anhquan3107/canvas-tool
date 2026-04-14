@@ -1,9 +1,9 @@
 import type { ReferenceGroup } from "@shared/types/project";
 import { DEFAULT_VIEW_ZOOM_BASELINE } from "@shared/project-defaults";
-import { SNAP_GAP } from "@renderer/pixi/constants";
+import { BOARD_EXPANSION_PADDING } from "@renderer/pixi/constants";
 import type { ImagePatch } from "@renderer/features/workspace/types";
 
-export const CANVAS_EXPANSION_PADDING = SNAP_GAP;
+export const CANVAS_EXPANSION_PADDING = BOARD_EXPANSION_PADDING;
 export const MIN_CANVAS_WIDTH = 360;
 export const MIN_CANVAS_HEIGHT = 240;
 

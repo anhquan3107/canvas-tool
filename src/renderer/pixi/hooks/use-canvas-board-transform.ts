@@ -4,6 +4,7 @@ import type { Container } from "pixi.js";
 import { BOARD_EXPANSION_PADDING, ZERO_INSETS } from "@renderer/pixi/constants";
 import type {
   ActiveSelectionTransformState,
+  CanvasBoardViewState,
   CropRect,
   CropSession,
   TransformHandle,
@@ -39,7 +40,9 @@ interface UseCanvasBoardTransformOptions {
   onCanvasSizePreviewChangeRef: RefObject<
     ((size: { width: number; height: number } | null) => void) | undefined
   >;
-  onItemsPatchRef: RefObject<(updates: Record<string, any>) => void>;
+  onItemsPatchRef: RefObject<
+    (updates: Record<string, any>, currentView?: CanvasBoardViewState) => void
+  >;
   onLockedInteractionRef: RefObject<(() => void) | undefined>;
   onCropRectChange?: (rect: CropRect) => void;
 }
@@ -286,17 +289,27 @@ export const useCanvasBoardTransform = ({
       return;
     }
 
-    setPreviewInsets(ZERO_INSETS);
-
     if (activeTransform.hasChanged && Object.keys(activeTransform.patchBuffer).length > 0) {
-      onItemsPatchRef.current({ ...activeTransform.patchBuffer });
+      const boardContainer = boardContainerRef.current;
+      const currentView = boardContainer
+        ? ({
+            zoom: boardContainer.scale.x,
+            panX: boardContainer.x,
+            panY: boardContainer.y,
+            previewInsets: { ...previewInsetsRef.current },
+          } satisfies CanvasBoardViewState)
+        : undefined;
+      onItemsPatchRef.current({ ...activeTransform.patchBuffer }, currentView);
       return;
     }
 
+    setPreviewInsets(ZERO_INSETS);
     updateSelectedBoundsOverlayRef.current();
   }, [
     activeSelectionTransformRef,
+    boardContainerRef,
     onItemsPatchRef,
+    previewInsetsRef,
     setPreviewInsets,
     updateSelectedBoundsOverlayRef,
   ]);

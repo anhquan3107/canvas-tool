@@ -16,6 +16,13 @@ export interface CanvasInsets {
   bottom: number;
 }
 
+export interface CanvasBoardViewState {
+  zoom: number;
+  panX: number;
+  panY: number;
+  previewInsets?: CanvasInsets;
+}
+
 export interface CanvasSizePreview {
   width: number;
   height: number;
@@ -34,7 +41,10 @@ export interface CanvasBoardProps {
   onCropRectChange?: (rect: CropRect) => void;
   onSelectionChange: (itemIds: string[]) => void;
   onViewChange: (zoom: number, panX: number, panY: number) => void;
-  onItemsPatch: (updates: Record<string, CanvasItemPatch>) => void;
+  onItemsPatch: (
+    updates: Record<string, CanvasItemPatch>,
+    currentView?: CanvasBoardViewState,
+  ) => void;
   onAnnotationsChange: (annotations: AnnotationStroke[]) => void;
   onItemDoubleClick?: (itemId: string) => void;
   onLockedInteraction?: () => void;

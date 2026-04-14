@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import type { CanvasBoardViewState } from "@renderer/pixi/types";
 import type { UseCanvasWorkspaceOptions } from "@renderer/features/workspace/types";
 import {
   getCanvasExpansionPlan,
@@ -68,7 +69,7 @@ export const useCanvasWorkspace = ({
         visible?: boolean;
       }>,
       currentSize: { width: number; height: number },
-      currentView?: { zoom: number; panX: number; panY: number },
+      currentView?: CanvasBoardViewState,
     ) => {
       const expansionPlan = getCanvasExpansionPlan(items, currentSize);
       if (!expansionPlan) {
@@ -92,11 +93,15 @@ export const useCanvasWorkspace = ({
         patchGroupItems(groupId, expansionPlan.shiftedUpdates);
 
         if (currentView) {
+          const previewShiftLeft =
+            currentView.previewInsets?.left ?? expansionPlan.expandLeft;
+          const previewShiftTop =
+            currentView.previewInsets?.top ?? expansionPlan.expandTop;
           setGroupView(
             groupId,
             currentView.zoom,
-            currentView.panX - expansionPlan.expandLeft * currentView.zoom,
-            currentView.panY - expansionPlan.expandTop * currentView.zoom,
+            currentView.panX - previewShiftLeft * currentView.zoom,
+            currentView.panY - previewShiftTop * currentView.zoom,
           );
         }
       }

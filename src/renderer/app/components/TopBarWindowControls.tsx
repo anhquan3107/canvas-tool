@@ -10,6 +10,7 @@ interface TopBarWindowControlsProps {
   windowAlwaysOnTop: boolean;
   windowMaximized: boolean;
   onShowShortcuts: () => void;
+  onToggleCanvasLock: () => void;
   onToggleAlwaysOnTop: () => void;
   onMinimize: () => void;
   onToggleMaximize: () => void;
@@ -23,6 +24,7 @@ export const TopBarWindowControls = ({
   windowAlwaysOnTop,
   windowMaximized,
   onShowShortcuts,
+  onToggleCanvasLock,
   onToggleAlwaysOnTop,
   onMinimize,
   onToggleMaximize,
@@ -43,15 +45,17 @@ export const TopBarWindowControls = ({
       </button>
     </TopBarHoverTooltip>
     {canvasLocked ? (
-      <TopBarHoverTooltip label="Canvas locked">
-        <span
+      <TopBarHoverTooltip label="Unlock canvas">
+        <button
+          type="button"
           className={`chrome-chip topbar-lock-indicator ${
             lockedCanvasInteractionPulse ? "blocked" : ""
           }`}
-          aria-label="Canvas locked"
+          onClick={onToggleCanvasLock}
+          aria-label="Unlock canvas"
         >
           <Lock size={13} strokeWidth={1.9} />
-        </span>
+        </button>
       </TopBarHoverTooltip>
     ) : null}
     <TopBarHoverTooltip

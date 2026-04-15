@@ -343,12 +343,6 @@ export const useCanvasBoardBootstrap = ({
           return;
         }
 
-        if (groupRef.current.locked) {
-          event.preventDefault();
-          onLockedInteractionRef.current?.();
-          return;
-        }
-
         event.preventDefault();
 
         const rect = host.getBoundingClientRect();

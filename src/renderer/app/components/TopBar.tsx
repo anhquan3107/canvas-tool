@@ -248,6 +248,7 @@ export const TopBar = ({
           windowAlwaysOnTop={windowAlwaysOnTop}
           windowMaximized={windowMaximized}
           onShowShortcuts={onShowShortcuts}
+          onToggleCanvasLock={onToggleCanvasLock}
           onToggleAlwaysOnTop={onToggleAlwaysOnTop}
           onMinimize={onMinimize}
           onToggleMaximize={onToggleMaximize}

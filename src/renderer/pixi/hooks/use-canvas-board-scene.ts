@@ -223,16 +223,12 @@ export const useCanvasBoardScene = ({
       itemNode.on("pointerdown", (event: FederatedPointerEvent) => {
         event.stopPropagation();
 
-        if (groupRef.current.locked) {
-          onLockedInteractionRef.current?.();
-          return;
-        }
-
         if (event.nativeEvent.button === 2) {
           return;
         }
 
         const panByModifier =
+          groupRef.current.locked ||
           spacePanActiveRef.current ||
           event.nativeEvent.altKey ||
           event.nativeEvent.button === 1;
@@ -249,6 +245,11 @@ export const useCanvasBoardScene = ({
             y: boardContainer.y,
           };
           board.cursor = "grabbing";
+          return;
+        }
+
+        if (groupRef.current.locked) {
+          onLockedInteractionRef.current?.();
           return;
         }
 
@@ -369,16 +370,12 @@ export const useCanvasBoardScene = ({
     board.on("pointerdown", (event: FederatedPointerEvent) => {
       event.stopPropagation();
 
-      if (groupRef.current.locked) {
-        onLockedInteractionRef.current?.();
-        return;
-      }
-
       if (event.nativeEvent.button === 2) {
         return;
       }
 
       if (
+        groupRef.current.locked ||
         spacePanActiveRef.current ||
         event.nativeEvent.altKey ||
         event.nativeEvent.button === 1

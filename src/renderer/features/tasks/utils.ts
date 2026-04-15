@@ -5,6 +5,14 @@ const formatDateInput = (date: Date) => {
   return `${year}-${month}-${day}`;
 };
 
+export const TASK_TITLE_MAX_LENGTH = 100;
+
+export const clampTaskTitle = (value: string) =>
+  value.slice(0, TASK_TITLE_MAX_LENGTH);
+
+export const sanitizeTaskTitle = (value: string) =>
+  clampTaskTitle(value.trim());
+
 const toDateAtEndOfDay = (value: string) => {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.valueOf())) {

@@ -1,5 +1,6 @@
 import type { Project } from "@shared/types/project";
 import type { Action } from "@renderer/state/project-store-types";
+import { sanitizeTaskTitle } from "@renderer/features/tasks/utils";
 import { randomUUID, touchProject } from "@renderer/state/store-helpers";
 
 export const reduceTaskAction = (
@@ -13,7 +14,9 @@ export const reduceTaskAction = (
         tasks: [
           {
             id: action.payload.id,
-            title: action.payload.title || `Task ${project.tasks.length + 1}`,
+            title:
+              sanitizeTaskTitle(action.payload.title) ||
+              sanitizeTaskTitle(`Task ${project.tasks.length + 1}`),
             order: 0,
             startDate: action.payload.startDate,
             endDate: action.payload.endDate,
@@ -33,7 +36,11 @@ export const reduceTaskAction = (
             ? {
                 ...task,
                 ...(action.payload.title !== undefined
-                  ? { title: action.payload.title }
+                  ? {
+                      title:
+                        sanitizeTaskTitle(action.payload.title) ||
+                        sanitizeTaskTitle(task.title),
+                    }
                   : {}),
                 ...(action.payload.completed !== undefined
                   ? { completed: action.payload.completed }
@@ -78,7 +85,7 @@ export const reduceTaskAction = (
           {
             ...sourceTask,
             id: action.payload.id,
-            title: `${sourceTask.title} Copy`,
+            title: sanitizeTaskTitle(`${sourceTask.title} Copy`),
             order: 0,
             todos: sourceTask.todos.map((todo, index) => ({
               ...todo,

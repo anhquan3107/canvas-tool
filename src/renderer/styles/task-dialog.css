@@ -31,6 +31,13 @@
   font-size: 12px;
 }
 
+.task-dialog-title-warning {
+  margin: 2px 0 0;
+  color: rgba(243, 168, 76, 0.96);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
 .task-dialog-grid {
   gap: 12px;
 }

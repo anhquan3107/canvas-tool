@@ -1,8 +1,12 @@
-import { useRef } from "react";
-import type { Dispatch, SetStateAction } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { ClipboardEvent, Dispatch, FormEvent, SetStateAction } from "react";
 import { DialogFrame } from "@renderer/ui/DialogFrame";
 import type { TaskDateRange } from "@renderer/features/tasks/types";
-import { formatDateLabel } from "@renderer/features/tasks/utils";
+import {
+  clampTaskTitle,
+  formatDateLabel,
+  TASK_TITLE_MAX_LENGTH,
+} from "@renderer/features/tasks/utils";
 
 interface TaskDialogProps {
   open: boolean;
@@ -29,6 +33,13 @@ export const TaskDialog = ({
 }: TaskDialogProps) => {
   const startDateInputRef = useRef<HTMLInputElement | null>(null);
   const endDateInputRef = useRef<HTMLInputElement | null>(null);
+  const [showTitleLimitWarning, setShowTitleLimitWarning] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      setShowTitleLimitWarning(false);
+    }
+  }, [open]);
 
   const openDatePicker = (input: HTMLInputElement | null) => {
     if (!input) {
@@ -39,6 +50,44 @@ export const TaskDialog = ({
     if ("showPicker" in input && typeof input.showPicker === "function") {
       input.showPicker();
     }
+  };
+
+  const wouldOverflowTitleLimit = (
+    input: HTMLInputElement,
+    incomingText: string,
+  ) => {
+    const selectionStart = input.selectionStart ?? input.value.length;
+    const selectionEnd = input.selectionEnd ?? input.value.length;
+    const nextLength =
+      input.value.length - (selectionEnd - selectionStart) + incomingText.length;
+
+    return nextLength > TASK_TITLE_MAX_LENGTH;
+  };
+
+  const handleTitleBeforeInput = (event: FormEvent<HTMLInputElement>) => {
+    const nativeEvent = event.nativeEvent as InputEvent;
+    const input = event.currentTarget;
+    const incomingText = nativeEvent.data ?? "";
+
+    if (!incomingText) {
+      return;
+    }
+
+    setShowTitleLimitWarning(wouldOverflowTitleLimit(input, incomingText));
+  };
+
+  const handleTitlePaste = (event: ClipboardEvent<HTMLInputElement>) => {
+    setShowTitleLimitWarning(
+      wouldOverflowTitleLimit(
+        event.currentTarget,
+        event.clipboardData.getData("text"),
+      ),
+    );
+  };
+
+  const handleTitleChange = (value: string) => {
+    setShowTitleLimitWarning(false);
+    onDraftTaskTitleChange(clampTaskTitle(value));
   };
 
   if (!open) {
@@ -63,8 +112,16 @@ export const TaskDialog = ({
           <input
             id="task-title"
             value={draftTaskTitle}
-            onChange={(event) => onDraftTaskTitleChange(event.target.value)}
+            maxLength={TASK_TITLE_MAX_LENGTH}
+            onBeforeInput={handleTitleBeforeInput}
+            onPaste={handleTitlePaste}
+            onChange={(event) => handleTitleChange(event.target.value)}
           />
+          {showTitleLimitWarning ? (
+            <p className="task-dialog-title-warning">
+              Task name is limited to 100 characters.
+            </p>
+          ) : null}
         </div>
 
         {mode !== "rename" ? (

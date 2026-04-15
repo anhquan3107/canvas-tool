@@ -18,6 +18,10 @@
   pointer-events: auto;
 }
 
+.task-overlay-shell-open {
+  max-width: calc(100vw - 44px);
+}
+
 .task-summary-row {
   display: flex;
   flex-direction: column;
@@ -43,7 +47,6 @@
   grid-template-columns: 10px minmax(0, 1fr);
   align-items: center;
   gap: 10px;
-  width: 100%;
   min-height: 36px;
   padding: 0 12px;
   border: 1px solid rgba(255, 255, 255, 0.05);
@@ -54,8 +57,10 @@
 
 .task-summary-card {
   position: relative;
-  width: auto;
-  max-width: min(220px, calc(100vw - 118px));
+  display: inline-grid;
+  grid-template-columns: 10px max-content;
+  width: max-content;
+  max-width: calc(100vw - 64px);
   min-height: 36px;
   padding: 0 10px 0 9px;
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -70,6 +75,10 @@
     background-color 260ms ease,
     border-color 260ms ease,
     box-shadow 260ms ease;
+}
+
+.task-list-item {
+  width: 100%;
 }
 
 .task-summary-card:hover,
@@ -88,19 +97,19 @@
 }
 
 .task-summary-card-stack {
-  width: auto;
-  max-width: min(220px, calc(100vw - 118px));
+  width: max-content;
+  max-width: calc(100vw - 64px);
 }
 
 .task-overlay-shell-open .task-summary-card-primary,
 .task-overlay-shell-open .task-summary-card-stack {
-  width: fit-content;
-  max-width: min(620px, calc(100vw - 64px));
+  width: max-content;
+  max-width: calc(100vw - 64px);
 }
 
 .task-summary-card-expanded {
-  width: fit-content;
-  max-width: min(620px, calc(100vw - 64px));
+  width: max-content;
+  max-width: calc(100vw - 64px);
   min-height: 36px;
   height: auto;
   padding-top: 6px;
@@ -110,21 +119,40 @@
   background: rgba(36, 36, 39, 0.98);
 }
 
+.task-summary-card .task-summary-copy {
+  display: inline-flex;
+  flex: 0 0 auto;
+  width: max-content;
+  max-width: 100%;
+}
+
+.task-summary-card .task-summary-copy strong {
+  min-width: 0;
+  overflow: visible;
+  text-overflow: clip;
+}
+
 .task-summary-card-expanded .task-summary-copy {
+  display: inline-flex;
   flex-direction: row;
   align-items: center;
   gap: 10px;
   flex-wrap: nowrap;
-  width: fit-content;
+  width: max-content;
   max-width: 100%;
 }
 
 .task-summary-card-expanded .task-summary-copy strong {
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   min-width: 0;
   overflow: visible;
   text-overflow: clip;
   white-space: nowrap;
+}
+
+.task-summary-card-expanded .task-summary-meta {
+  flex: 0 0 auto;
+  min-width: max-content;
 }
 
 .task-list-item {

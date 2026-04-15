@@ -1,6 +1,7 @@
 import { useCallback, type Dispatch, type SetStateAction } from "react";
 import type { Task } from "@shared/types/project";
 import type { TaskDateRange } from "@renderer/features/tasks/types";
+import { sanitizeTaskTitle } from "@renderer/features/tasks/utils";
 
 interface UseTaskCrudOptions {
   tasks: Task[];
@@ -68,7 +69,9 @@ export const useTaskCrud = ({
   registerTaskDetailInteraction,
 }: UseTaskCrudOptions) => {
   const handleSubmitTask = useCallback(() => {
-    const title = draftTaskTitle.trim() || `Task ${tasks.length + 1}`;
+    const title =
+      sanitizeTaskTitle(draftTaskTitle) ||
+      sanitizeTaskTitle(`Task ${tasks.length + 1}`);
 
     if (editingTaskId) {
       updateTask(

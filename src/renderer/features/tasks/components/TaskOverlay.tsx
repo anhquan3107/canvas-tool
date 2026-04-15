@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   CalendarDays,
   Check,
@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import type { ReferenceGroup, Task } from "@shared/types/project";
 import {
+  clampTaskTitle,
   formatTaskDateRange,
   getTaskDeadlineTone,
   getTaskRemainingLabel,
@@ -39,8 +40,6 @@ interface TaskOverlayProps {
 const TASK_MENU_WIDTH = 164;
 const TASK_MENU_MARGIN = 12;
 const TASK_META_HIDE_DURATION_MS = 640;
-const MAX_TASK_TITLE_CHARS = 100;
-
 const getTaskToneClass = (task: Task) => {
   if (isTaskComplete(task)) {
     return "task-tone-complete";
@@ -51,11 +50,7 @@ const getTaskToneClass = (task: Task) => {
 
 const getDisplayTaskTitle = (title: string) => {
   const normalized = title.trim();
-  if (normalized.length <= MAX_TASK_TITLE_CHARS) {
-    return normalized;
-  }
-
-  return `${normalized.slice(0, MAX_TASK_TITLE_CHARS).trimEnd()}...`;
+  return clampTaskTitle(normalized);
 };
 
 export const TaskOverlay = ({
@@ -102,7 +97,7 @@ export const TaskOverlay = ({
     };
   }, [expanded]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (selectedTaskId) {
       setRenderPrimaryMeta(true);
       return;
@@ -204,9 +199,7 @@ export const TaskOverlay = ({
       ? linkedGroups.get(task.linkedGroupId) ?? null
       : null;
     const compactExpanded = compact && task.id === selectedTaskId;
-    const displayTitle = compactExpanded
-      ? task.title.trim()
-      : getDisplayTaskTitle(task.title);
+    const displayTitle = getDisplayTaskTitle(task.title);
     const showCompactMeta = compact && task.id === selectedTaskId;
     const shouldExpandListOnClick =
       compact &&

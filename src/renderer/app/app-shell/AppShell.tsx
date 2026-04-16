@@ -1105,9 +1105,14 @@ export const AppShell = () => {
         return;
       }
 
+      if (tool === "blur") {
+        toggleBlur();
+        return;
+      }
+
       handleToolButton(tool);
     },
-    [handleRulerTool, handleToolButton],
+    [handleRulerTool, handleToolButton, toggleBlur],
   );
 
   const {

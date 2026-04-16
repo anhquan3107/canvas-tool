@@ -1,5 +1,7 @@
 import {
+  useCallback,
   useState,
+  type MouseEventHandler,
   type PointerEventHandler,
   type RefObject,
   type TransitionEventHandler,
@@ -139,6 +141,28 @@ export const TopBar = ({
   const [pendingTitleBarAction, setPendingTitleBarAction] =
     useState<PendingTitleBarAction | null>(null);
 
+  const handleHeaderDoubleClick = useCallback<MouseEventHandler<HTMLElement>>(
+    (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        return;
+      }
+
+      const noDragTarget = target.closest("[data-window-no-drag='true']");
+      if (noDragTarget) {
+        return;
+      }
+
+      const dragTarget = target.closest("[data-window-left-drag='true']");
+      if (!dragTarget) {
+        return;
+      }
+
+      onToggleMaximize();
+    },
+    [onToggleMaximize],
+  );
+
   const runTitleBarAction = (meta: TitleBarTooltipMeta, action: () => void) => {
     if (seenTitleBarTooltips.includes(meta.id)) {
       action();
@@ -164,6 +188,7 @@ export const TopBar = ({
         onPointerEnter={onPointerEnter}
         onPointerLeave={onPointerLeave}
         onTransitionEnd={onTransitionEnd}
+        onDoubleClick={handleHeaderDoubleClick}
       >
         <div className="app-drag-region" data-window-left-drag="true">
           <button

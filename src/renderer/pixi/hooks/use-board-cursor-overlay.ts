@@ -99,16 +99,13 @@ export const useBoardCursorOverlay = ({
       cursorOverlay.style.transform = `translate(${localX - size * 0.5}px, ${localY - size * 0.5}px)`;
       cursorOverlay.style.borderColor = erasing
         ? "rgba(255, 255, 255, 0.88)"
-        : doodleColorRef.current;
+        : hexToRgba(doodleColorRef.current, 0.98);
       cursorOverlay.style.background = erasing
         ? "rgba(255, 255, 255, 0.08)"
-        : hexToRgba(doodleColorRef.current, 0.12);
+        : doodleColorRef.current;
       cursorOverlay.style.boxShadow = erasing
         ? "0 0 0 1px rgba(0, 0, 0, 0.38), inset 0 0 0 1px rgba(255, 255, 255, 0.08)"
-        : `0 0 0 1px rgba(0, 0, 0, 0.36), inset 0 0 0 1px ${hexToRgba(
-            doodleColorRef.current,
-            0.22,
-          )}`;
+        : "0 0 0 1px rgba(0, 0, 0, 0.42), 0 0 0 2px rgba(255, 255, 255, 0.14)";
       cursorOverlay.style.opacity = "1";
     },
     [

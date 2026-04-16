@@ -1,6 +1,7 @@
 .canvas-wheel-overlay {
   pointer-events: auto;
   overflow-y: auto;
+  padding-top: 44px;
 }
 
 .tool-wheel-card {

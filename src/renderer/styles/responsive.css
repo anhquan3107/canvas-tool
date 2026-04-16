@@ -34,6 +34,10 @@
     bottom: 10px;
   }
 
+  .canvas-wheel-overlay {
+    padding-top: 0;
+  }
+
   .canvas-wheel-overlay .tool-wheel-card {
     transform: scale(0.86);
   }

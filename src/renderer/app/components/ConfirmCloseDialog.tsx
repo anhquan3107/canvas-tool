@@ -20,7 +20,7 @@ export const ConfirmCloseDialog = ({
   }
 
   return (
-    <DialogFrame title="Save Changes?" onClose={onCancel}>
+    <DialogFrame title="Save Changes?" onClose={onCancel} onConfirm={onSave}>
       <p className="dialog-copy">
         Save changes to <strong>{fileName}</strong> before closing?
       </p>

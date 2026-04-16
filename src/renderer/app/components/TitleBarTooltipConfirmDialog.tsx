@@ -1,4 +1,7 @@
+import { useRef } from "react";
 import { DialogScrim } from "@renderer/ui/DialogScrim";
+import { createDialogKeyDownHandler } from "@renderer/ui/dialog-keyboard";
+import { useDialogInitialFocus } from "@renderer/ui/use-dialog-initial-focus";
 
 const shortcutTokens = (shortcut?: string) => {
   if (!shortcut) {
@@ -30,6 +33,10 @@ export const TitleBarTooltipConfirmDialog = ({
   onConfirm,
   onClose,
 }: TitleBarTooltipConfirmDialogProps) => {
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+
+  useDialogInitialFocus(dialogRef, open);
+
   if (!open) {
     return null;
   }
@@ -48,11 +55,17 @@ export const TitleBarTooltipConfirmDialog = ({
       onClose={onClose}
     >
       <div
+        ref={dialogRef}
         className="dialog-card titlebar-tooltip-dialog"
         role="dialog"
         aria-modal="true"
         aria-label={`${label} shortcut guide`}
         onClick={(event) => event.stopPropagation()}
+        onKeyDown={createDialogKeyDownHandler({
+          onClose,
+          onConfirm,
+        })}
+        tabIndex={-1}
       >
         <div className="titlebar-tooltip-dialog-topbar">
           <span className="titlebar-tooltip-dialog-topbar-label">Tool Guide</span>

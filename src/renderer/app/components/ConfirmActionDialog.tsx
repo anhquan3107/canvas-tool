@@ -1,5 +1,8 @@
+import { useRef } from "react";
 import { AlertTriangle, Trash2 } from "lucide-react";
 import { DialogScrim } from "@renderer/ui/DialogScrim";
+import { createDialogKeyDownHandler } from "@renderer/ui/dialog-keyboard";
+import { useDialogInitialFocus } from "@renderer/ui/use-dialog-initial-focus";
 
 interface ConfirmActionDialogProps {
   open: boolean;
@@ -18,6 +21,10 @@ export const ConfirmActionDialog = ({
   onConfirm,
   onCancel,
 }: ConfirmActionDialogProps) => {
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+
+  useDialogInitialFocus(dialogRef, open);
+
   if (!open) {
     return null;
   }
@@ -25,11 +32,17 @@ export const ConfirmActionDialog = ({
   return (
     <DialogScrim onClose={onCancel}>
       <div
+        ref={dialogRef}
         className="dialog-card confirm-action-dialog"
         onClick={(event) => event.stopPropagation()}
+        onKeyDown={createDialogKeyDownHandler({
+          onClose: onCancel,
+          onConfirm,
+        })}
         role="dialog"
         aria-modal="true"
         aria-label={title}
+        tabIndex={-1}
       >
         <div className="dialog-frame-topbar">
           <span className="dialog-frame-topbar-label">{title}</span>

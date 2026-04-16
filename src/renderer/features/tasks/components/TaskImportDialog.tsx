@@ -1,5 +1,8 @@
+import { useRef } from "react";
 import type { TasksImportResult } from "@shared/types/ipc";
 import { DialogScrim } from "@renderer/ui/DialogScrim";
+import { createDialogKeyDownHandler } from "@renderer/ui/dialog-keyboard";
+import { useDialogInitialFocus } from "@renderer/ui/use-dialog-initial-focus";
 
 type TaskImportMode = "merge" | "replace" | "skip-duplicates";
 
@@ -37,18 +40,24 @@ export const TaskImportDialog = ({
   onApply,
   onClose,
 }: TaskImportDialogProps) => {
+  const dialogRef = useRef<HTMLDivElement | null>(null);
   const fileName = preview.filePath.split(/[\\/]/).pop() ?? preview.filePath;
   const exportedAt = formatExportedAt(preview.exportedAt);
   const visibleTasks = preview.tasks.slice(0, 5);
 
+  useDialogInitialFocus(dialogRef);
+
   return (
     <DialogScrim onClose={onClose}>
       <div
+        ref={dialogRef}
         className="dialog-card task-import-dialog"
         onClick={(event) => event.stopPropagation()}
+        onKeyDown={createDialogKeyDownHandler({ onClose })}
         role="dialog"
         aria-modal="true"
         aria-label="Review Imported Tasks"
+        tabIndex={-1}
       >
         <div className="dialog-frame-topbar">
           <span className="dialog-frame-topbar-label">Review Imported Tasks</span>

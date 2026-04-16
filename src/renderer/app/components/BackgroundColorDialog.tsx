@@ -67,7 +67,11 @@ export const BackgroundColorDialog = ({
   }
 
   return (
-    <DialogFrame title="Change Background Color" onClose={onClose}>
+    <DialogFrame
+      title="Change Background Color"
+      onClose={onClose}
+      onConfirm={handleConfirm}
+    >
       <div className="color-picker-toggle-row">
         <button
           type="button"

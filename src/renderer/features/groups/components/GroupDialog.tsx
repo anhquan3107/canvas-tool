@@ -27,6 +27,7 @@ export const GroupDialog = ({
       className="task-deadline-dialog group-name-dialog"
       title={mode === "rename" ? "Rename Group" : "Create Group"}
       onClose={onClose}
+      onConfirm={onCreateGroup}
     >
       <div className="task-dialog-shell">
       <div className="dialog-field task-dialog-field group-dialog-field">
@@ -34,6 +35,7 @@ export const GroupDialog = ({
         <input
           className="group-dialog-input"
           id="group-name"
+          autoFocus
           value={draftGroupName}
           onChange={(event) => onDraftGroupNameChange(event.target.value)}
         />

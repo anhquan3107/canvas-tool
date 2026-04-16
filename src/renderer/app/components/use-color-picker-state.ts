@@ -371,12 +371,31 @@ export const useColorPickerState = ({
     setDraftWindowOpacity(1);
   };
 
-  const handleConfirm = () =>
+  const handleConfirm = () => {
+    const normalizedHex = normalizeHex(hexInput);
+    const canvasColorToConfirm =
+      target === "canvas" ? normalizedHex : draftCanvasColor;
+    const backgroundColorToConfirm =
+      target === "background" ? normalizedHex : draftBackgroundColor;
+
+    const nextHsv = hexToHsv(normalizedHex);
+    setHue(nextHsv.hue);
+    setSaturation(nextHsv.saturation);
+    setValue(nextHsv.value);
+    setHexInput(normalizedHex);
+
+    if (target === "canvas") {
+      setDraftCanvasColor(normalizedHex);
+    } else {
+      setDraftBackgroundColor(normalizedHex);
+    }
+
     onConfirm({
-      canvasColor: draftCanvasColor,
-      backgroundColor: draftBackgroundColor,
+      canvasColor: canvasColorToConfirm,
+      backgroundColor: backgroundColorToConfirm,
       windowOpacity: draftWindowOpacity,
     });
+  };
 
   return {
     squareCanvasRef,

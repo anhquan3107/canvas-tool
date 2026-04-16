@@ -94,6 +94,7 @@ export const CanvasSizeDialog = ({
       className="task-deadline-dialog canvas-size-dialog"
       title="Change Canvas Size"
       onClose={onClose}
+      onConfirm={onConfirm}
     >
       <div className="task-dialog-shell">
         <div className="dialog-field task-dialog-field group-dialog-field">
@@ -102,6 +103,7 @@ export const CanvasSizeDialog = ({
             className="group-dialog-input"
             id="canvas-width"
             type="text"
+            autoFocus
             inputMode="numeric"
             value={widthValue}
             onChange={(event) => handleWidthChange(event.target.value)}

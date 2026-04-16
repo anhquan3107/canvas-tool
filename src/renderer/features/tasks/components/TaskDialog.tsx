@@ -105,12 +105,14 @@ export const TaskDialog = ({
             : "Set Deadline"
       }
       onClose={onClose}
+      onConfirm={onSubmitTask}
     >
       <div className={`task-dialog-shell task-dialog-mode-${mode}`}>
         <div className="dialog-field task-dialog-field">
           <label htmlFor="task-title">Task Title:</label>
           <input
             id="task-title"
+            autoFocus
             value={draftTaskTitle}
             maxLength={TASK_TITLE_MAX_LENGTH}
             onBeforeInput={handleTitleBeforeInput}

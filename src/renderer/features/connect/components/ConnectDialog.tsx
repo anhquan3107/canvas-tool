@@ -1,4 +1,7 @@
+import { useRef } from "react";
 import { DialogFrame } from "@renderer/ui/DialogFrame";
+import { createDialogKeyDownHandler } from "@renderer/ui/dialog-keyboard";
+import { useDialogInitialFocus } from "@renderer/ui/use-dialog-initial-focus";
 import type { CaptureQuality, CaptureSource } from "@renderer/features/connect/types";
 import { CAPTURE_QUALITY_PROFILES } from "@renderer/features/connect/utils";
 
@@ -27,6 +30,10 @@ export const ConnectDialog = ({
   onQualityChange,
   onConfirm,
 }: ConnectDialogProps) => {
+  const embeddedDialogRef = useRef<HTMLDivElement | null>(null);
+
+  useDialogInitialFocus(embeddedDialogRef, open && embedded);
+
   if (!open) {
     return null;
   }
@@ -114,7 +121,19 @@ export const ConnectDialog = ({
   );
 
   if (embedded) {
-    return <div className="connect-dialog-embedded">{content}</div>;
+    return (
+      <div
+        ref={embeddedDialogRef}
+        className="connect-dialog-embedded"
+        onKeyDown={createDialogKeyDownHandler({
+          onClose,
+          onConfirm: selectedSourceId && !loading ? onConfirm : undefined,
+        })}
+        tabIndex={-1}
+      >
+        {content}
+      </div>
+    );
   }
 
   return (
@@ -122,6 +141,7 @@ export const ConnectDialog = ({
       className="connect-dialog-card"
       title="Connect Capture"
       onClose={onClose}
+      onConfirm={selectedSourceId && !loading ? onConfirm : undefined}
     >
       {content}
     </DialogFrame>

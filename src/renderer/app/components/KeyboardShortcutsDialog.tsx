@@ -1,4 +1,4 @@
-import { useMemo, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import {
   SHORTCUT_DEFINITIONS,
   type ShortcutActionId,
@@ -7,6 +7,8 @@ import {
 } from "@shared/shortcuts";
 import { keyboardEventToShortcut } from "@renderer/hooks/use-shortcuts";
 import { DialogScrim } from "@renderer/ui/DialogScrim";
+import { createDialogKeyDownHandler } from "@renderer/ui/dialog-keyboard";
+import { useDialogInitialFocus } from "@renderer/ui/use-dialog-initial-focus";
 
 interface KeyboardShortcutsDialogProps {
   open: boolean;
@@ -41,9 +43,12 @@ export const KeyboardShortcutsDialog = ({
   onResetTooltips,
   onSave,
 }: KeyboardShortcutsDialogProps) => {
+  const dialogRef = useRef<HTMLDivElement | null>(null);
   const [capturingActionId, setCapturingActionId] = useState<ShortcutActionId | null>(
     null,
   );
+
+  useDialogInitialFocus(dialogRef, open);
 
   const sections = useMemo(
     () =>
@@ -79,11 +84,18 @@ export const KeyboardShortcutsDialog = ({
   return (
     <DialogScrim onClose={onClose} role="presentation">
       <div
+        ref={dialogRef}
         className="dialog-panel shortcut-dialog"
         role="dialog"
         aria-modal="true"
         aria-label="Keyboard shortcuts"
         onClick={(event) => event.stopPropagation()}
+        onKeyDown={createDialogKeyDownHandler({
+          onClose,
+          onConfirm: () => void onSave(),
+          confirmDisabled: capturingActionId !== null,
+        })}
+        tabIndex={-1}
       >
         <header className="shortcut-dialog-header">
           <div>

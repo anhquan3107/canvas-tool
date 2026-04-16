@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import {
   BadgeInfo,
   BookOpenText,
@@ -21,6 +22,8 @@ import {
 import type { ShortcutActionId, ShortcutBindings } from "@shared/shortcuts";
 import { formatMenuShortcut } from "@renderer/app/components/MenuItemContent";
 import { DialogScrim } from "@renderer/ui/DialogScrim";
+import { createDialogKeyDownHandler } from "@renderer/ui/dialog-keyboard";
+import { useDialogInitialFocus } from "@renderer/ui/use-dialog-initial-focus";
 
 interface HelpFeature {
   icon: LucideIcon;
@@ -199,6 +202,10 @@ export const HelpTutorialDialog = ({
   open,
   onClose,
 }: HelpTutorialDialogProps) => {
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+
+  useDialogInitialFocus(dialogRef, open);
+
   if (!open) {
     return null;
   }
@@ -206,11 +213,14 @@ export const HelpTutorialDialog = ({
   return (
     <DialogScrim onClose={onClose}>
       <div
+        ref={dialogRef}
         className="help-dialog"
         onClick={(event) => event.stopPropagation()}
+        onKeyDown={createDialogKeyDownHandler({ onClose })}
         role="dialog"
         aria-modal="true"
         aria-label="CanvasTool tutorial"
+        tabIndex={-1}
       >
         <header className="help-dialog-header">
           <div className="help-dialog-title-block">

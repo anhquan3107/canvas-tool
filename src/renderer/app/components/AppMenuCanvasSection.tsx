@@ -107,7 +107,7 @@ export const AppMenuCanvasSection = ({
           disabled={canvasActionsDisabled}
           onClick={() => {
             if (!canvasActionsDisabled) {
-              setCanvasArrangeOpen((open) => !open);
+              setCanvasArrangeOpen(true);
             }
           }}
         >
@@ -144,7 +144,7 @@ export const AppMenuCanvasSection = ({
           disabled={canvasActionsDisabled}
           onClick={() => {
             if (!canvasActionsDisabled) {
-              setFilterOpen((open) => !open);
+              setFilterOpen(true);
             }
           }}
         >

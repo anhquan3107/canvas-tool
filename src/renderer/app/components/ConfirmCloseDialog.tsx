@@ -36,7 +36,12 @@ export const ConfirmCloseDialog = ({
         <button type="button" className="dialog-button" onClick={onDiscard}>
           Don&apos;t Save
         </button>
-        <button type="button" className="dialog-button" onClick={onCancel}>
+        <button
+          type="button"
+          className="dialog-button"
+          onClick={onCancel}
+          data-dialog-autofocus="true"
+        >
           Cancel
         </button>
       </div>

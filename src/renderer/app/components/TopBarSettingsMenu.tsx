@@ -127,6 +127,11 @@ export const TopBarSettingsMenu = ({
   };
 
   const runMenuAction = (action: () => void) => {
+    const activeElement = document.activeElement;
+    if (activeElement instanceof HTMLElement) {
+      activeElement.blur();
+    }
+
     closeMenus();
     action();
   };

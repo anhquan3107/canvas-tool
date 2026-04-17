@@ -46,7 +46,7 @@ export const AppMenuTaskSection = ({
         disabled={canvasLocked}
         onClick={() => {
           if (!canvasLocked) {
-            setTaskExportOpen((open) => !open);
+            setTaskExportOpen(true);
           }
         }}
       >

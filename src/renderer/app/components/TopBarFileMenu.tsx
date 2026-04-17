@@ -69,7 +69,7 @@ export const TopBarFileMenu = ({
         <button
           type="button"
           className="topbar-settings-submenu-trigger"
-          onClick={() => setExportOpen((open) => !open)}
+          onClick={() => setExportOpen(true)}
         >
           <MenuItemContent icon="export" label="Export" submenu />
         </button>

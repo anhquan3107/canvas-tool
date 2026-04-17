@@ -56,7 +56,7 @@ export const TopBarExportMenu = ({
         <button
           type="button"
           className="topbar-settings-submenu-trigger"
-          onClick={() => setTaskExportOpen((open) => !open)}
+          onClick={() => setTaskExportOpen(true)}
         >
           <MenuItemContent icon="task" label="Export Tasks" submenu />
         </button>

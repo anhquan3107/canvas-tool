@@ -62,7 +62,7 @@ export const AppMenuFileSection = ({
         <button
           type="button"
           className="app-menu-submenu-trigger"
-          onClick={() => setExportOpen((open) => !open)}
+          onClick={() => setExportOpen(true)}
         >
           <MenuItemContent icon="export" label="Export" submenu />
         </button>

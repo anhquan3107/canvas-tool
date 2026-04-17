@@ -22,6 +22,7 @@ export const CanvasSizeDialog = ({
 }: CanvasSizeDialogProps) => {
   const [maintainAspectRatio, setMaintainAspectRatio] = useState(true);
   const aspectRatioRef = useRef(1);
+  const widthInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!open) {
@@ -35,6 +36,18 @@ export const CanvasSizeDialog = ({
         ? width / height
         : 1;
     setMaintainAspectRatio(true);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const frameId = window.requestAnimationFrame(() => {
+      widthInputRef.current?.select();
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
   }, [open]);
 
   if (!open) {
@@ -100,6 +113,7 @@ export const CanvasSizeDialog = ({
         <div className="dialog-field task-dialog-field group-dialog-field">
           <label htmlFor="canvas-width">Canvas width:</label>
           <input
+            ref={widthInputRef}
             className="group-dialog-input"
             id="canvas-width"
             type="text"

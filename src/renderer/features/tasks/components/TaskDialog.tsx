@@ -31,6 +31,7 @@ export const TaskDialog = ({
   onDraftTaskTitleChange,
   onTaskDatesChange,
 }: TaskDialogProps) => {
+  const titleInputRef = useRef<HTMLInputElement | null>(null);
   const startDateInputRef = useRef<HTMLInputElement | null>(null);
   const endDateInputRef = useRef<HTMLInputElement | null>(null);
   const [showTitleLimitWarning, setShowTitleLimitWarning] = useState(false);
@@ -39,6 +40,18 @@ export const TaskDialog = ({
     if (!open) {
       setShowTitleLimitWarning(false);
     }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const frameId = window.requestAnimationFrame(() => {
+      titleInputRef.current?.select();
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
   }, [open]);
 
   const openDatePicker = (input: HTMLInputElement | null) => {
@@ -111,6 +124,7 @@ export const TaskDialog = ({
         <div className="dialog-field task-dialog-field">
           <label htmlFor="task-title">Task Title:</label>
           <input
+            ref={titleInputRef}
             id="task-title"
             autoFocus
             value={draftTaskTitle}

@@ -1,4 +1,4 @@
-import type { Dispatch, SetStateAction } from "react";
+import { useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import { DialogFrame } from "@renderer/ui/DialogFrame";
 
 interface GroupDialogProps {
@@ -18,6 +18,20 @@ export const GroupDialog = ({
   onCreateGroup,
   onDraftGroupNameChange,
 }: GroupDialogProps) => {
+  const nameInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const frameId = window.requestAnimationFrame(() => {
+      nameInputRef.current?.select();
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [open]);
+
   if (!open) {
     return null;
   }
@@ -33,6 +47,7 @@ export const GroupDialog = ({
       <div className="dialog-field task-dialog-field group-dialog-field">
         <label htmlFor="group-name">Enter group name:</label>
         <input
+          ref={nameInputRef}
           className="group-dialog-input"
           id="group-name"
           autoFocus

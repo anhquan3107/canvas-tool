@@ -159,6 +159,7 @@ const desktopApi: DesktopApi = {
   clipboard: {
     writeImageFromDataUrl: (payload) =>
       ipcRenderer.invoke("clipboard:write-image-data-url", payload),
+    readImageAsDataUrl: () => ipcRenderer.invoke("clipboard:read-image-data-url"),
   },
   import: {
     fetchRemoteImageDataUrl: (payload) =>

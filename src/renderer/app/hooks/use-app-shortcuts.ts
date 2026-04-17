@@ -325,6 +325,8 @@ export const useAppShortcuts = ({
 
       const payload = collectClipboardPayload(event);
       if (payload.files.length === 0 && payload.urls.length === 0) {
+        event.preventDefault();
+        pasteClipboardItems();
         return;
       }
 
@@ -334,5 +336,5 @@ export const useAppShortcuts = ({
 
     window.addEventListener("paste", onPaste);
     return () => window.removeEventListener("paste", onPaste);
-  }, [clipboardItems.length, importFromPayload, pasteClipboardItems]);
+  }, [importFromPayload, pasteClipboardItems]);
 };

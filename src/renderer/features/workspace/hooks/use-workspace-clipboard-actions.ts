@@ -1,15 +1,18 @@
 import {
   useCallback,
+  useRef,
   type Dispatch,
   type SetStateAction,
 } from "react";
 import type { CanvasItem, ImageItem, ReferenceGroup } from "@shared/types/project";
 import type { ImagePatch, ToastKind } from "@renderer/features/workspace/types";
+import type { ImportPayload } from "@renderer/features/import/image-import";
 
 interface UseWorkspaceClipboardActionsOptions {
   activeGroup: ReferenceGroup | undefined;
   clipboardItems: CanvasItem[];
   selectedItemIds: string[];
+  importFromPayload: (payload: ImportPayload) => Promise<void>;
   addGroupItems: (groupId: string, items: CanvasItem[]) => void;
   removeGroupItems: (groupId: string, itemIds: string[]) => void;
   patchGroupItems: (groupId: string, updates: Record<string, ImagePatch>) => void;
@@ -35,10 +38,131 @@ interface UseWorkspaceClipboardActionsOptions {
   ) => void;
 }
 
+const loadClipboardImage = (assetPath: string) =>
+  new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error(`Failed to load clipboard image: ${assetPath}`));
+    image.src = assetPath;
+  });
+
+const getItemRenderSize = (item: ImageItem) => ({
+  width:
+    Math.max(1, item.width) *
+    Math.max(1e-3, Math.abs(item.scaleX) || 1),
+  height:
+    Math.max(1, item.height) *
+    Math.max(1e-3, Math.abs(item.scaleY) || 1),
+});
+
+const getRotatedBounds = (item: ImageItem) => {
+  const { width, height } = getItemRenderSize(item);
+  const centerX = item.x + width * 0.5;
+  const centerY = item.y + height * 0.5;
+  const radians = (item.rotation * Math.PI) / 180;
+  const cosine = Math.cos(radians);
+  const sine = Math.sin(radians);
+  const halfWidth = width * 0.5;
+  const halfHeight = height * 0.5;
+  const corners = [
+    { x: -halfWidth, y: -halfHeight },
+    { x: halfWidth, y: -halfHeight },
+    { x: halfWidth, y: halfHeight },
+    { x: -halfWidth, y: halfHeight },
+  ].map(({ x, y }) => ({
+    x: centerX + x * cosine - y * sine,
+    y: centerY + x * sine + y * cosine,
+  }));
+
+  return {
+    minX: Math.min(...corners.map((corner) => corner.x)),
+    minY: Math.min(...corners.map((corner) => corner.y)),
+    maxX: Math.max(...corners.map((corner) => corner.x)),
+    maxY: Math.max(...corners.map((corner) => corner.y)),
+  };
+};
+
+const renderClipboardSelectionDataUrl = async (items: ImageItem[]) => {
+  const renderableItems = items.filter(
+    (item): item is ImageItem & { assetPath: string } =>
+      item.visible !== false &&
+      typeof item.assetPath === "string" &&
+      item.assetPath.startsWith("data:image/"),
+  );
+
+  if (renderableItems.length === 0) {
+    return null;
+  }
+
+  const images = await Promise.all(
+    renderableItems.map(async (item) => ({
+      item,
+      image: await loadClipboardImage(item.assetPath),
+    })),
+  ).catch(() => null);
+
+  if (!images || images.length === 0) {
+    return null;
+  }
+
+  const bounds = images.map(({ item }) => getRotatedBounds(item));
+  const minX = Math.min(...bounds.map((bound) => bound.minX));
+  const minY = Math.min(...bounds.map((bound) => bound.minY));
+  const maxX = Math.max(...bounds.map((bound) => bound.maxX));
+  const maxY = Math.max(...bounds.map((bound) => bound.maxY));
+  const width = Math.max(1, Math.ceil(maxX - minX));
+  const height = Math.max(1, Math.ceil(maxY - minY));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return null;
+  }
+
+  images.forEach(({ item, image }) => {
+    const { width: renderWidth, height: renderHeight } = getItemRenderSize(item);
+    const sourceWidth = Math.max(1, image.naturalWidth || image.width || 1);
+    const sourceHeight = Math.max(1, image.naturalHeight || image.height || 1);
+    const cropX = Math.max(0, Math.min(sourceWidth - 1, Math.round(item.cropX ?? 0)));
+    const cropY = Math.max(0, Math.min(sourceHeight - 1, Math.round(item.cropY ?? 0)));
+    const cropWidth = Math.max(
+      1,
+      Math.min(sourceWidth - cropX, Math.round(item.cropWidth ?? sourceWidth)),
+    );
+    const cropHeight = Math.max(
+      1,
+      Math.min(sourceHeight - cropY, Math.round(item.cropHeight ?? sourceHeight)),
+    );
+    const centerX = item.x + renderWidth * 0.5 - minX;
+    const centerY = item.y + renderHeight * 0.5 - minY;
+
+    context.save();
+    context.translate(centerX, centerY);
+    context.rotate((item.rotation * Math.PI) / 180);
+    context.scale(item.flippedX ? -1 : 1, 1);
+    context.drawImage(
+      image,
+      cropX,
+      cropY,
+      cropWidth,
+      cropHeight,
+      -renderWidth * 0.5,
+      -renderHeight * 0.5,
+      renderWidth,
+      renderHeight,
+    );
+    context.restore();
+  });
+
+  return canvas.toDataURL("image/png");
+};
+
 export const useWorkspaceClipboardActions = ({
   activeGroup,
   clipboardItems,
   selectedItemIds,
+  importFromPayload,
   addGroupItems,
   removeGroupItems,
   patchGroupItems,
@@ -49,6 +173,28 @@ export const useWorkspaceClipboardActions = ({
   runHistoryBatch,
   ensureCanvasFitsItems,
 }: UseWorkspaceClipboardActionsOptions) => {
+  const lastSystemClipboardImageRef = useRef<string | null>(null);
+
+  const syncSystemClipboardImage = useCallback(async (items: CanvasItem[]) => {
+    const imageItems = items.filter(
+      (item): item is ImageItem => item.type === "image",
+    );
+
+    const dataUrl = await renderClipboardSelectionDataUrl(imageItems);
+    if (!dataUrl) {
+      return false;
+    }
+
+    const didWrite = await window.desktopApi.clipboard.writeImageFromDataUrl({
+      dataUrl,
+    });
+    if (didWrite) {
+      lastSystemClipboardImageRef.current = dataUrl;
+    }
+
+    return didWrite;
+  }, []);
+
   const copySelectedItemsToClipboard = useCallback(() => {
     if (!activeGroup || selectedItemIds.length === 0) {
       pushToast("info", "No selected items to copy.");
@@ -65,8 +211,15 @@ export const useWorkspaceClipboardActions = ({
     }
 
     setClipboardItems(structuredClone(selectedItems));
+    void syncSystemClipboardImage(selectedItems);
     pushToast("success", `Copied ${selectedItems.length} item(s) to clipboard.`);
-  }, [activeGroup, pushToast, selectedItemIds, setClipboardItems]);
+  }, [
+    activeGroup,
+    pushToast,
+    selectedItemIds,
+    setClipboardItems,
+    syncSystemClipboardImage,
+  ]);
 
   const cutSelectedItems = useCallback(() => {
     if (!activeGroup || selectedItemIds.length === 0) {
@@ -89,6 +242,7 @@ export const useWorkspaceClipboardActions = ({
     }
 
     setClipboardItems(structuredClone(selectedItems));
+    void syncSystemClipboardImage(selectedItems);
     runHistoryBatch(() => {
       removeGroupItems(activeGroup.id, selectedItemIds);
       setSelectedItemIds([]);
@@ -102,10 +256,11 @@ export const useWorkspaceClipboardActions = ({
     selectedItemIds,
     setClipboardItems,
     setSelectedItemIds,
+    syncSystemClipboardImage,
   ]);
 
   const pasteClipboardItems = useCallback(() => {
-    if (!activeGroup || clipboardItems.length === 0) {
+    if (!activeGroup) {
       pushToast("info", "Clipboard is empty.");
       return;
     }
@@ -115,40 +270,68 @@ export const useWorkspaceClipboardActions = ({
       return;
     }
 
-    const maxExistingZ = activeGroup.items.reduce(
-      (acc, item) => Math.max(acc, item.zIndex),
-      -1,
-    );
+    void (async () => {
+      const nativeClipboardImage = await window.desktopApi.clipboard
+        .readImageAsDataUrl()
+        .catch(() => null);
 
-    const duplicates = clipboardItems.map((item, index) => ({
-      ...structuredClone(item),
-      id: crypto.randomUUID(),
-      x: item.x + 24,
-      y: item.y + 24,
-      zIndex: maxExistingZ + index + 1,
-    }));
+      const shouldPasteInternalClipboard =
+        clipboardItems.length > 0 &&
+        (
+          nativeClipboardImage === null ||
+          nativeClipboardImage === lastSystemClipboardImageRef.current
+        );
 
-    runHistoryBatch(() => {
-      addGroupItems(activeGroup.id, duplicates);
-      setSelectedItemIds(duplicates.map((item) => item.id));
-      ensureCanvasFitsItems(
-        activeGroup.id,
-        [...activeGroup.items, ...duplicates],
-        activeGroup.canvasSize,
-        {
-          zoom: activeGroup.zoom,
-          panX: activeGroup.panX,
-          panY: activeGroup.panY,
-        },
+      if (!shouldPasteInternalClipboard && nativeClipboardImage) {
+        await importFromPayload({
+          source: "clipboard",
+          files: [],
+          urls: [nativeClipboardImage],
+        });
+        return;
+      }
+
+      if (clipboardItems.length === 0) {
+        pushToast("info", "Clipboard is empty.");
+        return;
+      }
+
+      const maxExistingZ = activeGroup.items.reduce(
+        (acc, item) => Math.max(acc, item.zIndex),
+        -1,
       );
-    });
 
-    pushToast("success", `Pasted ${duplicates.length} item(s).`);
+      const duplicates = clipboardItems.map((item, index) => ({
+        ...structuredClone(item),
+        id: crypto.randomUUID(),
+        x: item.x + 24,
+        y: item.y + 24,
+        zIndex: maxExistingZ + index + 1,
+      }));
+
+      runHistoryBatch(() => {
+        addGroupItems(activeGroup.id, duplicates);
+        setSelectedItemIds(duplicates.map((item) => item.id));
+        ensureCanvasFitsItems(
+          activeGroup.id,
+          [...activeGroup.items, ...duplicates],
+          activeGroup.canvasSize,
+          {
+            zoom: activeGroup.zoom,
+            panX: activeGroup.panX,
+            panY: activeGroup.panY,
+          },
+        );
+      });
+
+      pushToast("success", `Pasted ${duplicates.length} item(s).`);
+    })();
   }, [
     activeGroup,
     addGroupItems,
     clipboardItems,
     ensureCanvasFitsItems,
+    importFromPayload,
     pushToast,
     runHistoryBatch,
     setSelectedItemIds,

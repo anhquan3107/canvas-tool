@@ -152,6 +152,7 @@ export const useCanvasWorkspace = ({
     activeGroup,
     clipboardItems,
     selectedItemIds,
+    importFromPayload,
     addGroupItems,
     removeGroupItems,
     patchGroupItems,

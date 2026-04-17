@@ -29,6 +29,15 @@ export const registerImportHandlers = (window: BrowserWindow) => {
     return true;
   });
 
+  ipcMain.handle("clipboard:read-image-data-url", () => {
+    const image = clipboard.readImage();
+    if (image.isEmpty()) {
+      return null;
+    }
+
+    return image.toDataURL();
+  });
+
   ipcMain.handle("import:fetch-remote-image-data-url", async (_, rawPayload) => {
     const payload = ensureRemoteImageFetchPayload(rawPayload);
     if (!payload) {

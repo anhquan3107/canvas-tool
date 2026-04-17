@@ -229,6 +229,7 @@ export interface DesktopApi {
     writeImageFromDataUrl: (
       payload: ClipboardWriteImageRequest,
     ) => Promise<boolean>;
+    readImageAsDataUrl: () => Promise<string | null>;
   };
   import: {
     fetchRemoteImageDataUrl: (

@@ -7,8 +7,11 @@ import { decodeDataUrl, toDataUrl } from "../ipc/ipc-utils";
 
 const DOT_GAIN_20_PROFILE_FILE = "Dot_Gain_20%_Canvas.icc";
 const DOT_GAIN_20_OUTPUT_MIME = "image/png";
+const DOT_GAIN_20_TRANSFER_TABLE_SIZE = 256;
 
 const dotGain20Cache = new Map<string, Promise<string | null>>();
+let dotGain20TransferTablePromise: Promise<string | null> | null = null;
+let dotGain20CaptureLookupTablePromise: Promise<number[] | null> | null = null;
 
 const getDotGain20ProfilePath = () => {
   const basePath = app.isPackaged ? process.resourcesPath : app.getAppPath();
@@ -61,4 +64,85 @@ export const getDotGain20ImageDataUrl = async (source: string) => {
   );
   dotGain20Cache.set(cacheKey, transformPromise);
   return transformPromise;
+};
+
+export const getDotGain20TransferTable = async () => {
+  if (dotGain20TransferTablePromise) {
+    return dotGain20TransferTablePromise;
+  }
+
+  dotGain20TransferTablePromise = (async () => {
+    const input = Buffer.alloc(DOT_GAIN_20_TRANSFER_TABLE_SIZE * 3);
+    for (let index = 0; index < DOT_GAIN_20_TRANSFER_TABLE_SIZE; index += 1) {
+      input[index * 3] = index;
+      input[index * 3 + 1] = index;
+      input[index * 3 + 2] = index;
+    }
+
+    const { data, info } = await sharp(input, {
+      raw: {
+        width: DOT_GAIN_20_TRANSFER_TABLE_SIZE,
+        height: 1,
+        channels: 3,
+      },
+    })
+      .withIccProfile(getDotGain20ProfilePath(), { attach: true })
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+
+    if (info.channels < 1 || data.length < DOT_GAIN_20_TRANSFER_TABLE_SIZE) {
+      return null;
+    }
+
+    return Array.from(data.slice(0, DOT_GAIN_20_TRANSFER_TABLE_SIZE), (value) =>
+      (value / 255).toFixed(6),
+    ).join(" ");
+  })().catch(() => null);
+
+  return dotGain20TransferTablePromise;
+};
+
+const linearToSrgbByte = (value: number) => {
+  const boundedValue = Math.max(0, Math.min(1, value));
+  const srgb =
+    boundedValue <= 0.0031308
+      ? boundedValue * 12.92
+      : 1.055 * Math.pow(boundedValue, 1 / 2.4) - 0.055;
+
+  return Math.max(0, Math.min(255, Math.round(srgb * 255)));
+};
+
+export const getDotGain20CaptureLookupTable = async () => {
+  if (dotGain20CaptureLookupTablePromise) {
+    return dotGain20CaptureLookupTablePromise;
+  }
+
+  dotGain20CaptureLookupTablePromise = (async () => {
+    const input = Buffer.alloc(DOT_GAIN_20_TRANSFER_TABLE_SIZE * 3);
+    for (let index = 0; index < DOT_GAIN_20_TRANSFER_TABLE_SIZE; index += 1) {
+      const srgbValue = linearToSrgbByte(index / 255);
+      input[index * 3] = srgbValue;
+      input[index * 3 + 1] = srgbValue;
+      input[index * 3 + 2] = srgbValue;
+    }
+
+    const { data, info } = await sharp(input, {
+      raw: {
+        width: DOT_GAIN_20_TRANSFER_TABLE_SIZE,
+        height: 1,
+        channels: 3,
+      },
+    })
+      .withIccProfile(getDotGain20ProfilePath(), { attach: true })
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+
+    if (info.channels < 1 || data.length < DOT_GAIN_20_TRANSFER_TABLE_SIZE) {
+      return null;
+    }
+
+    return Array.from(data.slice(0, DOT_GAIN_20_TRANSFER_TABLE_SIZE));
+  })().catch(() => null);
+
+  return dotGain20CaptureLookupTablePromise;
 };

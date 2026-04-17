@@ -166,6 +166,10 @@ const desktopApi: DesktopApi = {
       ipcRenderer.invoke("import:fetch-remote-image-data-url", payload),
     convertImageToDotGain20DataUrl: (payload) =>
       ipcRenderer.invoke("import:convert-image-dot-gain-20-data-url", payload),
+    getDotGain20TransferTable: () =>
+      ipcRenderer.invoke("import:get-dot-gain-20-transfer-table"),
+    getDotGain20CaptureLookupTable: () =>
+      ipcRenderer.invoke("import:get-dot-gain-20-capture-lookup-table"),
     extractImageSwatches: (payload) =>
       ipcRenderer.invoke("import:extract-image-swatches", payload),
   },

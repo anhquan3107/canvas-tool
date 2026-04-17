@@ -49,6 +49,9 @@ const resolveTextureAssetPath = async (
   return variantPromise;
 };
 
+export const warmDotGain20TextureAssetPath = async (assetPath: string) =>
+  resolveTextureAssetPath(assetPath, { dotGain20: true });
+
 const loadTextureDirectly = async (assetPath: string) =>
   new Promise<Texture>((resolve, reject) => {
     const image = new Image();

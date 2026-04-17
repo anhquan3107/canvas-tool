@@ -1,7 +1,11 @@
 import { clipboard, dialog, ipcMain, nativeImage, type BrowserWindow } from "electron";
 import fs from "node:fs/promises";
 import { MAX_FETCH_SIZE_BYTES, getSenderWindow, isHttpUrl, taskImportDialogFilter, toDataUrl } from "./ipc-utils";
-import { getDotGain20ImageDataUrl } from "../services/dot-gain-icc";
+import {
+  getDotGain20CaptureLookupTable,
+  getDotGain20ImageDataUrl,
+  getDotGain20TransferTable,
+} from "../services/dot-gain-icc";
 import { extractImageSwatchesFromSource } from "../services/image-swatch-extractor";
 import {
   ensureClipboardWriteImagePayload,
@@ -90,6 +94,14 @@ export const registerImportHandlers = (window: BrowserWindow) => {
 
       return getDotGain20ImageDataUrl(payload.source);
     },
+  );
+
+  ipcMain.handle("import:get-dot-gain-20-transfer-table", async () =>
+    getDotGain20TransferTable(),
+  );
+
+  ipcMain.handle("import:get-dot-gain-20-capture-lookup-table", async () =>
+    getDotGain20CaptureLookupTable(),
   );
 
   ipcMain.handle("import:extract-image-swatches", async (_, rawPayload) => {

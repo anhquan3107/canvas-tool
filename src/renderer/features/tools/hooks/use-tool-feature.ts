@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReferenceGroup } from "@shared/types/project";
 import { TOOL_LABELS } from "@renderer/features/tools/constants";
 import type { DoodleMode, ToolMode } from "@renderer/features/tools/types";
+import { warmDotGain20TextureAssetPath } from "@renderer/pixi/utils/textures";
 
 interface UseToolFeatureOptions {
   activeGroup: ReferenceGroup | undefined;
@@ -39,8 +40,44 @@ export const useToolFeature = ({
     return typeof remembered === "number" && remembered > 0 ? remembered : 8;
   }, []);
 
+  const prewarmBlackAndWhiteAssets = useCallback(async () => {
+    if (!activeGroup) {
+      return;
+    }
+
+    const assetPaths = [
+      ...new Set(
+        activeGroup.items.flatMap((item) =>
+          item.type === "image" && item.assetPath ? [item.assetPath] : [],
+        ),
+      ),
+    ];
+    if (assetPaths.length === 0) {
+      return;
+    }
+
+    await Promise.all(
+      assetPaths.map((assetPath) => warmDotGain20TextureAssetPath(assetPath)),
+    );
+  }, [activeGroup]);
+
+  const toggleBlackAndWhiteInternal = useCallback(async () => {
+    if (!activeGroup) {
+      return;
+    }
+
+    const enabling = activeGroup.filters.grayscale <= 0;
+    if (enabling) {
+      await prewarmBlackAndWhiteAssets();
+    }
+
+    setGroupFilters(activeGroup.id, {
+      grayscale: enabling ? 100 : 0,
+    });
+  }, [activeGroup, prewarmBlackAndWhiteAssets, setGroupFilters]);
+
   const handleToolButton = useCallback(
-    (tool: ToolMode) => {
+    async (tool: ToolMode) => {
       if (tool === "blur") {
         if (!activeGroup) {
           return;
@@ -62,13 +99,7 @@ export const useToolFeature = ({
       }
 
       if (tool === "bw") {
-        if (!activeGroup) {
-          return;
-        }
-
-        setGroupFilters(activeGroup.id, {
-          grayscale: activeGroup.filters.grayscale > 0 ? 0 : 100,
-        });
+        await toggleBlackAndWhiteInternal();
         setActiveTool((previous) => (previous === "bw" ? null : previous));
         return;
       }
@@ -94,6 +125,7 @@ export const useToolFeature = ({
       onConnectRequested,
       pushToast,
       setGroupFilters,
+      toggleBlackAndWhiteInternal,
     ],
   );
 
@@ -129,14 +161,8 @@ export const useToolFeature = ({
   }, [activeGroup, activeTool, getRememberedBlurAmount, setGroupFilters]);
 
   const toggleBlackAndWhite = useCallback(() => {
-    if (!activeGroup) {
-      return;
-    }
-
-    setGroupFilters(activeGroup.id, {
-      grayscale: activeGroup.filters.grayscale > 0 ? 0 : 100,
-    });
-  }, [activeGroup, setGroupFilters]);
+    void toggleBlackAndWhiteInternal();
+  }, [toggleBlackAndWhiteInternal]);
 
   return {
     activeTool,

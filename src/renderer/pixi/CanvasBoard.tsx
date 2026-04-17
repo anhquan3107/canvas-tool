@@ -16,6 +16,7 @@ import {
   applySelectionVisualState,
   syncSelectionItemOrder,
 } from "@renderer/pixi/hooks/use-board-selection-visuals";
+import { refreshBoardImageVisuals } from "@renderer/pixi/hooks/use-board-item-render";
 import { useCaptureSessions } from "@renderer/pixi/hooks/use-capture-sessions";
 import { useCanvasBoardAnnotations } from "@renderer/pixi/hooks/use-canvas-board-annotations";
 import { useCanvasBoardBootstrap } from "@renderer/pixi/hooks/use-canvas-board-bootstrap";
@@ -122,6 +123,7 @@ export const CanvasBoard = ({
   const cropSessionRef = useRef<CropSession | null>(cropSession);
   const [appReady, setAppReady] = useState(false);
   const boardFilter = `blur(${group.filters.blur}px) grayscale(${group.filters.grayscale}%)`;
+  const lastAppliedGrayscaleRef = useRef(group.filters.grayscale);
 
   useEffect(() => {
     selectionIdsRef.current = selectedItemIds;
@@ -493,13 +495,49 @@ export const CanvasBoard = ({
   }, [
     appReady,
     group.id,
-    group.filters.grayscale,
     group.items,
     group.canvasSize.width,
     group.canvasSize.height,
     preserveLiveBoardView,
     rebuildScene,
   ]);
+
+  useEffect(() => {
+    if (!appReady) {
+      lastAppliedGrayscaleRef.current = group.filters.grayscale;
+      return;
+    }
+
+    if (lastAppliedGrayscaleRef.current === group.filters.grayscale) {
+      return;
+    }
+
+    lastAppliedGrayscaleRef.current = group.filters.grayscale;
+    const renderToken = ++renderTokenRef.current;
+
+    group.items.forEach((item) => {
+      if (item.type !== "image") {
+        return;
+      }
+
+      const itemNode = itemNodeByIdRef.current.get(item.id);
+      const frameMeta = frameMetaByIdRef.current.get(item.id);
+      if (!itemNode || !frameMeta) {
+        return;
+      }
+
+      refreshBoardImageVisuals({
+        item,
+        itemNode,
+        safeWidth: frameMeta.width,
+        safeHeight: frameMeta.height,
+        canvasZoom: group.zoom,
+        dotGain20BlackAndWhite: group.filters.grayscale > 0,
+        renderToken,
+        renderTokenRef,
+      });
+    });
+  }, [appReady, group.filters.grayscale, group.id, group.items, group.zoom]);
 
   useEffect(() => {
     const activeCaptureIds = new Set(

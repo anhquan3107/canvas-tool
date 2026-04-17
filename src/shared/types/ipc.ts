@@ -132,6 +132,8 @@ export interface ImageDotGainIccRequest {
   source: string;
 }
 
+export type DotGain20CaptureLookupTable = number[];
+
 export interface DesktopCaptureSource {
   id: string;
   name: string;
@@ -242,6 +244,8 @@ export interface DesktopApi {
     convertImageToDotGain20DataUrl: (
       payload: ImageDotGainIccRequest,
     ) => Promise<string | null>;
+    getDotGain20TransferTable: () => Promise<string | null>;
+    getDotGain20CaptureLookupTable: () => Promise<DotGain20CaptureLookupTable | null>;
     extractImageSwatches: (
       payload: ImageSwatchExtractRequest,
     ) => Promise<

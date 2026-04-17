@@ -117,6 +117,8 @@ const desktopApi: DesktopApi = {
     getControlsState: () => ipcRenderer.invoke("window:get-controls-state"),
     getPosition: () => ipcRenderer.invoke("window:get-position"),
     getPositionSync: () => ipcRenderer.sendSync("window:get-position-sync"),
+    getCursorScreenPointSync: () =>
+      ipcRenderer.sendSync("window:get-cursor-screen-point-sync"),
     getBounds: () => ipcRenderer.invoke("window:get-bounds"),
     getBoundsSync: () => ipcRenderer.sendSync("window:get-bounds-sync"),
     setPosition: (payload) => {

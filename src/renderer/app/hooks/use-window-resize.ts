@@ -100,6 +100,19 @@ const isSameBounds = (left: AppWindowBounds, right: AppWindowBounds) =>
 const isFiniteNumber = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value);
 
+const getNativeCursorScreenPosition = () => {
+  try {
+    const point = window.desktopApi.window.getCursorScreenPointSync();
+    if (!isFiniteNumber(point?.x) || !isFiniteNumber(point?.y)) {
+      return null;
+    }
+
+    return point;
+  } catch {
+    return null;
+  }
+};
+
 const isWindowsPointerCoordinatePlatform = () =>
   /win/i.test(
     ((navigator as Navigator & { userAgentData?: { platform?: string } })
@@ -109,12 +122,43 @@ const isWindowsPointerCoordinatePlatform = () =>
 const getPointerScreenPosition = (event: PointerEvent) => {
   const fallbackX = window.screenX + event.clientX;
   const fallbackY = window.screenY + event.clientY;
-  const preferFallback = isWindowsPointerCoordinatePlatform();
+  const preferNativeScreenCoords = isWindowsPointerCoordinatePlatform();
   const x =
-    preferFallback || !isFiniteNumber(event.screenX) ? fallbackX : event.screenX;
+    preferNativeScreenCoords && isFiniteNumber(event.screenX)
+      ? event.screenX
+      : fallbackX;
   const y =
-    preferFallback || !isFiniteNumber(event.screenY) ? fallbackY : event.screenY;
+    preferNativeScreenCoords && isFiniteNumber(event.screenY)
+      ? event.screenY
+      : fallbackY;
 
+  if (!isFiniteNumber(x) || !isFiniteNumber(y)) {
+    return null;
+  }
+
+  return { x, y };
+};
+
+const getPointerScreenPositionForBounds = (
+  event: PointerEvent,
+  bounds: Pick<AppWindowBounds, "x" | "y"> | null,
+) => {
+  const nativeCursorPosition = getNativeCursorScreenPosition();
+  if (nativeCursorPosition) {
+    return nativeCursorPosition;
+  }
+
+  if (isWindowsPointerCoordinatePlatform()) {
+    return getPointerScreenPosition(event);
+  }
+
+  const referenceBounds = bounds ?? getSynchronousBounds();
+  if (!referenceBounds) {
+    return getPointerScreenPosition(event);
+  }
+
+  const x = referenceBounds.x + event.clientX;
+  const y = referenceBounds.y + event.clientY;
   if (!isFiniteNumber(x) || !isFiniteNumber(y)) {
     return null;
   }
@@ -204,7 +248,10 @@ export const useWindowResize = (
         return;
       }
 
-      const pointerScreenPosition = getPointerScreenPosition(event);
+      const pointerScreenPosition = getPointerScreenPositionForBounds(
+        event,
+        startBounds,
+      );
       if (!pointerScreenPosition) {
         return;
       }
@@ -233,7 +280,10 @@ export const useWindowResize = (
         return;
       }
 
-      const pointerScreenPosition = getPointerScreenPosition(event);
+      const pointerScreenPosition = getPointerScreenPositionForBounds(
+        event,
+        resizeState.latestBounds,
+      );
       if (!pointerScreenPosition) {
         return;
       }

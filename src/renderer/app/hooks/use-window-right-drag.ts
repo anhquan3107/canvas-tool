@@ -42,6 +42,19 @@ const isElement = (target: EventTarget | null): target is HTMLElement =>
 const isFiniteNumber = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value);
 
+const getNativeCursorScreenPosition = () => {
+  try {
+    const point = window.desktopApi.window.getCursorScreenPointSync();
+    if (!isFiniteNumber(point?.x) || !isFiniteNumber(point?.y)) {
+      return null;
+    }
+
+    return point;
+  } catch {
+    return null;
+  }
+};
+
 const isFinitePosition = (
   value: { x: number; y: number } | null,
 ): value is { x: number; y: number } =>
@@ -67,6 +80,32 @@ const getPointerScreenPosition = (event: PointerEvent) => {
   const y =
     preferFallback || !isFiniteNumber(event.screenY) ? fallbackY : event.screenY;
 
+  if (!isFiniteNumber(x) || !isFiniteNumber(y)) {
+    return null;
+  }
+
+  return { x, y };
+};
+
+const getPointerScreenPositionForWindow = (
+  event: PointerEvent,
+  windowPosition: { x: number; y: number } | null,
+) => {
+  const nativeCursorPosition = getNativeCursorScreenPosition();
+  if (nativeCursorPosition) {
+    return nativeCursorPosition;
+  }
+
+  if (event.pointerType === "pen" || isWindowsPointerCoordinatePlatform()) {
+    return getPointerScreenPosition(event);
+  }
+
+  if (!isFinitePosition(windowPosition)) {
+    return getPointerScreenPosition(event);
+  }
+
+  const x = windowPosition.x + event.clientX;
+  const y = windowPosition.y + event.clientY;
   if (!isFiniteNumber(x) || !isFiniteNumber(y)) {
     return null;
   }
@@ -263,11 +302,6 @@ export const useWindowRightDrag = () => {
         return;
       }
 
-      const pointerScreenPosition = getPointerScreenPosition(event);
-      if (!pointerScreenPosition) {
-        return;
-      }
-
       flushPendingMoveImmediately();
 
       const token = ++dragToken;
@@ -277,6 +311,13 @@ export const useWindowRightDrag = () => {
       cachedWindowPosition = isFinitePosition(initialPosition)
         ? initialPosition
         : null;
+      const pointerScreenPosition = getPointerScreenPositionForWindow(
+        event,
+        cachedWindowPosition,
+      );
+      if (!pointerScreenPosition) {
+        return;
+      }
 
       if (captureTarget) {
         try {
@@ -368,7 +409,10 @@ export const useWindowRightDrag = () => {
         return;
       }
 
-      const pointerScreenPosition = getPointerScreenPosition(event);
+      const pointerScreenPosition = getPointerScreenPositionForWindow(event, {
+        x: dragState.windowX,
+        y: dragState.windowY,
+      });
       if (!pointerScreenPosition) {
         return;
       }

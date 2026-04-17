@@ -113,7 +113,9 @@ export const CaptureWindowApp = () => {
   const [windowMaximized, setWindowMaximized] = useState(false);
   const [windowAlwaysOnTop, setWindowAlwaysOnTop] = useState(false);
   const [shortcutBindings, setShortcutBindings] = useState(DEFAULT_SHORTCUT_BINDINGS);
-  useWindowResize(!windowMaximized);
+  useWindowResize(!windowMaximized, {
+    mode: "live",
+  });
 
   const loadSources = useCallback(async () => {
     setLoadingSources(true);

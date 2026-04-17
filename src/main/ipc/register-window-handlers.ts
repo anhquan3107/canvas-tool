@@ -1,4 +1,4 @@
-import { ipcMain, type BrowserWindow } from "electron";
+import { ipcMain, screen, type BrowserWindow } from "electron";
 import type {
   AppWindowBounds,
   AppWindowIgnoreMouseRequest,
@@ -95,6 +95,14 @@ export const registerWindowHandlers = (window: BrowserWindow) => {
     const targetWindow = getTargetWindow(event);
     const [x, y] = targetWindow.getPosition();
     event.returnValue = { x, y } satisfies AppWindowPosition;
+  });
+
+  ipcMain.on("window:get-cursor-screen-point-sync", (event) => {
+    const point = screen.getCursorScreenPoint();
+    event.returnValue = {
+      x: point.x,
+      y: point.y,
+    } satisfies AppWindowPosition;
   });
 
   ipcMain.handle("window:get-bounds", (event): AppWindowBounds => {

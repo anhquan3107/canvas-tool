@@ -215,7 +215,6 @@ export interface DesktopApi {
     getControlsState: () => Promise<AppWindowControlsState>;
     getPosition: () => Promise<AppWindowPosition>;
     getPositionSync: () => AppWindowPosition;
-    getCursorScreenPointSync: () => AppWindowPosition;
     getBounds: () => Promise<AppWindowBounds>;
     getBoundsSync: () => AppWindowBounds;
     setPosition: (payload: AppWindowPosition) => Promise<void>;

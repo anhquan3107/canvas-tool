@@ -8,6 +8,8 @@ import type { CanvasItem, ImageItem, ReferenceGroup } from "@shared/types/projec
 import type { ImagePatch, ToastKind } from "@renderer/features/workspace/types";
 import type { ImportPayload } from "@renderer/features/import/image-import";
 
+const CLIPBOARD_MAX_RENDER_PIXELS = 24_000_000;
+
 interface UseWorkspaceClipboardActionsOptions {
   activeGroup: ReferenceGroup | undefined;
   clipboardItems: CanvasItem[];
@@ -38,12 +40,36 @@ interface UseWorkspaceClipboardActionsOptions {
   ) => void;
 }
 
+const resolveClipboardImageSource = (assetPath: string) => {
+  if (
+    assetPath.startsWith("data:") ||
+    assetPath.startsWith("blob:") ||
+    assetPath.startsWith("http://") ||
+    assetPath.startsWith("https://") ||
+    assetPath.startsWith("file://")
+  ) {
+    return assetPath;
+  }
+
+  if (/^[a-zA-Z]:[\\/]/.test(assetPath)) {
+    const normalized = assetPath.replace(/\\/g, "/");
+    return `file:///${encodeURI(normalized)}`;
+  }
+
+  if (assetPath.startsWith("/")) {
+    return `file://${encodeURI(assetPath)}`;
+  }
+
+  return assetPath;
+};
+
 const loadClipboardImage = (assetPath: string) =>
   new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new Image();
+    image.decoding = "async";
     image.onload = () => resolve(image);
     image.onerror = () => reject(new Error(`Failed to load clipboard image: ${assetPath}`));
-    image.src = assetPath;
+    image.src = resolveClipboardImageSource(assetPath);
   });
 
 const getItemRenderSize = (item: ImageItem) => ({
@@ -82,12 +108,40 @@ const getRotatedBounds = (item: ImageItem) => {
   };
 };
 
+const getImageSourceCrop = (item: ImageItem, image: HTMLImageElement) => {
+  const sourceWidth = Math.max(
+    1,
+    Math.round(item.originalWidth ?? image.naturalWidth ?? image.width ?? 1),
+  );
+  const sourceHeight = Math.max(
+    1,
+    Math.round(item.originalHeight ?? image.naturalHeight ?? image.height ?? 1),
+  );
+  const cropX = Math.max(0, Math.min(sourceWidth - 1, Math.round(item.cropX ?? 0)));
+  const cropY = Math.max(0, Math.min(sourceHeight - 1, Math.round(item.cropY ?? 0)));
+  const cropWidth = Math.max(
+    1,
+    Math.min(sourceWidth - cropX, Math.round(item.cropWidth ?? sourceWidth)),
+  );
+  const cropHeight = Math.max(
+    1,
+    Math.min(sourceHeight - cropY, Math.round(item.cropHeight ?? sourceHeight)),
+  );
+
+  return {
+    cropX,
+    cropY,
+    cropWidth,
+    cropHeight,
+  };
+};
+
 const renderClipboardSelectionDataUrl = async (items: ImageItem[]) => {
   const renderableItems = items.filter(
     (item): item is ImageItem & { assetPath: string } =>
       item.visible !== false &&
       typeof item.assetPath === "string" &&
-      item.assetPath.startsWith("data:image/"),
+      item.assetPath.length > 0,
   );
 
   if (renderableItems.length === 0) {
@@ -112,30 +166,48 @@ const renderClipboardSelectionDataUrl = async (items: ImageItem[]) => {
   const maxY = Math.max(...bounds.map((bound) => bound.maxY));
   const width = Math.max(1, Math.ceil(maxX - minX));
   const height = Math.max(1, Math.ceil(maxY - minY));
+  const desiredScale = Math.max(
+    1,
+    ...images.map(({ item, image }) => {
+      const { width: renderWidth, height: renderHeight } = getItemRenderSize(item);
+      const { cropWidth, cropHeight } = getImageSourceCrop(item, image);
+
+      return Math.max(
+        cropWidth / Math.max(1, renderWidth),
+        cropHeight / Math.max(1, renderHeight),
+        1,
+      );
+    }),
+  );
+  const maxScaleByPixels = Math.sqrt(
+    CLIPBOARD_MAX_RENDER_PIXELS / Math.max(1, width * height),
+  );
+  const exportScale = Math.max(
+    1,
+    Math.min(
+      desiredScale,
+      Number.isFinite(maxScaleByPixels) ? maxScaleByPixels : 1,
+    ),
+  );
+
   const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
+  canvas.width = Math.max(1, Math.ceil(width * exportScale));
+  canvas.height = Math.max(1, Math.ceil(height * exportScale));
   const context = canvas.getContext("2d");
   if (!context) {
     return null;
   }
 
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+
   images.forEach(({ item, image }) => {
     const { width: renderWidth, height: renderHeight } = getItemRenderSize(item);
-    const sourceWidth = Math.max(1, image.naturalWidth || image.width || 1);
-    const sourceHeight = Math.max(1, image.naturalHeight || image.height || 1);
-    const cropX = Math.max(0, Math.min(sourceWidth - 1, Math.round(item.cropX ?? 0)));
-    const cropY = Math.max(0, Math.min(sourceHeight - 1, Math.round(item.cropY ?? 0)));
-    const cropWidth = Math.max(
-      1,
-      Math.min(sourceWidth - cropX, Math.round(item.cropWidth ?? sourceWidth)),
-    );
-    const cropHeight = Math.max(
-      1,
-      Math.min(sourceHeight - cropY, Math.round(item.cropHeight ?? sourceHeight)),
-    );
-    const centerX = item.x + renderWidth * 0.5 - minX;
-    const centerY = item.y + renderHeight * 0.5 - minY;
+    const { cropX, cropY, cropWidth, cropHeight } = getImageSourceCrop(item, image);
+    const centerX = (item.x + renderWidth * 0.5 - minX) * exportScale;
+    const centerY = (item.y + renderHeight * 0.5 - minY) * exportScale;
+    const scaledRenderWidth = renderWidth * exportScale;
+    const scaledRenderHeight = renderHeight * exportScale;
 
     context.save();
     context.translate(centerX, centerY);
@@ -147,15 +219,19 @@ const renderClipboardSelectionDataUrl = async (items: ImageItem[]) => {
       cropY,
       cropWidth,
       cropHeight,
-      -renderWidth * 0.5,
-      -renderHeight * 0.5,
-      renderWidth,
-      renderHeight,
+      -scaledRenderWidth * 0.5,
+      -scaledRenderHeight * 0.5,
+      scaledRenderWidth,
+      scaledRenderHeight,
     );
     context.restore();
   });
 
-  return canvas.toDataURL("image/png");
+  try {
+    return canvas.toDataURL("image/png");
+  } catch {
+    return null;
+  }
 };
 
 export const useWorkspaceClipboardActions = ({

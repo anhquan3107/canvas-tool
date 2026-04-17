@@ -112,6 +112,7 @@ export const CaptureWindowApp = () => {
   const [blurEnabled, setBlurEnabled] = useState(false);
   const [blurAmount, setBlurAmount] = useState(8);
   const [bwEnabled, setBwEnabled] = useState(false);
+  const [bwFrameReady, setBwFrameReady] = useState(false);
   const [previewCropInsets, setPreviewCropInsets] =
     useState<PreviewCropInsets>(NO_PREVIEW_CROP);
   const [windowMaximized, setWindowMaximized] = useState(false);
@@ -299,6 +300,7 @@ export const CaptureWindowApp = () => {
     }
 
     context.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+    setBwFrameReady(false);
   }, [bwEnabled]);
 
   useEffect(() => {
@@ -316,6 +318,8 @@ export const CaptureWindowApp = () => {
     if (!previewContext) {
       return;
     }
+
+    setBwFrameReady(false);
 
     const sourceCanvas = document.createElement("canvas");
     const sourceContext = sourceCanvas.getContext("2d", { alpha: false });
@@ -425,7 +429,6 @@ export const CaptureWindowApp = () => {
             return;
           }
 
-          drawContext.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
           if (
             convertedFrameImage.complete &&
             convertedFrameImage.naturalWidth > 0 &&
@@ -438,6 +441,8 @@ export const CaptureWindowApp = () => {
               drawCanvas.width,
               drawCanvas.height,
             );
+
+            setBwFrameReady((previous) => (previous ? previous : true));
           }
         })
         .catch(() => undefined)
@@ -731,12 +736,12 @@ export const CaptureWindowApp = () => {
       previewCropInsets.bottom
         ? `translate(-${previewCropInsets.left}px, -${previewCropInsets.top}px)`
         : "none",
-    opacity: bwEnabled ? 0 : 1,
+    opacity: bwEnabled && bwFrameReady ? 0 : 1,
   };
 
   const previewCanvasStyle = {
     filter: blurEnabled ? `blur(${blurAmount}px)` : undefined,
-    opacity: bwEnabled ? 1 : 0,
+    opacity: bwEnabled && bwFrameReady ? 1 : 0,
   };
 
   return (

@@ -332,7 +332,7 @@ export const useCanvasBoardBootstrap = ({
           boardGraphicRef.current.cursor =
             activeToolRef.current === "doodle" && !spacePanActiveRef.current
               ? "none"
-              : "grab";
+              : "default";
         }
         commitView();
       };
@@ -392,9 +392,6 @@ export const useCanvasBoardBootstrap = ({
         }
 
         spacePanActiveRef.current = true;
-        if (boardGraphicRef.current && !isPanningRef.current) {
-          boardGraphicRef.current.cursor = "grab";
-        }
       };
 
       const onKeyUp = (event: KeyboardEvent) => {
@@ -405,7 +402,7 @@ export const useCanvasBoardBootstrap = ({
         spacePanActiveRef.current = false;
         if (boardGraphicRef.current && !isPanningRef.current) {
           boardGraphicRef.current.cursor =
-            activeToolRef.current === "doodle" ? "none" : "grab";
+            activeToolRef.current === "doodle" ? "none" : "default";
         }
       };
 

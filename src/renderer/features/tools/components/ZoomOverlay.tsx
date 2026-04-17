@@ -88,6 +88,7 @@ export const ZoomOverlay = ({
     viewportRef,
     stageStyle,
     imageStyle,
+    viewportCursor,
     slideshowBarVisible,
     setSlideshowBarVisible,
     setSlideshowBarHovering,
@@ -127,6 +128,7 @@ export const ZoomOverlay = ({
         gridSettings={gridSettings}
         stageStyle={stageStyle}
         imageStyle={imageStyle}
+        viewportCursor={viewportCursor}
         onWheel={handleWheel}
         onMouseDown={handleViewportMouseDown}
         onMouseMove={handlePointerMove}

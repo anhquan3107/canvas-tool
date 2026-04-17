@@ -339,6 +339,7 @@ export const useZoomViewport = ({
     viewportRef,
     stageStyle,
     imageStyle,
+    viewportCursor: isPanning ? "grabbing" : "default",
     slideshowBarVisible,
     setSlideshowBarVisible,
     setSlideshowBarHovering,

@@ -24,6 +24,7 @@ interface ZoomViewportProps {
     transform: string;
     filter?: string;
   };
+  viewportCursor: string;
   onWheel: (event: ReactWheelEvent<HTMLDivElement>) => void;
   onMouseDown: (event: ReactMouseEvent<HTMLDivElement>) => void;
   onMouseMove: (event: ReactMouseEvent<HTMLDivElement>) => void;
@@ -42,6 +43,7 @@ export const ZoomViewport = ({
   gridSettings,
   stageStyle,
   imageStyle,
+  viewportCursor,
   onWheel,
   onMouseDown,
   onMouseMove,
@@ -52,6 +54,7 @@ export const ZoomViewport = ({
   <div
     ref={viewportRef}
     className="zoom-overlay-viewport"
+    style={{ cursor: viewportCursor }}
     onWheel={onWheel}
     onMouseDown={onMouseDown}
     onMouseMove={onMouseMove}

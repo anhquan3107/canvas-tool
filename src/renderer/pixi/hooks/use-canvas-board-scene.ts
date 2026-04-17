@@ -133,7 +133,7 @@ export const useCanvasBoardScene = ({
     syncViewFromGroup();
 
     board.eventMode = "static";
-    board.cursor = doodleActive ? "none" : "grab";
+    board.cursor = doodleActive ? "none" : "default";
     board.removeAllListeners();
     drawBoardSurface();
 

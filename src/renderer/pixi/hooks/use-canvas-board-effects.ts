@@ -76,7 +76,7 @@ export const useCanvasBoardEffects = ({
     const doodleActive = activeTool === "doodle";
 
     if (board && !refs.isPanningRef.current) {
-      board.cursor = doodleActive ? "none" : "grab";
+      board.cursor = doodleActive ? "none" : "default";
     }
 
     const itemById = new Map(group.items.map((item) => [item.id, item]));
@@ -215,7 +215,7 @@ export const useCanvasBoardEffects = ({
         refs.boardGraphicRef.current.cursor =
           refs.activeToolRef.current === "doodle" && !refs.spacePanActiveRef.current
             ? "none"
-            : "grab";
+            : "default";
       }
     }
 

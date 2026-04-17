@@ -50,6 +50,12 @@ export const getDotGain20ImageDataUrl = async (source: string) => {
     return null;
   }
 
+  // Live capture frames are unique data URLs; caching each one would grow
+  // unbounded and degrade memory over long sessions.
+  if (normalizedSource.startsWith("data:")) {
+    return transformImageToDotGain20(normalizedSource).catch(() => null);
+  }
+
   const cacheKey = crypto
     .createHash("sha1")
     .update(normalizedSource)

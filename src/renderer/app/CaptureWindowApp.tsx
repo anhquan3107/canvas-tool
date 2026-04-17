@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_SHORTCUT_BINDINGS, resolveShortcutBindings } from "@shared/shortcuts";
-import type { DotGain20CaptureLookupTable } from "@shared/types/ipc";
 import {
   createCaptureSessionChannel,
   getCaptureLocationParams,
@@ -45,6 +44,9 @@ const WINDOWS_WINDOW_PREVIEW_CROP: PreviewCropInsets = {
 
 const CAPTURE_WINDOW_ASPECT_SYNC_DELAY_MS = 90;
 const CAPTURE_WINDOW_TOP_REVEAL_THRESHOLD = 34;
+const CAPTURE_DOT_GAIN_TARGET_FPS = 12;
+const CAPTURE_DOT_GAIN_FRAME_INTERVAL_MS =
+  1000 / CAPTURE_DOT_GAIN_TARGET_FPS;
 const CAPTURE_WINDOW_RESIZE_DIRECTIONS = [
   "s",
   "e",
@@ -52,15 +54,6 @@ const CAPTURE_WINDOW_RESIZE_DIRECTIONS = [
   "se",
   "sw",
 ] as const;
-const CAPTURE_DOT_GAIN_SRGB_TO_LINEAR = new Float32Array(256);
-
-for (let index = 0; index < 256; index += 1) {
-  const normalizedValue = index / 255;
-  CAPTURE_DOT_GAIN_SRGB_TO_LINEAR[index] =
-    normalizedValue <= 0.04045
-      ? normalizedValue / 12.92
-      : Math.pow((normalizedValue + 0.055) / 1.055, 2.4);
-}
 
 const getEffectivePreviewSize = (
   video: HTMLVideoElement,
@@ -95,8 +88,6 @@ export const CaptureWindowApp = () => {
   const channelRef = useRef<BroadcastChannel | null>(null);
   const loadSourcesRef = useRef<() => Promise<void>>(async () => undefined);
   const edgeRevealActiveRef = useRef(false);
-  const dotGain20CaptureLookupTableRef =
-    useRef<DotGain20CaptureLookupTable | null>(null);
   const sessionStateRef = useRef<CaptureSessionState>({
     sourceName: initial.sourceName,
     quality: initial.quality,
@@ -126,33 +117,11 @@ export const CaptureWindowApp = () => {
   const [windowMaximized, setWindowMaximized] = useState(false);
   const [windowAlwaysOnTop, setWindowAlwaysOnTop] = useState(false);
   const [shortcutBindings, setShortcutBindings] = useState(DEFAULT_SHORTCUT_BINDINGS);
-  const [dotGain20CaptureLookupTable, setDotGain20CaptureLookupTable] =
-    useState<DotGain20CaptureLookupTable | null>(null);
   useWindowResize(!windowMaximized);
 
-  const ensureDotGain20CaptureLookup = useCallback(async () => {
-    if (dotGain20CaptureLookupTableRef.current) {
-      return dotGain20CaptureLookupTableRef.current;
-    }
-
-    const lookupTable =
-      await window.desktopApi.import.getDotGain20CaptureLookupTable();
-    if (lookupTable) {
-      dotGain20CaptureLookupTableRef.current = lookupTable;
-      setDotGain20CaptureLookupTable(lookupTable);
-    }
-
-    return lookupTable;
-  }, []);
-
-  const toggleDotGainBlackAndWhite = useCallback(async () => {
-    const enabling = !sessionStateRef.current.bwEnabled;
-    if (enabling) {
-      await ensureDotGain20CaptureLookup();
-    }
-
+  const toggleDotGainBlackAndWhite = useCallback(() => {
     setBwEnabled((previous) => !previous);
-  }, [ensureDotGain20CaptureLookup]);
+  }, []);
 
   const loadSources = useCallback(async () => {
     setLoadingSources(true);
@@ -199,17 +168,13 @@ export const CaptureWindowApp = () => {
       });
   }, []);
 
-  useEffect(() => {
-    void ensureDotGain20CaptureLookup();
-  }, [ensureDotGain20CaptureLookup]);
-
   useShortcuts(
     useMemo(
       () => ({
         [shortcutBindings["tools.toggleBlur"]]: () =>
           setBlurEnabled((previous) => !previous),
         [shortcutBindings["tools.toggleBlackAndWhite"]]: () =>
-          void toggleDotGainBlackAndWhite(),
+          toggleDotGainBlackAndWhite(),
         [shortcutBindings["window.toggleAlwaysOnTop"]]: () =>
           void window.desktopApi.window
             .toggleAlwaysOnTop()
@@ -310,63 +275,88 @@ export const CaptureWindowApp = () => {
     };
   }, [quality, sourceId]);
 
+  useEffect(
+    () => () => {
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (bwEnabled) {
+      return;
+    }
+
+    const previewCanvas = previewCanvasRef.current;
+    if (!previewCanvas) {
+      return;
+    }
+
+    const context = previewCanvas.getContext("2d", { alpha: true });
+    if (!context) {
+      return;
+    }
+
+    context.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+  }, [bwEnabled]);
+
   useEffect(() => {
     if (!bwEnabled) {
       return;
     }
 
+    const previewCanvas = previewCanvasRef.current;
     const video = videoRef.current;
-    const canvas = previewCanvasRef.current;
-    const lookupTable = dotGain20CaptureLookupTableRef.current;
-    if (!video || !canvas || !lookupTable) {
+    if (!previewCanvas || !video) {
       return;
     }
 
-    const context = canvas.getContext("2d", {
-      alpha: true,
-      willReadFrequently: true,
-    });
-    if (!context) {
+    const previewContext = previewCanvas.getContext("2d", { alpha: true });
+    if (!previewContext) {
       return;
     }
 
-    let rafId = 0;
-    let videoFrameCallbackId = 0;
+    const sourceCanvas = document.createElement("canvas");
+    const sourceContext = sourceCanvas.getContext("2d", { alpha: false });
+    if (!sourceContext) {
+      return;
+    }
+
+    const convertedFrameImage = new Image();
+    convertedFrameImage.decoding = "async";
+
     let cancelled = false;
-    const videoWithFrameCallback = video as HTMLVideoElement & {
-      requestVideoFrameCallback?: (
-        callback: () => void,
-      ) => number;
-      cancelVideoFrameCallback?: (handle: number) => void;
-    };
+    let rafId = 0;
+    let processing = false;
+    let lastProcessedAt = 0;
 
     const scheduleNextFrame = () => {
       if (cancelled) {
         return;
       }
 
-      if (typeof videoWithFrameCallback.requestVideoFrameCallback === "function") {
-        videoFrameCallbackId = videoWithFrameCallback.requestVideoFrameCallback(
-          () => {
-            renderFrame();
-          },
-        );
-        return;
-      }
-
-      rafId = window.requestAnimationFrame(() => {
-        renderFrame();
-      });
+      rafId = window.requestAnimationFrame(processFrame);
     };
 
-    const renderFrame = () => {
+    const processFrame = (timestamp: number) => {
       if (cancelled) {
         return;
       }
 
       const activeVideo = videoRef.current;
-      const activeCanvas = previewCanvasRef.current;
-      if (!activeVideo || !activeCanvas || activeVideo.readyState < 2) {
+      const activePreviewCanvas = previewCanvasRef.current;
+      if (!activeVideo || !activePreviewCanvas || activeVideo.readyState < 2) {
+        scheduleNextFrame();
+        return;
+      }
+
+      if (processing) {
+        scheduleNextFrame();
+        return;
+      }
+
+      if (timestamp - lastProcessedAt < CAPTURE_DOT_GAIN_FRAME_INTERVAL_MS) {
         scheduleNextFrame();
         return;
       }
@@ -378,14 +368,22 @@ export const CaptureWindowApp = () => {
       }
 
       if (
-        activeCanvas.width !== effectiveSize.width ||
-        activeCanvas.height !== effectiveSize.height
+        activePreviewCanvas.width !== effectiveSize.width ||
+        activePreviewCanvas.height !== effectiveSize.height
       ) {
-        activeCanvas.width = effectiveSize.width;
-        activeCanvas.height = effectiveSize.height;
+        activePreviewCanvas.width = effectiveSize.width;
+        activePreviewCanvas.height = effectiveSize.height;
       }
 
-      context.drawImage(
+      if (
+        sourceCanvas.width !== effectiveSize.width ||
+        sourceCanvas.height !== effectiveSize.height
+      ) {
+        sourceCanvas.width = effectiveSize.width;
+        sourceCanvas.height = effectiveSize.height;
+      }
+
+      sourceContext.drawImage(
         activeVideo,
         previewCropInsets.left,
         previewCropInsets.top,
@@ -397,63 +395,75 @@ export const CaptureWindowApp = () => {
         effectiveSize.height,
       );
 
-      const imageData = context.getImageData(
-        0,
-        0,
-        effectiveSize.width,
-        effectiveSize.height,
-      );
-      const { data } = imageData;
+      processing = true;
+      lastProcessedAt = timestamp;
+      const sourceDataUrl = sourceCanvas.toDataURL("image/png");
 
-      for (let index = 0; index < data.length; index += 4) {
-        const luminanceLinear =
-          0.2126 * CAPTURE_DOT_GAIN_SRGB_TO_LINEAR[data[index]] +
-          0.7152 * CAPTURE_DOT_GAIN_SRGB_TO_LINEAR[data[index + 1]] +
-          0.0722 * CAPTURE_DOT_GAIN_SRGB_TO_LINEAR[data[index + 2]];
-        const lookupIndex = Math.max(
-          0,
-          Math.min(255, Math.round(luminanceLinear * 255)),
-        );
-        const grayscaleValue = lookupTable[lookupIndex] ?? 0;
-        data[index] = grayscaleValue;
-        data[index + 1] = grayscaleValue;
-        data[index + 2] = grayscaleValue;
-      }
+      void window.desktopApi.import
+        .convertImageToDotGain20DataUrl({ source: sourceDataUrl })
+        .then(async (convertedDataUrl) => {
+          if (cancelled || !convertedDataUrl) {
+            return;
+          }
 
-      context.putImageData(imageData, 0, 0);
-      scheduleNextFrame();
+          convertedFrameImage.src = convertedDataUrl;
+          if (typeof convertedFrameImage.decode === "function") {
+            await convertedFrameImage.decode();
+          }
+
+          if (cancelled) {
+            return;
+          }
+
+          const drawCanvas = previewCanvasRef.current;
+          if (!drawCanvas) {
+            return;
+          }
+
+          const drawContext = drawCanvas.getContext("2d", { alpha: true });
+          if (!drawContext) {
+            return;
+          }
+
+          drawContext.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+          if (
+            convertedFrameImage.complete &&
+            convertedFrameImage.naturalWidth > 0 &&
+            convertedFrameImage.naturalHeight > 0
+          ) {
+            drawContext.drawImage(
+              convertedFrameImage,
+              0,
+              0,
+              drawCanvas.width,
+              drawCanvas.height,
+            );
+          }
+        })
+        .catch(() => undefined)
+        .finally(() => {
+          processing = false;
+          scheduleNextFrame();
+        });
     };
 
-    renderFrame();
+    scheduleNextFrame();
 
     return () => {
       cancelled = true;
       if (rafId !== 0) {
         window.cancelAnimationFrame(rafId);
       }
-      if (
-        videoFrameCallbackId !== 0 &&
-        typeof videoWithFrameCallback.cancelVideoFrameCallback === "function"
-      ) {
-        videoWithFrameCallback.cancelVideoFrameCallback(videoFrameCallbackId);
-      }
     };
   }, [
     bwEnabled,
-    ensureDotGain20CaptureLookup,
     previewCropInsets.bottom,
     previewCropInsets.left,
     previewCropInsets.right,
     previewCropInsets.top,
+    quality,
+    sourceId,
   ]);
-
-  useEffect(
-    () => () => {
-      streamRef.current?.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    },
-    [],
-  );
 
   useEffect(() => {
     if (dialogOpen) {
@@ -551,7 +561,7 @@ export const CaptureWindowApp = () => {
           setBlurEnabled((previous) => !previous);
           break;
         case "toggle-bw":
-          void toggleDotGainBlackAndWhite();
+          toggleDotGainBlackAndWhite();
           break;
         case "set-window-controls-state":
           setWindowMaximized(message.controls.isMaximized);
@@ -698,8 +708,14 @@ export const CaptureWindowApp = () => {
     setDialogOpen(false);
   };
 
+  const captureFilters = [
+    blurEnabled ? `blur(${blurAmount}px)` : null,
+  ]
+    .filter((value): value is string => Boolean(value))
+    .join(" ");
+
   const videoStyle = {
-    filter: blurEnabled ? `blur(${blurAmount}px)` : undefined,
+    filter: captureFilters.length > 0 ? captureFilters : undefined,
     width:
       previewCropInsets.left || previewCropInsets.right
         ? `calc(100% + ${previewCropInsets.left + previewCropInsets.right}px)`

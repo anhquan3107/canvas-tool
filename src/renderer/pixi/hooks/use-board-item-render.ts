@@ -29,6 +29,7 @@ interface RenderBoardItemVisualsOptions {
   safeHeight: number;
   showSwatches: boolean;
   canvasZoom: number;
+  dotGain20BlackAndWhite: boolean;
   renderToken: number;
   renderTokenRef: { current: number };
   ensureCaptureSession: (item: CaptureItem) => Promise<CaptureSession>;
@@ -41,6 +42,7 @@ export const renderBoardItemVisuals = ({
   safeHeight,
   showSwatches,
   canvasZoom,
+  dotGain20BlackAndWhite,
   renderToken,
   renderTokenRef,
   ensureCaptureSession,
@@ -48,6 +50,7 @@ export const renderBoardItemVisuals = ({
   if (item.type === "image" && item.assetPath) {
     void loadTextureForAssetPath(item.assetPath, {
       preferHighResolution: canvasZoom >= 2,
+      dotGain20: dotGain20BlackAndWhite,
     })
       .then((texture) => {
         if (renderTokenRef.current !== renderToken) {

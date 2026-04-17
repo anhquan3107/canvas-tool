@@ -51,6 +51,9 @@
       "dist/**/*",
       "package.json"
     ],
+    "extraResources": [
+      "assets/**/*"
+    ],
     "directories": {
       "output": "release"
     },

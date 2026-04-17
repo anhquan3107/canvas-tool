@@ -493,6 +493,7 @@ export const CanvasBoard = ({
   }, [
     appReady,
     group.id,
+    group.filters.grayscale,
     group.items,
     group.canvasSize.width,
     group.canvasSize.height,

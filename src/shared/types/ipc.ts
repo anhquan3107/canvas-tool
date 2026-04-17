@@ -128,6 +128,10 @@ export interface ImageSwatchExtractRequest {
   colorCount?: number;
 }
 
+export interface ImageDotGainIccRequest {
+  source: string;
+}
+
 export interface DesktopCaptureSource {
   id: string;
   name: string;
@@ -234,6 +238,9 @@ export interface DesktopApi {
   import: {
     fetchRemoteImageDataUrl: (
       payload: RemoteImageFetchRequest,
+    ) => Promise<string | null>;
+    convertImageToDotGain20DataUrl: (
+      payload: ImageDotGainIccRequest,
     ) => Promise<string | null>;
     extractImageSwatches: (
       payload: ImageSwatchExtractRequest,

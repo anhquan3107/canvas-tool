@@ -1,6 +1,7 @@
 import { Assets, Texture } from "pixi.js";
 
 const boardTextureCache = new Map<string, Promise<Texture>>();
+const boardTextureVariantCache = new Map<string, Promise<string>>();
 
 export const configureBoardTextureQuality = (
   texture: Texture,
@@ -23,7 +24,30 @@ export const configureBoardTextureQuality = (
 
 interface LoadTextureOptions {
   preferHighResolution?: boolean;
+  dotGain20?: boolean;
 }
+
+const resolveTextureAssetPath = async (
+  assetPath: string,
+  options?: LoadTextureOptions,
+) => {
+  if (!options?.dotGain20) {
+    return assetPath;
+  }
+
+  const cacheKey = `${assetPath}::dot-gain-20`;
+  const cachedVariant = boardTextureVariantCache.get(cacheKey);
+  if (cachedVariant) {
+    return cachedVariant;
+  }
+
+  const variantPromise = window.desktopApi.import
+    .convertImageToDotGain20DataUrl({ source: assetPath })
+    .then((transformedAssetPath) => transformedAssetPath ?? assetPath)
+    .catch(() => assetPath);
+  boardTextureVariantCache.set(cacheKey, variantPromise);
+  return variantPromise;
+};
 
 const loadTextureDirectly = async (assetPath: string) =>
   new Promise<Texture>((resolve, reject) => {
@@ -40,7 +64,8 @@ export const loadTextureForAssetPath = async (
   assetPath: string,
   options?: LoadTextureOptions,
 ) => {
-  const cacheKey = `${assetPath}::${options?.preferHighResolution ? "hq" : "std"}`;
+  const resolvedAssetPath = await resolveTextureAssetPath(assetPath, options);
+  const cacheKey = `${resolvedAssetPath}::${options?.preferHighResolution ? "hq" : "std"}`;
   const cachedTexture = boardTextureCache.get(cacheKey);
 
   if (cachedTexture) {
@@ -49,14 +74,14 @@ export const loadTextureForAssetPath = async (
 
   const texturePromise = (async () => {
     if (options?.preferHighResolution) {
-      return loadTextureDirectly(assetPath);
+      return loadTextureDirectly(resolvedAssetPath);
     }
 
     try {
-      const texture = await Assets.load<Texture>(assetPath);
+      const texture = await Assets.load<Texture>(resolvedAssetPath);
       return configureBoardTextureQuality(texture);
     } catch {
-      return loadTextureDirectly(assetPath);
+      return loadTextureDirectly(resolvedAssetPath);
     }
   })();
 
@@ -66,6 +91,6 @@ export const loadTextureForAssetPath = async (
     return await texturePromise;
   } catch {
     boardTextureCache.delete(cacheKey);
-    throw new Error(`Failed to decode texture for ${assetPath}`);
+    throw new Error(`Failed to decode texture for ${resolvedAssetPath}`);
   }
 };

@@ -213,6 +213,7 @@ export const useCanvasBoardScene = ({
         safeHeight,
         showSwatches: showSwatchesRef.current,
         canvasZoom: scene.zoom,
+        dotGain20BlackAndWhite: scene.filters.grayscale > 0,
         renderToken,
         renderTokenRef,
         ensureCaptureSession,

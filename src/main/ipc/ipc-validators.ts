@@ -2,6 +2,7 @@ import type {
   CaptureWindowAspectRequest,
   CanvasImageExportRequest,
   GroupImagesExportRequest,
+  ImageDotGainIccRequest,
   ImageSwatchExtractRequest,
   OpenCaptureWindowRequest,
   ProjectSaveRequest,
@@ -301,5 +302,22 @@ export const ensureImageSwatchExtractPayload = (
       typeof payload.colorCount === "number" && Number.isFinite(payload.colorCount)
         ? payload.colorCount
         : undefined,
+  };
+};
+
+export const ensureImageDotGainIccPayload = (
+  value: unknown,
+): ImageDotGainIccRequest | null => {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const payload = value as Record<string, unknown>;
+  if (typeof payload.source !== "string" || payload.source.length === 0) {
+    return null;
+  }
+
+  return {
+    source: payload.source,
   };
 };

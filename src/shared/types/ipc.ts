@@ -219,6 +219,7 @@ export interface DesktopApi {
     toggleMaximize: () => Promise<AppWindowControlsState>;
     close: () => Promise<void>;
     getControlsState: () => Promise<AppWindowControlsState>;
+    getCursorScreenPointSync: () => AppWindowPosition;
     getPosition: () => Promise<AppWindowPosition>;
     getPositionSync: () => AppWindowPosition;
     getBounds: () => Promise<AppWindowBounds>;

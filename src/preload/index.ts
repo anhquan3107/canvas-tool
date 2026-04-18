@@ -115,6 +115,8 @@ const desktopApi: DesktopApi = {
     toggleMaximize: () => ipcRenderer.invoke("window:toggle-maximize"),
     close: () => ipcRenderer.invoke("window:close"),
     getControlsState: () => ipcRenderer.invoke("window:get-controls-state"),
+    getCursorScreenPointSync: () =>
+      ipcRenderer.sendSync("window:get-cursor-screen-point-sync"),
     getPosition: () => ipcRenderer.invoke("window:get-position"),
     getPositionSync: () => ipcRenderer.sendSync("window:get-position-sync"),
     getBounds: () => ipcRenderer.invoke("window:get-bounds"),

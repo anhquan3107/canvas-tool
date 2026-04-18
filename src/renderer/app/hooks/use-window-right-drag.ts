@@ -50,22 +50,29 @@ const isFinitePosition = (
 const MIN_NATIVE_WINDOW_COORD = -2147483648;
 const MAX_NATIVE_WINDOW_COORD = 2147483647;
 
-const isWindowsPointerCoordinatePlatform = () =>
-  /win/i.test(
-    ((navigator as Navigator & { userAgentData?: { platform?: string } })
-      .userAgentData?.platform ?? navigator.platform ?? ""),
-  );
+const getNativeCursorScreenPosition = () => {
+  try {
+    const position = window.desktopApi.window.getCursorScreenPointSync();
+    if (isFinitePosition(position)) {
+      return position;
+    }
+  } catch {
+    // Fall back to renderer pointer coordinates below.
+  }
+
+  return null;
+};
 
 const getPointerScreenPosition = (event: PointerEvent) => {
+  const nativePosition = getNativeCursorScreenPosition();
+  if (nativePosition) {
+    return nativePosition;
+  }
+
   const fallbackX = window.screenX + event.clientX;
   const fallbackY = window.screenY + event.clientY;
-  // Keep coordinates in the same DIP space as BrowserWindow bounds on Windows.
-  const preferFallback =
-    event.pointerType === "pen" || isWindowsPointerCoordinatePlatform();
-  const x =
-    preferFallback || !isFiniteNumber(event.screenX) ? fallbackX : event.screenX;
-  const y =
-    preferFallback || !isFiniteNumber(event.screenY) ? fallbackY : event.screenY;
+  const x = isFiniteNumber(event.screenX) ? event.screenX : fallbackX;
+  const y = isFiniteNumber(event.screenY) ? event.screenY : fallbackY;
 
   if (!isFiniteNumber(x) || !isFiniteNumber(y)) {
     return null;

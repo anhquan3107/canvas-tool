@@ -13,9 +13,8 @@ type UseWindowResizeOptions = {
 type ResizeState = {
   pointerId: number;
   direction: ResizeDirection;
-  startScreenX: number;
-  startScreenY: number;
-  startBounds: AppWindowBounds;
+  lastScreenX: number;
+  lastScreenY: number;
   latestBounds: AppWindowBounds;
 };
 
@@ -183,12 +182,31 @@ export const useWindowResize = (
 
     let resizeState: ResizeState | null = null;
     let pendingBounds: AppWindowBounds | null = null;
+    let pendingScreenBounds: AppWindowBounds | null = null;
     let frameId: number | null = null;
     let lastAppliedBounds: AppWindowBounds | null = null;
 
-    const applyResize = (nextBounds: AppWindowBounds) => {
+    const getCurrentScreenBounds = (fallback: AppWindowBounds | null) => {
+      const currentBoundsDip = getSynchronousBounds();
+      const currentBoundsScreen = dipBoundsToScreenBounds(currentBoundsDip);
+      return currentBoundsScreen ?? normalizeWindowBounds(fallback);
+    };
+
+    const applyResize = (
+      nextBounds: AppWindowBounds,
+      fallbackScreenBounds: AppWindowBounds,
+    ) => {
+      const currentScreenBounds =
+        getCurrentScreenBounds(fallbackScreenBounds) ?? fallbackScreenBounds;
+
       if (lastAppliedBounds && isSameBounds(lastAppliedBounds, nextBounds)) {
-        return;
+        if (resizeState) {
+          resizeState = {
+            ...resizeState,
+            latestBounds: currentScreenBounds,
+          };
+        }
+        return currentScreenBounds;
       }
 
       lastAppliedBounds = nextBounds;
@@ -197,25 +215,42 @@ export const useWindowResize = (
       } catch {
         void window.desktopApi.window.setBounds(nextBounds).catch(() => null);
       }
+
+      const nextCurrentScreenBounds =
+        getCurrentScreenBounds(fallbackScreenBounds) ?? fallbackScreenBounds;
+      if (resizeState) {
+        resizeState = {
+          ...resizeState,
+          latestBounds: nextCurrentScreenBounds,
+        };
+      }
+
+      return nextCurrentScreenBounds;
     };
 
     const flushResize = () => {
       frameId = null;
-      if (!pendingBounds) {
+      if (!pendingBounds || !pendingScreenBounds) {
         return;
       }
 
       const nextBounds = pendingBounds;
+      const nextScreenBounds = pendingScreenBounds;
       pendingBounds = null;
-      applyResize(nextBounds);
+      pendingScreenBounds = null;
+      applyResize(nextBounds, nextScreenBounds);
 
       if (pendingBounds && frameId === null) {
         frameId = window.requestAnimationFrame(flushResize);
       }
     };
 
-    const queueResize = (nextBounds: AppWindowBounds) => {
+    const queueResize = (
+      nextBounds: AppWindowBounds,
+      nextScreenBounds: AppWindowBounds,
+    ) => {
       pendingBounds = nextBounds;
+      pendingScreenBounds = nextScreenBounds;
       if (frameId === null) {
         frameId = window.requestAnimationFrame(flushResize);
       }
@@ -224,6 +259,7 @@ export const useWindowResize = (
     const clearResizeState = () => {
       resizeState = null;
       pendingBounds = null;
+      pendingScreenBounds = null;
       lastAppliedBounds = null;
       if (frameId !== null) {
         window.cancelAnimationFrame(frameId);
@@ -267,9 +303,8 @@ export const useWindowResize = (
       resizeState = {
         pointerId: event.pointerId,
         direction,
-        startScreenX: pointerScreenPosition.x,
-        startScreenY: pointerScreenPosition.y,
-        startBounds,
+        lastScreenX: pointerScreenPosition.x,
+        lastScreenY: pointerScreenPosition.y,
         latestBounds: startBounds,
       };
       event.preventDefault();
@@ -285,10 +320,18 @@ export const useWindowResize = (
         return;
       }
 
-      const deltaX = pointerScreenPosition.x - resizeState.startScreenX;
-      const deltaY = pointerScreenPosition.y - resizeState.startScreenY;
+      const deltaX = pointerScreenPosition.x - resizeState.lastScreenX;
+      const deltaY = pointerScreenPosition.y - resizeState.lastScreenY;
+      if (deltaX === 0 && deltaY === 0) {
+        return;
+      }
+
+      const baseBounds =
+        pendingScreenBounds ??
+        getCurrentScreenBounds(resizeState.latestBounds) ??
+        resizeState.latestBounds;
       const nextBounds = getResizedBounds(
-        resizeState.startBounds,
+        baseBounds,
         resizeState.direction,
         deltaX,
         deltaY,
@@ -299,17 +342,21 @@ export const useWindowResize = (
       }
 
       if (mode === "live") {
+        const appliedScreenBounds = applyResize(nextDipBounds, nextBounds);
         resizeState = {
           ...resizeState,
-          latestBounds: nextBounds,
+          lastScreenX: pointerScreenPosition.x,
+          lastScreenY: pointerScreenPosition.y,
+          latestBounds: appliedScreenBounds,
         };
-        applyResize(nextDipBounds);
       } else {
         resizeState = {
           ...resizeState,
+          lastScreenX: pointerScreenPosition.x,
+          lastScreenY: pointerScreenPosition.y,
           latestBounds: nextBounds,
         };
-        queueResize(nextDipBounds);
+        queueResize(nextDipBounds, nextBounds);
       }
 
       event.preventDefault();
@@ -323,12 +370,12 @@ export const useWindowResize = (
       if (mode === "live") {
         const latestDipBounds = screenBoundsToDipBounds(resizeState.latestBounds);
         if (latestDipBounds) {
-          applyResize(latestDipBounds);
+          applyResize(latestDipBounds, resizeState.latestBounds);
         }
       } else {
         const latestDipBounds = screenBoundsToDipBounds(resizeState.latestBounds);
         if (latestDipBounds) {
-          queueResize(latestDipBounds);
+          queueResize(latestDipBounds, resizeState.latestBounds);
         }
       }
       resizeState = null;

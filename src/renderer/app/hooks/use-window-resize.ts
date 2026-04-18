@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import type { AppWindowBounds } from "@shared/types/ipc";
+import type { AppWindowBounds, AppWindowPosition } from "@shared/types/ipc";
 
 const MIN_RESIZE_EDGE = 160;
 
@@ -72,6 +72,20 @@ const getSynchronousBounds = () => {
   }
 };
 
+const isFinitePosition = (
+  value: AppWindowPosition | null,
+): value is AppWindowPosition =>
+  value !== null && isFiniteNumber(value.x) && isFiniteNumber(value.y);
+
+const isFiniteBounds = (
+  value: AppWindowBounds | null,
+): value is AppWindowBounds =>
+  value !== null &&
+  isFiniteNumber(value.x) &&
+  isFiniteNumber(value.y) &&
+  isFiniteNumber(value.width) &&
+  isFiniteNumber(value.height);
+
 const isSameBounds = (left: AppWindowBounds, right: AppWindowBounds) =>
   left.x === right.x &&
   left.y === right.y &&
@@ -81,26 +95,79 @@ const isSameBounds = (left: AppWindowBounds, right: AppWindowBounds) =>
 const isFiniteNumber = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value);
 
-const isWindowsPointerCoordinatePlatform = () =>
-  /win/i.test(
-    ((navigator as Navigator & { userAgentData?: { platform?: string } })
-      .userAgentData?.platform ?? navigator.platform ?? ""),
-  );
-
-const getPointerScreenPosition = (event: PointerEvent) => {
-  const fallbackX = window.screenX + event.clientX;
-  const fallbackY = window.screenY + event.clientY;
-  const preferFallback = isWindowsPointerCoordinatePlatform();
-  const x =
-    preferFallback || !isFiniteNumber(event.screenX) ? fallbackX : event.screenX;
-  const y =
-    preferFallback || !isFiniteNumber(event.screenY) ? fallbackY : event.screenY;
-
-  if (!isFiniteNumber(x) || !isFiniteNumber(y)) {
+const normalizeWindowBounds = (value: AppWindowBounds | null) => {
+  if (!isFiniteBounds(value)) {
     return null;
   }
 
-  return { x, y };
+  return {
+    x: Math.round(value.x),
+    y: Math.round(value.y),
+    width: Math.max(1, Math.round(value.width)),
+    height: Math.max(1, Math.round(value.height)),
+  };
+};
+
+const dipPointToScreenPoint = (point: AppWindowPosition | null) => {
+  if (!isFinitePosition(point)) {
+    return null;
+  }
+
+  try {
+    const nextPoint = window.desktopApi.window.dipToScreenPointSync(point);
+    return isFinitePosition(nextPoint) ? nextPoint : point;
+  } catch {
+    return point;
+  }
+};
+
+const dipBoundsToScreenBounds = (bounds: AppWindowBounds | null) => {
+  if (!isFiniteBounds(bounds)) {
+    return null;
+  }
+
+  try {
+    const nextBounds = window.desktopApi.window.dipToScreenRectSync(bounds);
+    return normalizeWindowBounds(nextBounds) ?? normalizeWindowBounds(bounds);
+  } catch {
+    return normalizeWindowBounds(bounds);
+  }
+};
+
+const screenBoundsToDipBounds = (bounds: AppWindowBounds | null) => {
+  if (!isFiniteBounds(bounds)) {
+    return null;
+  }
+
+  try {
+    const nextBounds = window.desktopApi.window.screenToDipRectSync(bounds);
+    return normalizeWindowBounds(nextBounds) ?? normalizeWindowBounds(bounds);
+  } catch {
+    return normalizeWindowBounds(bounds);
+  }
+};
+
+const getPointerScreenPosition = (event: PointerEvent) => {
+  try {
+    const cursorDipPoint = window.desktopApi.window.getCursorScreenPointSync();
+    const cursorScreenPoint = dipPointToScreenPoint(cursorDipPoint);
+    if (isFinitePosition(cursorScreenPoint)) {
+      return cursorScreenPoint;
+    }
+  } catch {
+    // Fall back to renderer pointer coordinates below.
+  }
+
+  const fallbackDipPoint = {
+    x: isFiniteNumber(event.screenX) ? event.screenX : window.screenX + event.clientX,
+    y: isFiniteNumber(event.screenY) ? event.screenY : window.screenY + event.clientY,
+  };
+
+  if (!isFinitePosition(fallbackDipPoint)) {
+    return null;
+  }
+
+  return dipPointToScreenPoint(fallbackDipPoint);
 };
 
 export const useWindowResize = (
@@ -180,7 +247,8 @@ export const useWindowResize = (
       }
 
       const direction = rawDirection as ResizeDirection;
-      const startBounds = getSynchronousBounds();
+      const startBoundsDip = getSynchronousBounds();
+      const startBounds = dipBoundsToScreenBounds(startBoundsDip);
       if (!startBounds) {
         return;
       }
@@ -225,19 +293,23 @@ export const useWindowResize = (
         deltaX,
         deltaY,
       );
+      const nextDipBounds = screenBoundsToDipBounds(nextBounds);
+      if (!nextDipBounds) {
+        return;
+      }
 
       if (mode === "live") {
         resizeState = {
           ...resizeState,
           latestBounds: nextBounds,
         };
-        applyResize(nextBounds);
+        applyResize(nextDipBounds);
       } else {
         resizeState = {
           ...resizeState,
           latestBounds: nextBounds,
         };
-        queueResize(nextBounds);
+        queueResize(nextDipBounds);
       }
 
       event.preventDefault();
@@ -249,9 +321,15 @@ export const useWindowResize = (
       }
 
       if (mode === "live") {
-        applyResize(resizeState.latestBounds);
+        const latestDipBounds = screenBoundsToDipBounds(resizeState.latestBounds);
+        if (latestDipBounds) {
+          applyResize(latestDipBounds);
+        }
       } else {
-        queueResize(resizeState.latestBounds);
+        const latestDipBounds = screenBoundsToDipBounds(resizeState.latestBounds);
+        if (latestDipBounds) {
+          queueResize(latestDipBounds);
+        }
       }
       resizeState = null;
       event.preventDefault();

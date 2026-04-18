@@ -406,11 +406,16 @@ export const useWindowRightDrag = () => {
         return;
       }
 
+      const actualWindowPosition =
+        getImmediateWindowPosition() ?? {
+          x: dragState.windowX,
+          y: dragState.windowY,
+        };
       const stepDeltaX = pointerScreenPosition.x - dragState.lastScreenX;
       const stepDeltaY = pointerScreenPosition.y - dragState.lastScreenY;
       const nextMove = {
-        x: dragState.windowX + stepDeltaX,
-        y: dragState.windowY + stepDeltaY,
+        x: actualWindowPosition.x + stepDeltaX,
+        y: actualWindowPosition.y + stepDeltaY,
       };
 
       if (!isFinitePosition(nextMove)) {

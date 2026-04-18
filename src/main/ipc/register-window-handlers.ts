@@ -45,19 +45,13 @@ export const registerWindowHandlers = (window: BrowserWindow) => {
     process.platform === "win32" || process.platform === "linux"
       ? screen.screenToDipPoint(point)
       : point;
-  const dipToScreenRect = (
-    targetWindow: BrowserWindow | null,
-    point: AppWindowBounds,
-  ) =>
+  const dipToScreenRect = (point: AppWindowBounds) =>
     process.platform === "win32"
-      ? screen.dipToScreenRect(targetWindow, point)
+      ? screen.dipToScreenRect(null, point)
       : point;
-  const screenToDipRect = (
-    targetWindow: BrowserWindow | null,
-    point: AppWindowBounds,
-  ) =>
+  const screenToDipRect = (point: AppWindowBounds) =>
     process.platform === "win32"
-      ? screen.screenToDipRect(targetWindow, point)
+      ? screen.screenToDipRect(null, point)
       : point;
 
   ipcMain.handle("window:set-title", (event, payload: AppWindowState) => {
@@ -151,8 +145,7 @@ export const registerWindowHandlers = (window: BrowserWindow) => {
       return;
     }
 
-    const targetWindow = getTargetWindow(event);
-    const { x, y, width, height } = dipToScreenRect(targetWindow, payload);
+    const { x, y, width, height } = dipToScreenRect(payload);
     event.returnValue = { x, y, width, height } satisfies AppWindowBounds;
   });
 
@@ -167,8 +160,7 @@ export const registerWindowHandlers = (window: BrowserWindow) => {
       return;
     }
 
-    const targetWindow = getTargetWindow(event);
-    const { x, y, width, height } = screenToDipRect(targetWindow, payload);
+    const { x, y, width, height } = screenToDipRect(payload);
     event.returnValue = { x, y, width, height } satisfies AppWindowBounds;
   });
 

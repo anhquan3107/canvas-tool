@@ -1,4 +1,5 @@
 import { ipcMain, screen, type BrowserWindow } from "electron";
+import { spawn } from "node:child_process";
 import type {
   AppWindowBounds,
   AppWindowIgnoreMouseRequest,
@@ -37,6 +38,67 @@ export const registerWindowHandlers = (window: BrowserWindow) => {
     process.platform === "win32" || process.platform === "linux"
       ? screen.screenToDipPoint(point)
       : point;
+  const getWindowHandleValue = (targetWindow: BrowserWindow) => {
+    const handle = targetWindow.getNativeWindowHandle();
+    if (handle.byteLength >= 8) {
+      return handle.readBigUInt64LE(0);
+    }
+    if (handle.byteLength >= 4) {
+      return BigInt(handle.readUInt32LE(0));
+    }
+    return null;
+  };
+  const beginWindowsNativeMove = (targetWindow: BrowserWindow) => {
+    if (process.platform !== "win32") {
+      return false;
+    }
+
+    const handleValue = getWindowHandleValue(targetWindow);
+    if (handleValue === null || handleValue === 0n) {
+      return false;
+    }
+
+    const script = `
+Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public static class CanvasToolWindowMove {
+  [DllImport("user32.dll")]
+  public static extern bool ReleaseCapture();
+
+  [DllImport("user32.dll")]
+  public static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+}
+"@;
+[CanvasToolWindowMove]::ReleaseCapture() | Out-Null;
+[CanvasToolWindowMove]::SendMessage([IntPtr]::new([Int64]${handleValue.toString()}), 0x112, [IntPtr]::new(0xF012), [IntPtr]::Zero) | Out-Null;
+`.trim();
+
+    const encodedScript = Buffer.from(script, "utf16le").toString("base64");
+
+    try {
+      const child = spawn(
+        "powershell.exe",
+        [
+          "-NoProfile",
+          "-NonInteractive",
+          "-WindowStyle",
+          "Hidden",
+          "-EncodedCommand",
+          encodedScript,
+        ],
+        {
+          detached: true,
+          stdio: "ignore",
+          windowsHide: true,
+        },
+      );
+      child.unref();
+      return true;
+    } catch {
+      return false;
+    }
+  };
 
   ipcMain.handle("window:set-title", (event, payload: AppWindowState) => {
     const safeTitle = payload.fileName
@@ -122,6 +184,11 @@ export const registerWindowHandlers = (window: BrowserWindow) => {
 
     const { x, y } = screenToDipPoint(payload);
     event.returnValue = { x, y } satisfies AppWindowPosition;
+  });
+
+  ipcMain.on("window:begin-native-move-sync", (event) => {
+    const targetWindow = getTargetWindow(event);
+    event.returnValue = beginWindowsNativeMove(targetWindow);
   });
 
   ipcMain.handle("window:get-position", (event): AppWindowPosition => {

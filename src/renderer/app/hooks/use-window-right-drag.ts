@@ -49,6 +49,11 @@ const isFinitePosition = (
 
 const MIN_NATIVE_WINDOW_COORD = -2147483648;
 const MAX_NATIVE_WINDOW_COORD = 2147483647;
+const isWindowsPlatform = () =>
+  /win/i.test(
+    ((navigator as Navigator & { userAgentData?: { platform?: string } })
+      .userAgentData?.platform ?? navigator.platform ?? ""),
+  );
 
 const dipToScreenPoint = (position: { x: number; y: number } | null) => {
   if (!isFinitePosition(position)) {
@@ -439,6 +444,7 @@ export const useWindowRightDrag = () => {
         return;
       }
 
+      const firstDragMove = !dragState.moved;
       dragState.moved = true;
       if (dragState.button === 2) {
         gestureState.isDragging = true;
@@ -447,6 +453,22 @@ export const useWindowRightDrag = () => {
           performance.now() + CONTEXT_MENU_SUPPRESS_MS;
       }
       event.preventDefault();
+
+      if (firstDragMove && isWindowsPlatform()) {
+        const startedNativeMove = window.desktopApi.window.beginNativeMoveSync();
+        if (startedNativeMove) {
+          gestureState.isRightMouseDown = false;
+          gestureState.isDragging = false;
+          gestureState.pointerType = null;
+          gestureState.suppressCurrentContextMenu = false;
+          gestureState.suppressContextMenuUntil =
+            performance.now() + CONTEXT_MENU_SUPPRESS_MS;
+          dragToken += 1;
+          clearDrag(true);
+          return;
+        }
+      }
+
       if (!dragState.ready) {
         dragState = {
           ...dragState,

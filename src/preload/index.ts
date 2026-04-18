@@ -135,6 +135,7 @@ const desktopApi: DesktopApi = {
 
       return ipcRenderer.sendSync("window:screen-to-dip-point-sync", nextPayload);
     },
+    beginNativeMoveSync: () => ipcRenderer.sendSync("window:begin-native-move-sync"),
     getPosition: () => ipcRenderer.invoke("window:get-position"),
     getPositionSync: () => ipcRenderer.sendSync("window:get-position-sync"),
     getBounds: () => ipcRenderer.invoke("window:get-bounds"),

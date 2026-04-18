@@ -220,6 +220,9 @@ export interface DesktopApi {
     close: () => Promise<void>;
     getControlsState: () => Promise<AppWindowControlsState>;
     getCursorScreenPointSync: () => AppWindowPosition;
+    getCursorScreenPhysicalPointSync: () => AppWindowPosition;
+    dipToScreenPointSync: (payload: AppWindowPosition) => AppWindowPosition;
+    screenToDipPointSync: (payload: AppWindowPosition) => AppWindowPosition;
     getPosition: () => Promise<AppWindowPosition>;
     getPositionSync: () => AppWindowPosition;
     getBounds: () => Promise<AppWindowBounds>;

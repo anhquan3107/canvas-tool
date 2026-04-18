@@ -117,6 +117,24 @@ const desktopApi: DesktopApi = {
     getControlsState: () => ipcRenderer.invoke("window:get-controls-state"),
     getCursorScreenPointSync: () =>
       ipcRenderer.sendSync("window:get-cursor-screen-point-sync"),
+    getCursorScreenPhysicalPointSync: () =>
+      ipcRenderer.sendSync("window:get-cursor-screen-physical-point-sync"),
+    dipToScreenPointSync: (payload) => {
+      const nextPayload = sanitizeWindowPosition(payload);
+      if (!nextPayload) {
+        return { x: 0, y: 0 };
+      }
+
+      return ipcRenderer.sendSync("window:dip-to-screen-point-sync", nextPayload);
+    },
+    screenToDipPointSync: (payload) => {
+      const nextPayload = sanitizeWindowPosition(payload);
+      if (!nextPayload) {
+        return { x: 0, y: 0 };
+      }
+
+      return ipcRenderer.sendSync("window:screen-to-dip-point-sync", nextPayload);
+    },
     getPosition: () => ipcRenderer.invoke("window:get-position"),
     getPositionSync: () => ipcRenderer.sendSync("window:get-position-sync"),
     getBounds: () => ipcRenderer.invoke("window:get-bounds"),

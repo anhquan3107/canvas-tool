@@ -50,6 +50,32 @@ const isFinitePosition = (
 const MIN_NATIVE_WINDOW_COORD = -2147483648;
 const MAX_NATIVE_WINDOW_COORD = 2147483647;
 
+const dipToScreenPoint = (position: { x: number; y: number } | null) => {
+  if (!isFinitePosition(position)) {
+    return null;
+  }
+
+  try {
+    const nextPosition = window.desktopApi.window.dipToScreenPointSync(position);
+    return isFinitePosition(nextPosition) ? nextPosition : position;
+  } catch {
+    return position;
+  }
+};
+
+const screenToDipPoint = (position: { x: number; y: number } | null) => {
+  if (!isFinitePosition(position)) {
+    return null;
+  }
+
+  try {
+    const nextPosition = window.desktopApi.window.screenToDipPointSync(position);
+    return isFinitePosition(nextPosition) ? nextPosition : position;
+  } catch {
+    return position;
+  }
+};
+
 const getNativeCursorScreenPosition = () => {
   try {
     const position = window.desktopApi.window.getCursorScreenPointSync();
@@ -63,22 +89,37 @@ const getNativeCursorScreenPosition = () => {
   return null;
 };
 
-const getPointerScreenPosition = (event: PointerEvent) => {
-  const nativePosition = getNativeCursorScreenPosition();
+const getNativeCursorScreenPhysicalPosition = () => {
+  try {
+    const position = window.desktopApi.window.getCursorScreenPhysicalPointSync();
+    if (isFinitePosition(position)) {
+      return position;
+    }
+  } catch {
+    // Fall back to renderer pointer coordinates below.
+  }
+
+  return null;
+};
+
+const getPointerScreenPhysicalPosition = (event: PointerEvent) => {
+  const nativePosition = getNativeCursorScreenPhysicalPosition();
   if (nativePosition) {
     return nativePosition;
   }
 
   const fallbackX = window.screenX + event.clientX;
   const fallbackY = window.screenY + event.clientY;
-  const x = isFiniteNumber(event.screenX) ? event.screenX : fallbackX;
-  const y = isFiniteNumber(event.screenY) ? event.screenY : fallbackY;
+  const dipPoint = {
+    x: isFiniteNumber(event.screenX) ? event.screenX : fallbackX,
+    y: isFiniteNumber(event.screenY) ? event.screenY : fallbackY,
+  };
 
-  if (!isFiniteNumber(x) || !isFiniteNumber(y)) {
+  if (!isFiniteNumber(dipPoint.x) || !isFiniteNumber(dipPoint.y)) {
     return null;
   }
 
-  return { x, y };
+  return dipToScreenPoint(dipPoint);
 };
 
 const normalizeWindowPosition = (value: { x: number; y: number } | null) => {
@@ -264,7 +305,7 @@ export const useWindowRightDrag = () => {
         return;
       }
 
-      const pointerScreenPosition = getPointerScreenPosition(event);
+      const pointerScreenPosition = getPointerScreenPhysicalPosition(event);
       if (!pointerScreenPosition) {
         return;
       }
@@ -274,10 +315,14 @@ export const useWindowRightDrag = () => {
       const token = ++dragToken;
       const button = 2;
       const captureTarget = isElement(event.target) ? event.target : null;
-      const initialPosition = getImmediateWindowPosition() ?? cachedWindowPosition;
-      cachedWindowPosition = isFinitePosition(initialPosition)
-        ? initialPosition
+      const initialWindowPositionDip =
+        getImmediateWindowPosition() ?? cachedWindowPosition;
+      cachedWindowPosition = isFinitePosition(initialWindowPositionDip)
+        ? initialWindowPositionDip
         : null;
+      const initialWindowPositionPhysical = dipToScreenPoint(
+        initialWindowPositionDip,
+      );
 
       if (captureTarget) {
         try {
@@ -295,11 +340,11 @@ export const useWindowRightDrag = () => {
         captureTarget,
         startScreenX: pointerScreenPosition.x,
         startScreenY: pointerScreenPosition.y,
-        windowX: cachedWindowPosition?.x ?? 0,
-        windowY: cachedWindowPosition?.y ?? 0,
+        windowX: initialWindowPositionPhysical?.x ?? 0,
+        windowY: initialWindowPositionPhysical?.y ?? 0,
         lastScreenX: pointerScreenPosition.x,
         lastScreenY: pointerScreenPosition.y,
-        ready: cachedWindowPosition !== null,
+        ready: initialWindowPositionPhysical !== null,
         moved: false,
       };
 
@@ -326,26 +371,37 @@ export const useWindowRightDrag = () => {
         }
 
         cachedWindowPosition = position;
+        const positionPhysical = dipToScreenPoint(position);
+        if (!positionPhysical) {
+          return;
+        }
+
         dragState = {
           ...dragState,
-          windowX: position.x,
-          windowY: position.y,
+          windowX: positionPhysical.x,
+          windowY: positionPhysical.y,
           ready: true,
         };
 
         const deltaX = dragState.lastScreenX - dragState.startScreenX;
         const deltaY = dragState.lastScreenY - dragState.startScreenY;
         if (dragState.moved) {
-          pendingMove = {
-            x: position.x + deltaX,
-            y: position.y + deltaY,
+          const nextPhysicalMove = {
+            x: positionPhysical.x + deltaX,
+            y: positionPhysical.y + deltaY,
           };
+          const nextDipMove = screenToDipPoint(nextPhysicalMove);
+          if (!nextDipMove) {
+            return;
+          }
+
+          pendingMove = nextDipMove;
           dragState = {
             ...dragState,
-            windowX: pendingMove.x,
-            windowY: pendingMove.y,
+            windowX: positionPhysical.x,
+            windowY: positionPhysical.y,
           };
-          cachedWindowPosition = pendingMove;
+          cachedWindowPosition = nextDipMove;
           scheduleMove();
         }
       });
@@ -369,7 +425,7 @@ export const useWindowRightDrag = () => {
         return;
       }
 
-      const pointerScreenPosition = getPointerScreenPosition(event);
+      const pointerScreenPosition = getPointerScreenPhysicalPosition(event);
       if (!pointerScreenPosition) {
         return;
       }
@@ -400,17 +456,11 @@ export const useWindowRightDrag = () => {
         return;
       }
 
-      const actualWindowPosition =
-        getImmediateWindowPosition() ?? {
-          x: dragState.windowX,
-          y: dragState.windowY,
-        };
-      const stepDeltaX = pointerScreenPosition.x - dragState.lastScreenX;
-      const stepDeltaY = pointerScreenPosition.y - dragState.lastScreenY;
-      const nextMove = {
-        x: actualWindowPosition.x + stepDeltaX,
-        y: actualWindowPosition.y + stepDeltaY,
+      const nextPhysicalMove = {
+        x: dragState.windowX + (pointerScreenPosition.x - dragState.startScreenX),
+        y: dragState.windowY + (pointerScreenPosition.y - dragState.startScreenY),
       };
+      const nextMove = screenToDipPoint(nextPhysicalMove);
 
       if (!isFinitePosition(nextMove)) {
         return;
@@ -420,8 +470,6 @@ export const useWindowRightDrag = () => {
         ...dragState,
         lastScreenX: pointerScreenPosition.x,
         lastScreenY: pointerScreenPosition.y,
-        windowX: nextMove.x,
-        windowY: nextMove.y,
       };
       cachedWindowPosition = nextMove;
       pendingMove = {

@@ -29,6 +29,14 @@ export const registerWindowHandlers = (window: BrowserWindow) => {
     payload != null &&
     isFiniteNumber(payload.x) &&
     isFiniteNumber(payload.y);
+  const dipToScreenPoint = (point: AppWindowPosition) =>
+    process.platform === "win32" || process.platform === "linux"
+      ? screen.dipToScreenPoint(point)
+      : point;
+  const screenToDipPoint = (point: AppWindowPosition) =>
+    process.platform === "win32" || process.platform === "linux"
+      ? screen.screenToDipPoint(point)
+      : point;
 
   ipcMain.handle("window:set-title", (event, payload: AppWindowState) => {
     const safeTitle = payload.fileName
@@ -87,6 +95,32 @@ export const registerWindowHandlers = (window: BrowserWindow) => {
 
   ipcMain.on("window:get-cursor-screen-point-sync", (event) => {
     const { x, y } = screen.getCursorScreenPoint();
+    event.returnValue = { x, y } satisfies AppWindowPosition;
+  });
+
+  ipcMain.on("window:get-cursor-screen-physical-point-sync", (event) => {
+    const cursorPoint = screen.getCursorScreenPoint();
+    const { x, y } = dipToScreenPoint(cursorPoint);
+    event.returnValue = { x, y } satisfies AppWindowPosition;
+  });
+
+  ipcMain.on("window:dip-to-screen-point-sync", (event, payload: AppWindowPosition) => {
+    if (!isValidWindowPosition(payload)) {
+      event.returnValue = { x: 0, y: 0 } satisfies AppWindowPosition;
+      return;
+    }
+
+    const { x, y } = dipToScreenPoint(payload);
+    event.returnValue = { x, y } satisfies AppWindowPosition;
+  });
+
+  ipcMain.on("window:screen-to-dip-point-sync", (event, payload: AppWindowPosition) => {
+    if (!isValidWindowPosition(payload)) {
+      event.returnValue = { x: 0, y: 0 } satisfies AppWindowPosition;
+      return;
+    }
+
+    const { x, y } = screenToDipPoint(payload);
     event.returnValue = { x, y } satisfies AppWindowPosition;
   });
 

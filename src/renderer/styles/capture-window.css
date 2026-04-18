@@ -152,6 +152,7 @@
   gap: 10px;
   min-width: 0;
   overflow: hidden;
+  -webkit-app-region: drag;
 }
 
 .capture-window-drag-spacer {
@@ -161,10 +162,13 @@
 }
 
 .capture-window-title,
+.capture-window-toolbar,
+.capture-quality-switch,
 .capture-window-toolbar .toolbar-button,
 .capture-window-toolbar input,
 .capture-window-toolbar label,
-.capture-window-topbar .window-button {
+.capture-window-topbar .window-button,
+.capture-window-topbar .window-cluster {
   -webkit-app-region: no-drag;
 }
 

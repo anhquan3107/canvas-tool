@@ -160,8 +160,8 @@ export const useWindowRightDrag = () => {
     let dragState:
       | {
           token: number;
-          button: 0 | 2;
-          buttonMask: 1 | 2;
+          button: 2;
+          buttonMask: 2;
           pointerId: number;
           captureTarget: HTMLElement | null;
           startScreenX: number;
@@ -255,18 +255,12 @@ export const useWindowRightDrag = () => {
         return;
       }
 
-      const leftDragTarget =
-        event.button === 0 &&
-        (event.buttons & 1) === 1 &&
-        isElement(event.target) &&
-        event.target.closest("[data-window-left-drag='true']") &&
-        !isInteractiveTarget(event.target);
       const rightDragTarget =
         event.button === 2 &&
         (event.buttons & 2) === 2 &&
         isSupportedRightDragPointerType(event.pointerType);
 
-      if (!leftDragTarget && !rightDragTarget) {
+      if (!rightDragTarget) {
         return;
       }
 
@@ -278,7 +272,7 @@ export const useWindowRightDrag = () => {
       flushPendingMoveImmediately();
 
       const token = ++dragToken;
-      const button = event.button === 0 ? 0 : 2;
+      const button = 2;
       const captureTarget = isElement(event.target) ? event.target : null;
       const initialPosition = getImmediateWindowPosition() ?? cachedWindowPosition;
       cachedWindowPosition = isFinitePosition(initialPosition)
@@ -296,7 +290,7 @@ export const useWindowRightDrag = () => {
       dragState = {
         token,
         button,
-        buttonMask: button === 0 ? 1 : 2,
+        buttonMask: 2,
         pointerId: event.pointerId,
         captureTarget,
         startScreenX: pointerScreenPosition.x,

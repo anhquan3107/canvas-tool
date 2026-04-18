@@ -154,13 +154,15 @@
 .app-drag-region {
   flex: 1 1 auto;
   min-width: 0;
+  -webkit-app-region: drag;
 }
 
 .topbar-brand,
 .toolbar-button,
 .chrome-chip,
 .window-button,
-.topbar-hover-tooltip-shell {
+.topbar-hover-tooltip-shell,
+.window-cluster {
   -webkit-app-region: no-drag;
 }
 

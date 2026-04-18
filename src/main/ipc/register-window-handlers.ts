@@ -1,5 +1,4 @@
 import { ipcMain, screen, type BrowserWindow } from "electron";
-import { spawn } from "node:child_process";
 import type {
   AppWindowBounds,
   AppWindowIgnoreMouseRequest,
@@ -30,6 +29,14 @@ export const registerWindowHandlers = (window: BrowserWindow) => {
     payload != null &&
     isFiniteNumber(payload.x) &&
     isFiniteNumber(payload.y);
+  const isValidWindowBounds = (
+    payload: AppWindowBounds | null | undefined,
+  ): payload is AppWindowBounds =>
+    payload != null &&
+    isFiniteNumber(payload.x) &&
+    isFiniteNumber(payload.y) &&
+    isFiniteNumber(payload.width) &&
+    isFiniteNumber(payload.height);
   const dipToScreenPoint = (point: AppWindowPosition) =>
     process.platform === "win32" || process.platform === "linux"
       ? screen.dipToScreenPoint(point)
@@ -38,67 +45,14 @@ export const registerWindowHandlers = (window: BrowserWindow) => {
     process.platform === "win32" || process.platform === "linux"
       ? screen.screenToDipPoint(point)
       : point;
-  const getWindowHandleValue = (targetWindow: BrowserWindow) => {
-    const handle = targetWindow.getNativeWindowHandle();
-    if (handle.byteLength >= 8) {
-      return handle.readBigUInt64LE(0);
-    }
-    if (handle.byteLength >= 4) {
-      return BigInt(handle.readUInt32LE(0));
-    }
-    return null;
-  };
-  const beginWindowsNativeMove = (targetWindow: BrowserWindow) => {
-    if (process.platform !== "win32") {
-      return false;
-    }
-
-    const handleValue = getWindowHandleValue(targetWindow);
-    if (handleValue === null || handleValue === 0n) {
-      return false;
-    }
-
-    const script = `
-Add-Type -TypeDefinition @"
-using System;
-using System.Runtime.InteropServices;
-public static class CanvasToolWindowMove {
-  [DllImport("user32.dll")]
-  public static extern bool ReleaseCapture();
-
-  [DllImport("user32.dll")]
-  public static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
-}
-"@;
-[CanvasToolWindowMove]::ReleaseCapture() | Out-Null;
-[CanvasToolWindowMove]::SendMessage([IntPtr]::new([Int64]${handleValue.toString()}), 0x112, [IntPtr]::new(0xF012), [IntPtr]::Zero) | Out-Null;
-`.trim();
-
-    const encodedScript = Buffer.from(script, "utf16le").toString("base64");
-
-    try {
-      const child = spawn(
-        "powershell.exe",
-        [
-          "-NoProfile",
-          "-NonInteractive",
-          "-WindowStyle",
-          "Hidden",
-          "-EncodedCommand",
-          encodedScript,
-        ],
-        {
-          detached: true,
-          stdio: "ignore",
-          windowsHide: true,
-        },
-      );
-      child.unref();
-      return true;
-    } catch {
-      return false;
-    }
-  };
+  const dipToScreenRect = (point: AppWindowBounds) =>
+    process.platform === "win32"
+      ? screen.dipToScreenRect(null, point)
+      : point;
+  const screenToDipRect = (point: AppWindowBounds) =>
+    process.platform === "win32"
+      ? screen.screenToDipRect(null, point)
+      : point;
 
   ipcMain.handle("window:set-title", (event, payload: AppWindowState) => {
     const safeTitle = payload.fileName
@@ -160,12 +114,6 @@ public static class CanvasToolWindowMove {
     event.returnValue = { x, y } satisfies AppWindowPosition;
   });
 
-  ipcMain.on("window:get-cursor-screen-physical-point-sync", (event) => {
-    const cursorPoint = screen.getCursorScreenPoint();
-    const { x, y } = dipToScreenPoint(cursorPoint);
-    event.returnValue = { x, y } satisfies AppWindowPosition;
-  });
-
   ipcMain.on("window:dip-to-screen-point-sync", (event, payload: AppWindowPosition) => {
     if (!isValidWindowPosition(payload)) {
       event.returnValue = { x: 0, y: 0 } satisfies AppWindowPosition;
@@ -186,9 +134,34 @@ public static class CanvasToolWindowMove {
     event.returnValue = { x, y } satisfies AppWindowPosition;
   });
 
-  ipcMain.on("window:begin-native-move-sync", (event) => {
-    const targetWindow = getTargetWindow(event);
-    event.returnValue = beginWindowsNativeMove(targetWindow);
+  ipcMain.on("window:dip-to-screen-rect-sync", (event, payload: AppWindowBounds) => {
+    if (!isValidWindowBounds(payload)) {
+      event.returnValue = {
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0,
+      } satisfies AppWindowBounds;
+      return;
+    }
+
+    const { x, y, width, height } = dipToScreenRect(payload);
+    event.returnValue = { x, y, width, height } satisfies AppWindowBounds;
+  });
+
+  ipcMain.on("window:screen-to-dip-rect-sync", (event, payload: AppWindowBounds) => {
+    if (!isValidWindowBounds(payload)) {
+      event.returnValue = {
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0,
+      } satisfies AppWindowBounds;
+      return;
+    }
+
+    const { x, y, width, height } = screenToDipRect(payload);
+    event.returnValue = { x, y, width, height } satisfies AppWindowBounds;
   });
 
   ipcMain.handle("window:get-position", (event): AppWindowPosition => {

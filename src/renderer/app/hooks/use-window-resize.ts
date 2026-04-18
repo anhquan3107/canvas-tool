@@ -2,24 +2,19 @@ import { useEffect } from "react";
 import type { AppWindowBounds } from "@shared/types/ipc";
 
 const MIN_RESIZE_EDGE = 160;
-const DEFAULT_MAX_STEP_DELTA = 48;
 
 type ResizeDirection = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
 type ResizeMode = "frame" | "live";
 
 type UseWindowResizeOptions = {
   mode?: ResizeMode;
-  maxStepDelta?: number;
 };
 
 type ResizeState = {
   pointerId: number;
   direction: ResizeDirection;
-  aspectRatio: number;
   startScreenX: number;
   startScreenY: number;
-  lastScreenX: number;
-  lastScreenY: number;
   startBounds: AppWindowBounds;
   latestBounds: AppWindowBounds;
 };
@@ -32,54 +27,40 @@ const hasSouth = (direction: ResizeDirection) => direction.includes("s");
 const getResizedBounds = (
   startBounds: AppWindowBounds,
   direction: ResizeDirection,
-  aspectRatio: number,
   deltaX: number,
   deltaY: number,
 ): AppWindowBounds => {
-  const widthFromHorizontal =
-    startBounds.width +
-    (hasEast(direction) ? deltaX : 0) -
-    (hasWest(direction) ? deltaX : 0);
-  const widthFromVertical =
-    startBounds.width +
-    ((hasSouth(direction) ? deltaY : 0) -
-      (hasNorth(direction) ? deltaY : 0)) *
-      aspectRatio;
-  const shouldPreferHorizontal =
-    (hasEast(direction) || hasWest(direction)) &&
-    (!hasNorth(direction) && !hasSouth(direction)
-      ? true
-      : Math.abs(widthFromHorizontal - startBounds.width) >=
-        Math.abs(widthFromVertical - startBounds.width));
-  const nextWidthRaw = shouldPreferHorizontal
-    ? widthFromHorizontal
-    : widthFromVertical;
-  const nextWidth = Math.max(MIN_RESIZE_EDGE, Math.round(nextWidthRaw));
-  const nextHeight = Math.max(
-    MIN_RESIZE_EDGE,
-    Math.round(nextWidth / Math.max(0.0001, aspectRatio)),
-  );
+  const startLeft = startBounds.x;
+  const startTop = startBounds.y;
+  const startRight = startBounds.x + startBounds.width;
+  const startBottom = startBounds.y + startBounds.height;
 
-  let x = startBounds.x;
-  let y = startBounds.y;
+  let nextLeft = startLeft;
+  let nextTop = startTop;
+  let nextRight = startRight;
+  let nextBottom = startBottom;
 
   if (hasWest(direction)) {
-    x = startBounds.x + (startBounds.width - nextWidth);
-  } else if (!hasEast(direction)) {
-    x = startBounds.x + Math.round((startBounds.width - nextWidth) / 2);
+    nextLeft = Math.min(startLeft + deltaX, startRight - MIN_RESIZE_EDGE);
+  }
+
+  if (hasEast(direction)) {
+    nextRight = Math.max(startRight + deltaX, startLeft + MIN_RESIZE_EDGE);
   }
 
   if (hasNorth(direction)) {
-    y = startBounds.y + (startBounds.height - nextHeight);
-  } else if (!hasSouth(direction)) {
-    y = startBounds.y + Math.round((startBounds.height - nextHeight) / 2);
+    nextTop = Math.min(startTop + deltaY, startBottom - MIN_RESIZE_EDGE);
+  }
+
+  if (hasSouth(direction)) {
+    nextBottom = Math.max(startBottom + deltaY, startTop + MIN_RESIZE_EDGE);
   }
 
   return {
-    x: Math.round(x),
-    y: Math.round(y),
-    width: nextWidth,
-    height: nextHeight,
+    x: Math.round(nextLeft),
+    y: Math.round(nextTop),
+    width: Math.round(nextRight - nextLeft),
+    height: Math.round(nextBottom - nextTop),
   };
 };
 
@@ -96,9 +77,6 @@ const isSameBounds = (left: AppWindowBounds, right: AppWindowBounds) =>
   left.y === right.y &&
   left.width === right.width &&
   left.height === right.height;
-
-const clampStepDelta = (value: number, maxStepDelta: number) =>
-  Math.max(-maxStepDelta, Math.min(maxStepDelta, value));
 
 const isFiniteNumber = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value);
@@ -130,7 +108,6 @@ export const useWindowResize = (
   options?: UseWindowResizeOptions,
 ) => {
   const mode = options?.mode ?? "frame";
-  const maxStepDelta = Math.max(1, options?.maxStepDelta ?? DEFAULT_MAX_STEP_DELTA);
 
   useEffect(() => {
     if (!enabled) {
@@ -222,12 +199,8 @@ export const useWindowResize = (
       resizeState = {
         pointerId: event.pointerId,
         direction,
-        aspectRatio:
-          startBounds.width / Math.max(1, startBounds.height),
         startScreenX: pointerScreenPosition.x,
         startScreenY: pointerScreenPosition.y,
-        lastScreenX: pointerScreenPosition.x,
-        lastScreenY: pointerScreenPosition.y,
         startBounds,
         latestBounds: startBounds,
       };
@@ -244,52 +217,25 @@ export const useWindowResize = (
         return;
       }
 
+      const deltaX = pointerScreenPosition.x - resizeState.startScreenX;
+      const deltaY = pointerScreenPosition.y - resizeState.startScreenY;
+      const nextBounds = getResizedBounds(
+        resizeState.startBounds,
+        resizeState.direction,
+        deltaX,
+        deltaY,
+      );
+
       if (mode === "live") {
-        const stepDeltaX = clampStepDelta(
-          pointerScreenPosition.x - resizeState.lastScreenX,
-          maxStepDelta,
-        );
-        const stepDeltaY = clampStepDelta(
-          pointerScreenPosition.y - resizeState.lastScreenY,
-          maxStepDelta,
-        );
-
-        if (stepDeltaX === 0 && stepDeltaY === 0) {
-          return;
-        }
-
-        const baseBounds = resizeState.latestBounds;
-        const nextBounds = getResizedBounds(
-          baseBounds,
-          resizeState.direction,
-          resizeState.aspectRatio,
-          stepDeltaX,
-          stepDeltaY,
-        );
-
         resizeState = {
           ...resizeState,
-          lastScreenX: pointerScreenPosition.x,
-          lastScreenY: pointerScreenPosition.y,
           latestBounds: nextBounds,
         };
         applyResize(nextBounds);
       } else {
-        const deltaX = pointerScreenPosition.x - resizeState.startScreenX;
-        const deltaY = pointerScreenPosition.y - resizeState.startScreenY;
-        const nextBounds = getResizedBounds(
-          resizeState.startBounds,
-          resizeState.direction,
-          resizeState.aspectRatio,
-          deltaX,
-          deltaY,
-        );
-
         resizeState = {
           ...resizeState,
           latestBounds: nextBounds,
-          lastScreenX: pointerScreenPosition.x,
-          lastScreenY: pointerScreenPosition.y,
         };
         queueResize(nextBounds);
       }
@@ -329,5 +275,5 @@ export const useWindowResize = (
       window.removeEventListener("blur", handleWindowBlur);
       clearResizeState();
     };
-  }, [enabled, mode, maxStepDelta]);
+  }, [enabled, mode]);
 };

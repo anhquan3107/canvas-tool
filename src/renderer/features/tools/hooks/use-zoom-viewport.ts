@@ -323,15 +323,15 @@ export const useZoomViewport = ({
   }, []);
 
   const stageStyle = {
-    width: `${cropWidth}px`,
-    height: `${cropHeight}px`,
-    transform: `translate(-50%, -50%) translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
+    width: `${cropWidth * scale}px`,
+    height: `${cropHeight * scale}px`,
+    transform: `translate3d(-50%, -50%, 0) translate3d(${pan.x}px, ${pan.y}px, 0)`,
   };
 
   const imageStyle = {
-    width: `${sourceWidth}px`,
-    height: `${sourceHeight}px`,
-    transform: `translate(${-cropX}px, ${-cropY}px)`,
+    width: `${sourceWidth * scale}px`,
+    height: `${sourceHeight * scale}px`,
+    transform: `translate3d(${-cropX * scale}px, ${-cropY * scale}px, 0)`,
     ...(filterStyle ? { filter: filterStyle } : {}),
   };
 

@@ -76,6 +76,7 @@ export const ZoomViewport = ({
           className="zoom-overlay-grid"
           viewBox={`0 0 ${cropWidth} ${cropHeight}`}
           preserveAspectRatio="none"
+          shapeRendering="geometricPrecision"
         >
           {Array.from({ length: Math.max(0, gridSettings.verticalLines - 1) }).map(
             (_, index) => {
@@ -90,6 +91,7 @@ export const ZoomViewport = ({
                   stroke={gridSettings.gridColor}
                   strokeWidth={1}
                   strokeOpacity={1}
+                  vectorEffect="non-scaling-stroke"
                 />
               );
             },
@@ -109,6 +111,7 @@ export const ZoomViewport = ({
                 stroke={gridSettings.gridColor}
                 strokeWidth={1}
                 strokeOpacity={1}
+                vectorEffect="non-scaling-stroke"
               />
             );
           })}

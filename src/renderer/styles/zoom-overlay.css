@@ -19,6 +19,8 @@
   overflow: hidden;
   transform-origin: center center;
   will-change: transform;
+  contain: paint;
+  backface-visibility: hidden;
 }
 
 .zoom-overlay-image,
@@ -29,15 +31,19 @@
   width: 100%;
   height: 100%;
   user-select: none;
+  backface-visibility: hidden;
 }
 
 .zoom-overlay-image {
   pointer-events: none;
   image-rendering: auto;
+  transform-origin: top left;
+  will-change: transform, width, height;
 }
 
 .zoom-overlay-grid {
   pointer-events: none;
+  transform-origin: top left;
 }
 
 .zoom-overlay-blur-bar {

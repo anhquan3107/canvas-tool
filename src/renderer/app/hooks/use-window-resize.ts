@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import type { AppWindowBounds, AppWindowPosition } from "@shared/types/ipc";
+import type { AppWindowBounds } from "@shared/types/ipc";
 
 const MIN_RESIZE_EDGE = 160;
 const MIN_NATIVE_WINDOW_COORD = -2147483648;
@@ -28,11 +28,6 @@ const hasSouth = (direction: ResizeDirection) => direction.includes("s");
 
 const isFiniteNumber = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value);
-
-const isFinitePosition = (
-  value: { x: number; y: number } | null,
-): value is { x: number; y: number } =>
-  value !== null && isFiniteNumber(value.x) && isFiniteNumber(value.y);
 
 const isFiniteBounds = (
   value: AppWindowBounds | null,
@@ -120,45 +115,6 @@ const getSynchronousBounds = (): AppWindowBounds | null => {
   }
 };
 
-const dipPointToScreenPoint = (point: AppWindowPosition | null) => {
-  if (!isFinitePosition(point)) {
-    return null;
-  }
-
-  try {
-    const nextPoint = window.desktopApi.window.dipToScreenPointSync(point);
-    return isFinitePosition(nextPoint) ? nextPoint : point;
-  } catch {
-    return point;
-  }
-};
-
-const dipBoundsToScreenBounds = (bounds: AppWindowBounds | null) => {
-  if (!isFiniteBounds(bounds)) {
-    return null;
-  }
-
-  try {
-    const nextBounds = window.desktopApi.window.dipToScreenRectSync(bounds);
-    return normalizeWindowBounds(nextBounds) ?? normalizeWindowBounds(bounds);
-  } catch {
-    return normalizeWindowBounds(bounds);
-  }
-};
-
-const screenBoundsToDipBounds = (bounds: AppWindowBounds | null) => {
-  if (!isFiniteBounds(bounds)) {
-    return null;
-  }
-
-  try {
-    const nextBounds = window.desktopApi.window.screenToDipRectSync(bounds);
-    return normalizeWindowBounds(nextBounds) ?? normalizeWindowBounds(bounds);
-  } catch {
-    return normalizeWindowBounds(bounds);
-  }
-};
-
 const isSameBounds = (left: AppWindowBounds, right: AppWindowBounds) =>
   left.x === right.x &&
   left.y === right.y &&
@@ -167,10 +123,16 @@ const isSameBounds = (left: AppWindowBounds, right: AppWindowBounds) =>
 
 const getPointerScreenPosition = (event: PointerEvent) => {
   try {
-    const cursorDipPoint = window.desktopApi.window.getCursorScreenPointSync();
-    const cursorScreenPoint = dipPointToScreenPoint(cursorDipPoint);
-    if (isFinitePosition(cursorScreenPoint)) {
-      return cursorScreenPoint;
+    const cursorPoint = window.desktopApi.window.getCursorScreenPointSync();
+    if (
+      cursorPoint &&
+      isFiniteNumber(cursorPoint.x) &&
+      isFiniteNumber(cursorPoint.y)
+    ) {
+      return {
+        x: Math.round(cursorPoint.x),
+        y: Math.round(cursorPoint.y),
+      };
     }
   } catch {
     // Fall back to renderer pointer coordinates below.
@@ -183,11 +145,14 @@ const getPointerScreenPosition = (event: PointerEvent) => {
     y: isFiniteNumber(event.screenY) ? event.screenY : fallbackY,
   };
 
-  if (!isFinitePosition(fallbackDipPoint)) {
+  if (!isFiniteNumber(fallbackDipPoint.x) || !isFiniteNumber(fallbackDipPoint.y)) {
     return null;
   }
 
-  return dipPointToScreenPoint(fallbackDipPoint);
+  return {
+    x: Math.round(fallbackDipPoint.x),
+    y: Math.round(fallbackDipPoint.y),
+  };
 };
 
 export const useWindowResize = (
@@ -221,13 +186,13 @@ export const useWindowResize = (
     };
 
     const applyResize = (nextScreenBounds: AppWindowBounds) => {
-      const nextBounds = screenBoundsToDipBounds(nextScreenBounds);
+      const nextBounds = normalizeWindowBounds(nextScreenBounds);
       if (!nextBounds) {
         return nextScreenBounds;
       }
 
       if (lastAppliedBounds && isSameBounds(lastAppliedBounds, nextBounds)) {
-        return dipBoundsToScreenBounds(lastAppliedBounds) ?? nextScreenBounds;
+        return lastAppliedBounds;
       }
 
       try {
@@ -244,7 +209,7 @@ export const useWindowResize = (
         }
       }
 
-      return dipBoundsToScreenBounds(lastAppliedBounds) ?? nextScreenBounds;
+      return lastAppliedBounds ?? nextScreenBounds;
     };
 
     const flushResize = () => {
@@ -302,8 +267,7 @@ export const useWindowResize = (
       }
 
       const direction = rawDirection as ResizeDirection;
-      const startBoundsDip = getSynchronousBounds();
-      const startBounds = dipBoundsToScreenBounds(startBoundsDip);
+      const startBounds = getSynchronousBounds();
       if (!startBounds) {
         return;
       }

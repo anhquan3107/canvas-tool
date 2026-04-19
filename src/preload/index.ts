@@ -177,14 +177,6 @@ const desktopApi: DesktopApi = {
 
       return ipcRenderer.invoke("window:set-bounds", nextPayload);
     },
-    setBoundsSync: (payload) => {
-      const nextPayload = sanitizeWindowBounds(payload);
-      if (!nextPayload) {
-        return { x: 0, y: 0, width: 0, height: 0 };
-      }
-
-      return ipcRenderer.sendSync("window:set-bounds-sync", nextPayload);
-    },
     setBoundsImmediate: (payload) => {
       const nextPayload = sanitizeWindowBounds(payload);
       if (!nextPayload) {

@@ -214,18 +214,6 @@ export const registerWindowHandlers = (window: BrowserWindow) => {
     });
   });
 
-  ipcMain.on("window:set-bounds-sync", (event, payload: AppWindowBounds) => {
-    const targetWindow = getTargetWindow(event);
-    targetWindow.setBounds({
-      x: Math.round(payload.x),
-      y: Math.round(payload.y),
-      width: Math.round(payload.width),
-      height: Math.round(payload.height),
-    });
-    const { x, y, width, height } = targetWindow.getBounds();
-    event.returnValue = { x, y, width, height } satisfies AppWindowBounds;
-  });
-
   ipcMain.on("window:set-bounds-immediate", (event, payload: AppWindowBounds) => {
     const targetWindow = getTargetWindow(event);
     targetWindow.setBounds({

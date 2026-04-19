@@ -45,6 +45,7 @@ export const CaptureToolbarApp = () => {
   const customResizeEnabled = !sessionState.windowMaximized;
   useWindowResize(customResizeEnabled, {
     mode: "live",
+    maxStepDelta: 96,
   });
 
   const postMessage = useCallback((message: CaptureSessionMessage) => {

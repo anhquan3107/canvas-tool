@@ -1,25 +1,23 @@
 import { useEffect } from "react";
-import type { AppWindowBounds } from "@shared/types/ipc";
+import type { AppWindowBounds, AppWindowPosition } from "@shared/types/ipc";
 
 const MIN_RESIZE_EDGE = 160;
-const DEFAULT_MAX_STEP_DELTA = 48;
+const MIN_NATIVE_WINDOW_COORD = -2147483648;
+const MAX_NATIVE_WINDOW_COORD = 2147483647;
 
 type ResizeDirection = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
 type ResizeMode = "frame" | "live";
 
 type UseWindowResizeOptions = {
   mode?: ResizeMode;
-  maxStepDelta?: number;
 };
 
 type ResizeState = {
   pointerId: number;
   direction: ResizeDirection;
-  aspectRatio: number;
+  captureTarget: HTMLElement | null;
   startScreenX: number;
   startScreenY: number;
-  lastScreenX: number;
-  lastScreenY: number;
   startBounds: AppWindowBounds;
   latestBounds: AppWindowBounds;
 };
@@ -29,65 +27,136 @@ const hasEast = (direction: ResizeDirection) => direction.includes("e");
 const hasNorth = (direction: ResizeDirection) => direction.includes("n");
 const hasSouth = (direction: ResizeDirection) => direction.includes("s");
 
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value);
+
+const isFinitePosition = (
+  value: { x: number; y: number } | null,
+): value is { x: number; y: number } =>
+  value !== null && isFiniteNumber(value.x) && isFiniteNumber(value.y);
+
+const isFiniteBounds = (
+  value: AppWindowBounds | null,
+): value is AppWindowBounds =>
+  value !== null &&
+  isFiniteNumber(value.x) &&
+  isFiniteNumber(value.y) &&
+  isFiniteNumber(value.width) &&
+  isFiniteNumber(value.height);
+
+const normalizeWindowBounds = (value: AppWindowBounds | null) => {
+  if (!isFiniteBounds(value)) {
+    return null;
+  }
+
+  const x = Math.max(
+    MIN_NATIVE_WINDOW_COORD,
+    Math.min(MAX_NATIVE_WINDOW_COORD, Math.round(value.x)),
+  );
+  const y = Math.max(
+    MIN_NATIVE_WINDOW_COORD,
+    Math.min(MAX_NATIVE_WINDOW_COORD, Math.round(value.y)),
+  );
+  const width = Math.max(1, Math.round(value.width));
+  const height = Math.max(1, Math.round(value.height));
+
+  if (
+    !Number.isSafeInteger(x) ||
+    !Number.isSafeInteger(y) ||
+    !Number.isSafeInteger(width) ||
+    !Number.isSafeInteger(height)
+  ) {
+    return null;
+  }
+
+  return { x, y, width, height };
+};
+
 const getResizedBounds = (
   startBounds: AppWindowBounds,
   direction: ResizeDirection,
-  aspectRatio: number,
   deltaX: number,
   deltaY: number,
 ): AppWindowBounds => {
-  const widthFromHorizontal =
-    startBounds.width +
-    (hasEast(direction) ? deltaX : 0) -
-    (hasWest(direction) ? deltaX : 0);
-  const widthFromVertical =
-    startBounds.width +
-    ((hasSouth(direction) ? deltaY : 0) -
-      (hasNorth(direction) ? deltaY : 0)) *
-      aspectRatio;
-  const shouldPreferHorizontal =
-    (hasEast(direction) || hasWest(direction)) &&
-    (!hasNorth(direction) && !hasSouth(direction)
-      ? true
-      : Math.abs(widthFromHorizontal - startBounds.width) >=
-        Math.abs(widthFromVertical - startBounds.width));
-  const nextWidthRaw = shouldPreferHorizontal
-    ? widthFromHorizontal
-    : widthFromVertical;
-  const nextWidth = Math.max(MIN_RESIZE_EDGE, Math.round(nextWidthRaw));
-  const nextHeight = Math.max(
-    MIN_RESIZE_EDGE,
-    Math.round(nextWidth / Math.max(0.0001, aspectRatio)),
-  );
+  const startRight = startBounds.x + startBounds.width;
+  const startBottom = startBounds.y + startBounds.height;
 
-  let x = startBounds.x;
-  let y = startBounds.y;
+  let nextLeft = startBounds.x;
+  let nextTop = startBounds.y;
+  let nextRight = startRight;
+  let nextBottom = startBottom;
 
   if (hasWest(direction)) {
-    x = startBounds.x + (startBounds.width - nextWidth);
-  } else if (!hasEast(direction)) {
-    x = startBounds.x + Math.round((startBounds.width - nextWidth) / 2);
+    nextLeft = Math.min(startBounds.x + deltaX, startRight - MIN_RESIZE_EDGE);
+  }
+
+  if (hasEast(direction)) {
+    nextRight = Math.max(startRight + deltaX, startBounds.x + MIN_RESIZE_EDGE);
   }
 
   if (hasNorth(direction)) {
-    y = startBounds.y + (startBounds.height - nextHeight);
-  } else if (!hasSouth(direction)) {
-    y = startBounds.y + Math.round((startBounds.height - nextHeight) / 2);
+    nextTop = Math.min(startBounds.y + deltaY, startBottom - MIN_RESIZE_EDGE);
+  }
+
+  if (hasSouth(direction)) {
+    nextBottom = Math.max(
+      startBottom + deltaY,
+      startBounds.y + MIN_RESIZE_EDGE,
+    );
   }
 
   return {
-    x: Math.round(x),
-    y: Math.round(y),
-    width: nextWidth,
-    height: nextHeight,
+    x: Math.round(nextLeft),
+    y: Math.round(nextTop),
+    width: Math.round(nextRight - nextLeft),
+    height: Math.round(nextBottom - nextTop),
   };
 };
 
-const getSynchronousBounds = () => {
+const getSynchronousBounds = (): AppWindowBounds | null => {
   try {
-    return window.desktopApi.window.getBoundsSync();
+    return normalizeWindowBounds(window.desktopApi.window.getBoundsSync());
   } catch {
     return null;
+  }
+};
+
+const dipPointToScreenPoint = (point: AppWindowPosition | null) => {
+  if (!isFinitePosition(point)) {
+    return null;
+  }
+
+  try {
+    const nextPoint = window.desktopApi.window.dipToScreenPointSync(point);
+    return isFinitePosition(nextPoint) ? nextPoint : point;
+  } catch {
+    return point;
+  }
+};
+
+const dipBoundsToScreenBounds = (bounds: AppWindowBounds | null) => {
+  if (!isFiniteBounds(bounds)) {
+    return null;
+  }
+
+  try {
+    const nextBounds = window.desktopApi.window.dipToScreenRectSync(bounds);
+    return normalizeWindowBounds(nextBounds) ?? normalizeWindowBounds(bounds);
+  } catch {
+    return normalizeWindowBounds(bounds);
+  }
+};
+
+const screenBoundsToDipBounds = (bounds: AppWindowBounds | null) => {
+  if (!isFiniteBounds(bounds)) {
+    return null;
+  }
+
+  try {
+    const nextBounds = window.desktopApi.window.screenToDipRectSync(bounds);
+    return normalizeWindowBounds(nextBounds) ?? normalizeWindowBounds(bounds);
+  } catch {
+    return normalizeWindowBounds(bounds);
   }
 };
 
@@ -97,32 +166,29 @@ const isSameBounds = (left: AppWindowBounds, right: AppWindowBounds) =>
   left.width === right.width &&
   left.height === right.height;
 
-const clampStepDelta = (value: number, maxStepDelta: number) =>
-  Math.max(-maxStepDelta, Math.min(maxStepDelta, value));
-
-const isFiniteNumber = (value: unknown): value is number =>
-  typeof value === "number" && Number.isFinite(value);
-
-const isWindowsPointerCoordinatePlatform = () =>
-  /win/i.test(
-    ((navigator as Navigator & { userAgentData?: { platform?: string } })
-      .userAgentData?.platform ?? navigator.platform ?? ""),
-  );
-
 const getPointerScreenPosition = (event: PointerEvent) => {
+  try {
+    const cursorDipPoint = window.desktopApi.window.getCursorScreenPointSync();
+    const cursorScreenPoint = dipPointToScreenPoint(cursorDipPoint);
+    if (isFinitePosition(cursorScreenPoint)) {
+      return cursorScreenPoint;
+    }
+  } catch {
+    // Fall back to renderer pointer coordinates below.
+  }
+
   const fallbackX = window.screenX + event.clientX;
   const fallbackY = window.screenY + event.clientY;
-  const preferFallback = isWindowsPointerCoordinatePlatform();
-  const x =
-    preferFallback || !isFiniteNumber(event.screenX) ? fallbackX : event.screenX;
-  const y =
-    preferFallback || !isFiniteNumber(event.screenY) ? fallbackY : event.screenY;
+  const fallbackDipPoint = {
+    x: isFiniteNumber(event.screenX) ? event.screenX : fallbackX,
+    y: isFiniteNumber(event.screenY) ? event.screenY : fallbackY,
+  };
 
-  if (!isFiniteNumber(x) || !isFiniteNumber(y)) {
+  if (!isFinitePosition(fallbackDipPoint)) {
     return null;
   }
 
-  return { x, y };
+  return dipPointToScreenPoint(fallbackDipPoint);
 };
 
 export const useWindowResize = (
@@ -130,7 +196,6 @@ export const useWindowResize = (
   options?: UseWindowResizeOptions,
 ) => {
   const mode = options?.mode ?? "frame";
-  const maxStepDelta = Math.max(1, options?.maxStepDelta ?? DEFAULT_MAX_STEP_DELTA);
 
   useEffect(() => {
     if (!enabled) {
@@ -142,7 +207,26 @@ export const useWindowResize = (
     let frameId: number | null = null;
     let lastAppliedBounds: AppWindowBounds | null = null;
 
-    const applyResize = (nextBounds: AppWindowBounds) => {
+    const releasePointerCapture = () => {
+      if (!resizeState?.captureTarget) {
+        return;
+      }
+
+      try {
+        if (resizeState.captureTarget.hasPointerCapture(resizeState.pointerId)) {
+          resizeState.captureTarget.releasePointerCapture(resizeState.pointerId);
+        }
+      } catch {
+        // Ignore failed pointer-capture cleanup.
+      }
+    };
+
+    const applyResize = (nextScreenBounds: AppWindowBounds) => {
+      const nextBounds = screenBoundsToDipBounds(nextScreenBounds);
+      if (!nextBounds) {
+        return;
+      }
+
       if (lastAppliedBounds && isSameBounds(lastAppliedBounds, nextBounds)) {
         return;
       }
@@ -178,6 +262,7 @@ export const useWindowResize = (
     };
 
     const clearResizeState = () => {
+      releasePointerCapture();
       resizeState = null;
       pendingBounds = null;
       lastAppliedBounds = null;
@@ -203,7 +288,8 @@ export const useWindowResize = (
       }
 
       const direction = rawDirection as ResizeDirection;
-      const startBounds = getSynchronousBounds();
+      const startBoundsDip = getSynchronousBounds();
+      const startBounds = dipBoundsToScreenBounds(startBoundsDip);
       if (!startBounds) {
         return;
       }
@@ -213,8 +299,9 @@ export const useWindowResize = (
         return;
       }
 
+      const captureTarget = target instanceof HTMLElement ? target : null;
       try {
-        target.setPointerCapture(event.pointerId);
+        captureTarget?.setPointerCapture(event.pointerId);
       } catch {
         // Pointer capture is best-effort here.
       }
@@ -222,12 +309,9 @@ export const useWindowResize = (
       resizeState = {
         pointerId: event.pointerId,
         direction,
-        aspectRatio:
-          startBounds.width / Math.max(1, startBounds.height),
+        captureTarget,
         startScreenX: pointerScreenPosition.x,
         startScreenY: pointerScreenPosition.y,
-        lastScreenX: pointerScreenPosition.x,
-        lastScreenY: pointerScreenPosition.y,
         startBounds,
         latestBounds: startBounds,
       };
@@ -244,53 +328,23 @@ export const useWindowResize = (
         return;
       }
 
+      const deltaX = pointerScreenPosition.x - resizeState.startScreenX;
+      const deltaY = pointerScreenPosition.y - resizeState.startScreenY;
+      const nextBounds = getResizedBounds(
+        resizeState.startBounds,
+        resizeState.direction,
+        deltaX,
+        deltaY,
+      );
+
+      resizeState = {
+        ...resizeState,
+        latestBounds: nextBounds,
+      };
+
       if (mode === "live") {
-        const stepDeltaX = clampStepDelta(
-          pointerScreenPosition.x - resizeState.lastScreenX,
-          maxStepDelta,
-        );
-        const stepDeltaY = clampStepDelta(
-          pointerScreenPosition.y - resizeState.lastScreenY,
-          maxStepDelta,
-        );
-
-        if (stepDeltaX === 0 && stepDeltaY === 0) {
-          return;
-        }
-
-        const baseBounds = resizeState.latestBounds;
-        const nextBounds = getResizedBounds(
-          baseBounds,
-          resizeState.direction,
-          resizeState.aspectRatio,
-          stepDeltaX,
-          stepDeltaY,
-        );
-
-        resizeState = {
-          ...resizeState,
-          lastScreenX: pointerScreenPosition.x,
-          lastScreenY: pointerScreenPosition.y,
-          latestBounds: nextBounds,
-        };
         applyResize(nextBounds);
       } else {
-        const deltaX = pointerScreenPosition.x - resizeState.startScreenX;
-        const deltaY = pointerScreenPosition.y - resizeState.startScreenY;
-        const nextBounds = getResizedBounds(
-          resizeState.startBounds,
-          resizeState.direction,
-          resizeState.aspectRatio,
-          deltaX,
-          deltaY,
-        );
-
-        resizeState = {
-          ...resizeState,
-          latestBounds: nextBounds,
-          lastScreenX: pointerScreenPosition.x,
-          lastScreenY: pointerScreenPosition.y,
-        };
         queueResize(nextBounds);
       }
 
@@ -307,6 +361,7 @@ export const useWindowResize = (
       } else {
         queueResize(resizeState.latestBounds);
       }
+      releasePointerCapture();
       resizeState = null;
       event.preventDefault();
     };
@@ -329,5 +384,5 @@ export const useWindowResize = (
       window.removeEventListener("blur", handleWindowBlur);
       clearResizeState();
     };
-  }, [enabled, mode, maxStepDelta]);
+  }, [enabled, mode]);
 };

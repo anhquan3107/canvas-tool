@@ -231,6 +231,7 @@ export interface DesktopApi {
     setPosition: (payload: AppWindowPosition) => Promise<void>;
     setPositionImmediate: (payload: AppWindowPosition) => void;
     setBounds: (payload: AppWindowBounds) => Promise<void>;
+    setBoundsSync: (payload: AppWindowBounds) => AppWindowBounds;
     setBoundsImmediate: (payload: AppWindowBounds) => void;
     setIgnoreMouseEvents: (payload: AppWindowIgnoreMouseRequest) => Promise<void>;
     getOpacity: () => Promise<number>;

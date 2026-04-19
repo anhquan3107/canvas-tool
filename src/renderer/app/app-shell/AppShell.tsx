@@ -757,7 +757,9 @@ export const AppShell = () => {
     handleSaveProject,
     handleSaveProjectAs,
   });
-  useWindowResize(customResizeSupported && !windowMaximized);
+  useWindowResize(customResizeSupported && !windowMaximized, {
+    mode: "live",
+  });
 
   const {
     clearTransientUi,

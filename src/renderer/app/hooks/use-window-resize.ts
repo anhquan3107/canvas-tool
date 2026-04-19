@@ -15,6 +15,7 @@ type UseWindowResizeOptions = {
 type ResizeState = {
   pointerId: number;
   direction: ResizeDirection;
+  aspectRatio: number;
   startScreenX: number;
   startScreenY: number;
   lastScreenX: number;
@@ -31,47 +32,54 @@ const hasSouth = (direction: ResizeDirection) => direction.includes("s");
 const getResizedBounds = (
   startBounds: AppWindowBounds,
   direction: ResizeDirection,
+  aspectRatio: number,
   deltaX: number,
   deltaY: number,
 ): AppWindowBounds => {
-  let left = startBounds.x;
-  let top = startBounds.y;
-  let right = startBounds.x + startBounds.width;
-  let bottom = startBounds.y + startBounds.height;
+  const widthFromHorizontal =
+    startBounds.width +
+    (hasEast(direction) ? deltaX : 0) -
+    (hasWest(direction) ? deltaX : 0);
+  const widthFromVertical =
+    startBounds.width +
+    ((hasSouth(direction) ? deltaY : 0) -
+      (hasNorth(direction) ? deltaY : 0)) *
+      aspectRatio;
+  const shouldPreferHorizontal =
+    (hasEast(direction) || hasWest(direction)) &&
+    (!hasNorth(direction) && !hasSouth(direction)
+      ? true
+      : Math.abs(widthFromHorizontal - startBounds.width) >=
+        Math.abs(widthFromVertical - startBounds.width));
+  const nextWidthRaw = shouldPreferHorizontal
+    ? widthFromHorizontal
+    : widthFromVertical;
+  const nextWidth = Math.max(MIN_RESIZE_EDGE, Math.round(nextWidthRaw));
+  const nextHeight = Math.max(
+    MIN_RESIZE_EDGE,
+    Math.round(nextWidth / Math.max(0.0001, aspectRatio)),
+  );
+
+  let x = startBounds.x;
+  let y = startBounds.y;
 
   if (hasWest(direction)) {
-    left += deltaX;
-  } else if (hasEast(direction)) {
-    right += deltaX;
+    x = startBounds.x + (startBounds.width - nextWidth);
+  } else if (!hasEast(direction)) {
+    x = startBounds.x + Math.round((startBounds.width - nextWidth) / 2);
   }
 
   if (hasNorth(direction)) {
-    top += deltaY;
-  } else if (hasSouth(direction)) {
-    bottom += deltaY;
-  }
-
-  if (right - left < MIN_RESIZE_EDGE) {
-    if (hasWest(direction) && !hasEast(direction)) {
-      left = right - MIN_RESIZE_EDGE;
-    } else {
-      right = left + MIN_RESIZE_EDGE;
-    }
-  }
-
-  if (bottom - top < MIN_RESIZE_EDGE) {
-    if (hasNorth(direction) && !hasSouth(direction)) {
-      top = bottom - MIN_RESIZE_EDGE;
-    } else {
-      bottom = top + MIN_RESIZE_EDGE;
-    }
+    y = startBounds.y + (startBounds.height - nextHeight);
+  } else if (!hasSouth(direction)) {
+    y = startBounds.y + Math.round((startBounds.height - nextHeight) / 2);
   }
 
   return {
-    x: Math.round(left),
-    y: Math.round(top),
-    width: Math.round(right - left),
-    height: Math.round(bottom - top),
+    x: Math.round(x),
+    y: Math.round(y),
+    width: nextWidth,
+    height: nextHeight,
   };
 };
 
@@ -214,6 +222,8 @@ export const useWindowResize = (
       resizeState = {
         pointerId: event.pointerId,
         direction,
+        aspectRatio:
+          startBounds.width / Math.max(1, startBounds.height),
         startScreenX: pointerScreenPosition.x,
         startScreenY: pointerScreenPosition.y,
         lastScreenX: pointerScreenPosition.x,
@@ -252,6 +262,7 @@ export const useWindowResize = (
         const nextBounds = getResizedBounds(
           baseBounds,
           resizeState.direction,
+          resizeState.aspectRatio,
           stepDeltaX,
           stepDeltaY,
         );
@@ -269,6 +280,7 @@ export const useWindowResize = (
         const nextBounds = getResizedBounds(
           resizeState.startBounds,
           resizeState.direction,
+          resizeState.aspectRatio,
           deltaX,
           deltaY,
         );

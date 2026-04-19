@@ -18,6 +18,8 @@ type ResizeState = {
   captureTarget: HTMLElement | null;
   startScreenX: number;
   startScreenY: number;
+  lastScreenX: number;
+  lastScreenY: number;
   startBounds: AppWindowBounds;
   latestBounds: AppWindowBounds;
 };
@@ -312,6 +314,8 @@ export const useWindowResize = (
         captureTarget,
         startScreenX: pointerScreenPosition.x,
         startScreenY: pointerScreenPosition.y,
+        lastScreenX: pointerScreenPosition.x,
+        lastScreenY: pointerScreenPosition.y,
         startBounds,
         latestBounds: startBounds,
       };
@@ -328,10 +332,14 @@ export const useWindowResize = (
         return;
       }
 
-      const deltaX = pointerScreenPosition.x - resizeState.startScreenX;
-      const deltaY = pointerScreenPosition.y - resizeState.startScreenY;
+      const deltaX = pointerScreenPosition.x - resizeState.lastScreenX;
+      const deltaY = pointerScreenPosition.y - resizeState.lastScreenY;
+      if (deltaX === 0 && deltaY === 0) {
+        return;
+      }
+
       const nextBounds = getResizedBounds(
-        resizeState.startBounds,
+        resizeState.latestBounds,
         resizeState.direction,
         deltaX,
         deltaY,
@@ -339,6 +347,8 @@ export const useWindowResize = (
 
       resizeState = {
         ...resizeState,
+        lastScreenX: pointerScreenPosition.x,
+        lastScreenY: pointerScreenPosition.y,
         latestBounds: nextBounds,
       };
 

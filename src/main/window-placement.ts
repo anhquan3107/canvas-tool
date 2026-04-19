@@ -7,8 +7,10 @@ import {
 import type { AppSettings, WindowBoundsSnapshot } from "../shared/types/project";
 import {
   readSettings,
+  readSettingsSync,
   sanitizeWindowPlacementSettings,
   writeSettings,
+  writeSettingsSync,
 } from "./services/app-settings-service";
 
 const WINDOW_STATE_SAVE_DELAY_MS = 180;
@@ -227,11 +229,7 @@ export const watchMainWindowPlacement = (window: BrowserWindow) => {
   let saveTimeoutId: ReturnType<typeof setTimeout> | null = null;
   let lastSerializedPlacement = "";
 
-  const persistPlacement = async () => {
-    if (window.isDestroyed()) {
-      return;
-    }
-
+  const getCurrentPlacementState = () => {
     const currentDisplays = screen.getAllDisplays();
     const layoutKey = getDisplayLayoutKey(currentDisplays);
     const bounds = window.isMaximized() ? window.getNormalBounds() : window.getBounds();
@@ -243,6 +241,21 @@ export const watchMainWindowPlacement = (window: BrowserWindow) => {
     );
     const serializedPlacement = `${layoutKey}:${JSON.stringify(placement)}`;
 
+    return {
+      layoutKey,
+      placement,
+      serializedPlacement,
+    };
+  };
+
+  const persistPlacement = async () => {
+    if (window.isDestroyed()) {
+      return;
+    }
+
+    const { layoutKey, placement, serializedPlacement } =
+      getCurrentPlacementState();
+
     if (serializedPlacement === lastSerializedPlacement) {
       return;
     }
@@ -250,6 +263,23 @@ export const watchMainWindowPlacement = (window: BrowserWindow) => {
     lastSerializedPlacement = serializedPlacement;
     const settings = await readSettings();
     await writeSettings(buildNextSettings(settings, layoutKey, placement));
+  };
+
+  const persistPlacementSync = () => {
+    if (window.isDestroyed()) {
+      return;
+    }
+
+    const { layoutKey, placement, serializedPlacement } =
+      getCurrentPlacementState();
+
+    if (serializedPlacement === lastSerializedPlacement) {
+      return;
+    }
+
+    lastSerializedPlacement = serializedPlacement;
+    const settings = readSettingsSync();
+    writeSettingsSync(buildNextSettings(settings, layoutKey, placement));
   };
 
   const schedulePersist = () => {
@@ -272,7 +302,7 @@ export const watchMainWindowPlacement = (window: BrowserWindow) => {
       clearTimeout(saveTimeoutId);
       saveTimeoutId = null;
     }
-    void persistPlacement();
+    persistPlacementSync();
   });
   window.on("closed", () => {
     if (saveTimeoutId !== null) {

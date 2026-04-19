@@ -1,4 +1,5 @@
 import { app } from "electron";
+import fsSync from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import type {
@@ -128,50 +129,7 @@ const migrateShortcutBindings = (shortcuts: AppSettings["shortcuts"]) => {
 export const readSettings = async (): Promise<AppSettings> => {
   try {
     const raw = await fs.readFile(settingsPath(), "utf8");
-    const parsed = JSON.parse(raw) as Partial<AppSettings>;
-    const migratedShortcuts = migrateShortcutBindings(parsed.shortcuts);
-    const parsedShortcuts =
-      migratedShortcuts && typeof migratedShortcuts === "object"
-        ? Object.fromEntries(
-            SHORTCUT_DEFINITIONS.map((definition) => {
-              const value = migratedShortcuts?.[definition.id];
-              return [
-                definition.id,
-                typeof value === "string" && value.trim().length > 0
-                  ? value.trim()
-                  : DEFAULT_SHORTCUT_BINDINGS[definition.id],
-              ];
-            }),
-          )
-        : { ...DEFAULT_SHORTCUT_BINDINGS };
-
-    return {
-      recentFiles: Array.isArray(parsed.recentFiles)
-        ? parsed.recentFiles.filter(
-            (item): item is string => typeof item === "string",
-          )
-        : [],
-      maxRecentFiles:
-        typeof parsed.maxRecentFiles === "number" && parsed.maxRecentFiles > 0
-          ? parsed.maxRecentFiles
-          : 12,
-      windowOpacity: clampSavedWindowOpacity(parsed.windowOpacity),
-      lastOpenedFile:
-        typeof parsed.lastOpenedFile === "string"
-          ? parsed.lastOpenedFile
-          : undefined,
-      lastExportPath:
-        typeof parsed.lastExportPath === "string"
-          ? parsed.lastExportPath
-          : undefined,
-      windowPlacement: sanitizeWindowPlacementSettings(parsed.windowPlacement),
-      shortcuts: parsedShortcuts,
-      seenTitleBarTooltips: Array.isArray(parsed.seenTitleBarTooltips)
-        ? parsed.seenTitleBarTooltips.filter(
-            (item): item is string => typeof item === "string" && item.length > 0,
-          )
-        : [],
-    };
+    return parseSettings(raw);
   } catch {
     return defaultSettings();
   }
@@ -180,6 +138,67 @@ export const readSettings = async (): Promise<AppSettings> => {
 export const writeSettings = async (settings: AppSettings) => {
   await fs.mkdir(app.getPath("userData"), { recursive: true });
   await fs.writeFile(settingsPath(), JSON.stringify(settings, null, 2), "utf8");
+};
+
+const parseSettings = (raw: string): AppSettings => {
+  const parsed = JSON.parse(raw) as Partial<AppSettings>;
+  const migratedShortcuts = migrateShortcutBindings(parsed.shortcuts);
+  const parsedShortcuts =
+    migratedShortcuts && typeof migratedShortcuts === "object"
+      ? Object.fromEntries(
+          SHORTCUT_DEFINITIONS.map((definition) => {
+            const value = migratedShortcuts?.[definition.id];
+            return [
+              definition.id,
+              typeof value === "string" && value.trim().length > 0
+                ? value.trim()
+                : DEFAULT_SHORTCUT_BINDINGS[definition.id],
+            ];
+          }),
+        )
+      : { ...DEFAULT_SHORTCUT_BINDINGS };
+
+  return {
+    recentFiles: Array.isArray(parsed.recentFiles)
+      ? parsed.recentFiles.filter(
+          (item): item is string => typeof item === "string",
+        )
+      : [],
+    maxRecentFiles:
+      typeof parsed.maxRecentFiles === "number" && parsed.maxRecentFiles > 0
+        ? parsed.maxRecentFiles
+        : 12,
+    windowOpacity: clampSavedWindowOpacity(parsed.windowOpacity),
+    lastOpenedFile:
+      typeof parsed.lastOpenedFile === "string"
+        ? parsed.lastOpenedFile
+        : undefined,
+    lastExportPath:
+      typeof parsed.lastExportPath === "string"
+        ? parsed.lastExportPath
+        : undefined,
+    windowPlacement: sanitizeWindowPlacementSettings(parsed.windowPlacement),
+    shortcuts: parsedShortcuts,
+    seenTitleBarTooltips: Array.isArray(parsed.seenTitleBarTooltips)
+      ? parsed.seenTitleBarTooltips.filter(
+          (item): item is string => typeof item === "string" && item.length > 0,
+        )
+      : [],
+  };
+};
+
+export const readSettingsSync = (): AppSettings => {
+  try {
+    const raw = fsSync.readFileSync(settingsPath(), "utf8");
+    return parseSettings(raw);
+  } catch {
+    return defaultSettings();
+  }
+};
+
+export const writeSettingsSync = (settings: AppSettings) => {
+  fsSync.mkdirSync(app.getPath("userData"), { recursive: true });
+  fsSync.writeFileSync(settingsPath(), JSON.stringify(settings, null, 2), "utf8");
 };
 
 export const addRecentFile = async (filePath: string) => {

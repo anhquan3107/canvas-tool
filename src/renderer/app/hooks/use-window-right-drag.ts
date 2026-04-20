@@ -513,16 +513,37 @@ export const useWindowRightDrag = (options?: WindowDragOptions) => {
         return;
       }
 
-      // Step delta: only the movement since the LAST frame (not from start).
-      // At a monitor DPI boundary, getCursorScreenPointSync() can return a
-      // coordinate that jumps by a large amount when the DIP scale flips
-      // (e.g. Y shifts from 150 to 120 as the window crosses from 100% to 125%).
-      // With total-delta (current - start) that full jump gets applied every
-      // frame the window straddles the boundary → oscillation.
-      // With step-delta (current - last) the worst case is a single tiny
-      // correction per frame, which is imperceptible and self-cancelling.
+      // Step delta: movement since the previous frame in DIP space.
       const stepDipDeltaX = currentCursorDip.x - dragState.lastCursorDipX;
       const stepDipDeltaY = currentCursorDip.y - dragState.lastCursorDipY;
+
+      // ── DPI boundary jump detection ────────────────────────────────────────
+      // At a monitor boundary, getCursorScreenPointSync() snaps to the new
+      // monitor's DIP scale in a single frame (e.g. 100%→125% flips ~384 DIP).
+      // Normal mouse movement at 60fps never exceeds ~30–40 DIP/frame even at
+      // top competitive speeds. Anything above MAX_NORMAL_STEP_DIP means the
+      // DIP coordinate space just changed, not the cursor moved that far.
+      //
+      // When detected: re-anchor cursor and window to the new coordinate space
+      // without moving the window. The next frame resumes normally.
+      const MAX_NORMAL_STEP_DIP = 100;
+      if (
+        Math.abs(stepDipDeltaX) > MAX_NORMAL_STEP_DIP ||
+        Math.abs(stepDipDeltaY) > MAX_NORMAL_STEP_DIP
+      ) {
+        // Read actual window bounds after Electron's DPI adjustment.
+        const actualBounds = getImmediateWindowBounds();
+        if (isFiniteBounds(actualBounds)) {
+          cachedWindowBounds = actualBounds;
+        }
+        dragState = {
+          ...dragState,
+          lastCursorDipX: currentCursorDip.x,
+          lastCursorDipY: currentCursorDip.y,
+        };
+        return; // Skip this frame — next frame works correctly from new anchor.
+      }
+      // ── End DPI boundary detection ─────────────────────────────────────────
 
       // Accumulate from the last known good DIP bounds (updated every frame).
       const baseBounds = cachedWindowBounds ?? dragState.startBoundsDip;
@@ -547,6 +568,7 @@ export const useWindowRightDrag = (options?: WindowDragOptions) => {
       pendingBounds = nextDipBounds;
       scheduleBounds();
     };
+
 
     const handlePointerUp = () => {
       if (pendingBounds) {

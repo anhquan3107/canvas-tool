@@ -256,42 +256,35 @@ export const CaptureToolbarApp = () => {
 
   return (
     <div
-      className={`capture-toolbar-shell ${
-        topbarVisible ? "toolbar-visible" : "toolbar-hidden"
-      }`}
+      className={`capture-toolbar-shell ${topbarVisible ? "toolbar-visible" : "toolbar-hidden"
+        }`}
     >
       {customResizeEnabled
         ? CAPTURE_TOOLBAR_RESIZE_DIRECTIONS.map((direction) => (
-            <div
-              key={direction}
-              className={`capture-window-resize-handle capture-window-resize-${direction}`}
-              data-window-resize={direction}
-              data-window-no-drag="true"
-              onPointerDown={(event) => {
-                if (event.button !== 0) {
-                  clearQueuedCaptureFocus();
-                  return;
-                }
+          <div
+            key={direction}
+            className={`capture-window-resize-handle capture-window-resize-${direction}`}
+            data-window-resize={direction}
+            data-window-no-drag="true"
+            onPointerDown={(event) => {
+              if (event.button !== 0) {
+                clearQueuedCaptureFocus();
+                return;
+              }
 
-                setTopbarPointerActive(true);
-                queueCaptureFocusOnRelease();
-              }}
-              aria-hidden="true"
-            />
-          ))
+              setTopbarPointerActive(true);
+              queueCaptureFocusOnRelease();
+            }}
+            aria-hidden="true"
+          />
+        ))
         : null}
       <header
         className="capture-window-topbar"
         data-window-left-drag="true"
         onPointerDown={(event) => {
           if (event.button !== 0) {
-            // Do NOT hide the toolbar on right-click — if a right-click drag is
-            // starting, we must keep the toolbar visible so that
-            // setIgnoreMouseEvents(ignore: true) is never called during the drag.
-            // Calling it would cause OS-level mouse-event suppression that fights
-            // with setBoundsImmediate, producing the oscillation at monitor DPI
-            // boundaries. Left-click drag already sets topbarPointerActive(true);
-            // right-click drag simply leaves the existing state unchanged.
+            setTopbarPointerActive(false);
             clearQueuedCaptureFocus();
             return;
           }
@@ -334,9 +327,8 @@ export const CaptureToolbarApp = () => {
                   <button
                     key={option}
                     type="button"
-                    className={`toolbar-button ${
-                      option === sessionState.quality ? "active" : ""
-                    }`}
+                    className={`toolbar-button ${option === sessionState.quality ? "active" : ""
+                      }`}
                     onClick={() => setQuality(option)}
                   >
                     {CAPTURE_QUALITY_PROFILES[option].label}
@@ -347,9 +339,8 @@ export const CaptureToolbarApp = () => {
 
             <button
               type="button"
-              className={`toolbar-button ${
-                sessionState.blurEnabled ? "active" : ""
-              }`}
+              className={`toolbar-button ${sessionState.blurEnabled ? "active" : ""
+                }`}
               onClick={() => postMessage({ type: "toggle-blur" })}
               title="Blur"
             >
@@ -370,9 +361,8 @@ export const CaptureToolbarApp = () => {
         <div className="window-cluster" data-window-no-drag="true">
           <button
             type="button"
-            className={`window-button ${
-              sessionState.windowAlwaysOnTop ? "active" : ""
-            }`}
+            className={`window-button ${sessionState.windowAlwaysOnTop ? "active" : ""
+              }`}
             onClick={() =>
               void window.desktopApi.window
                 .toggleAlwaysOnTop()

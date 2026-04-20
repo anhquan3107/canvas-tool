@@ -32,17 +32,18 @@ type DragState = {
   lastScreenX: number;
   lastScreenY: number;
   /**
-   * Window bounds in DIP at drag-start. Position delta is computed entirely
-   * in DIP space to avoid monitor-boundary flickering.
+   * Window bounds in DIP at drag-start.
    */
   startBoundsDip: AppWindowBounds;
   /**
-   * Cursor position in DIP at drag-start (from getCursorScreenPointSync).
-   * Delta against current DIP cursor gives the new window DIP position without
-   * any screen→DIP rect conversion that could jump at monitor boundaries.
+   * Cursor DIP position from the PREVIOUS frame.
+   * We use step delta (current - last) instead of total delta (current - start)
+   * so that any per-frame DIP coordinate discontinuity at a monitor boundary
+   * only causes a tiny single-frame correction rather than the full oscillation
+   * that total-delta produces when the DIP scale flips between frames.
    */
-  startCursorDipX: number;
-  startCursorDipY: number;
+  lastCursorDipX: number;
+  lastCursorDipY: number;
   // Original DIP size, never changes during drag.
   startDipWidth: number;
   startDipHeight: number;
@@ -388,8 +389,8 @@ export const useWindowRightDrag = (options?: WindowDragOptions) => {
         lastScreenX: pointerScreenPosition.x,
         lastScreenY: pointerScreenPosition.y,
         startBoundsDip: initialBoundsDip ?? { x: 0, y: 0, width: 0, height: 0 },
-        startCursorDipX: startCursorDip?.x ?? 0,
-        startCursorDipY: startCursorDip?.y ?? 0,
+        lastCursorDipX: startCursorDip?.x ?? 0,
+        lastCursorDipY: startCursorDip?.y ?? 0,
         startDipWidth: initialBoundsDip?.width ?? 0,
         startDipHeight: initialBoundsDip?.height ?? 0,
         ready: isFiniteBounds(initialBoundsDip) && startCursorDip !== null,
@@ -431,8 +432,8 @@ export const useWindowRightDrag = (options?: WindowDragOptions) => {
         dragState = {
           ...dragState,
           startBoundsDip: boundsDip,
-          startCursorDipX: curCursorDip?.x ?? dragState.startCursorDipX,
-          startCursorDipY: curCursorDip?.y ?? dragState.startCursorDipY,
+          lastCursorDipX: curCursorDip?.x ?? dragState.lastCursorDipX,
+          lastCursorDipY: curCursorDip?.y ?? dragState.lastCursorDipY,
           startDipWidth: boundsDip.width,
           startDipHeight: boundsDip.height,
           ready: true,
@@ -442,19 +443,10 @@ export const useWindowRightDrag = (options?: WindowDragOptions) => {
           return;
         }
 
-        // Compute position using current cursor DIP delta.
-        const dipDeltaX = curCursorDip.x - dragState.startCursorDipX;
-        const dipDeltaY = curCursorDip.y - dragState.startCursorDipY;
-        const nextDipBounds = normalizeWindowBounds({
-          x: dragState.startBoundsDip.x + dipDeltaX,
-          y: dragState.startBoundsDip.y + dipDeltaY,
-          width: dragState.startDipWidth,
-          height: dragState.startDipHeight,
-        });
-        if (!nextDipBounds) return;
-
-        cachedWindowBounds = nextDipBounds;
-        pendingBounds = nextDipBounds;
+        // No movement yet to catch up — lastCursorDip is already at current pos.
+        // The next pointermove will compute the first step delta correctly.
+        cachedWindowBounds = boundsDip;
+        pendingBounds = boundsDip;
         scheduleBounds();
       });
     };
@@ -508,11 +500,7 @@ export const useWindowRightDrag = (options?: WindowDragOptions) => {
         return;
       }
 
-      // Get current cursor position in DIP.
-      // getCursorScreenPointSync returns DIP coords (Electron normalises them),
-      // so the delta is a pure DIP delta with no screen→DIP rect conversion.
-      // This avoids flickering at monitor boundaries where screenToDipRect would
-      // pick different display DPI scales on consecutive frames.
+      // Get current cursor position in DIP (single IPC call).
       let currentCursorDip: { x: number; y: number } | null = null;
       try {
         const c = window.desktopApi.window.getCursorScreenPointSync();
@@ -525,12 +513,22 @@ export const useWindowRightDrag = (options?: WindowDragOptions) => {
         return;
       }
 
-      const dipDeltaX = currentCursorDip.x - dragState.startCursorDipX;
-      const dipDeltaY = currentCursorDip.y - dragState.startCursorDipY;
+      // Step delta: only the movement since the LAST frame (not from start).
+      // At a monitor DPI boundary, getCursorScreenPointSync() can return a
+      // coordinate that jumps by a large amount when the DIP scale flips
+      // (e.g. Y shifts from 150 to 120 as the window crosses from 100% to 125%).
+      // With total-delta (current - start) that full jump gets applied every
+      // frame the window straddles the boundary → oscillation.
+      // With step-delta (current - last) the worst case is a single tiny
+      // correction per frame, which is imperceptible and self-cancelling.
+      const stepDipDeltaX = currentCursorDip.x - dragState.lastCursorDipX;
+      const stepDipDeltaY = currentCursorDip.y - dragState.lastCursorDipY;
 
+      // Accumulate from the last known good DIP bounds (updated every frame).
+      const baseBounds = cachedWindowBounds ?? dragState.startBoundsDip;
       const nextDipBounds = normalizeWindowBounds({
-        x: dragState.startBoundsDip.x + dipDeltaX,
-        y: dragState.startBoundsDip.y + dipDeltaY,
+        x: baseBounds.x + stepDipDeltaX,
+        y: baseBounds.y + stepDipDeltaY,
         width: dragState.startDipWidth,
         height: dragState.startDipHeight,
       });
@@ -538,6 +536,12 @@ export const useWindowRightDrag = (options?: WindowDragOptions) => {
       if (!nextDipBounds) {
         return;
       }
+
+      dragState = {
+        ...dragState,
+        lastCursorDipX: currentCursorDip.x,
+        lastCursorDipY: currentCursorDip.y,
+      };
 
       cachedWindowBounds = nextDipBounds;
       pendingBounds = nextDipBounds;

@@ -31,6 +31,13 @@ type DragState = {
   lastScreenX: number;
   lastScreenY: number;
   startBounds: AppWindowBounds;
+  /**
+   * Original window dimensions in DIP pixels, captured at drag-start.
+   * These are NEVER updated during a drag so the window size stays stable
+   * when crossing monitors with different DPI scales.
+   */
+  startDipWidth: number;
+  startDipHeight: number;
   ready: boolean;
   moved: boolean;
 };
@@ -365,6 +372,10 @@ export const useWindowRightDrag = (options?: WindowDragOptions) => {
         lastScreenY: pointerScreenPosition.y,
         startBounds:
           initialBoundsScreen ?? { x: 0, y: 0, width: 0, height: 0 },
+        // Store original DIP size so it is never mutated by cross-monitor
+        // screen→DIP conversions during the drag.
+        startDipWidth: initialBoundsDip?.width ?? initialBoundsScreen?.width ?? 0,
+        startDipHeight: initialBoundsDip?.height ?? initialBoundsScreen?.height ?? 0,
         ready: initialBoundsScreen !== null,
         moved: false,
       };
@@ -396,6 +407,8 @@ export const useWindowRightDrag = (options?: WindowDragOptions) => {
         dragState = {
           ...dragState,
           startBounds: boundsScreen,
+          startDipWidth: boundsDip?.width ?? dragState.startDipWidth,
+          startDipHeight: boundsDip?.height ?? dragState.startDipHeight,
           ready: true,
         };
 
@@ -410,10 +423,16 @@ export const useWindowRightDrag = (options?: WindowDragOptions) => {
           x: boundsScreen.x + deltaX,
           y: boundsScreen.y + deltaY,
         };
-        const nextDipBounds = screenBoundsToDipBounds(nextScreenBounds);
-        if (!nextDipBounds) {
+        const nextDipBoundsRaw = screenBoundsToDipBounds(nextScreenBounds);
+        if (!nextDipBoundsRaw) {
           return;
         }
+        // Preserve original DIP size — only x/y can change during a drag.
+        const nextDipBounds = {
+          ...nextDipBoundsRaw,
+          width: dragState.startDipWidth,
+          height: dragState.startDipHeight,
+        };
 
         cachedWindowBounds = nextDipBounds;
         pendingBounds = nextDipBounds;
@@ -474,11 +493,19 @@ export const useWindowRightDrag = (options?: WindowDragOptions) => {
         x: dragState.startBounds.x + deltaX,
         y: dragState.startBounds.y + deltaY,
       };
-      const nextDipBounds = screenBoundsToDipBounds(nextScreenBounds);
+      const nextDipBoundsRaw = screenBoundsToDipBounds(nextScreenBounds);
 
-      if (!nextDipBounds) {
+      if (!nextDipBoundsRaw) {
         return;
       }
+
+      // Preserve original DIP dimensions so the window never grows or shrinks
+      // when dragged across monitors with different DPI scaling factors.
+      const nextDipBounds = {
+        ...nextDipBoundsRaw,
+        width: dragState.startDipWidth,
+        height: dragState.startDipHeight,
+      };
 
       cachedWindowBounds = nextDipBounds;
       pendingBounds = nextDipBounds;

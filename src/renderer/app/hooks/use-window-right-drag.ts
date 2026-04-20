@@ -477,40 +477,14 @@ export const useWindowRightDrag = (options?: WindowDragOptions) => {
         return;
       }
 
-      // Get cursor position in DIP once — this is the single source of truth
-      // for both the drag-threshold check and the position calculation.
-      // Calling getCursorScreenPointSync() twice per frame (once inside
-      // getPointerScreenPosition and once for DIP) created a race at monitor
-      // DPI boundaries: the two calls could land in different DPI coordinate
-      // spaces, producing the oscillation seen with right-click drag.
-      let currentCursorDip: AppWindowPosition | null = null;
-      try {
-        const c = window.desktopApi.window.getCursorScreenPointSync();
-        if (isFinitePosition(c)) currentCursorDip = c;
-      } catch {
-        // Fall back to event-based position below.
-      }
-
-      // If native cursor position unavailable, fall back to event coords.
-      if (!currentCursorDip) {
-        const fallbackX = window.screenX + event.clientX;
-        const fallbackY = window.screenY + event.clientY;
-        const dipPoint = {
-          x: isFiniteNumber(event.screenX) ? event.screenX : fallbackX,
-          y: isFiniteNumber(event.screenY) ? event.screenY : fallbackY,
-        };
-        if (isFinitePosition(dipPoint)) currentCursorDip = dipPoint;
-      }
-
-      if (!currentCursorDip) {
+      const pointerScreenPosition = getPointerScreenPosition(event);
+      if (!pointerScreenPosition) {
         return;
       }
 
-      // Convert the single DIP snapshot to screen for the threshold check.
-      // This guarantees both checks reference the same physical moment.
-      const cursorScreen = dipPointToScreenPoint(currentCursorDip) ?? currentCursorDip;
-      const screenDeltaX = cursorScreen.x - dragState.startScreenX;
-      const screenDeltaY = cursorScreen.y - dragState.startScreenY;
+      // Use screen-space delta only for the drag-threshold check.
+      const screenDeltaX = pointerScreenPosition.x - dragState.startScreenX;
+      const screenDeltaY = pointerScreenPosition.y - dragState.startScreenY;
       if (!dragState.moved && Math.hypot(screenDeltaX, screenDeltaY) < DRAG_THRESHOLD) {
         return;
       }
@@ -526,15 +500,31 @@ export const useWindowRightDrag = (options?: WindowDragOptions) => {
 
       dragState = {
         ...dragState,
-        lastScreenX: cursorScreen.x,
-        lastScreenY: cursorScreen.y,
+        lastScreenX: pointerScreenPosition.x,
+        lastScreenY: pointerScreenPosition.y,
       };
 
       if (!dragState.ready) {
         return;
       }
 
-      // Compute new DIP position from the single cursor snapshot.
+      // Get current cursor position in DIP.
+      // getCursorScreenPointSync returns DIP coords (Electron normalises them),
+      // so the delta is a pure DIP delta with no screen→DIP rect conversion.
+      // This avoids flickering at monitor boundaries where screenToDipRect would
+      // pick different display DPI scales on consecutive frames.
+      let currentCursorDip: { x: number; y: number } | null = null;
+      try {
+        const c = window.desktopApi.window.getCursorScreenPointSync();
+        if (isFinitePosition(c)) currentCursorDip = c;
+      } catch {
+        // ignore
+      }
+
+      if (!currentCursorDip) {
+        return;
+      }
+
       const dipDeltaX = currentCursorDip.x - dragState.startCursorDipX;
       const dipDeltaY = currentCursorDip.y - dragState.startCursorDipY;
 
@@ -553,7 +543,6 @@ export const useWindowRightDrag = (options?: WindowDragOptions) => {
       pendingBounds = nextDipBounds;
       scheduleBounds();
     };
-
 
     const handlePointerUp = () => {
       if (pendingBounds) {

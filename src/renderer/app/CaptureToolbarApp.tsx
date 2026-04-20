@@ -285,7 +285,13 @@ export const CaptureToolbarApp = () => {
         data-window-left-drag="true"
         onPointerDown={(event) => {
           if (event.button !== 0) {
-            setTopbarPointerActive(false);
+            // Do NOT hide the toolbar on right-click — if a right-click drag is
+            // starting, we must keep the toolbar visible so that
+            // setIgnoreMouseEvents(ignore: true) is never called during the drag.
+            // Calling it would cause OS-level mouse-event suppression that fights
+            // with setBoundsImmediate, producing the oscillation at monitor DPI
+            // boundaries. Left-click drag already sets topbarPointerActive(true);
+            // right-click drag simply leaves the existing state unchanged.
             clearQueuedCaptureFocus();
             return;
           }

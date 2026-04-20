@@ -26,16 +26,24 @@ type DragState = {
   buttonMask: 1 | 2;
   pointerId: number;
   captureTarget: HTMLElement | null;
+  // Screen-space coords used only for DRAG_THRESHOLD check.
   startScreenX: number;
   startScreenY: number;
   lastScreenX: number;
   lastScreenY: number;
-  startBounds: AppWindowBounds;
   /**
-   * Original window dimensions in DIP pixels, captured at drag-start.
-   * These are NEVER updated during a drag so the window size stays stable
-   * when crossing monitors with different DPI scales.
+   * Window bounds in DIP at drag-start. Position delta is computed entirely
+   * in DIP space to avoid monitor-boundary flickering.
    */
+  startBoundsDip: AppWindowBounds;
+  /**
+   * Cursor position in DIP at drag-start (from getCursorScreenPointSync).
+   * Delta against current DIP cursor gives the new window DIP position without
+   * any screen→DIP rect conversion that could jump at monitor boundaries.
+   */
+  startCursorDipX: number;
+  startCursorDipY: number;
+  // Original DIP size, never changes during drag.
   startDipWidth: number;
   startDipHeight: number;
   ready: boolean;
@@ -350,7 +358,16 @@ export const useWindowRightDrag = (options?: WindowDragOptions) => {
       cachedWindowBounds = isFiniteBounds(initialBoundsDip)
         ? initialBoundsDip
         : null;
-      const initialBoundsScreen = dipBoundsToScreenBounds(initialBoundsDip);
+
+      // Capture cursor position in DIP at drag-start.
+      // getCursorScreenPointSync returns DIP coordinates (Electron normalises them).
+      let startCursorDip: { x: number; y: number } | null = null;
+      try {
+        const c = window.desktopApi.window.getCursorScreenPointSync();
+        if (isFinitePosition(c)) startCursorDip = c;
+      } catch {
+        // Fall back: will use screen-space delta as approximation.
+      }
 
       if (captureTarget) {
         try {
@@ -370,13 +387,12 @@ export const useWindowRightDrag = (options?: WindowDragOptions) => {
         startScreenY: pointerScreenPosition.y,
         lastScreenX: pointerScreenPosition.x,
         lastScreenY: pointerScreenPosition.y,
-        startBounds:
-          initialBoundsScreen ?? { x: 0, y: 0, width: 0, height: 0 },
-        // Store original DIP size so it is never mutated by cross-monitor
-        // screen→DIP conversions during the drag.
-        startDipWidth: initialBoundsDip?.width ?? initialBoundsScreen?.width ?? 0,
-        startDipHeight: initialBoundsDip?.height ?? initialBoundsScreen?.height ?? 0,
-        ready: initialBoundsScreen !== null,
+        startBoundsDip: initialBoundsDip ?? { x: 0, y: 0, width: 0, height: 0 },
+        startCursorDipX: startCursorDip?.x ?? 0,
+        startCursorDipY: startCursorDip?.y ?? 0,
+        startDipWidth: initialBoundsDip?.width ?? 0,
+        startDipHeight: initialBoundsDip?.height ?? 0,
+        ready: isFiniteBounds(initialBoundsDip) && startCursorDip !== null,
         moved: false,
       };
 
@@ -389,50 +405,53 @@ export const useWindowRightDrag = (options?: WindowDragOptions) => {
         gestureState.suppressCurrentContextMenu = false;
       }
 
-      if (initialBoundsScreen) {
+      if (isFiniteBounds(initialBoundsDip) && startCursorDip !== null) {
         return;
       }
 
+      // Async fallback: bounds not available synchronously.
       void getCachedWindowBounds(cachedWindowBounds).then((boundsDip) => {
         if (token !== dragToken || dragState?.token !== token) {
           return;
         }
-
-        const boundsScreen = dipBoundsToScreenBounds(boundsDip);
-        if (!boundsScreen) {
+        if (!isFiniteBounds(boundsDip)) {
           return;
+        }
+
+        // Get current DIP cursor position for the async catch-up.
+        let curCursorDip: { x: number; y: number } | null = null;
+        try {
+          const c = window.desktopApi.window.getCursorScreenPointSync();
+          if (isFinitePosition(c)) curCursorDip = c;
+        } catch {
+          // ignore
         }
 
         cachedWindowBounds = boundsDip;
         dragState = {
           ...dragState,
-          startBounds: boundsScreen,
-          startDipWidth: boundsDip?.width ?? dragState.startDipWidth,
-          startDipHeight: boundsDip?.height ?? dragState.startDipHeight,
+          startBoundsDip: boundsDip,
+          startCursorDipX: curCursorDip?.x ?? dragState.startCursorDipX,
+          startCursorDipY: curCursorDip?.y ?? dragState.startCursorDipY,
+          startDipWidth: boundsDip.width,
+          startDipHeight: boundsDip.height,
           ready: true,
         };
 
-        if (!dragState.moved) {
+        if (!dragState.moved || !curCursorDip) {
           return;
         }
 
-        const deltaX = dragState.lastScreenX - dragState.startScreenX;
-        const deltaY = dragState.lastScreenY - dragState.startScreenY;
-        const nextScreenBounds = {
-          ...boundsScreen,
-          x: boundsScreen.x + deltaX,
-          y: boundsScreen.y + deltaY,
-        };
-        const nextDipBoundsRaw = screenBoundsToDipBounds(nextScreenBounds);
-        if (!nextDipBoundsRaw) {
-          return;
-        }
-        // Preserve original DIP size — only x/y can change during a drag.
-        const nextDipBounds = {
-          ...nextDipBoundsRaw,
+        // Compute position using current cursor DIP delta.
+        const dipDeltaX = curCursorDip.x - dragState.startCursorDipX;
+        const dipDeltaY = curCursorDip.y - dragState.startCursorDipY;
+        const nextDipBounds = normalizeWindowBounds({
+          x: dragState.startBoundsDip.x + dipDeltaX,
+          y: dragState.startBoundsDip.y + dipDeltaY,
           width: dragState.startDipWidth,
           height: dragState.startDipHeight,
-        };
+        });
+        if (!nextDipBounds) return;
 
         cachedWindowBounds = nextDipBounds;
         pendingBounds = nextDipBounds;
@@ -463,9 +482,10 @@ export const useWindowRightDrag = (options?: WindowDragOptions) => {
         return;
       }
 
-      const deltaX = pointerScreenPosition.x - dragState.startScreenX;
-      const deltaY = pointerScreenPosition.y - dragState.startScreenY;
-      if (!dragState.moved && Math.hypot(deltaX, deltaY) < DRAG_THRESHOLD) {
+      // Use screen-space delta only for the drag-threshold check.
+      const screenDeltaX = pointerScreenPosition.x - dragState.startScreenX;
+      const screenDeltaY = pointerScreenPosition.y - dragState.startScreenY;
+      if (!dragState.moved && Math.hypot(screenDeltaX, screenDeltaY) < DRAG_THRESHOLD) {
         return;
       }
 
@@ -488,24 +508,36 @@ export const useWindowRightDrag = (options?: WindowDragOptions) => {
         return;
       }
 
-      const nextScreenBounds = {
-        ...dragState.startBounds,
-        x: dragState.startBounds.x + deltaX,
-        y: dragState.startBounds.y + deltaY,
-      };
-      const nextDipBoundsRaw = screenBoundsToDipBounds(nextScreenBounds);
+      // Get current cursor position in DIP.
+      // getCursorScreenPointSync returns DIP coords (Electron normalises them),
+      // so the delta is a pure DIP delta with no screen→DIP rect conversion.
+      // This avoids flickering at monitor boundaries where screenToDipRect would
+      // pick different display DPI scales on consecutive frames.
+      let currentCursorDip: { x: number; y: number } | null = null;
+      try {
+        const c = window.desktopApi.window.getCursorScreenPointSync();
+        if (isFinitePosition(c)) currentCursorDip = c;
+      } catch {
+        // ignore
+      }
 
-      if (!nextDipBoundsRaw) {
+      if (!currentCursorDip) {
         return;
       }
 
-      // Preserve original DIP dimensions so the window never grows or shrinks
-      // when dragged across monitors with different DPI scaling factors.
-      const nextDipBounds = {
-        ...nextDipBoundsRaw,
+      const dipDeltaX = currentCursorDip.x - dragState.startCursorDipX;
+      const dipDeltaY = currentCursorDip.y - dragState.startCursorDipY;
+
+      const nextDipBounds = normalizeWindowBounds({
+        x: dragState.startBoundsDip.x + dipDeltaX,
+        y: dragState.startBoundsDip.y + dipDeltaY,
         width: dragState.startDipWidth,
         height: dragState.startDipHeight,
-      };
+      });
+
+      if (!nextDipBounds) {
+        return;
+      }
 
       cachedWindowBounds = nextDipBounds;
       pendingBounds = nextDipBounds;

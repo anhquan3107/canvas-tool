@@ -524,6 +524,34 @@ export const AppShell = () => {
     "--status-pill-bg": `rgba(18, 18, 20, ${0.54 * appBackgroundOpacity})`,
     "--status-pill-hover-bg": `rgba(18, 18, 20, ${0.68 * appBackgroundOpacity})`,
   } as CSSProperties;
+  const windowSurfaceColor = hexToRgba(
+    appShellBackgroundColor,
+    appBackgroundOpacity,
+  );
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const body = document.body;
+    const appRoot = document.getElementById("root");
+    const previousRootBackground = root.style.backgroundColor;
+    const previousBodyBackground = body.style.backgroundColor;
+    const previousAppRootBackground = appRoot?.style.backgroundColor ?? "";
+
+    root.style.backgroundColor = windowSurfaceColor;
+    body.style.backgroundColor = windowSurfaceColor;
+    if (appRoot) {
+      appRoot.style.backgroundColor = windowSurfaceColor;
+    }
+
+    return () => {
+      root.style.backgroundColor = previousRootBackground;
+      body.style.backgroundColor = previousBodyBackground;
+      if (appRoot) {
+        appRoot.style.backgroundColor = previousAppRootBackground;
+      }
+    };
+  }, [windowSurfaceColor]);
+
   const activeGroupRef = useRef(activeGroup);
   const {
     handleConfirmDeletion,

@@ -4,6 +4,7 @@ import type {
   AppWindowIgnoreMouseRequest,
   AppWindowOpacityRequest,
   AppWindowPosition,
+  AppWindowSize,
   AppWindowState,
 } from "../../shared/types/ipc";
 import {
@@ -37,13 +38,13 @@ export const registerWindowHandlers = (window: BrowserWindow) => {
     isFiniteNumber(payload.y) &&
     isFiniteNumber(payload.width) &&
     isFiniteNumber(payload.height);
+  const toWindowSize = (width: number, height: number): AppWindowSize => ({
+    width: Math.max(0, Math.round(width)),
+    height: Math.max(0, Math.round(height)),
+  });
   const dipToScreenPoint = (point: AppWindowPosition) =>
     process.platform === "win32" || process.platform === "linux"
       ? screen.dipToScreenPoint(point)
-      : point;
-  const screenToDipPoint = (point: AppWindowPosition) =>
-    process.platform === "win32" || process.platform === "linux"
-      ? screen.screenToDipPoint(point)
       : point;
   const dipToScreenRect = (point: AppWindowBounds) =>
     process.platform === "win32"
@@ -124,16 +125,6 @@ export const registerWindowHandlers = (window: BrowserWindow) => {
     event.returnValue = { x, y } satisfies AppWindowPosition;
   });
 
-  ipcMain.on("window:screen-to-dip-point-sync", (event, payload: AppWindowPosition) => {
-    if (!isValidWindowPosition(payload)) {
-      event.returnValue = { x: 0, y: 0 } satisfies AppWindowPosition;
-      return;
-    }
-
-    const { x, y } = screenToDipPoint(payload);
-    event.returnValue = { x, y } satisfies AppWindowPosition;
-  });
-
   ipcMain.on("window:dip-to-screen-rect-sync", (event, payload: AppWindowBounds) => {
     if (!isValidWindowBounds(payload)) {
       event.returnValue = {
@@ -188,6 +179,12 @@ export const registerWindowHandlers = (window: BrowserWindow) => {
     event.returnValue = { x, y, width, height } satisfies AppWindowBounds;
   });
 
+  ipcMain.on("window:get-minimum-size-sync", (event) => {
+    const targetWindow = getTargetWindow(event);
+    const [width, height] = targetWindow.getMinimumSize();
+    event.returnValue = toWindowSize(width, height);
+  });
+
   ipcMain.handle("window:set-position", (event, payload: AppWindowPosition) => {
     const targetWindow = getTargetWindow(event);
     if (!isValidWindowPosition(payload)) {
@@ -222,6 +219,8 @@ export const registerWindowHandlers = (window: BrowserWindow) => {
       width: Math.round(payload.width),
       height: Math.round(payload.height),
     });
+    // Required: set returnValue so ipcRenderer.sendSync() unblocks immediately.
+    event.returnValue = null;
   });
 
   ipcMain.handle(
@@ -234,12 +233,21 @@ export const registerWindowHandlers = (window: BrowserWindow) => {
     },
   );
 
-  ipcMain.handle("window:get-opacity", () => getSavedWindowOpacity());
+  ipcMain.handle("window:get-opacity", async (event) => {
+    const targetWindow = getTargetWindow(event);
+    const nativeOpacity = targetWindow.getOpacity();
+    if (Number.isFinite(nativeOpacity) && nativeOpacity > 0) {
+      return clampWindowOpacity(nativeOpacity);
+    }
+
+    return getSavedWindowOpacity();
+  });
 
   ipcMain.handle(
     "window:set-opacity",
-    async (_event, payload: AppWindowOpacityRequest) => {
+    async (event, payload: AppWindowOpacityRequest) => {
       const nextOpacity = clampWindowOpacity(payload.opacity);
+      getTargetWindow(event).setOpacity(nextOpacity);
       if (payload.persist) {
         await persistWindowOpacity(nextOpacity);
       }

@@ -43,10 +43,7 @@ export const CaptureToolbarApp = () => {
   const [topbarPointerActive, setTopbarPointerActive] = useState(false);
   const [captureWindowFocused, setCaptureWindowFocused] = useState(false);
   const customResizeEnabled = !sessionState.windowMaximized;
-  useWindowResize(customResizeEnabled, {
-    mode: "live",
-    maxStepDelta: 96,
-  });
+  useWindowResize(customResizeEnabled);
 
   const postMessage = useCallback((message: CaptureSessionMessage) => {
     channelRef.current?.postMessage(message);

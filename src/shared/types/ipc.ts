@@ -92,6 +92,11 @@ export interface AppWindowBounds extends AppWindowPosition {
   height: number;
 }
 
+export interface AppWindowSize {
+  width: number;
+  height: number;
+}
+
 export interface AppWindowOpacityRequest {
   opacity: number;
   persist?: boolean;
@@ -221,13 +226,13 @@ export interface DesktopApi {
     getControlsState: () => Promise<AppWindowControlsState>;
     getCursorScreenPointSync: () => AppWindowPosition;
     dipToScreenPointSync: (payload: AppWindowPosition) => AppWindowPosition;
-    screenToDipPointSync: (payload: AppWindowPosition) => AppWindowPosition;
     dipToScreenRectSync: (payload: AppWindowBounds) => AppWindowBounds;
     screenToDipRectSync: (payload: AppWindowBounds) => AppWindowBounds;
     getPosition: () => Promise<AppWindowPosition>;
     getPositionSync: () => AppWindowPosition;
     getBounds: () => Promise<AppWindowBounds>;
     getBoundsSync: () => AppWindowBounds;
+    getMinimumSizeSync: () => AppWindowSize;
     setPosition: (payload: AppWindowPosition) => Promise<void>;
     setPositionImmediate: (payload: AppWindowPosition) => void;
     setBounds: (payload: AppWindowBounds) => Promise<void>;

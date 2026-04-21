@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from "electron";
 import type {
   AppWindowBounds,
+  AppWindowSize,
   CaptureWindowFocusListener,
   DesktopApi,
   NativeMenuAction,
@@ -46,6 +47,23 @@ const sanitizeWindowBounds = (
     y: Math.round(payload.y),
     width: Math.round(payload.width),
     height: Math.round(payload.height),
+  };
+};
+
+const sanitizeWindowSize = (
+  payload: AppWindowSize | null | undefined,
+): AppWindowSize | null => {
+  if (
+    payload == null ||
+    !isFiniteNumber(payload.width) ||
+    !isFiniteNumber(payload.height)
+  ) {
+    return null;
+  }
+
+  return {
+    width: Math.max(0, Math.round(payload.width)),
+    height: Math.max(0, Math.round(payload.height)),
   };
 };
 
@@ -125,14 +143,6 @@ const desktopApi: DesktopApi = {
 
       return ipcRenderer.sendSync("window:dip-to-screen-point-sync", nextPayload);
     },
-    screenToDipPointSync: (payload) => {
-      const nextPayload = sanitizeWindowPosition(payload);
-      if (!nextPayload) {
-        return { x: 0, y: 0 };
-      }
-
-      return ipcRenderer.sendSync("window:screen-to-dip-point-sync", nextPayload);
-    },
     dipToScreenRectSync: (payload) => {
       const nextPayload = sanitizeWindowBounds(payload);
       if (!nextPayload) {
@@ -153,6 +163,12 @@ const desktopApi: DesktopApi = {
     getPositionSync: () => ipcRenderer.sendSync("window:get-position-sync"),
     getBounds: () => ipcRenderer.invoke("window:get-bounds"),
     getBoundsSync: () => ipcRenderer.sendSync("window:get-bounds-sync"),
+    getMinimumSizeSync: () => {
+      const minimumSize = sanitizeWindowSize(
+        ipcRenderer.sendSync("window:get-minimum-size-sync"),
+      );
+      return minimumSize ?? { width: 0, height: 0 };
+    },
     setPosition: (payload) => {
       const nextPayload = sanitizeWindowPosition(payload);
       if (!nextPayload) {
@@ -183,7 +199,14 @@ const desktopApi: DesktopApi = {
         return;
       }
 
-      ipcRenderer.send("window:set-bounds-immediate", nextPayload);
+      // Use sendSync so the renderer blocks until the main process has applied
+      // the bounds. With send() (fire-and-forget), multiple pointermove events
+      // queue up multiple setBounds calls; the OS moves the window through every
+      // intermediate position before clearing the queue → visible jitter on any
+      // handle that changes x or y. sendSync() ensures only one setBounds is
+      // ever in-flight: the window is always at the correct position before the
+      // next pointermove event is processed.
+      ipcRenderer.sendSync("window:set-bounds-immediate", nextPayload);
     },
     setIgnoreMouseEvents: (payload) =>
       ipcRenderer.invoke("window:set-ignore-mouse-events", payload),

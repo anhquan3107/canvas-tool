@@ -90,8 +90,7 @@ const createMainWindow = async () => {
     minWidth: 1100,
     minHeight: 700,
     frame: false,
-    transparent: false,
-    backgroundColor: "#1f1f21",
+    transparent: true,
     title: "CanvasTool",
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
@@ -103,7 +102,6 @@ const createMainWindow = async () => {
   guardWindowDevTools(mainWindow);
   registerAppShortcutOverrides(mainWindow);
   watchMainWindowPlacement(mainWindow);
-  mainWindow.setOpacity(await getSavedWindowOpacity());
 
   setupIpcHandlers(mainWindow);
 

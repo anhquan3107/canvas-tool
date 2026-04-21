@@ -233,13 +233,7 @@ export const registerWindowHandlers = (window: BrowserWindow) => {
     },
   );
 
-  ipcMain.handle("window:get-opacity", async (event) => {
-    const targetWindow = getTargetWindow(event);
-    const nativeOpacity = targetWindow.getOpacity();
-    if (Number.isFinite(nativeOpacity) && nativeOpacity > 0) {
-      return clampWindowOpacity(nativeOpacity);
-    }
-
+  ipcMain.handle("window:get-opacity", async () => {
     return getSavedWindowOpacity();
   });
 
@@ -247,7 +241,6 @@ export const registerWindowHandlers = (window: BrowserWindow) => {
     "window:set-opacity",
     async (event, payload: AppWindowOpacityRequest) => {
       const nextOpacity = clampWindowOpacity(payload.opacity);
-      getTargetWindow(event).setOpacity(nextOpacity);
       if (payload.persist) {
         await persistWindowOpacity(nextOpacity);
       }

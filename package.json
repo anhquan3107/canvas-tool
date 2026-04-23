@@ -61,12 +61,14 @@
       "target": [
         "dmg"
       ],
+      "icon": "assets/images/Canvas.icns",
       "category": "public.app-category.graphics-design"
     },
     "win": {
       "target": [
         "nsis"
-      ]
+      ],
+      "icon": "assets/images/Canvas.ico"
     },
     "nsis": {
       "oneClick": false,

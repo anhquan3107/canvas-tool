@@ -6,3 +6,4 @@ release
 .agents/*
 release_win
 release_mac
+generate-dev-icon.js

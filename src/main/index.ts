@@ -24,6 +24,23 @@ if (process.platform === "darwin") {
   app.setName("CanvasTool");
 }
 
+const getAppAssetPath = (...segments: string[]) => {
+  const basePath = app.isPackaged ? process.resourcesPath : app.getAppPath();
+  return path.join(basePath, ...segments);
+};
+
+const getRuntimeAppIconPath = () => {
+  if (process.platform === "win32") {
+    return getAppAssetPath("assets", "images", "Canvas.ico");
+  }
+
+  if (process.platform === "darwin" && !app.isPackaged) {
+    return getAppAssetPath("assets", "images", "Canvas-dev.png");
+  }
+
+  return getAppAssetPath("assets", "images", "Canvas.png");
+};
+
 const sendNativeMenuAction = (
   window: BrowserWindow | null,
   action: NativeMenuAction,
@@ -92,6 +109,7 @@ const createMainWindow = async () => {
     frame: false,
     transparent: true,
     title: "CanvasTool",
+    ...(process.platform !== "darwin" ? { icon: getRuntimeAppIconPath() } : {}),
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
       contextIsolation: true,
@@ -241,6 +259,10 @@ const installMacApplicationMenu = () => {
 };
 
 app.whenReady().then(async () => {
+  if (process.platform === "darwin" && !app.isPackaged) {
+    app.dock?.setIcon(getRuntimeAppIconPath());
+  }
+
   const stopWatchingDisplayAvailability = watchDisplayAvailability();
   installMacApplicationMenu();
   await createMainWindow();

@@ -246,6 +246,8 @@ export const useCanvasBoardScene = ({
             y: boardContainer.y,
           };
           board.cursor = "grabbing";
+          host?.classList.remove("force-grab-cursor");
+          host?.classList.add("force-grabbing-cursor");
           return;
         }
 
@@ -392,6 +394,8 @@ export const useCanvasBoardScene = ({
           y: boardContainer.y,
         };
         board.cursor = "grabbing";
+        host?.classList.remove("force-grab-cursor");
+        host?.classList.add("force-grabbing-cursor");
         return;
       }
 

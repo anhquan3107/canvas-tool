@@ -334,6 +334,12 @@ export const useCanvasBoardBootstrap = ({
               ? "none"
               : "default";
         }
+        if (host) {
+          host.classList.remove("force-grabbing-cursor");
+          if (spacePanActiveRef.current) {
+            host.classList.add("force-grab-cursor");
+          }
+        }
         commitView();
       };
 
@@ -392,6 +398,13 @@ export const useCanvasBoardBootstrap = ({
         }
 
         spacePanActiveRef.current = true;
+        if (host) {
+          if (isPanningRef.current) {
+            host.classList.add("force-grabbing-cursor");
+          } else {
+            host.classList.add("force-grab-cursor");
+          }
+        }
       };
 
       const onKeyUp = (event: KeyboardEvent) => {
@@ -400,6 +413,10 @@ export const useCanvasBoardBootstrap = ({
         }
 
         spacePanActiveRef.current = false;
+        if (host) {
+          host.classList.remove("force-grab-cursor");
+          host.classList.remove("force-grabbing-cursor");
+        }
         if (boardGraphicRef.current && !isPanningRef.current) {
           boardGraphicRef.current.cursor =
             activeToolRef.current === "doodle" ? "none" : "default";

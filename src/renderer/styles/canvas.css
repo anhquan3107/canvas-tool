@@ -123,3 +123,13 @@
   transform: translate(-9999px, -9999px);
   z-index: 9;
 }
+
+.canvas-surface.force-grab-cursor,
+.canvas-surface.force-grab-cursor canvas {
+  cursor: grab !important;
+}
+
+.canvas-surface.force-grabbing-cursor,
+.canvas-surface.force-grabbing-cursor canvas {
+  cursor: grabbing !important;
+}

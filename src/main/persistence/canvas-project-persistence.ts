@@ -6,6 +6,7 @@ import {
   DEFAULT_GROUP_BACKGROUND_COLOR,
   DEFAULT_GROUP_CANVAS_COLOR,
 } from "../../shared/project-defaults";
+import { loadLegacyCanvasProject } from "./legacy-canvas-project";
 
 interface CanvasManifest {
   id: string;
@@ -94,6 +95,17 @@ export const loadCanvasProject = async (
 ): Promise<Project> => {
   const safePath = validatePath(sourcePath);
   const raw = await fs.readFile(safePath);
+  const isZipPackage = raw.length >= 2 && raw[0] === 0x50 && raw[1] === 0x4b;
+  const isGzipJson = raw.length >= 2 && raw[0] === 0x1f && raw[1] === 0x8b;
+
+  if (isGzipJson) {
+    return loadLegacyCanvasProject(raw, safePath);
+  }
+
+  if (!isZipPackage) {
+    throw new Error("Unsupported .canvas format.");
+  }
+
   const zip = await JSZip.loadAsync(raw);
 
   const manifestFile = zip.file("manifest.json");

@@ -13,6 +13,13 @@ export interface Project {
   tasks: Task[];
   createdAt: string;
   updatedAt: string;
+  legacy?: ProjectLegacyMetadata;
+}
+
+export interface ProjectLegacyMetadata {
+  sourceFormat?: "legacy-optimized-canvas";
+  sourceVersion?: number;
+  drawingCanvasById?: Record<string, string>;
 }
 
 export interface AppSettings {
@@ -52,6 +59,8 @@ export interface ReferenceGroup {
   kind: "canvas" | "group";
   order: number;
   locked: boolean;
+  icon?: string;
+  accentColor?: string;
   canvasColor: string;
   backgroundColor: string;
   canvasSize: CanvasSize;
@@ -142,6 +151,8 @@ export interface TodoItem {
   text: string;
   completed: boolean;
   order: number;
+  createdAt?: string;
+  completedAt?: string;
 }
 
 export interface ColorSwatch {

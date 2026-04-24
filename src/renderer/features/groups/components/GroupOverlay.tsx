@@ -33,6 +33,42 @@ const AUTO_HIDE_DELAY_MS = 5000;
 const CONTEXT_MENU_WIDTH = 144;
 const CONTEXT_MENU_HEIGHT = 80;
 const CONTEXT_MENU_MARGIN = 10;
+const CUSTOM_ASSET_PROTOCOL_PREFIX = "canvastool-asset://";
+const GROUP_PREVIEW_PREWARM_CONCURRENCY = 4;
+
+const groupPreviewResolvedSrcCache = new Map<string, Promise<string>>();
+const groupPreviewObjectUrlCache = new Map<string, string>();
+
+const resolveGroupPreviewSrc = async (assetPath: string) => {
+  if (!assetPath.startsWith(CUSTOM_ASSET_PROTOCOL_PREFIX)) {
+    return assetPath;
+  }
+
+  const existingObjectUrl = groupPreviewObjectUrlCache.get(assetPath);
+  if (existingObjectUrl) {
+    return existingObjectUrl;
+  }
+
+  const cachedPromise = groupPreviewResolvedSrcCache.get(assetPath);
+  if (cachedPromise) {
+    return cachedPromise;
+  }
+
+  const resolvePromise = fetch(assetPath)
+    .then(async (response) => {
+      if (!response.ok) {
+        throw new Error(`Failed to load preview asset: ${assetPath}`);
+      }
+
+      const objectUrl = URL.createObjectURL(await response.blob());
+      groupPreviewObjectUrlCache.set(assetPath, objectUrl);
+      return objectUrl;
+    })
+    .catch(() => assetPath);
+
+  groupPreviewResolvedSrcCache.set(assetPath, resolvePromise);
+  return resolvePromise;
+};
 
 const getPreviewRects = (items: CanvasItem[]) => {
   const visibleItems = items
@@ -118,12 +154,12 @@ const GroupPreviewCard = ({
               }}
             >
               {item.type === "image" && item.assetPath ? (
-                <img
-                  src={item.thumbnailAssetPath ?? item.previewAssetPath ?? item.assetPath}
-                  alt=""
-                  draggable={false}
-                  loading="lazy"
-                  decoding="async"
+                <GroupPreviewImage
+                  assetPath={
+                    item.thumbnailAssetPath ??
+                    item.previewAssetPath ??
+                    item.assetPath
+                  }
                 />
               ) : (
                 <div className="group-preview-fallback" />
@@ -148,6 +184,36 @@ const GroupPreviewCard = ({
         </div>
       </div>
     </button>
+  );
+};
+
+const GroupPreviewImage = ({ assetPath }: { assetPath: string }) => {
+  const [resolvedSrc, setResolvedSrc] = useState(
+    groupPreviewObjectUrlCache.get(assetPath) ?? assetPath,
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void resolveGroupPreviewSrc(assetPath).then((nextSrc) => {
+      if (!cancelled) {
+        setResolvedSrc(nextSrc);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [assetPath]);
+
+  return (
+    <img
+      src={resolvedSrc}
+      alt=""
+      draggable={false}
+      loading="lazy"
+      decoding="async"
+    />
   );
 };
 
@@ -264,6 +330,58 @@ export const GroupOverlay = ({
       window.removeEventListener("blur", closeMenu);
     };
   }, [menuState]);
+
+  useEffect(() => {
+    const previewAssetPaths = Array.from(
+      new Set(
+        visibleGroups.flatMap((group) =>
+          getPreviewRects(group.items)
+            .map(({ item }) =>
+              item.type === "image" && item.assetPath
+                ? item.thumbnailAssetPath ??
+                  item.previewAssetPath ??
+                  item.assetPath
+                : null,
+            )
+            .filter((assetPath): assetPath is string => Boolean(assetPath)),
+        ),
+      ),
+    );
+
+    if (previewAssetPaths.length === 0) {
+      return;
+    }
+
+    let cancelled = false;
+    let nextIndex = 0;
+    const workerCount = Math.min(
+      GROUP_PREVIEW_PREWARM_CONCURRENCY,
+      previewAssetPaths.length,
+    );
+
+    const workers = Array.from({ length: workerCount }, async () => {
+      while (!cancelled) {
+        const assetPath = previewAssetPaths[nextIndex];
+        nextIndex += 1;
+
+        if (!assetPath) {
+          return;
+        }
+
+        try {
+          await resolveGroupPreviewSrc(assetPath);
+        } catch {
+          return;
+        }
+      }
+    });
+
+    void Promise.all(workers);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [visibleGroups]);
 
   return (
     <div

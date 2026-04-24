@@ -1,4 +1,4 @@
-import { Assets, Texture } from "pixi.js";
+import { Texture } from "pixi.js";
 import type { ImageItem } from "@shared/types/project";
 
 interface TextureCacheEntry {
@@ -8,6 +8,21 @@ interface TextureCacheEntry {
 
 const boardTextureCache = new Map<string, TextureCacheEntry>();
 const boardTextureVariantCache = new Map<string, Promise<string>>();
+const IS_WINDOWS =
+  typeof navigator !== "undefined" &&
+  /windows/i.test(navigator.userAgent);
+const MAX_PARALLEL_TEXTURE_DECODES = Math.max(
+  2,
+  Math.min(
+    IS_WINDOWS ? 3 : 6,
+    Math.floor(
+      ((typeof navigator !== "undefined" && navigator.hardwareConcurrency) || 8) /
+        2,
+    ),
+  ),
+);
+let activeTextureDecodeCount = 0;
+const pendingTextureDecodeTasks: Array<() => void> = [];
 
 export const configureBoardTextureQuality = (
   texture: Texture,
@@ -63,16 +78,41 @@ export const getBoardRenderAssetPath = (
     ? item.assetPath ?? item.previewAssetPath
     : item.previewAssetPath ?? item.assetPath;
 
-const loadTextureDirectly = async (assetPath: string) =>
-  new Promise<Texture>((resolve, reject) => {
-    const image = new Image();
-    image.decoding = "async";
-    image.onload = () =>
-      resolve(configureBoardTextureQuality(Texture.from(image)));
-    image.onerror = () =>
-      reject(new Error(`Failed to decode texture for ${assetPath}`));
-    image.src = assetPath;
+const scheduleTextureDecode = <T>(task: () => Promise<T>) =>
+  new Promise<T>((resolve, reject) => {
+    const runTask = () => {
+      activeTextureDecodeCount += 1;
+
+      void task()
+        .then(resolve, reject)
+        .finally(() => {
+          activeTextureDecodeCount = Math.max(0, activeTextureDecodeCount - 1);
+          const nextTask = pendingTextureDecodeTasks.shift();
+          nextTask?.();
+        });
+    };
+
+    if (activeTextureDecodeCount < MAX_PARALLEL_TEXTURE_DECODES) {
+      runTask();
+      return;
+    }
+
+    pendingTextureDecodeTasks.push(runTask);
   });
+
+const loadTextureDirectly = async (assetPath: string) =>
+  scheduleTextureDecode(
+    () =>
+      new Promise<Texture>((resolve, reject) => {
+        const image = new Image();
+        image.decoding = "async";
+        image.onload = () =>
+          resolve(configureBoardTextureQuality(Texture.from(image)));
+        image.onerror = () =>
+          reject(new Error(`Failed to decode texture for ${assetPath}`));
+        image.src = assetPath;
+      }),
+  );
 
 export const loadTextureForAssetPath = async (
   assetPath: string,
@@ -86,18 +126,7 @@ export const loadTextureForAssetPath = async (
     return cachedTexture;
   }
 
-  const texturePromise = (async () => {
-    if (options?.preferHighResolution) {
-      return loadTextureDirectly(resolvedAssetPath);
-    }
-
-    try {
-      const texture = await Assets.load<Texture>(resolvedAssetPath);
-      return configureBoardTextureQuality(texture);
-    } catch {
-      return loadTextureDirectly(resolvedAssetPath);
-    }
-  })();
+  const texturePromise = loadTextureDirectly(resolvedAssetPath);
 
   boardTextureCache.set(cacheKey, {
     promise: texturePromise,

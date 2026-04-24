@@ -29,6 +29,8 @@ import type {
   CaptureSession,
 } from "@renderer/pixi/types";
 
+const MAX_RECENT_TEXTURE_GROUPS = 3;
+
 interface FrameMeta {
   width: number;
   height: number;
@@ -47,6 +49,9 @@ interface UseCanvasBoardSceneOptions {
   itemNodeByIdRef: MutableRefObject<Map<string, Container>>;
   frameMetaByIdRef: MutableRefObject<Map<string, FrameMeta>>;
   selectionIdsRef: MutableRefObject<string[]>;
+  recentGroupPreviewAssetPathsRef: MutableRefObject<
+    Array<{ groupId: string; assetPaths: string[] }>
+  >;
   groupRef: MutableRefObject<ReferenceGroup>;
   onSelectionChangeRef: MutableRefObject<(itemIds: string[]) => void>;
   onLockedInteractionRef: MutableRefObject<(() => void) | undefined>;
@@ -87,6 +92,7 @@ export const useCanvasBoardScene = ({
   itemNodeByIdRef,
   frameMetaByIdRef,
   selectionIdsRef,
+  recentGroupPreviewAssetPathsRef,
   groupRef,
   onSelectionChangeRef,
   onLockedInteractionRef,
@@ -158,19 +164,45 @@ export const useCanvasBoardScene = ({
       .filter((item) => item.visible)
       .sort((left, right) => left.zIndex - right.zIndex);
 
-    pruneBoardTextureCache(
+    const currentRenderAssetPaths = new Set(
+      visibleItems.flatMap((item) =>
+        item.type === "image"
+          ? [
+              getBoardRenderAssetPath(item, {
+                preferHighResolution: scene.zoom >= 2,
+              }),
+            ].filter((assetPath): assetPath is string => Boolean(assetPath))
+          : [],
+      ),
+    );
+    const currentPreviewAssetPaths = Array.from(
       new Set(
         visibleItems.flatMap((item) =>
-          item.type === "image"
-            ? [
-                getBoardRenderAssetPath(item, {
-                  preferHighResolution: scene.zoom >= 2,
-                }),
-              ].filter((assetPath): assetPath is string => Boolean(assetPath))
+          item.type === "image" && item.previewAssetPath
+            ? [item.previewAssetPath]
             : [],
         ),
       ),
     );
+
+    recentGroupPreviewAssetPathsRef.current = [
+      {
+        groupId: scene.id,
+        assetPaths: currentPreviewAssetPaths,
+      },
+      ...recentGroupPreviewAssetPathsRef.current.filter(
+        (entry) => entry.groupId !== scene.id,
+      ),
+    ].slice(0, MAX_RECENT_TEXTURE_GROUPS);
+
+    const retainedAssetPaths = new Set(currentRenderAssetPaths);
+    recentGroupPreviewAssetPathsRef.current.forEach((entry) => {
+      entry.assetPaths.forEach((assetPath) => {
+        retainedAssetPaths.add(assetPath);
+      });
+    });
+
+    pruneBoardTextureCache(retainedAssetPaths);
 
     visibleItems.forEach((item) => {
       const safeWidth =

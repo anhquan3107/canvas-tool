@@ -78,6 +78,9 @@ export const CanvasBoard = ({
   const { captureSessionByIdRef, stopCaptureSession, ensureCaptureSession } =
     useCaptureSessions();
   const selectionIdsRef = useRef(selectedItemIds);
+  const recentGroupPreviewAssetPathsRef = useRef<
+    Array<{ groupId: string; assetPaths: string[] }>
+  >([]);
   const groupRef = useRef(group);
   const surfaceOpacityRef = useRef(surfaceOpacity);
   const onSelectionChangeRef = useRef(onSelectionChange);
@@ -358,6 +361,7 @@ export const CanvasBoard = ({
     itemNodeByIdRef,
     frameMetaByIdRef,
     selectionIdsRef,
+    recentGroupPreviewAssetPathsRef,
     groupRef,
     onSelectionChangeRef,
     onLockedInteractionRef,

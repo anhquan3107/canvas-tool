@@ -1,9 +1,9 @@
-import { protocol } from "electron";
+import { net, protocol } from "electron";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 export const CANVAS_ASSET_PROTOCOL = "canvastool-asset";
 
@@ -74,9 +74,13 @@ export const resolveLocalAssetPath = (assetPath: string) => {
 };
 
 export const registerCanvasAssetProtocol = () => {
-  protocol.registerFileProtocol(CANVAS_ASSET_PROTOCOL, (request, callback) => {
+  protocol.handle(CANVAS_ASSET_PROTOCOL, (request) => {
     const filePath = canvasAssetUrlToPath(request.url);
-    callback(filePath ?? "");
+    if (!filePath) {
+      return new Response("Asset not found", { status: 404 });
+    }
+
+    return net.fetch(pathToFileURL(filePath).toString());
   });
 };
 

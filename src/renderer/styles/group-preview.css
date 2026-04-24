@@ -33,6 +33,10 @@
     opacity 180ms ease;
 }
 
+.group-preview-entry-hidden {
+  display: none;
+}
+
 .group-preview-stack::-webkit-scrollbar {
   width: 6px;
 }

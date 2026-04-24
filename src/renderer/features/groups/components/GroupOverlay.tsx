@@ -272,6 +272,11 @@ export const GroupOverlay = ({
 
   const activeGroup =
     orderedGroups.find((group) => group.id === activeGroupId) ?? orderedGroups[0];
+  const visibleGroups = open
+    ? orderedGroups
+      : activeGroup
+      ? [activeGroup]
+      : [];
 
   const clearAutoHideTimer = useCallback(() => {
     if (autoHideTimerRef.current !== null) {
@@ -329,7 +334,7 @@ export const GroupOverlay = ({
   useEffect(() => {
     const previewAssetPaths = Array.from(
       new Set(
-        orderedGroups.flatMap((group) =>
+        visibleGroups.flatMap((group) =>
           getPreviewRects(group.items)
             .map(({ item }) =>
               item.type === "image" && item.assetPath
@@ -376,7 +381,7 @@ export const GroupOverlay = ({
     return () => {
       cancelled = true;
     };
-  }, [orderedGroups]);
+  }, [visibleGroups]);
 
   return (
     <div
@@ -392,14 +397,9 @@ export const GroupOverlay = ({
       }}
     >
       <div className="group-preview-stack" aria-hidden={!open}>
-        {orderedGroups.map((group) => (
+        {visibleGroups.map((group) => (
           <div
             key={group.id}
-            className={
-              !open && activeGroup?.id !== group.id
-                ? "group-preview-entry-hidden"
-                : undefined
-            }
             onContextMenu={(event) => {
               event.preventDefault();
               event.stopPropagation();

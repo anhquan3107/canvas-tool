@@ -76,7 +76,7 @@ export const getBoardRenderAssetPath = (
 ) =>
   options?.preferHighResolution
     ? item.assetPath ?? item.previewAssetPath
-    : item.previewAssetPath ?? item.assetPath;
+    : item.assetPath ?? item.previewAssetPath;
 
 const scheduleTextureDecode = <T>(task: () => Promise<T>) =>
   new Promise<T>((resolve, reject) => {

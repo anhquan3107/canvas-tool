@@ -32,10 +32,11 @@ export const registerProjectHandlers = (window: BrowserWindow) => {
     try {
       sendOperationProgress(event, "Loading canvas 16%", 16);
       const project = await loadCanvasProject(filePath);
+      const resolvedFilePath = project.filePath ?? filePath;
       sendOperationProgress(event, "Loading canvas 82%", 82);
-      await addRecentFile(filePath);
+      await addRecentFile(resolvedFilePath);
       updateWindowTitle(window, project);
-      return { project, filePath };
+      return { project, filePath: resolvedFilePath };
     } catch (error) {
       await dialog.showMessageBox(targetWindow, {
         type: "error",

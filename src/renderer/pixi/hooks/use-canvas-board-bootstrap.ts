@@ -251,19 +251,82 @@ export const useCanvasBoardBootstrap = ({
       };
 
       cancelWheelZoomAnimationRef.current = cancelWheelZoomAnimation;
+      let annotationMoveFrame: number | null = null;
+      let pendingAnnotationPointers: Array<
+        Pick<
+          NormalizedPointerData,
+          "clientX" | "clientY" | "pointerId" | "pointerType" | "pressure"
+        >
+      > = [];
+
+      const flushAnnotationMoveQueue = () => {
+        annotationMoveFrame = null;
+        if (pendingAnnotationPointers.length === 0) {
+          return;
+        }
+
+        const queuedPointers = pendingAnnotationPointers;
+        pendingAnnotationPointers = [];
+        queuedPointers.forEach((queuedPointer) => {
+          updateAnnotationSession(queuedPointer);
+        });
+      };
+
+      const enqueueAnnotationPointer = (
+        pointer: Pick<
+          NormalizedPointerData,
+          "clientX" | "clientY" | "pointerId" | "pointerType" | "pressure"
+        >,
+      ) => {
+        pendingAnnotationPointers.push(pointer);
+        if (annotationMoveFrame === null) {
+          annotationMoveFrame = window.requestAnimationFrame(
+            flushAnnotationMoveQueue,
+          );
+        }
+      };
 
       const onPointerMove = (event: PointerEvent) => {
         const pointer = getNormalizedPointerData(event);
         updateDoodleCursor(pointer.clientX, pointer.clientY, pointer);
 
         if (activeAnnotationSessionRef.current) {
-          if (typeof event.getCoalescedEvents === "function") {
-            event.getCoalescedEvents().forEach((coalescedEvent) => {
-              updateAnnotationSession(getNormalizedPointerData(coalescedEvent));
+          const annotationSession = activeAnnotationSessionRef.current;
+          const coalescedEvents =
+            typeof event.getCoalescedEvents === "function"
+              ? event.getCoalescedEvents()
+              : [];
+          if (coalescedEvents.length > 0) {
+            coalescedEvents.forEach((coalescedEvent) => {
+              const nextPointer = getNormalizedPointerData(coalescedEvent);
+              if (annotationSession.mode === "brush") {
+                updateAnnotationSession(nextPointer);
+                return;
+              }
+              enqueueAnnotationPointer(nextPointer);
             });
           }
 
-          updateAnnotationSession(pointer);
+          const lastCoalescedEvent =
+            coalescedEvents.length > 0
+              ? coalescedEvents[coalescedEvents.length - 1]
+              : null;
+          const shouldProcessPointer =
+            !lastCoalescedEvent ||
+            lastCoalescedEvent.clientX !== pointer.clientX ||
+            lastCoalescedEvent.clientY !== pointer.clientY ||
+            (lastCoalescedEvent.pointerId ?? pointer.pointerId) !== pointer.pointerId ||
+            (lastCoalescedEvent.pressure ?? pointer.pressure) !== pointer.pressure;
+
+          if (!shouldProcessPointer) {
+            return;
+          }
+
+          if (annotationSession.mode === "brush") {
+            updateAnnotationSession(pointer);
+          } else {
+            enqueueAnnotationPointer(pointer);
+          }
           return;
         }
 
@@ -297,6 +360,8 @@ export const useCanvasBoardBootstrap = ({
           activeAnnotationSessionRef.current &&
           activeAnnotationSessionRef.current.pointerId === pointer.pointerId
         ) {
+          enqueueAnnotationPointer(pointer);
+          flushAnnotationMoveQueue();
           commitAnnotationSession();
         }
 
@@ -443,6 +508,11 @@ export const useCanvasBoardBootstrap = ({
           window.cancelAnimationFrame(wheelZoomAnimationFrame);
           wheelZoomAnimationFrame = null;
         }
+        if (annotationMoveFrame !== null) {
+          window.cancelAnimationFrame(annotationMoveFrame);
+          annotationMoveFrame = null;
+        }
+        pendingAnnotationPointers = [];
         cancelWheelZoomAnimationRef.current = null;
         host.removeEventListener("wheel", onWheel);
         window.removeEventListener("keydown", onKeyDown);

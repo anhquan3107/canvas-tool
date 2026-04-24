@@ -3,10 +3,7 @@ import { Rectangle, type Container, type Graphics } from "pixi.js";
 import { ZERO_INSETS } from "@renderer/pixi/constants";
 import { hexToPixiColor, hexToRgba } from "@renderer/pixi/utils/color";
 import { clamp } from "@renderer/pixi/utils/geometry";
-import {
-  getDisplayPressureScale,
-  type NormalizedPointerData,
-} from "@renderer/pixi/utils/pointer";
+import { type NormalizedPointerData } from "@renderer/pixi/utils/pointer";
 import type {
   ActiveSelectionTransformState,
   ActiveItemDragState,
@@ -153,34 +150,43 @@ export const useCanvasBoardView = ({
         return;
       }
 
-      const pressureScale = getDisplayPressureScale(
-        pointerState?.pointerType,
-        pointerState?.pressure,
-        pointerState?.buttons,
-      );
-      const size = Math.max(
-        10,
-        doodleSizeRef.current * pressureScale * boardContainer.scale.x,
-      );
+      const size = Math.max(10, doodleSizeRef.current * boardContainer.scale.x);
       const localX = clientX - rect.left;
       const localY = clientY - rect.top;
       const erasing =
         doodleModeRef.current === "erase-line" ||
         doodleModeRef.current === "erase-pixel";
-
-      cursorOverlay.style.width = `${size}px`;
-      cursorOverlay.style.height = `${size}px`;
-      cursorOverlay.style.transform = `translate(${localX - size * 0.5}px, ${localY - size * 0.5}px)`;
-      cursorOverlay.style.borderColor = erasing
+      const nextWidth = `${size}px`;
+      const nextHeight = `${size}px`;
+      const nextBorderColor = erasing
         ? "rgba(255, 255, 255, 0.88)"
         : hexToRgba(doodleColorRef.current, 0.98);
-      cursorOverlay.style.background = erasing
+      const nextBackground = erasing
         ? "rgba(255, 255, 255, 0.08)"
         : doodleColorRef.current;
-      cursorOverlay.style.boxShadow = erasing
+      const nextBoxShadow = erasing
         ? "0 0 0 1px rgba(0, 0, 0, 0.38), inset 0 0 0 1px rgba(255, 255, 255, 0.08)"
         : "0 0 0 1px rgba(0, 0, 0, 0.42), 0 0 0 2px rgba(255, 255, 255, 0.14)";
-      cursorOverlay.style.opacity = "1";
+
+      if (cursorOverlay.style.width !== nextWidth) {
+        cursorOverlay.style.width = nextWidth;
+      }
+      if (cursorOverlay.style.height !== nextHeight) {
+        cursorOverlay.style.height = nextHeight;
+      }
+      cursorOverlay.style.transform = `translate(${localX - size * 0.5}px, ${localY - size * 0.5}px)`;
+      if (cursorOverlay.style.borderColor !== nextBorderColor) {
+        cursorOverlay.style.borderColor = nextBorderColor;
+      }
+      if (cursorOverlay.style.background !== nextBackground) {
+        cursorOverlay.style.background = nextBackground;
+      }
+      if (cursorOverlay.style.boxShadow !== nextBoxShadow) {
+        cursorOverlay.style.boxShadow = nextBoxShadow;
+      }
+      if (cursorOverlay.style.opacity !== "1") {
+        cursorOverlay.style.opacity = "1";
+      }
     },
     [
       activeToolRef,

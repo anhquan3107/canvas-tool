@@ -38,6 +38,8 @@ const GROUP_PREVIEW_PREWARM_CONCURRENCY = 4;
 
 const groupPreviewResolvedSrcCache = new Map<string, Promise<string>>();
 const groupPreviewObjectUrlCache = new Map<string, string>();
+const groupPreviewDecodedImageCache = new Map<string, Promise<string>>();
+const groupPreviewPinnedImageCache = new Map<string, HTMLImageElement>();
 
 const resolveGroupPreviewSrc = async (assetPath: string) => {
   if (!assetPath.startsWith(CUSTOM_ASSET_PROTOCOL_PREFIX)) {
@@ -68,6 +70,46 @@ const resolveGroupPreviewSrc = async (assetPath: string) => {
 
   groupPreviewResolvedSrcCache.set(assetPath, resolvePromise);
   return resolvePromise;
+};
+
+const warmGroupPreviewSrc = async (assetPath: string) => {
+  const cachedDecodedImage = groupPreviewDecodedImageCache.get(assetPath);
+  if (cachedDecodedImage) {
+    return cachedDecodedImage;
+  }
+
+  const decodePromise = resolveGroupPreviewSrc(assetPath).then(
+    (resolvedSrc) =>
+      new Promise<string>((resolve) => {
+        const existingImage = groupPreviewPinnedImageCache.get(assetPath);
+        if (existingImage) {
+          resolve(resolvedSrc);
+          return;
+        }
+
+        const image = new Image();
+        image.decoding = "async";
+        image.onload = () => {
+          groupPreviewPinnedImageCache.set(assetPath, image);
+          resolve(resolvedSrc);
+        };
+        image.onerror = () => resolve(resolvedSrc);
+        image.src = resolvedSrc;
+
+        if (typeof image.decode === "function") {
+          void image.decode().then(
+            () => {
+              groupPreviewPinnedImageCache.set(assetPath, image);
+              resolve(resolvedSrc);
+            },
+            () => undefined,
+          );
+        }
+      }),
+  );
+
+  groupPreviewDecodedImageCache.set(assetPath, decodePromise);
+  return decodePromise;
 };
 
 const getPreviewRects = (items: CanvasItem[]) => {
@@ -195,7 +237,7 @@ const GroupPreviewImage = ({ assetPath }: { assetPath: string }) => {
   useEffect(() => {
     let cancelled = false;
 
-    void resolveGroupPreviewSrc(assetPath).then((nextSrc) => {
+    void warmGroupPreviewSrc(assetPath).then((nextSrc) => {
       if (!cancelled) {
         setResolvedSrc(nextSrc);
       }
@@ -211,7 +253,7 @@ const GroupPreviewImage = ({ assetPath }: { assetPath: string }) => {
       src={resolvedSrc}
       alt=""
       draggable={false}
-      loading="lazy"
+      loading="eager"
       decoding="async"
     />
   );
@@ -272,11 +314,6 @@ export const GroupOverlay = ({
 
   const activeGroup =
     orderedGroups.find((group) => group.id === activeGroupId) ?? orderedGroups[0];
-  const visibleGroups = open
-    ? orderedGroups
-      : activeGroup
-      ? [activeGroup]
-      : [];
 
   const clearAutoHideTimer = useCallback(() => {
     if (autoHideTimerRef.current !== null) {
@@ -334,7 +371,7 @@ export const GroupOverlay = ({
   useEffect(() => {
     const previewAssetPaths = Array.from(
       new Set(
-        visibleGroups.flatMap((group) =>
+        orderedGroups.flatMap((group) =>
           getPreviewRects(group.items)
             .map(({ item }) =>
               item.type === "image" && item.assetPath
@@ -369,7 +406,7 @@ export const GroupOverlay = ({
         }
 
         try {
-          await resolveGroupPreviewSrc(assetPath);
+          await warmGroupPreviewSrc(assetPath);
         } catch {
           return;
         }
@@ -381,7 +418,7 @@ export const GroupOverlay = ({
     return () => {
       cancelled = true;
     };
-  }, [visibleGroups]);
+  }, [orderedGroups]);
 
   return (
     <div
@@ -397,9 +434,14 @@ export const GroupOverlay = ({
       }}
     >
       <div className="group-preview-stack" aria-hidden={!open}>
-        {visibleGroups.map((group) => (
+        {orderedGroups.map((group) => (
           <div
             key={group.id}
+            className={
+              !open && activeGroup?.id !== group.id
+                ? "group-preview-entry-hidden"
+                : undefined
+            }
             onContextMenu={(event) => {
               event.preventDefault();
               event.stopPropagation();

@@ -37,6 +37,8 @@ import type {
 } from "@renderer/pixi/types";
 import { drawItemFrame } from "@renderer/pixi/utils/item-frame";
 import type { NormalizedPointerData } from "@renderer/pixi/utils/pointer";
+import type { SceneCullBounds } from "@renderer/pixi/utils/scene-culling";
+import { isSceneViewportWithinCullBounds } from "@renderer/pixi/utils/scene-culling";
 
 export const CanvasBoard = ({
   group,
@@ -78,6 +80,10 @@ export const CanvasBoard = ({
   const { captureSessionByIdRef, stopCaptureSession, ensureCaptureSession } =
     useCaptureSessions();
   const selectionIdsRef = useRef(selectedItemIds);
+  const recentGroupPreviewAssetPathsRef = useRef<
+    Array<{ groupId: string; assetPaths: string[] }>
+  >([]);
+  const sceneCullBoundsRef = useRef<SceneCullBounds | null>(null);
   const groupRef = useRef(group);
   const surfaceOpacityRef = useRef(surfaceOpacity);
   const onSelectionChangeRef = useRef(onSelectionChange);
@@ -358,6 +364,8 @@ export const CanvasBoard = ({
     itemNodeByIdRef,
     frameMetaByIdRef,
     selectionIdsRef,
+    recentGroupPreviewAssetPathsRef,
+    sceneCullBoundsRef,
     groupRef,
     onSelectionChangeRef,
     onLockedInteractionRef,
@@ -648,12 +656,23 @@ export const CanvasBoard = ({
     }
 
     syncViewFromGroup();
+    const host = hostRef.current;
+    if (
+      host &&
+      !isSceneViewportWithinCullBounds(host, group, sceneCullBoundsRef.current)
+    ) {
+      rebuildScene();
+      return;
+    }
+
     updateSelectedBoundsOverlay();
   }, [
     appReady,
     group.panX,
     group.panY,
     group.zoom,
+    group.id,
+    rebuildScene,
     syncViewFromGroup,
     updateSelectedBoundsOverlay,
   ]);

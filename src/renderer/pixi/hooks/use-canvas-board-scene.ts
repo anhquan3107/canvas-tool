@@ -19,6 +19,11 @@ import {
   pruneBoardTextureCache,
 } from "@renderer/pixi/utils/textures";
 import {
+  doesCanvasItemIntersectCullBounds,
+  getSceneCullBounds,
+  type SceneCullBounds,
+} from "@renderer/pixi/utils/scene-culling";
+import {
   getNormalizedPointerData,
   type NormalizedPointerData,
 } from "@renderer/pixi/utils/pointer";
@@ -52,6 +57,7 @@ interface UseCanvasBoardSceneOptions {
   recentGroupPreviewAssetPathsRef: MutableRefObject<
     Array<{ groupId: string; assetPaths: string[] }>
   >;
+  sceneCullBoundsRef: MutableRefObject<SceneCullBounds | null>;
   groupRef: MutableRefObject<ReferenceGroup>;
   onSelectionChangeRef: MutableRefObject<(itemIds: string[]) => void>;
   onLockedInteractionRef: MutableRefObject<(() => void) | undefined>;
@@ -93,6 +99,7 @@ export const useCanvasBoardScene = ({
   frameMetaByIdRef,
   selectionIdsRef,
   recentGroupPreviewAssetPathsRef,
+  sceneCullBoundsRef,
   groupRef,
   onSelectionChangeRef,
   onLockedInteractionRef,
@@ -163,9 +170,16 @@ export const useCanvasBoardScene = ({
     const visibleItems = scene.items
       .filter((item) => item.visible)
       .sort((left, right) => left.zIndex - right.zIndex);
+    const cullBounds = getSceneCullBounds(host, scene);
+    sceneCullBoundsRef.current = cullBounds;
+    const renderableItems = visibleItems.filter(
+      (item) =>
+        selectionIdsRef.current.includes(item.id) ||
+        doesCanvasItemIntersectCullBounds(item, cullBounds),
+    );
 
     const currentRenderAssetPaths = new Set(
-      visibleItems.flatMap((item) =>
+      renderableItems.flatMap((item) =>
         item.type === "image"
           ? [
               getBoardRenderAssetPath(item, {
@@ -177,7 +191,7 @@ export const useCanvasBoardScene = ({
     );
     const currentPreviewAssetPaths = Array.from(
       new Set(
-        visibleItems.flatMap((item) =>
+        renderableItems.flatMap((item) =>
           item.type === "image" && item.previewAssetPath
             ? [item.previewAssetPath]
             : [],
@@ -204,7 +218,7 @@ export const useCanvasBoardScene = ({
 
     pruneBoardTextureCache(retainedAssetPaths);
 
-    visibleItems.forEach((item) => {
+    renderableItems.forEach((item) => {
       const safeWidth =
         Number.isFinite(item.width) && item.width > 1 ? item.width : 180;
       const safeHeight =

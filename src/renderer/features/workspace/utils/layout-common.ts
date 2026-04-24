@@ -1,5 +1,8 @@
 import type { ReferenceGroup } from "@shared/types/project";
-import { DEFAULT_VIEW_ZOOM_BASELINE } from "@shared/project-defaults";
+import {
+  DEFAULT_VIEW_ZOOM_BASELINE,
+  MIN_CANVAS_ZOOM,
+} from "@shared/project-defaults";
 import { BOARD_EXPANSION_PADDING } from "@renderer/pixi/constants";
 import type { ImagePatch } from "@renderer/features/workspace/types";
 
@@ -81,9 +84,10 @@ export const getFocusedGroupView = (
   const fitPadding = 64;
   const boundsWidth = Math.max(1, bounds.maxX - bounds.minX);
   const boundsHeight = Math.max(1, bounds.maxY - bounds.minY);
+  const minFitZoom = MIN_CANVAS_ZOOM / DEFAULT_VIEW_ZOOM_BASELINE;
 
   const fitZoom = Math.max(
-    0.18,
+    minFitZoom,
     Math.min(
       viewportWidth / (boundsWidth + fitPadding * 2),
       viewportHeight / (boundsHeight + fitPadding * 2),

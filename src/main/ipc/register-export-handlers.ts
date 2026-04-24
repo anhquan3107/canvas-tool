@@ -9,6 +9,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import type { ProjectExportResult } from "../../shared/types/ipc";
 import { readSettings, setLastExportPath } from "../services/app-settings-service";
+import { resolveLocalAssetPath } from "../services/canvas-asset-files";
 import { createAcoBuffer } from "./export-utils";
 import {
   acoDialogFilter,
@@ -185,10 +186,15 @@ export const registerExportHandlers = (window: BrowserWindow) => {
             buffer,
           );
         } else {
+          const sourcePath = resolveLocalAssetPath(image.assetPath);
+          if (!sourcePath) {
+            continue;
+          }
+
           const parsedExtension =
-            path.extname(image.assetPath).replace(".", "") || "png";
+            path.extname(sourcePath).replace(".", "") || "png";
           await fs.copyFile(
-            image.assetPath,
+            sourcePath,
             path.join(folderPath, `${safeStem}.${parsedExtension}`),
           );
         }

@@ -1,6 +1,7 @@
 import sharp from "sharp";
 import type { ColorSwatch } from "@shared/types/project";
 import { decodeDataUrl, isHttpUrl } from "../ipc/ipc-utils";
+import { resolveLocalAssetPath } from "./canvas-asset-files";
 
 interface RgbColor {
   red: number;
@@ -361,7 +362,7 @@ const toSharpInput = (source: string) => {
     throw new Error("Remote URLs must be fetched before swatch extraction.");
   }
 
-  return source;
+  return resolveLocalAssetPath(source) ?? source;
 };
 
 export const extractImageSwatchesFromSource = async (

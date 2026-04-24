@@ -14,6 +14,10 @@ import {
   DEFAULT_GROUP_BACKGROUND_COLOR,
   DEFAULT_GROUP_CANVAS_COLOR,
 } from "../../shared/project-defaults";
+import {
+  createCanvasAssetTempDir,
+  writeCanvasAssetTempFile,
+} from "../services/canvas-asset-files";
 
 const MAIN_CANVAS_GROUP_ID = "canvas-main";
 
@@ -141,6 +145,20 @@ const toOptionalIsoString = (value: unknown) => {
 
   const parsed = new Date(value);
   return Number.isNaN(parsed.valueOf()) ? undefined : parsed.toISOString();
+};
+
+const toOptionalDateString = (value: unknown) => {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  const datePrefix = trimmed.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (datePrefix) {
+    return datePrefix[1];
+  }
+
+  return toOptionalIsoString(trimmed)?.slice(0, 10);
 };
 
 const normalizeImageFormatLabel = (value?: string | null) => {
@@ -274,9 +292,6 @@ const decodeLegacyImageBytes = (value: string | number[] | undefined) => {
   return null;
 };
 
-const toDataUrl = (buffer: Buffer, mimeType: string) =>
-  `data:${mimeType};base64,${buffer.toString("base64")}`;
-
 const buildSwatches = (colors: string[] | undefined): ColorSwatch[] | undefined => {
   if (!Array.isArray(colors) || colors.length === 0) {
     return undefined;
@@ -312,9 +327,38 @@ const sortItemsByZIndex = <T extends { zIndex: number }>(items: T[]) =>
 const coerceGroupName = (value: unknown, fallback: string) =>
   typeof value === "string" && value.trim().length > 0 ? value.trim() : fallback;
 
+const coerceLegacyId = (value: unknown) =>
+  typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+
+const getLegacyGroupItemIds = (
+  groupId: string,
+  groupData: LegacyGroupData,
+  itemDataById: Map<string, LegacyCanvasItemData>,
+) => {
+  const itemIds = new Set<string>();
+
+  if (Array.isArray(groupData.itemIds)) {
+    groupData.itemIds.forEach((itemId) => {
+      const normalizedId = coerceLegacyId(itemId);
+      if (normalizedId) {
+        itemIds.add(normalizedId);
+      }
+    });
+  }
+
+  itemDataById.forEach((item, itemId) => {
+    if (coerceLegacyId(item.groupId) === groupId) {
+      itemIds.add(itemId);
+    }
+  });
+
+  return [...itemIds];
+};
+
 const createLegacyImageBase = async (
   item: LegacyCanvasItemData,
   imageCache: LegacyCanvasSaveData["imageCache"],
+  tempDir: string,
 ): Promise<LegacyImageBase | null> => {
   const imageBuffer =
     decodeLegacyImageBytes(item.imageId ? imageCache?.[item.imageId] : undefined) ??
@@ -332,6 +376,11 @@ const createLegacyImageBase = async (
     "";
   const mimeType =
     inferMimeTypeFromExtension(extension) ?? inferMimeTypeFromBuffer(imageBuffer);
+  const id =
+    typeof item.id === "string" && item.id.trim().length > 0
+      ? item.id
+      : randomUUID();
+  const fileExtension = extension.replace(".", "").trim() || mimeType.split("/").at(-1) || "png";
   const swatches = buildSwatches(item.extractedColors);
   const label =
     (typeof item.originalFileName === "string" && item.originalFileName.trim().length > 0
@@ -342,11 +391,12 @@ const createLegacyImageBase = async (
       : undefined);
 
   return {
-    id:
-      typeof item.id === "string" && item.id.trim().length > 0
-        ? item.id
-        : randomUUID(),
-    assetPath: toDataUrl(imageBuffer, mimeType),
+    id,
+    assetPath: await writeCanvasAssetTempFile(
+      tempDir,
+      `${id}.${fileExtension === "jpeg" ? "jpg" : fileExtension}`,
+      imageBuffer,
+    ),
     source: "local",
     label,
     originalWidth: toPositiveNumber(item.width, toPositiveNumber(item.displayWidth, 320)),
@@ -472,18 +522,33 @@ export const loadLegacyCanvasProject = async (
   const savedAt = toOptionalIsoString(parsed.savedAt) ?? new Date().toISOString();
   const itemDataById = new Map<string, LegacyCanvasItemData>();
   const imageBases = new Map<string, LegacyImageBase>();
+  const tempDir = await createCanvasAssetTempDir();
+  const imageIdUseCounts = new Map<string, number>();
 
-  await Promise.all(
-    (parsed.items ?? []).map(async (item) => {
-      const base = await createLegacyImageBase(item, parsed.imageCache);
-      if (!base) {
-        return;
+  for (const item of parsed.items ?? []) {
+    if (typeof item.imageId === "string" && item.imageId.length > 0) {
+      imageIdUseCounts.set(item.imageId, (imageIdUseCounts.get(item.imageId) ?? 0) + 1);
+    }
+  }
+
+  for (const item of parsed.items ?? []) {
+    const base = await createLegacyImageBase(item, parsed.imageCache, tempDir);
+    if (item.imageId && parsed.imageCache?.[item.imageId]) {
+      const remainingUses = (imageIdUseCounts.get(item.imageId) ?? 1) - 1;
+      if (remainingUses <= 0) {
+        delete parsed.imageCache[item.imageId];
+      } else {
+        imageIdUseCounts.set(item.imageId, remainingUses);
       }
+    }
 
-      imageBases.set(base.id, base);
-      itemDataById.set(base.id, item);
-    }),
-  );
+    if (!base) {
+      continue;
+    }
+
+    imageBases.set(base.id, base);
+    itemDataById.set(base.id, item);
+  }
 
   const assignedItemIds = new Set<string>();
   const groups: ReferenceGroup[] = [];
@@ -516,7 +581,8 @@ export const loadLegacyCanvasProject = async (
   groups.push(canvasGroup);
 
   (parsed.groups ?? []).forEach((groupData, index) => {
-    const itemIds = Array.isArray(groupData.itemIds) ? groupData.itemIds : [];
+    const groupId = coerceLegacyId(groupData.id) ?? randomUUID();
+    const itemIds = getLegacyGroupItemIds(groupId, groupData, itemDataById);
     const groupItems = sortItemsByZIndex(
       itemIds.flatMap((itemId) => {
         const item = itemDataById.get(itemId);
@@ -532,10 +598,7 @@ export const loadLegacyCanvasProject = async (
     );
 
     groups.push({
-      id:
-        typeof groupData.id === "string" && groupData.id.trim().length > 0
-          ? groupData.id
-          : randomUUID(),
+      id: groupId,
       name: coerceGroupName(groupData.name, `Group ${index + 1}`),
       kind: "group",
       order: index + 1,
@@ -613,8 +676,8 @@ export const loadLegacyCanvasProject = async (
           : `Task ${index + 1}`,
       order: index,
       completed: Boolean(task.isCompleted),
-      startDate: toOptionalIsoString(task.startDate),
-      endDate: toOptionalIsoString(task.endDate),
+      startDate: toOptionalDateString(task.startDate),
+      endDate: toOptionalDateString(task.endDate),
       linkedGroupId: mapLinkedGroupId(task, groups),
       todos,
     };

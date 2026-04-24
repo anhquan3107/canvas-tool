@@ -1,4 +1,5 @@
 import { useCallback, type Dispatch, type SetStateAction } from "react";
+import { MAX_CANVAS_ZOOM, MIN_CANVAS_ZOOM } from "@shared/project-defaults";
 import type { AnnotationStroke, ReferenceGroup } from "@shared/types/project";
 import { getFocusedGroupView } from "@renderer/features/workspace/utils/layout";
 import type { DoodleMode, ToolMode } from "@renderer/features/tools/types";
@@ -39,7 +40,8 @@ interface UseAppCanvasActionsOptions {
   zoomOverlayOpen: boolean;
 }
 
-const clampCanvasZoom = (value: number) => Math.min(20, Math.max(0.18, value));
+const clampCanvasZoom = (value: number) =>
+  Math.min(MAX_CANVAS_ZOOM, Math.max(MIN_CANVAS_ZOOM, value));
 
 export const useAppCanvasActions = ({
   activeGroup,

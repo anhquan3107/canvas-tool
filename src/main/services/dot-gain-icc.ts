@@ -1,9 +1,9 @@
 import { app } from "electron";
 import crypto from "node:crypto";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import sharp from "sharp";
 import { decodeDataUrl, toDataUrl } from "../ipc/ipc-utils";
+import { resolveLocalAssetPath } from "./canvas-asset-files";
 
 const DOT_GAIN_20_PROFILE_FILE = "Dot_Gain_20%_Canvas.icc";
 const DOT_GAIN_20_OUTPUT_MIME = "image/png";
@@ -19,11 +19,7 @@ const getDotGain20ProfilePath = () => {
 };
 
 const normalizeSourcePath = (source: string) => {
-  if (source.startsWith("file://")) {
-    return fileURLToPath(source);
-  }
-
-  return source;
+  return resolveLocalAssetPath(source) ?? source;
 };
 
 const getSharpInput = (source: string) => {

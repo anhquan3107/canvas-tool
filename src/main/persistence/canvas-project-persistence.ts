@@ -1,11 +1,16 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import JSZip from "jszip";
-import type { Project, ReferenceGroup } from "../../shared/types/project";
+import type { ImageItem, Project, ReferenceGroup } from "../../shared/types/project";
 import {
   DEFAULT_GROUP_BACKGROUND_COLOR,
   DEFAULT_GROUP_CANVAS_COLOR,
 } from "../../shared/project-defaults";
+import {
+  createCanvasAssetTempDir,
+  resolveLocalAssetPath,
+  writeCanvasAssetTempFile,
+} from "../services/canvas-asset-files";
 import { loadLegacyCanvasProject } from "./legacy-canvas-project";
 
 interface CanvasManifest {
@@ -20,7 +25,265 @@ interface CanvasManifest {
   formatVersion: number;
 }
 
-const FORMAT_VERSION = 1;
+const FORMAT_VERSION = 2;
+const PACKAGE_ASSET_DIR = "assets";
+
+const decodeDataUrl = (dataUrl: string) => {
+  const match = dataUrl.match(
+    /^data:([^;,]+)?(?:;charset=[^;,]+)?;base64,(.+)$/,
+  );
+  if (!match) {
+    return null;
+  }
+
+  return {
+    mimeType: match[1] ?? "application/octet-stream",
+    buffer: Buffer.from(match[2], "base64"),
+  };
+};
+
+const extensionFromMimeType = (mimeType?: string | null) => {
+  switch ((mimeType ?? "").toLowerCase()) {
+    case "image/jpeg":
+      return "jpg";
+    case "image/png":
+      return "png";
+    case "image/gif":
+      return "gif";
+    case "image/bmp":
+      return "bmp";
+    case "image/webp":
+      return "webp";
+    case "image/tiff":
+      return "tiff";
+    case "image/x-icon":
+      return "ico";
+    case "image/avif":
+      return "avif";
+    default:
+      return null;
+  }
+};
+
+const extensionFromFormatLabel = (format?: string) => {
+  switch ((format ?? "").trim().toLowerCase()) {
+    case "jpg":
+    case "jpeg":
+      return "jpg";
+    case "png":
+      return "png";
+    case "gif":
+      return "gif";
+    case "bmp":
+      return "bmp";
+    case "webp":
+      return "webp";
+    case "tif":
+    case "tiff":
+      return "tiff";
+    case "ico":
+      return "ico";
+    case "avif":
+      return "avif";
+    default:
+      return null;
+  }
+};
+
+const getImageAssetExtension = (
+  item: ImageItem,
+  assetPath: string,
+  mimeType?: string | null,
+) => {
+  const localPath = resolveLocalAssetPath(assetPath);
+  const extension =
+    (localPath ? path.extname(localPath) : path.extname(assetPath))
+      .replace(".", "")
+      .toLowerCase() ||
+    extensionFromMimeType(mimeType) ||
+    extensionFromFormatLabel(item.format);
+
+  return extension || "png";
+};
+
+const toPackageAssetPath = (
+  item: ImageItem,
+  assetIndex: number,
+  extension: string,
+) => {
+  const safeId =
+    item.id.replace(/[^a-zA-Z0-9_-]/g, "-").replace(/-+/g, "-") ||
+    `image-${assetIndex + 1}`;
+  return `${PACKAGE_ASSET_DIR}/${String(assetIndex).padStart(4, "0")}-${safeId}.${extension}`;
+};
+
+const isPackageAssetPath = (assetPath: string) => {
+  const normalized = assetPath.replace(/\\/g, "/");
+  return (
+    normalized.startsWith(`${PACKAGE_ASSET_DIR}/`) &&
+    !normalized.split("/").includes("..")
+  );
+};
+
+const readImageAssetForSave = async (item: ImageItem) => {
+  if (!item.assetPath) {
+    return null;
+  }
+
+  const decoded = item.assetPath.startsWith("data:")
+    ? decodeDataUrl(item.assetPath)
+    : null;
+  if (decoded) {
+    return {
+      buffer: decoded.buffer,
+      extension: getImageAssetExtension(item, item.assetPath, decoded.mimeType),
+    };
+  }
+
+  const sourcePath = resolveLocalAssetPath(item.assetPath);
+  if (!sourcePath) {
+    return null;
+  }
+
+  return {
+    buffer: await fs.readFile(sourcePath),
+    extension: getImageAssetExtension(item, sourcePath),
+  };
+};
+
+const prepareProjectForSave = async (project: Project, zip: JSZip) => {
+  const packagePathBySource = new Map<string, string>();
+  let assetIndex = 0;
+
+  const groups: ReferenceGroup[] = [];
+  for (const group of project.groups) {
+    const items: ReferenceGroup["items"] = [];
+
+    for (const item of group.items) {
+      if (item.type !== "image" || !item.assetPath) {
+        items.push(item);
+        continue;
+      }
+
+      const asset =
+        packagePathBySource.has(item.assetPath)
+          ? null
+          : await readImageAssetForSave(item);
+      const packagePath =
+        packagePathBySource.get(item.assetPath) ??
+        (asset
+          ? toPackageAssetPath(item, assetIndex++, asset.extension)
+          : item.assetPath);
+
+      if (asset) {
+        zip.file(packagePath, asset.buffer);
+        packagePathBySource.set(item.assetPath, packagePath);
+      }
+
+      items.push({
+        ...item,
+        assetPath: packagePath,
+      });
+    }
+
+    groups.push({
+      ...group,
+      items,
+    });
+  }
+
+  return {
+    ...project,
+    groups,
+  };
+};
+
+const materializeLoadedAssetPath = async (
+  assetPath: string | undefined,
+  zip: JSZip,
+  tempDir: string,
+  materializedAssetPaths: Map<string, string>,
+) => {
+  if (!assetPath) {
+    return assetPath;
+  }
+
+  const cached = materializedAssetPaths.get(assetPath);
+  if (cached) {
+    return cached;
+  }
+
+  if (assetPath.startsWith("data:")) {
+    const decoded = decodeDataUrl(assetPath);
+    if (!decoded) {
+      return assetPath;
+    }
+
+    const extension = extensionFromMimeType(decoded.mimeType) ?? "png";
+    const materializedPath = await writeCanvasAssetTempFile(
+      tempDir,
+      `${String(materializedAssetPaths.size).padStart(4, "0")}.${extension}`,
+      decoded.buffer,
+    );
+    materializedAssetPaths.set(assetPath, materializedPath);
+    return materializedPath;
+  }
+
+  if (!isPackageAssetPath(assetPath)) {
+    return assetPath;
+  }
+
+  const assetFile = zip.file(assetPath);
+  if (!assetFile) {
+    return assetPath;
+  }
+
+  const buffer = await assetFile.async("nodebuffer");
+  const materializedPath = await writeCanvasAssetTempFile(
+    tempDir,
+    path.basename(assetPath),
+    buffer,
+  );
+  materializedAssetPaths.set(assetPath, materializedPath);
+  return materializedPath;
+};
+
+const materializeLoadedGroupAssets = async (
+  groups: ReferenceGroup[],
+  zip: JSZip,
+) => {
+  const tempDir = await createCanvasAssetTempDir();
+  const materializedAssetPaths = new Map<string, string>();
+
+  const materializedGroups: ReferenceGroup[] = [];
+  for (const group of groups) {
+    const items: ReferenceGroup["items"] = [];
+
+    for (const item of group.items) {
+      if (item.type !== "image") {
+        items.push(item);
+        continue;
+      }
+
+      items.push({
+        ...item,
+        assetPath: await materializeLoadedAssetPath(
+          item.assetPath,
+          zip,
+          tempDir,
+          materializedAssetPaths,
+        ),
+      });
+    }
+
+    materializedGroups.push({
+      ...group,
+      items,
+    });
+  }
+
+  return materializedGroups;
+};
 
 const validatePath = (targetPath: string) => {
   const resolved = path.resolve(targetPath);
@@ -41,27 +304,28 @@ export const saveCanvasProject = async (
 ) => {
   const safePath = validatePath(targetPath);
   const zip = new JSZip();
+  const projectForSave = await prepareProjectForSave(project, zip);
 
-  const groupFiles = project.groups.map((group, index) => {
+  const groupFiles = projectForSave.groups.map((group, index) => {
     const name = toGroupFileName(group, index);
     zip.file(name, JSON.stringify(group, null, 2));
     return name;
   });
 
   const manifest: CanvasManifest = {
-    id: project.id,
-    version: project.version,
-    title: project.title,
-    canvasSize: project.canvasSize,
-    activeGroupId: project.activeGroupId,
+    id: projectForSave.id,
+    version: projectForSave.version,
+    title: projectForSave.title,
+    canvasSize: projectForSave.canvasSize,
+    activeGroupId: projectForSave.activeGroupId,
     groupFiles,
-    createdAt: project.createdAt,
-    updatedAt: project.updatedAt,
+    createdAt: projectForSave.createdAt,
+    updatedAt: projectForSave.updatedAt,
     formatVersion: FORMAT_VERSION,
   };
 
   zip.file("manifest.json", JSON.stringify(manifest, null, 2));
-  zip.file("tasks.json", JSON.stringify(project.tasks, null, 2));
+  zip.file("tasks.json", JSON.stringify(projectForSave.tasks, null, 2));
 
   const buffer = await zip.generateAsync({
     type: "nodebuffer",
@@ -121,7 +385,7 @@ export const loadCanvasProject = async (
     throw new Error("Invalid .canvas package: malformed manifest");
   }
 
-  const groups = await Promise.all(
+  const parsedGroups = await Promise.all(
     parsedManifest.groupFiles.map(async (groupFilePath, index) => {
       if (typeof groupFilePath !== "string") {
         throw new Error("Invalid .canvas package: malformed group file entry");
@@ -144,6 +408,7 @@ export const loadCanvasProject = async (
       };
     }),
   );
+  const groups = await materializeLoadedGroupAssets(parsedGroups, zip);
 
   const tasksFile = zip.file("tasks.json");
   const tasksRaw = tasksFile ? await tasksFile.async("text") : "[]";

@@ -1,6 +1,10 @@
 import { app, BrowserWindow, Menu, type MenuItemConstructorOptions } from "electron";
 import path from "node:path";
 import type { NativeMenuAction } from "../shared/types/ipc";
+import {
+  registerCanvasAssetProtocol,
+  registerCanvasAssetProtocolPrivileges,
+} from "./services/canvas-asset-files";
 import { guardWindowDevTools } from "./devtools-guard";
 import { watchDisplayAvailability } from "./display-watch";
 import { setupIpcHandlers } from "./ipc/ipc-handlers";
@@ -23,6 +27,8 @@ if (process.platform === "darwin") {
   process.title = "CanvasTool";
   app.setName("CanvasTool");
 }
+
+registerCanvasAssetProtocolPrivileges();
 
 const getAppAssetPath = (...segments: string[]) => {
   const basePath = app.isPackaged ? process.resourcesPath : app.getAppPath();
@@ -259,6 +265,8 @@ const installMacApplicationMenu = () => {
 };
 
 app.whenReady().then(async () => {
+  registerCanvasAssetProtocol();
+
   if (process.platform === "darwin" && !app.isPackaged) {
     app.dock?.setIcon(getRuntimeAppIconPath());
   }

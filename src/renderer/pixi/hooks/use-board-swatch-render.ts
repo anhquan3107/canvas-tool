@@ -11,14 +11,18 @@ export const drawSwatchTray = (
     return;
   }
 
-  const chipGap = 0.5;
-  const stripPadding = 0.5;
-  const desiredChipWidth = 12;
+  const desiredChipWidth = Math.min(
+    24,
+    Math.max(12, Math.min(safeWidth, safeHeight) * 0.02),
+  );
+  const chipGap = Math.max(0.5, desiredChipWidth * 0.08);
+  const stripPadding = Math.max(0.5, desiredChipWidth * 0.1);
   const minChipWidth = 6;
   const borderColor = 0xffffff;
   const borderAlpha = 0.18;
-  const borderWidth = 0.06;
-  const maxInnerWidth = Math.max(0, safeWidth - 20);
+  const borderWidth = Math.max(0.06, desiredChipWidth * 0.025);
+  const edgeInset = Math.max(1, desiredChipWidth * 0.18);
+  const maxInnerWidth = Math.max(0, safeWidth - edgeInset * 2);
 
   let chipWidth = desiredChipWidth;
   let chipHeight = chipWidth;
@@ -44,7 +48,6 @@ export const drawSwatchTray = (
     visibleColors.length * chipWidth +
     Math.max(0, visibleColors.length - 1) * chipGap;
   const stripHeight = chipHeight;
-  const edgeInset = 1;
   const stripX = edgeInset;
   const stripY = Math.max(edgeInset, safeHeight - stripHeight - edgeInset);
 

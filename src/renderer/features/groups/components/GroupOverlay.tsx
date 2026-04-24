@@ -25,6 +25,12 @@ interface PreviewRect {
   height: number;
 }
 
+interface GroupPreviewEntry {
+  assetPath: string | null;
+  flippedX: boolean;
+  rect: PreviewRect;
+}
+
 const PREVIEW_WIDTH = 220;
 const PREVIEW_HEIGHT = 72;
 const PREVIEW_INSET = 0;
@@ -40,6 +46,8 @@ const groupPreviewResolvedSrcCache = new Map<string, Promise<string>>();
 const groupPreviewObjectUrlCache = new Map<string, string>();
 const groupPreviewDecodedImageCache = new Map<string, Promise<string>>();
 const groupPreviewPinnedImageCache = new Map<string, HTMLImageElement>();
+const groupPreviewCompositeSrcCache = new Map<string, string>();
+const groupPreviewCompositePromiseCache = new Map<string, Promise<string>>();
 
 const resolveGroupPreviewSrc = async (assetPath: string) => {
   if (!assetPath.startsWith(CUSTOM_ASSET_PROTOCOL_PREFIX)) {
@@ -112,6 +120,106 @@ const warmGroupPreviewSrc = async (assetPath: string) => {
   return decodePromise;
 };
 
+const drawPreviewImageCover = (
+  context: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  rect: PreviewRect,
+  flippedX: boolean,
+) => {
+  const sourceWidth = image.naturalWidth || image.width;
+  const sourceHeight = image.naturalHeight || image.height;
+
+  if (sourceWidth <= 0 || sourceHeight <= 0) {
+    context.fillStyle = "rgba(255, 255, 255, 0.07)";
+    context.fillRect(rect.left, rect.top, rect.width, rect.height);
+    return;
+  }
+
+  const scale = Math.max(rect.width / sourceWidth, rect.height / sourceHeight);
+  const drawWidth = sourceWidth * scale;
+  const drawHeight = sourceHeight * scale;
+  const drawX = rect.left + (rect.width - drawWidth) * 0.5;
+  const drawY = rect.top + (rect.height - drawHeight) * 0.5;
+
+  context.save();
+
+  if (flippedX) {
+    const centerX = rect.left + rect.width * 0.5;
+    context.translate(centerX, 0);
+    context.scale(-1, 1);
+    context.translate(-centerX, 0);
+  }
+
+  context.drawImage(image, drawX, drawY, drawWidth, drawHeight);
+  context.restore();
+};
+
+const buildGroupPreviewComposite = async (
+  group: ReferenceGroup,
+  previewKey: string,
+) => {
+  const cachedComposite = groupPreviewCompositeSrcCache.get(previewKey);
+  if (cachedComposite) {
+    return cachedComposite;
+  }
+
+  const cachedPromise = groupPreviewCompositePromiseCache.get(previewKey);
+  if (cachedPromise) {
+    return cachedPromise;
+  }
+
+  const compositePromise = (async () => {
+    const entries = getGroupPreviewEntries(group);
+    const canvas = document.createElement("canvas");
+    canvas.width = PREVIEW_WIDTH;
+    canvas.height = PREVIEW_HEIGHT;
+
+    const context = canvas.getContext("2d");
+    if (!context) {
+      return "";
+    }
+
+    context.fillStyle = group.backgroundColor || "#1e1e1e";
+    context.fillRect(0, 0, PREVIEW_WIDTH, PREVIEW_HEIGHT);
+
+    const warmedEntries = await Promise.all(
+      entries.map(async (entry) => {
+        if (!entry.assetPath) {
+          return { entry, image: null as HTMLImageElement | null };
+        }
+
+        await warmGroupPreviewSrc(entry.assetPath);
+        return {
+          entry,
+          image: groupPreviewPinnedImageCache.get(entry.assetPath) ?? null,
+        };
+      }),
+    );
+
+    warmedEntries.forEach(({ entry, image }) => {
+      if (!image) {
+        context.fillStyle = "rgba(255, 255, 255, 0.07)";
+        context.fillRect(
+          entry.rect.left,
+          entry.rect.top,
+          entry.rect.width,
+          entry.rect.height,
+        );
+        return;
+      }
+
+      drawPreviewImageCover(context, image, entry.rect, entry.flippedX);
+    });
+
+    const compositeSrc = canvas.toDataURL("image/jpeg", 0.82);
+    groupPreviewCompositeSrcCache.set(previewKey, compositeSrc);
+    return compositeSrc;
+  })();
+
+  groupPreviewCompositePromiseCache.set(previewKey, compositePromise);
+  return compositePromise;
+};
+
 const getPreviewRects = (items: CanvasItem[]) => {
   const visibleItems = items
     .filter((item) => item.visible)
@@ -148,6 +256,30 @@ const getPreviewRects = (items: CanvasItem[]) => {
   });
 };
 
+const getGroupPreviewEntries = (group: ReferenceGroup): GroupPreviewEntry[] =>
+  getPreviewRects(group.items).map(({ item, rect }) => ({
+    assetPath:
+      item.type === "image" && item.assetPath
+        ? item.thumbnailAssetPath ?? item.previewAssetPath ?? item.assetPath
+        : null,
+    flippedX: Boolean(item.flippedX),
+    rect,
+  }));
+
+const getGroupPreviewCompositeKey = (group: ReferenceGroup) =>
+  JSON.stringify({
+    id: group.id,
+    backgroundColor: group.backgroundColor,
+    entries: getGroupPreviewEntries(group).map((entry) => ({
+      assetPath: entry.assetPath,
+      flippedX: entry.flippedX,
+      left: entry.rect.left,
+      top: entry.rect.top,
+      width: entry.rect.width,
+      height: entry.rect.height,
+    })),
+  });
+
 const GroupPreviewCard = ({
   group,
   active,
@@ -162,8 +294,29 @@ const GroupPreviewCard = ({
   onClick: () => void;
 }) => {
   const isCanvasCard = group.kind === "canvas";
-  const previewItems = useMemo(() => getPreviewRects(group.items), [group.items]);
+  const previewKey = useMemo(() => getGroupPreviewCompositeKey(group), [group]);
+  const [previewSrc, setPreviewSrc] = useState(
+    groupPreviewCompositeSrcCache.get(previewKey) ?? "",
+  );
   const itemCount = group.items.length;
+
+  useEffect(() => {
+    if (isCanvasCard) {
+      return;
+    }
+
+    let cancelled = false;
+
+    void buildGroupPreviewComposite(group, previewKey).then((nextSrc) => {
+      if (!cancelled) {
+        setPreviewSrc(nextSrc);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [group, isCanvasCard, previewKey]);
 
   return (
     <button
@@ -182,32 +335,13 @@ const GroupPreviewCard = ({
         className="group-preview-row-visual"
         style={{ backgroundColor: group.backgroundColor }}
       >
-        {!isCanvasCard && previewItems.length > 0 ? (
-          previewItems.map(({ item, rect }) => (
-            <div
-              key={item.id}
-              className="group-preview-item"
-              style={{
-                left: `${rect.left}px`,
-                top: `${rect.top}px`,
-                width: `${rect.width}px`,
-                height: `${rect.height}px`,
-                transform: item.flippedX ? "scaleX(-1)" : undefined,
-              }}
-            >
-              {item.type === "image" && item.assetPath ? (
-                <GroupPreviewImage
-                  assetPath={
-                    item.thumbnailAssetPath ??
-                    item.previewAssetPath ??
-                    item.assetPath
-                  }
-                />
-              ) : (
-                <div className="group-preview-fallback" />
-              )}
-            </div>
-          ))
+        {!isCanvasCard && previewSrc ? (
+          <img
+            className="group-preview-composite"
+            src={previewSrc}
+            alt=""
+            draggable={false}
+          />
         ) : !isCanvasCard ? (
           <div className="group-preview-empty" />
         ) : null}
@@ -226,36 +360,6 @@ const GroupPreviewCard = ({
         </div>
       </div>
     </button>
-  );
-};
-
-const GroupPreviewImage = ({ assetPath }: { assetPath: string }) => {
-  const [resolvedSrc, setResolvedSrc] = useState(
-    groupPreviewObjectUrlCache.get(assetPath) ?? assetPath,
-  );
-
-  useEffect(() => {
-    let cancelled = false;
-
-    void warmGroupPreviewSrc(assetPath).then((nextSrc) => {
-      if (!cancelled) {
-        setResolvedSrc(nextSrc);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [assetPath]);
-
-  return (
-    <img
-      src={resolvedSrc}
-      alt=""
-      draggable={false}
-      loading="eager"
-      decoding="async"
-    />
   );
 };
 
@@ -369,23 +473,15 @@ export const GroupOverlay = ({
   }, [menuState]);
 
   useEffect(() => {
-    const previewAssetPaths = Array.from(
-      new Set(
-        orderedGroups.flatMap((group) =>
-          getPreviewRects(group.items)
-            .map(({ item }) =>
-              item.type === "image" && item.assetPath
-                ? item.thumbnailAssetPath ??
-                  item.previewAssetPath ??
-                  item.assetPath
-                : null,
-            )
-            .filter((assetPath): assetPath is string => Boolean(assetPath)),
-        ),
-      ),
-    );
+    const previewGroups = orderedGroups.map((group) => ({
+      group,
+      previewKey: getGroupPreviewCompositeKey(group),
+      assetPaths: getGroupPreviewEntries(group)
+        .map((entry) => entry.assetPath)
+        .filter((assetPath): assetPath is string => Boolean(assetPath)),
+    }));
 
-    if (previewAssetPaths.length === 0) {
+    if (previewGroups.length === 0) {
       return;
     }
 
@@ -393,20 +489,26 @@ export const GroupOverlay = ({
     let nextIndex = 0;
     const workerCount = Math.min(
       GROUP_PREVIEW_PREWARM_CONCURRENCY,
-      previewAssetPaths.length,
+      previewGroups.length,
     );
 
     const workers = Array.from({ length: workerCount }, async () => {
       while (!cancelled) {
-        const assetPath = previewAssetPaths[nextIndex];
+        const previewGroup = previewGroups[nextIndex];
         nextIndex += 1;
 
-        if (!assetPath) {
+        if (!previewGroup) {
           return;
         }
 
         try {
-          await warmGroupPreviewSrc(assetPath);
+          await Promise.all(
+            previewGroup.assetPaths.map((assetPath) => warmGroupPreviewSrc(assetPath)),
+          );
+          await buildGroupPreviewComposite(
+            previewGroup.group,
+            previewGroup.previewKey,
+          );
         } catch {
           return;
         }

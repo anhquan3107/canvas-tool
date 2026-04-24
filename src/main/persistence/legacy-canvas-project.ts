@@ -18,6 +18,7 @@ import {
   createCanvasAssetTempDir,
   writeCanvasAssetTempFile,
 } from "../services/canvas-asset-files";
+import { buildImageAssetVariantsFromBuffer } from "../services/image-asset-variants";
 
 const MAIN_CANVAS_GROUP_ID = "canvas-main";
 
@@ -106,6 +107,8 @@ interface LegacyTodoData {
 interface LegacyImageBase {
   id: string;
   assetPath: string;
+  previewAssetPath?: string;
+  thumbnailAssetPath?: string;
   source: ImageItem["source"];
   label?: string;
   originalWidth?: number;
@@ -390,6 +393,22 @@ const createLegacyImageBase = async (
       ? path.basename(item.originalFilePath)
       : undefined);
 
+  const variants = await buildImageAssetVariantsFromBuffer(imageBuffer, fileExtension);
+  const previewAssetPath = variants.preview
+    ? await writeCanvasAssetTempFile(
+        tempDir,
+        `${id}-preview.${variants.preview.extension}`,
+        variants.preview.buffer,
+      )
+    : undefined;
+  const thumbnailAssetPath = variants.thumbnail
+    ? await writeCanvasAssetTempFile(
+        tempDir,
+        `${id}-thumbnail.${variants.thumbnail.extension}`,
+        variants.thumbnail.buffer,
+      )
+    : undefined;
+
   return {
     id,
     assetPath: await writeCanvasAssetTempFile(
@@ -397,6 +416,8 @@ const createLegacyImageBase = async (
       `${id}.${fileExtension === "jpeg" ? "jpg" : fileExtension}`,
       imageBuffer,
     ),
+    previewAssetPath,
+    thumbnailAssetPath,
     source: "local",
     label,
     originalWidth: toPositiveNumber(item.width, toPositiveNumber(item.displayWidth, 320)),
@@ -428,6 +449,8 @@ const materializeImageItem = (
     type: "image",
     source: base.source,
     assetPath: base.assetPath,
+    previewAssetPath: base.previewAssetPath,
+    thumbnailAssetPath: base.thumbnailAssetPath,
     label: base.label,
     originalWidth: base.originalWidth,
     originalHeight: base.originalHeight,

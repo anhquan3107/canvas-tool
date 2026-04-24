@@ -1,6 +1,12 @@
 import { Assets, Texture } from "pixi.js";
+import type { ImageItem } from "@shared/types/project";
 
-const boardTextureCache = new Map<string, Promise<Texture>>();
+interface TextureCacheEntry {
+  promise: Promise<Texture>;
+  sourceAssetPath: string;
+}
+
+const boardTextureCache = new Map<string, TextureCacheEntry>();
 const boardTextureVariantCache = new Map<string, Promise<string>>();
 
 export const configureBoardTextureQuality = (
@@ -13,11 +19,8 @@ export const configureBoardTextureQuality = (
   source.minFilter = "linear";
   source.magFilter = "linear";
   source.mipmapFilter = "linear";
-  source.maxAnisotropy = 8;
-
-  if (!options?.dynamic) {
-    source.autoGenerateMipmaps = true;
-  }
+  source.maxAnisotropy = 2;
+  source.autoGenerateMipmaps = false;
 
   return texture;
 };
@@ -52,6 +55,14 @@ const resolveTextureAssetPath = async (
 export const warmDotGain20TextureAssetPath = async (assetPath: string) =>
   resolveTextureAssetPath(assetPath, { dotGain20: true });
 
+export const getBoardRenderAssetPath = (
+  item: Pick<ImageItem, "assetPath" | "previewAssetPath">,
+  options?: { preferHighResolution?: boolean },
+) =>
+  options?.preferHighResolution
+    ? item.assetPath ?? item.previewAssetPath
+    : item.previewAssetPath ?? item.assetPath;
+
 const loadTextureDirectly = async (assetPath: string) =>
   new Promise<Texture>((resolve, reject) => {
     const image = new Image();
@@ -69,7 +80,7 @@ export const loadTextureForAssetPath = async (
 ) => {
   const resolvedAssetPath = await resolveTextureAssetPath(assetPath, options);
   const cacheKey = `${resolvedAssetPath}::${options?.preferHighResolution ? "hq" : "std"}`;
-  const cachedTexture = boardTextureCache.get(cacheKey);
+  const cachedTexture = boardTextureCache.get(cacheKey)?.promise;
 
   if (cachedTexture) {
     return cachedTexture;
@@ -88,7 +99,10 @@ export const loadTextureForAssetPath = async (
     }
   })();
 
-  boardTextureCache.set(cacheKey, texturePromise);
+  boardTextureCache.set(cacheKey, {
+    promise: texturePromise,
+    sourceAssetPath: assetPath,
+  });
 
   try {
     return await texturePromise;
@@ -96,4 +110,26 @@ export const loadTextureForAssetPath = async (
     boardTextureCache.delete(cacheKey);
     throw new Error(`Failed to decode texture for ${resolvedAssetPath}`);
   }
+};
+
+export const pruneBoardTextureCache = (allowedAssetPaths: Set<string>) => {
+  boardTextureCache.forEach((entry, cacheKey) => {
+    if (allowedAssetPaths.has(entry.sourceAssetPath)) {
+      return;
+    }
+
+    boardTextureCache.delete(cacheKey);
+    void entry.promise
+      .then((texture) => {
+        texture.destroy(true);
+      })
+      .catch(() => undefined);
+  });
+
+  boardTextureVariantCache.forEach((_, cacheKey) => {
+    const sourceAssetPath = cacheKey.replace(/::dot-gain-20$/, "");
+    if (!allowedAssetPaths.has(sourceAssetPath)) {
+      boardTextureVariantCache.delete(cacheKey);
+    }
+  });
 };

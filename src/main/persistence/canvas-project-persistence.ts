@@ -11,6 +11,7 @@ import {
   resolveLocalAssetPath,
   writeCanvasAssetTempFile,
 } from "../services/canvas-asset-files";
+import { buildImageAssetVariantsFromBuffer } from "../services/image-asset-variants";
 import { loadLegacyCanvasProject } from "./legacy-canvas-project";
 
 interface CanvasManifest {
@@ -27,6 +28,9 @@ interface CanvasManifest {
 
 const FORMAT_VERSION = 2;
 const PACKAGE_ASSET_DIR = "assets";
+const PACKAGE_ORIGINAL_ASSET_DIR = `${PACKAGE_ASSET_DIR}/original`;
+const PACKAGE_PREVIEW_ASSET_DIR = `${PACKAGE_ASSET_DIR}/preview`;
+const PACKAGE_THUMBNAIL_ASSET_DIR = `${PACKAGE_ASSET_DIR}/thumbnail`;
 
 const decodeDataUrl = (dataUrl: string) => {
   const match = dataUrl.match(
@@ -110,11 +114,12 @@ const toPackageAssetPath = (
   item: ImageItem,
   assetIndex: number,
   extension: string,
+  directory = PACKAGE_ORIGINAL_ASSET_DIR,
 ) => {
   const safeId =
     item.id.replace(/[^a-zA-Z0-9_-]/g, "-").replace(/-+/g, "-") ||
     `image-${assetIndex + 1}`;
-  return `${PACKAGE_ASSET_DIR}/${String(assetIndex).padStart(4, "0")}-${safeId}.${extension}`;
+  return `${directory}/${String(assetIndex).padStart(4, "0")}-${safeId}.${extension}`;
 };
 
 const isPackageAssetPath = (assetPath: string) => {
@@ -151,8 +156,33 @@ const readImageAssetForSave = async (item: ImageItem) => {
   };
 };
 
+const readImageSaveAssets = async (item: ImageItem) => {
+  const original = await readImageAssetForSave(item);
+  if (!original) {
+    return null;
+  }
+
+  const variants = await buildImageAssetVariantsFromBuffer(
+    original.buffer,
+    original.extension,
+  );
+
+  return {
+    original,
+    preview: variants.preview,
+    thumbnail: variants.thumbnail,
+  };
+};
+
 const prepareProjectForSave = async (project: Project, zip: JSZip) => {
-  const packagePathBySource = new Map<string, string>();
+  const packageAssetsBySource = new Map<
+    string,
+    {
+      assetPath: string;
+      previewAssetPath?: string;
+      thumbnailAssetPath?: string;
+    }
+  >();
   let assetIndex = 0;
 
   const groups: ReferenceGroup[] = [];
@@ -165,24 +195,62 @@ const prepareProjectForSave = async (project: Project, zip: JSZip) => {
         continue;
       }
 
-      const asset =
-        packagePathBySource.has(item.assetPath)
-          ? null
-          : await readImageAssetForSave(item);
-      const packagePath =
-        packagePathBySource.get(item.assetPath) ??
-        (asset
-          ? toPackageAssetPath(item, assetIndex++, asset.extension)
-          : item.assetPath);
+      const cachedAssets = packageAssetsBySource.get(item.assetPath);
+      let packagedAssets = cachedAssets;
 
-      if (asset) {
-        zip.file(packagePath, asset.buffer);
-        packagePathBySource.set(item.assetPath, packagePath);
+      if (!packagedAssets) {
+        const assets = await readImageSaveAssets(item);
+        if (!assets) {
+          items.push(item);
+          continue;
+        }
+
+        const packageIndex = assetIndex++;
+        const assetPath = toPackageAssetPath(
+          item,
+          packageIndex,
+          assets.original.extension,
+          PACKAGE_ORIGINAL_ASSET_DIR,
+        );
+        zip.file(assetPath, assets.original.buffer);
+
+        const previewAssetPath = assets.preview
+          ? toPackageAssetPath(
+              item,
+              packageIndex,
+              assets.preview.extension,
+              PACKAGE_PREVIEW_ASSET_DIR,
+            )
+          : undefined;
+        if (previewAssetPath && assets.preview) {
+          zip.file(previewAssetPath, assets.preview.buffer);
+        }
+
+        const thumbnailAssetPath = assets.thumbnail
+          ? toPackageAssetPath(
+              item,
+              packageIndex,
+              assets.thumbnail.extension,
+              PACKAGE_THUMBNAIL_ASSET_DIR,
+            )
+          : undefined;
+        if (thumbnailAssetPath && assets.thumbnail) {
+          zip.file(thumbnailAssetPath, assets.thumbnail.buffer);
+        }
+
+        packagedAssets = {
+          assetPath,
+          previewAssetPath,
+          thumbnailAssetPath,
+        };
+        packageAssetsBySource.set(item.assetPath, packagedAssets);
       }
 
       items.push({
         ...item,
-        assetPath: packagePath,
+        assetPath: packagedAssets.assetPath,
+        previewAssetPath: packagedAssets.previewAssetPath,
+        thumbnailAssetPath: packagedAssets.thumbnailAssetPath,
       });
     }
 
@@ -269,6 +337,18 @@ const materializeLoadedGroupAssets = async (
         ...item,
         assetPath: await materializeLoadedAssetPath(
           item.assetPath,
+          zip,
+          tempDir,
+          materializedAssetPaths,
+        ),
+        previewAssetPath: await materializeLoadedAssetPath(
+          item.previewAssetPath,
+          zip,
+          tempDir,
+          materializedAssetPaths,
+        ),
+        thumbnailAssetPath: await materializeLoadedAssetPath(
+          item.thumbnailAssetPath,
           zip,
           tempDir,
           materializedAssetPaths,

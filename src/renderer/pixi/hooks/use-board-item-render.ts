@@ -1,6 +1,9 @@
 import { Container, Graphics, Sprite, Text, TextStyle } from "pixi.js";
 import type { CaptureItem, CanvasItem } from "@shared/types/project";
-import { loadTextureForAssetPath } from "@renderer/pixi/utils/textures";
+import {
+  getBoardRenderAssetPath,
+  loadTextureForAssetPath,
+} from "@renderer/pixi/utils/textures";
 import type { CaptureSession } from "@renderer/pixi/types";
 import { drawSwatchTray } from "@renderer/pixi/hooks/use-board-swatch-render";
 
@@ -63,11 +66,15 @@ const renderBoardImageVisuals = ({
   renderToken,
   renderTokenRef,
 }: RenderBoardImageVisualsOptions) => {
-  if (!item.assetPath) {
+  const renderAssetPath = getBoardRenderAssetPath(item, {
+    preferHighResolution: canvasZoom >= 2,
+  });
+
+  if (!renderAssetPath) {
     return;
   }
 
-  void loadTextureForAssetPath(item.assetPath, {
+  void loadTextureForAssetPath(renderAssetPath, {
     preferHighResolution: canvasZoom >= 2,
     dotGain20: dotGain20BlackAndWhite,
   })

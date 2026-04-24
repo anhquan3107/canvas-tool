@@ -100,6 +100,8 @@ export interface CanvasItemBase {
 export interface ImageItem extends CanvasItemBase {
   type: "image";
   assetPath?: string;
+  previewAssetPath?: string;
+  thumbnailAssetPath?: string;
   source: "local" | "web" | "clipboard";
   label?: string;
   originalWidth?: number;

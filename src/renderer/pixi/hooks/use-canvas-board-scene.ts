@@ -15,6 +15,10 @@ import {
 } from "@renderer/pixi/hooks/use-board-selection-visuals";
 import { renderBoardItemVisuals } from "@renderer/pixi/hooks/use-board-item-render";
 import {
+  getBoardRenderAssetPath,
+  pruneBoardTextureCache,
+} from "@renderer/pixi/utils/textures";
+import {
   getNormalizedPointerData,
   type NormalizedPointerData,
 } from "@renderer/pixi/utils/pointer";
@@ -153,6 +157,20 @@ export const useCanvasBoardScene = ({
     const visibleItems = scene.items
       .filter((item) => item.visible)
       .sort((left, right) => left.zIndex - right.zIndex);
+
+    pruneBoardTextureCache(
+      new Set(
+        visibleItems.flatMap((item) =>
+          item.type === "image"
+            ? [
+                getBoardRenderAssetPath(item, {
+                  preferHighResolution: scene.zoom >= 2,
+                }),
+              ].filter((assetPath): assetPath is string => Boolean(assetPath))
+            : [],
+        ),
+      ),
+    );
 
     visibleItems.forEach((item) => {
       const safeWidth =

@@ -118,7 +118,13 @@ const GroupPreviewCard = ({
               }}
             >
               {item.type === "image" && item.assetPath ? (
-                <img src={item.assetPath} alt="" draggable={false} />
+                <img
+                  src={item.thumbnailAssetPath ?? item.previewAssetPath ?? item.assetPath}
+                  alt=""
+                  draggable={false}
+                  loading="lazy"
+                  decoding="async"
+                />
               ) : (
                 <div className="group-preview-fallback" />
               )}

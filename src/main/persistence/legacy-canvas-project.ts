@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { gunzipSync } from "node:zlib";
@@ -118,6 +118,14 @@ interface LegacyImageBase {
   flippedX: boolean;
   swatchHex?: string;
   swatches?: ColorSwatch[];
+}
+
+interface LegacyMaterializedAsset {
+  assetPath: string;
+  previewAssetPath?: string;
+  thumbnailAssetPath?: string;
+  fileSizeBytes: number;
+  format?: string;
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -358,11 +366,12 @@ const getLegacyGroupItemIds = (
   return [...itemIds];
 };
 
-const createLegacyImageBase = async (
+const materializeLegacyImageAsset = async (
   item: LegacyCanvasItemData,
   imageCache: LegacyCanvasSaveData["imageCache"],
   tempDir: string,
-): Promise<LegacyImageBase | null> => {
+  materializedAssetsByFingerprint: Map<string, LegacyMaterializedAsset>,
+): Promise<LegacyMaterializedAsset | null> => {
   const imageBuffer =
     decodeLegacyImageBytes(item.imageId ? imageCache?.[item.imageId] : undefined) ??
     (typeof item.originalFilePath === "string" && item.originalFilePath.length > 0
@@ -379,11 +388,67 @@ const createLegacyImageBase = async (
     "";
   const mimeType =
     inferMimeTypeFromExtension(extension) ?? inferMimeTypeFromBuffer(imageBuffer);
+  const fileExtension = extension.replace(".", "").trim() || mimeType.split("/").at(-1) || "png";
+  const fingerprint = createHash("sha1").update(imageBuffer).digest("hex");
+  const cachedAsset = materializedAssetsByFingerprint.get(fingerprint);
+
+  if (cachedAsset) {
+    return cachedAsset;
+  }
+
+  const variants = await buildImageAssetVariantsFromBuffer(imageBuffer, fileExtension);
+  const previewAssetPath = variants.preview
+    ? await writeCanvasAssetTempFile(
+        tempDir,
+        `${fingerprint}-preview.${variants.preview.extension}`,
+        variants.preview.buffer,
+      )
+    : undefined;
+  const thumbnailAssetPath = variants.thumbnail
+    ? await writeCanvasAssetTempFile(
+        tempDir,
+        `${fingerprint}-thumbnail.${variants.thumbnail.extension}`,
+        variants.thumbnail.buffer,
+      )
+    : undefined;
+
+  const materializedAsset = {
+    assetPath: await writeCanvasAssetTempFile(
+      tempDir,
+      `${fingerprint}.${fileExtension === "jpeg" ? "jpg" : fileExtension}`,
+      imageBuffer,
+    ),
+    previewAssetPath,
+    thumbnailAssetPath,
+    fileSizeBytes: imageBuffer.length,
+    format: normalizeImageFormatLabel(extension) ?? normalizeImageFormatLabel(mimeType),
+  } satisfies LegacyMaterializedAsset;
+  materializedAssetsByFingerprint.set(fingerprint, materializedAsset);
+
+  return materializedAsset;
+};
+
+const createLegacyImageBase = async (
+  item: LegacyCanvasItemData,
+  imageCache: LegacyCanvasSaveData["imageCache"],
+  tempDir: string,
+  materializedAssetsByFingerprint: Map<string, LegacyMaterializedAsset>,
+): Promise<LegacyImageBase | null> => {
+  const materializedAsset = await materializeLegacyImageAsset(
+    item,
+    imageCache,
+    tempDir,
+    materializedAssetsByFingerprint,
+  );
+
+  if (!materializedAsset) {
+    return null;
+  }
+
   const id =
     typeof item.id === "string" && item.id.trim().length > 0
       ? item.id
       : randomUUID();
-  const fileExtension = extension.replace(".", "").trim() || mimeType.split("/").at(-1) || "png";
   const swatches = buildSwatches(item.extractedColors);
   const label =
     (typeof item.originalFileName === "string" && item.originalFileName.trim().length > 0
@@ -393,37 +458,17 @@ const createLegacyImageBase = async (
       ? path.basename(item.originalFilePath)
       : undefined);
 
-  const variants = await buildImageAssetVariantsFromBuffer(imageBuffer, fileExtension);
-  const previewAssetPath = variants.preview
-    ? await writeCanvasAssetTempFile(
-        tempDir,
-        `${id}-preview.${variants.preview.extension}`,
-        variants.preview.buffer,
-      )
-    : undefined;
-  const thumbnailAssetPath = variants.thumbnail
-    ? await writeCanvasAssetTempFile(
-        tempDir,
-        `${id}-thumbnail.${variants.thumbnail.extension}`,
-        variants.thumbnail.buffer,
-      )
-    : undefined;
-
   return {
     id,
-    assetPath: await writeCanvasAssetTempFile(
-      tempDir,
-      `${id}.${fileExtension === "jpeg" ? "jpg" : fileExtension}`,
-      imageBuffer,
-    ),
-    previewAssetPath,
-    thumbnailAssetPath,
+    assetPath: materializedAsset.assetPath,
+    previewAssetPath: materializedAsset.previewAssetPath,
+    thumbnailAssetPath: materializedAsset.thumbnailAssetPath,
     source: "local",
     label,
     originalWidth: toPositiveNumber(item.width, toPositiveNumber(item.displayWidth, 320)),
     originalHeight: toPositiveNumber(item.height, toPositiveNumber(item.displayHeight, 240)),
-    fileSizeBytes: imageBuffer.length,
-    format: normalizeImageFormatLabel(extension) ?? normalizeImageFormatLabel(mimeType),
+    fileSizeBytes: materializedAsset.fileSizeBytes,
+    format: materializedAsset.format,
     flippedX: Boolean(item.isFlippedHorizontally),
     swatchHex: swatches?.[0]?.colorHex,
     swatches,
@@ -547,6 +592,7 @@ export const loadLegacyCanvasProject = async (
   const imageBases = new Map<string, LegacyImageBase>();
   const tempDir = await createCanvasAssetTempDir();
   const imageIdUseCounts = new Map<string, number>();
+  const materializedAssetsByFingerprint = new Map<string, LegacyMaterializedAsset>();
 
   for (const item of parsed.items ?? []) {
     if (typeof item.imageId === "string" && item.imageId.length > 0) {
@@ -555,7 +601,12 @@ export const loadLegacyCanvasProject = async (
   }
 
   for (const item of parsed.items ?? []) {
-    const base = await createLegacyImageBase(item, parsed.imageCache, tempDir);
+    const base = await createLegacyImageBase(
+      item,
+      parsed.imageCache,
+      tempDir,
+      materializedAssetsByFingerprint,
+    );
     if (item.imageId && parsed.imageCache?.[item.imageId]) {
       const remainingUses = (imageIdUseCounts.get(item.imageId) ?? 1) - 1;
       if (remainingUses <= 0) {

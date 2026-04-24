@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import JSZip from "jszip";
@@ -156,26 +157,19 @@ const readImageAssetForSave = async (item: ImageItem) => {
   };
 };
 
-const readImageSaveAssets = async (item: ImageItem) => {
-  const original = await readImageAssetForSave(item);
-  if (!original) {
-    return null;
-  }
-
-  const variants = await buildImageAssetVariantsFromBuffer(
-    original.buffer,
-    original.extension,
-  );
-
-  return {
-    original,
-    preview: variants.preview,
-    thumbnail: variants.thumbnail,
-  };
-};
+const getImageAssetFingerprint = (buffer: Buffer) =>
+  createHash("sha1").update(buffer).digest("hex");
 
 const prepareProjectForSave = async (project: Project, zip: JSZip) => {
   const packageAssetsBySource = new Map<
+    string,
+    {
+      assetPath: string;
+      previewAssetPath?: string;
+      thumbnailAssetPath?: string;
+    }
+  >();
+  const packageAssetsByFingerprint = new Map<
     string,
     {
       assetPath: string;
@@ -199,50 +193,61 @@ const prepareProjectForSave = async (project: Project, zip: JSZip) => {
       let packagedAssets = cachedAssets;
 
       if (!packagedAssets) {
-        const assets = await readImageSaveAssets(item);
-        if (!assets) {
+        const original = await readImageAssetForSave(item);
+        if (!original) {
           items.push(item);
           continue;
         }
 
-        const packageIndex = assetIndex++;
-        const assetPath = toPackageAssetPath(
-          item,
-          packageIndex,
-          assets.original.extension,
-          PACKAGE_ORIGINAL_ASSET_DIR,
-        );
-        zip.file(assetPath, assets.original.buffer);
+        const fingerprint = getImageAssetFingerprint(original.buffer);
+        packagedAssets = packageAssetsByFingerprint.get(fingerprint);
 
-        const previewAssetPath = assets.preview
-          ? toPackageAssetPath(
-              item,
-              packageIndex,
-              assets.preview.extension,
-              PACKAGE_PREVIEW_ASSET_DIR,
-            )
-          : undefined;
-        if (previewAssetPath && assets.preview) {
-          zip.file(previewAssetPath, assets.preview.buffer);
+        if (!packagedAssets) {
+          const variants = await buildImageAssetVariantsFromBuffer(
+            original.buffer,
+            original.extension,
+          );
+          const packageIndex = assetIndex++;
+          const assetPath = toPackageAssetPath(
+            item,
+            packageIndex,
+            original.extension,
+            PACKAGE_ORIGINAL_ASSET_DIR,
+          );
+          zip.file(assetPath, original.buffer);
+
+          const previewAssetPath = variants.preview
+            ? toPackageAssetPath(
+                item,
+                packageIndex,
+                variants.preview.extension,
+                PACKAGE_PREVIEW_ASSET_DIR,
+              )
+            : undefined;
+          if (previewAssetPath && variants.preview) {
+            zip.file(previewAssetPath, variants.preview.buffer);
+          }
+
+          const thumbnailAssetPath = variants.thumbnail
+            ? toPackageAssetPath(
+                item,
+                packageIndex,
+                variants.thumbnail.extension,
+                PACKAGE_THUMBNAIL_ASSET_DIR,
+              )
+            : undefined;
+          if (thumbnailAssetPath && variants.thumbnail) {
+            zip.file(thumbnailAssetPath, variants.thumbnail.buffer);
+          }
+
+          packagedAssets = {
+            assetPath,
+            previewAssetPath,
+            thumbnailAssetPath,
+          };
+          packageAssetsByFingerprint.set(fingerprint, packagedAssets);
         }
 
-        const thumbnailAssetPath = assets.thumbnail
-          ? toPackageAssetPath(
-              item,
-              packageIndex,
-              assets.thumbnail.extension,
-              PACKAGE_THUMBNAIL_ASSET_DIR,
-            )
-          : undefined;
-        if (thumbnailAssetPath && assets.thumbnail) {
-          zip.file(thumbnailAssetPath, assets.thumbnail.buffer);
-        }
-
-        packagedAssets = {
-          assetPath,
-          previewAssetPath,
-          thumbnailAssetPath,
-        };
         packageAssetsBySource.set(item.assetPath, packagedAssets);
       }
 

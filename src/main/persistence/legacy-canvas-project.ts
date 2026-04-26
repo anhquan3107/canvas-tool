@@ -19,6 +19,7 @@ import {
   writeCanvasAssetTempFile,
 } from "../services/canvas-asset-files";
 import { buildImageAssetVariantsFromBuffer } from "../services/image-asset-variants";
+import { decodeLegacyInkAnnotations } from "./legacy-ink-isf";
 
 const MAIN_CANVAS_GROUP_ID = "canvas-main";
 
@@ -758,6 +759,22 @@ export const loadLegacyCanvasProject = async (
   });
 
   const expandedGroup = (parsed.groups ?? []).find((group) => group.isExpanded);
+  const legacyDrawingCanvasById = parsed.drawingData?.canvasDrawings ?? {};
+  const {
+    annotationsByCanvasId,
+    failedDrawingsByCanvasId,
+  } = decodeLegacyInkAnnotations(legacyDrawingCanvasById, savedAt);
+  const knownCanvasIds = new Set(groups.map((group) => group.id));
+
+  groups.forEach((group) => {
+    group.annotations = annotationsByCanvasId[group.id] ?? [];
+  });
+
+  Object.keys(annotationsByCanvasId).forEach((canvasId) => {
+    if (!knownCanvasIds.has(canvasId) && legacyDrawingCanvasById[canvasId]) {
+      failedDrawingsByCanvasId[canvasId] = legacyDrawingCanvasById[canvasId];
+    }
+  });
 
   return {
     id: randomUUID(),
@@ -776,7 +793,9 @@ export const loadLegacyCanvasProject = async (
     legacy: {
       sourceFormat: "legacy-optimized-canvas",
       sourceVersion: parsed.version,
-      drawingCanvasById: parsed.drawingData?.canvasDrawings ?? {},
+      ...(Object.keys(failedDrawingsByCanvasId).length > 0
+        ? { drawingCanvasById: failedDrawingsByCanvasId }
+        : {}),
     },
   };
 };

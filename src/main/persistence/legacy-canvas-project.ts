@@ -129,6 +129,15 @@ interface LegacyMaterializedAsset {
   format?: string;
 }
 
+interface InferredLegacyCrop {
+  cropX: number;
+  cropY: number;
+  cropWidth: number;
+  cropHeight: number;
+}
+
+const LEGACY_CROP_ASPECT_EPSILON = 0.01;
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === "object";
 
@@ -489,6 +498,20 @@ const materializeImageItem = (
     stateOverride?.height,
     toPositiveNumber(item.displayHeight, toPositiveNumber(item.height, 240)),
   );
+  const sourceWidth = toPositiveNumber(
+    base.originalWidth,
+    toPositiveNumber(item.width, visibleWidth),
+  );
+  const sourceHeight = toPositiveNumber(
+    base.originalHeight,
+    toPositiveNumber(item.height, visibleHeight),
+  );
+  const inferredCrop = inferLegacyCrop(
+    sourceWidth,
+    sourceHeight,
+    visibleWidth,
+    visibleHeight,
+  );
 
   return {
     id: base.id,
@@ -515,6 +538,65 @@ const materializeImageItem = (
     locked: false,
     visible: true,
     zIndex: Math.round(toFiniteNumber(stateOverride?.zIndex, toFiniteNumber(item.zIndex))),
+    ...inferredCrop,
+  };
+};
+
+const inferLegacyCrop = (
+  sourceWidth: number,
+  sourceHeight: number,
+  visibleWidth: number,
+  visibleHeight: number,
+): InferredLegacyCrop | undefined => {
+  if (
+    !Number.isFinite(sourceWidth) ||
+    !Number.isFinite(sourceHeight) ||
+    !Number.isFinite(visibleWidth) ||
+    !Number.isFinite(visibleHeight) ||
+    sourceWidth <= 1 ||
+    sourceHeight <= 1 ||
+    visibleWidth <= 1 ||
+    visibleHeight <= 1
+  ) {
+    return undefined;
+  }
+
+  const sourceAspect = sourceWidth / sourceHeight;
+  const visibleAspect = visibleWidth / visibleHeight;
+  if (Math.abs(sourceAspect - visibleAspect) <= LEGACY_CROP_ASPECT_EPSILON) {
+    return undefined;
+  }
+
+  if (visibleAspect > sourceAspect) {
+    const cropHeight = Math.max(
+      1,
+      Math.min(sourceHeight, Math.round(sourceWidth / visibleAspect)),
+    );
+    if (cropHeight >= sourceHeight) {
+      return undefined;
+    }
+
+    return {
+      cropX: 0,
+      cropY: Math.max(0, Math.round((sourceHeight - cropHeight) / 2)),
+      cropWidth: Math.round(sourceWidth),
+      cropHeight,
+    };
+  }
+
+  const cropWidth = Math.max(
+    1,
+    Math.min(sourceWidth, Math.round(sourceHeight * visibleAspect)),
+  );
+  if (cropWidth >= sourceWidth) {
+    return undefined;
+  }
+
+  return {
+    cropX: Math.max(0, Math.round((sourceWidth - cropWidth) / 2)),
+    cropY: 0,
+    cropWidth,
+    cropHeight: Math.round(sourceHeight),
   };
 };
 

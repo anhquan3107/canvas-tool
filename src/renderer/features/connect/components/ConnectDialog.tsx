@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import { DialogFrame } from "@renderer/ui/DialogFrame";
 import { createDialogKeyDownHandler } from "@renderer/ui/dialog-keyboard";
+import { useI18n } from "@renderer/i18n";
 import { useDialogInitialFocus } from "@renderer/ui/use-dialog-initial-focus";
 import type { CaptureQuality, CaptureSource } from "@renderer/features/connect/types";
 import { CAPTURE_QUALITY_PROFILES } from "@renderer/features/connect/utils";
@@ -30,6 +31,7 @@ export const ConnectDialog = ({
   onQualityChange,
   onConfirm,
 }: ConnectDialogProps) => {
+  const { copy } = useI18n();
   const embeddedDialogRef = useRef<HTMLDivElement | null>(null);
 
   useDialogInitialFocus(embeddedDialogRef, open && embedded);
@@ -42,21 +44,17 @@ export const ConnectDialog = ({
     <>
       <div className="connect-dialog-section">
         <p className="connect-dialog-copy">
-          Capture a window or screen into the canvas. Blur and B&amp;W filters stay
-          available on the board after connection.
+          {copy.connectDialog.description}
         </p>
       </div>
 
       <div className="connect-dialog-section">
-        <span className="connect-dialog-label">Source</span>
+        <span className="connect-dialog-label">{copy.connectDialog.source}</span>
         <div className="capture-source-grid">
           {loading ? (
-            <div className="capture-source-empty">Loading windows and screens...</div>
+            <div className="capture-source-empty">{copy.connectDialog.loadingSources}</div>
           ) : sources.length === 0 ? (
-            <div className="capture-source-empty">
-              No capturable sources found. On macOS, make sure Screen Recording is
-              allowed for the app.
-            </div>
+            <div className="capture-source-empty">{copy.connectDialog.noSources}</div>
           ) : (
             sources.map((source) => (
               <button
@@ -76,7 +74,11 @@ export const ConnectDialog = ({
                 </div>
                 <div className="capture-source-meta">
                   <strong>{source.name}</strong>
-                  <span>{source.kind === "screen" ? "Display" : "Window"}</span>
+                  <span>
+                    {source.kind === "screen"
+                      ? copy.connectDialog.sourceKinds.screen
+                      : copy.connectDialog.sourceKinds.window}
+                  </span>
                 </div>
               </button>
             ))
@@ -85,7 +87,7 @@ export const ConnectDialog = ({
       </div>
 
       <div className="connect-dialog-section">
-        <span className="connect-dialog-label">Latency / Quality</span>
+        <span className="connect-dialog-label">{copy.connectDialog.latencyQuality}</span>
         <div className="capture-quality-row">
           {(Object.keys(CAPTURE_QUALITY_PROFILES) as CaptureQuality[]).map(
             (option) => (
@@ -97,7 +99,7 @@ export const ConnectDialog = ({
                 }`}
                 onClick={() => onQualityChange(option)}
               >
-                {CAPTURE_QUALITY_PROFILES[option].label}
+                {copy.capture.quality[option]}
               </button>
             ),
           )}
@@ -111,10 +113,10 @@ export const ConnectDialog = ({
           onClick={onConfirm}
           disabled={!selectedSourceId || loading}
         >
-          Connect
+          {copy.connectDialog.connect}
         </button>
         <button type="button" className="dialog-button" onClick={onClose}>
-          Cancel
+          {copy.common.cancel}
         </button>
       </div>
     </>
@@ -139,7 +141,7 @@ export const ConnectDialog = ({
   return (
     <DialogFrame
       className="connect-dialog-card"
-      title="Connect Capture"
+      title={copy.connectDialog.title}
       onClose={onClose}
       onConfirm={selectedSourceId && !loading ? onConfirm : undefined}
     >

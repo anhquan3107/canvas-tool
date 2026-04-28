@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReferenceGroup } from "@shared/types/project";
-import { TOOL_LABELS } from "@renderer/features/tools/constants";
+import { useI18n } from "@renderer/i18n";
 import type { DoodleMode, ToolMode } from "@renderer/features/tools/types";
 import { warmDotGain20TextureAssetPath } from "@renderer/pixi/utils/textures";
 
@@ -20,6 +20,7 @@ export const useToolFeature = ({
   pushToast,
   onConnectRequested,
 }: UseToolFeatureOptions) => {
+  const { copy } = useI18n();
   const [activeTool, setActiveTool] = useState<ToolMode | null>(null);
   const [doodleMode, setDoodleMode] = useState<DoodleMode>("brush");
   const [doodleColor, setDoodleColor] = useState("#f38ba8");
@@ -116,11 +117,12 @@ export const useToolFeature = ({
       }
 
       setActiveTool((previous) => (previous === tool ? null : tool));
-      pushToast("info", `${TOOL_LABELS[tool]} is not wired yet in this MVP.`);
+      pushToast("info", copy.tools.notReady(copy.tools.labels[tool]));
     },
     [
       activeGroup,
       activeTool,
+      copy.tools,
       getRememberedBlurAmount,
       onConnectRequested,
       pushToast,

@@ -1,6 +1,7 @@
 import { useCallback, type Dispatch, type SetStateAction } from "react";
 import type { TaskTransferTask, TasksImportResult } from "@shared/types/ipc";
 import type { Project, ReferenceGroup, Task } from "@shared/types/project";
+import { useI18n } from "@renderer/i18n";
 
 type PushToast = (kind: "success" | "error" | "info", message: string) => void;
 
@@ -103,6 +104,7 @@ export const useAppTaskActions = ({
   taskImportPreview,
   setTaskImportPreview,
 }: UseAppTaskActionsOptions) => {
+  const { copy } = useI18n();
   const handleImportTasks = useCallback(async () => {
     try {
       const result = await window.desktopApi.project.importTasks();
@@ -129,10 +131,16 @@ export const useAppTaskActions = ({
     } catch (error) {
       pushToast(
         "error",
-        error instanceof Error ? error.message : "Task import failed.",
+        error instanceof Error ? error.message : copy.toasts.taskImportFailed,
       );
     }
-  }, [project.groups, project.tasks, pushToast, setTaskImportPreview]);
+  }, [
+    copy.toasts.taskImportFailed,
+    project.groups,
+    project.tasks,
+    pushToast,
+    setTaskImportPreview,
+  ]);
 
   const handleApplyImportedTasks = useCallback(
     (mode: TaskImportMode) => {
@@ -168,7 +176,7 @@ export const useAppTaskActions = ({
 
       if (importedTasks.length === 0) {
         setTaskImportPreview(null);
-        pushToast("info", "No new tasks to import.");
+        pushToast("info", copy.toasts.noNewTasksToImport);
         return;
       }
 
@@ -181,11 +189,20 @@ export const useAppTaskActions = ({
       pushToast(
         "success",
         mode === "replace"
-          ? `Replaced tasks with ${importedTasks.length} imported task${importedTasks.length === 1 ? "" : "s"}.`
-          : `Imported ${importedTasks.length} task${importedTasks.length === 1 ? "" : "s"}.`,
+          ? copy.toasts.replacedTasks(importedTasks.length)
+          : copy.toasts.importedTasks(importedTasks.length),
       );
     },
-    [project, pushToast, setProject, setTaskImportPreview, taskImportPreview],
+    [
+      copy.toasts.importedTasks,
+      copy.toasts.noNewTasksToImport,
+      copy.toasts.replacedTasks,
+      project,
+      pushToast,
+      setProject,
+      setTaskImportPreview,
+      taskImportPreview,
+    ],
   );
 
   return {

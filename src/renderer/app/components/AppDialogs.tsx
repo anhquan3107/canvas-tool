@@ -12,6 +12,7 @@ import { HelpTutorialDialog } from "@renderer/app/components/HelpTutorialDialog"
 import { KeyboardShortcutsDialog } from "@renderer/app/components/KeyboardShortcutsDialog";
 import { TitleBarTooltipConfirmDialog } from "@renderer/app/components/TitleBarTooltipConfirmDialog";
 import type { ToastState } from "@renderer/hooks/use-toast";
+import { useI18n } from "@renderer/i18n";
 import { ConnectDialog } from "@renderer/features/connect/components/ConnectDialog";
 import type { CaptureQuality, CaptureSource } from "@renderer/features/connect/types";
 import { GroupDialog } from "@renderer/features/groups/components/GroupDialog";
@@ -161,23 +162,30 @@ export const AppDialogs = ({
   onBackgroundColorConfirm,
   onConfirmCloseCancel,
   windowOpacity,
-}: AppDialogsProps) => (
-  <>
+}: AppDialogsProps) => {
+  const { copy } = useI18n();
+
+  return (
+    <>
     <ConfirmActionDialog
       open={Boolean(pendingDeletion)}
       title={
         pendingDeletion?.kind === "group"
-          ? "Delete Group?"
-          : "Delete Task?"
+          ? copy.dialogs.deleteGroupTitle
+          : copy.dialogs.deleteTaskTitle
       }
       message={
         pendingDeletion?.kind === "group"
-          ? `Delete ${pendingDeletion.label}? This will remove the entire group and everything inside it.`
+          ? copy.dialogs.deleteGroupMessage(pendingDeletion.label)
           : pendingDeletion
-            ? `Delete ${pendingDeletion.label}? This task and all its todos will be removed.`
+            ? copy.dialogs.deleteTaskMessage(pendingDeletion.label)
             : ""
       }
-      confirmLabel={pendingDeletion?.kind === "group" ? "Delete Group" : "Delete Task"}
+      confirmLabel={
+        pendingDeletion?.kind === "group"
+          ? copy.dialogs.deleteGroupConfirm
+          : copy.dialogs.deleteTaskConfirm
+      }
       onConfirm={handleConfirmDeletion}
       onCancel={() => setPendingDeletion(null)}
     />
@@ -187,7 +195,7 @@ export const AppDialogs = ({
       label={featureGuide?.label ?? ""}
       description={featureGuide?.description ?? ""}
       shortcut={featureGuide?.shortcut}
-      confirmLabel="Got it!"
+      confirmLabel={copy.common.gotIt}
       onClose={() => setFeatureGuide(null)}
       onConfirm={() => setFeatureGuide(null)}
     />
@@ -296,5 +304,6 @@ export const AppDialogs = ({
         ) : null}
       </div>
     ) : null}
-  </>
-);
+    </>
+  );
+};

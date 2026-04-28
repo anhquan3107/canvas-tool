@@ -6,6 +6,7 @@ import {
   type ShortcutSection,
 } from "@shared/shortcuts";
 import { keyboardEventToShortcut } from "@renderer/hooks/use-shortcuts";
+import { useI18n } from "@renderer/i18n";
 import { DialogScrim } from "@renderer/ui/DialogScrim";
 import { createDialogKeyDownHandler } from "@renderer/ui/dialog-keyboard";
 import { useDialogInitialFocus } from "@renderer/ui/use-dialog-initial-focus";
@@ -43,6 +44,7 @@ export const KeyboardShortcutsDialog = ({
   onResetTooltips,
   onSave,
 }: KeyboardShortcutsDialogProps) => {
+  const { copy } = useI18n();
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const [capturingActionId, setCapturingActionId] = useState<ShortcutActionId | null>(
     null,
@@ -88,7 +90,7 @@ export const KeyboardShortcutsDialog = ({
         className="dialog-panel shortcut-dialog"
         role="dialog"
         aria-modal="true"
-        aria-label="Keyboard shortcuts"
+        aria-label={copy.shortcutDialog.ariaLabel}
         onClick={(event) => event.stopPropagation()}
         onKeyDown={createDialogKeyDownHandler({
           onClose,
@@ -99,8 +101,8 @@ export const KeyboardShortcutsDialog = ({
       >
         <header className="shortcut-dialog-header">
           <div>
-            <h2>Keyboard Shortcut</h2>
-            <p>Adjust the bindings and save them into the application settings.</p>
+            <h2>{copy.shortcutDialog.title}</h2>
+            <p>{copy.shortcutDialog.description}</p>
           </div>
           <button type="button" className="dialog-close" onClick={onClose}>
             ×
@@ -111,7 +113,7 @@ export const KeyboardShortcutsDialog = ({
           {sections.map(({ section, definitions }) => (
             <section key={section} className="shortcut-dialog-section">
               <div className="shortcut-dialog-section-header">
-                <strong>{section}</strong>
+                <strong>{copy.shortcuts.sections[section]}</strong>
               </div>
               <div className="shortcut-dialog-grid">
                 {definitions.map((definition) => {
@@ -124,8 +126,10 @@ export const KeyboardShortcutsDialog = ({
                       className={`shortcut-row ${hasConflict ? "conflict" : ""}`}
                     >
                       <div className="shortcut-row-copy">
-                        <span>{definition.label}</span>
-                        {definition.hint ? <small>{definition.hint}</small> : null}
+                        <span>{copy.shortcuts.actions[definition.id]}</span>
+                        {definition.hint ? (
+                          <small>{copy.shortcuts.hints[definition.id]}</small>
+                        ) : null}
                       </div>
                       <div className="shortcut-row-actions">
                         <button
@@ -144,7 +148,7 @@ export const KeyboardShortcutsDialog = ({
                               : undefined
                           }
                         >
-                          {isCapturing ? "Press keys..." : bindings[definition.id]}
+                          {isCapturing ? copy.shortcutDialog.pressKeys : bindings[definition.id]}
                         </button>
                         <button
                           type="button"
@@ -154,12 +158,12 @@ export const KeyboardShortcutsDialog = ({
                             setCapturingActionId(null);
                           }}
                         >
-                          Reset
+                          {copy.shortcutDialog.reset}
                         </button>
                       </div>
                       {hasConflict ? (
                         <p className="shortcut-conflict-copy">
-                          Duplicate binding. Pick a unique shortcut before saving.
+                          {copy.shortcutDialog.duplicateBinding}
                         </p>
                       ) : null}
                     </div>
@@ -180,7 +184,7 @@ export const KeyboardShortcutsDialog = ({
                 setCapturingActionId(null);
               }}
             >
-              Reset All
+              {copy.shortcutDialog.resetAll}
             </button>
             <button
               type="button"
@@ -190,15 +194,15 @@ export const KeyboardShortcutsDialog = ({
                 onResetTooltips();
               }}
             >
-              Reset Tooltips
+              {copy.shortcutDialog.resetTooltips}
             </button>
           </div>
           <div className="shortcut-dialog-footer-actions">
             <button type="button" className="ghost-button" onClick={onClose}>
-              Cancel
+              {copy.common.cancel}
             </button>
             <button type="button" className="primary-button" onClick={() => void onSave()}>
-              Save
+              {copy.common.save}
             </button>
           </div>
         </footer>

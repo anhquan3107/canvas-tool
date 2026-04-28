@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ImageItem, ReferenceGroup } from "@shared/types/project";
+import { useI18n } from "@renderer/i18n";
 import type { RulerGridSettings, ToolMode } from "@renderer/features/tools/types";
 
 const clamp = (value: number, min: number, max: number) =>
@@ -26,6 +27,7 @@ export const useZoomOverlay = ({
   setActiveTool,
   pushToast,
 }: UseZoomOverlayOptions) => {
+  const { copy } = useI18n();
   const [zoomOverlayItemId, setZoomOverlayItemId] = useState<string | null>(null);
   const [rulerEnabled, setRulerEnabled] = useState(false);
   const [rulerDialogOpen, setRulerDialogOpen] = useState(false);
@@ -161,7 +163,7 @@ export const useZoomOverlay = ({
     );
 
     if (!selectedImage) {
-      pushToast("info", "Select one image to open Ruler.");
+      pushToast("info", copy.toasts.selectOneImageToOpenRuler);
       return;
     }
 
@@ -172,6 +174,7 @@ export const useZoomOverlay = ({
     setSlideshowPlaying(false);
     setActiveTool("ruler");
   }, [
+    copy.toasts.selectOneImageToOpenRuler,
     pushToast,
     rulerEnabled,
     selectedItemIds,

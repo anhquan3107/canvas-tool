@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { ShortcutBindings } from "@shared/shortcuts";
 import { MenuItemContent } from "@renderer/app/components/MenuItemContent";
 import { getMenuActionContentProps } from "@renderer/app/menu/menu-action-config";
+import { useI18n } from "@renderer/i18n";
 
 interface AppMenuTaskSectionProps {
   shortcutBindings: ShortcutBindings;
@@ -28,6 +29,7 @@ export const AppMenuTaskSection = ({
   onExportAllTasksTxt,
   mode,
 }: AppMenuTaskSectionProps) => {
+  const { copy } = useI18n();
   const [taskExportOpen, setTaskExportOpen] = useState(false);
 
   const exportSubmenu = (
@@ -50,7 +52,7 @@ export const AppMenuTaskSection = ({
           }
         }}
       >
-        <MenuItemContent icon="task" label="Export Tasks" submenu />
+        <MenuItemContent icon="task" label={copy.menu.exportTasks} submenu />
       </button>
       {taskExportOpen && !canvasLocked ? (
         <div className="app-menu app-menu-submenu-panel">
@@ -63,6 +65,7 @@ export const AppMenuTaskSection = ({
               {...getMenuActionContentProps(
                 shortcutBindings,
                 "exportSelectedTaskHtml",
+                copy.menu.actions,
               )}
             />
           </button>
@@ -72,7 +75,11 @@ export const AppMenuTaskSection = ({
             disabled={!canExportAnyTask}
           >
             <MenuItemContent
-              {...getMenuActionContentProps(shortcutBindings, "exportAllTasksHtml")}
+              {...getMenuActionContentProps(
+                shortcutBindings,
+                "exportAllTasksHtml",
+                copy.menu.actions,
+              )}
             />
           </button>
           <button
@@ -84,6 +91,7 @@ export const AppMenuTaskSection = ({
               {...getMenuActionContentProps(
                 shortcutBindings,
                 "exportSelectedTaskTxt",
+                copy.menu.actions,
               )}
             />
           </button>
@@ -93,7 +101,11 @@ export const AppMenuTaskSection = ({
             disabled={!canExportAnyTask}
           >
             <MenuItemContent
-              {...getMenuActionContentProps(shortcutBindings, "exportAllTasksTxt")}
+              {...getMenuActionContentProps(
+                shortcutBindings,
+                "exportAllTasksTxt",
+                copy.menu.actions,
+              )}
             />
           </button>
         </div>
@@ -108,7 +120,13 @@ export const AppMenuTaskSection = ({
   return (
     <>
       <button type="button" onClick={onCreateTask} disabled={canvasLocked}>
-        <MenuItemContent {...getMenuActionContentProps(shortcutBindings, "addTask")} />
+        <MenuItemContent
+          {...getMenuActionContentProps(
+            shortcutBindings,
+            "addTask",
+            copy.menu.actions,
+          )}
+        />
       </button>
     </>
   );

@@ -1,5 +1,7 @@
 import type { ShortcutActionId } from "../shortcuts";
 
+export type AppLocale = "en" | "vi";
+
 export type LayoutMode = "pinterest-dynamic" | "horizontal";
 
 export interface Project {
@@ -27,6 +29,7 @@ export interface AppSettings {
   lastOpenedFile?: string;
   lastExportPath?: string;
   maxRecentFiles: number;
+  locale?: AppLocale;
   windowOpacity?: number;
   windowPlacement?: WindowPlacementSettings;
   shortcuts?: Partial<Record<ShortcutActionId, string>>;

@@ -9,6 +9,7 @@ import {
   Trash2,
 } from "lucide-react";
 import type { ReferenceGroup, Task } from "@shared/types/project";
+import { useI18n } from "@renderer/i18n";
 import {
   clampTaskTitle,
   formatTaskDateRange,
@@ -72,6 +73,7 @@ export const TaskOverlay = ({
   onCompleteTask,
   onLinkTaskToGroup,
 }: TaskOverlayProps) => {
+  const { copy, locale } = useI18n();
   const shellRef = useRef<HTMLElement | null>(null);
   const [renderPopover, setRenderPopover] = useState(expanded);
   const [renderPrimaryMeta, setRenderPrimaryMeta] = useState(Boolean(selectedTaskId));
@@ -208,8 +210,8 @@ export const TaskOverlay = ({
       !expanded;
     const taskCompleted = isTaskComplete(task);
     const remainingLabel = taskCompleted
-      ? "Task Completed"
-      : getTaskRemainingLabel(task.endDate);
+      ? copy.tasks.overlay.taskCompleted
+      : getTaskRemainingLabel(task.endDate, locale);
 
     return (
       <button
@@ -240,7 +242,14 @@ export const TaskOverlay = ({
           <strong>{displayTitle}</strong>
           {!compact ? (
             <>
-              <small>{formatTaskDateRange(task.startDate, task.endDate)}</small>
+              <small>
+                {formatTaskDateRange(
+                  task.startDate,
+                  task.endDate,
+                  locale,
+                  copy.tasks.dates.noDeadline,
+                )}
+              </small>
               {linkedName ? <em>{linkedName}</em> : null}
             </>
           ) : showCompactMeta ? (
@@ -248,7 +257,14 @@ export const TaskOverlay = ({
               className={`task-summary-meta ${renderPrimaryMeta ? "shown" : "hidden"}`}
               aria-hidden={!renderPrimaryMeta}
             >
-              <small>{formatTaskDateRange(task.startDate, task.endDate)}</small>
+              <small>
+                {formatTaskDateRange(
+                  task.startDate,
+                  task.endDate,
+                  locale,
+                  copy.tasks.dates.noDeadline,
+                )}
+              </small>
               <em className={taskCompleted ? "task-summary-meta-complete" : ""}>
                 {taskCompleted ? <Check size={12} strokeWidth={2.4} /> : null}
                 {remainingLabel}
@@ -305,7 +321,7 @@ export const TaskOverlay = ({
                 onToggleExpanded();
               }}
               aria-expanded={expanded}
-              aria-label={expanded ? "Hide tasks" : "Show tasks"}
+              aria-label={expanded ? copy.tasks.overlay.hideTasks : copy.tasks.overlay.showTasks}
             >
               {expanded ? "▴" : "▾"}
             </button>
@@ -343,7 +359,7 @@ export const TaskOverlay = ({
             }}
           >
             <Pencil size={14} />
-            <span>Rename</span>
+            <span>{copy.tasks.overlay.rename}</span>
           </button>
           <button
             type="button"
@@ -354,7 +370,7 @@ export const TaskOverlay = ({
             }}
           >
             <CalendarDays size={14} />
-            <span>Change Date</span>
+            <span>{copy.tasks.overlay.changeDate}</span>
           </button>
           <button
             type="button"
@@ -365,7 +381,11 @@ export const TaskOverlay = ({
             }}
           >
             <Check size={14} />
-            <span>{isTaskComplete(selectedMenuTask) ? "Mark Active" : "Task Done"}</span>
+            <span>
+              {isTaskComplete(selectedMenuTask)
+                ? copy.tasks.overlay.markActive
+                : copy.tasks.overlay.taskDone}
+            </span>
           </button>
           <div className="task-context-menu-divider" />
           <button
@@ -377,7 +397,7 @@ export const TaskOverlay = ({
             }}
           >
             <Copy size={14} />
-            <span>Duplicate Task</span>
+            <span>{copy.tasks.overlay.duplicateTask}</span>
           </button>
           <button
             type="button"
@@ -388,7 +408,7 @@ export const TaskOverlay = ({
             }}
           >
             <Plus size={14} />
-            <span>New Task</span>
+            <span>{copy.tasks.overlay.newTask}</span>
           </button>
           <button
             type="button"
@@ -399,10 +419,12 @@ export const TaskOverlay = ({
             }}
           >
             <Trash2 size={14} />
-            <span>Remove Task</span>
+            <span>{copy.tasks.overlay.removeTask}</span>
           </button>
           <div className="task-context-menu-divider" />
-          <div className="task-context-menu-section-label">Link to canvas/group</div>
+          <div className="task-context-menu-section-label">
+            {copy.tasks.overlay.linkToGroup}
+          </div>
           <button
             type="button"
             className="task-context-menu-item"
@@ -412,7 +434,7 @@ export const TaskOverlay = ({
             }}
           >
             <Link2 size={14} />
-            <span>None</span>
+            <span>{copy.common.none}</span>
           </button>
           {groups.map((group) => (
             <button

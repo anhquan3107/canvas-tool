@@ -26,6 +26,7 @@ import {
   buildAutoArrangeUpdates,
   calculateImportVisibilitySnapshot,
 } from "@renderer/features/workspace/utils/layout";
+import { useI18n } from "@renderer/i18n";
 
 interface UseWorkspaceImportActionsOptions {
   project: Project;
@@ -81,6 +82,7 @@ export const useWorkspaceImportActions = ({
   runHistoryBatch,
   ensureCanvasFitsItems,
 }: UseWorkspaceImportActionsOptions) => {
+  const { copy } = useI18n();
   const importVisibilitySnapshot = useMemo(() => {
     return calculateImportVisibilitySnapshot(activeGroup, lastImportedItemIds);
   }, [activeGroup, lastImportedItemIds]);
@@ -97,7 +99,7 @@ export const useWorkspaceImportActions = ({
       }
 
       if (activeGroup.locked) {
-        pushToast("info", "Canvas is locked.");
+        pushToast("info", copy.toasts.canvasLocked);
         return;
       }
 
@@ -107,7 +109,7 @@ export const useWorkspaceImportActions = ({
 
       const importProgress =
         payload.source === "drop"
-          ? beginProgressToast("Importing images", 12)
+          ? beginProgressToast(copy.toasts.importingImages, 12)
           : null;
 
       try {
@@ -119,11 +121,11 @@ export const useWorkspaceImportActions = ({
           resolveRemoteUrl: async (url) =>
             window.desktopApi.import.fetchRemoteImageDataUrl({ url }),
         });
-        importProgress?.update(56, "Importing images 56%");
+        importProgress?.update(56, `${copy.toasts.importingImages} 56%`);
 
         if (importedItems.length === 0) {
           importProgress?.clear();
-          pushToast("info", "No importable images found.");
+          pushToast("info", copy.toasts.noImportableImages);
           return;
         }
 
@@ -200,7 +202,7 @@ export const useWorkspaceImportActions = ({
             },
           );
         });
-        importProgress?.update(86, "Importing images 86%");
+        importProgress?.update(86, `${copy.toasts.importingImages} 86%`);
 
         const blockedItemIds = importedItems
           .filter((item) => item.previewStatus === "blocked")
@@ -225,30 +227,36 @@ export const useWorkspaceImportActions = ({
           if (importProgress) {
             importProgress.complete(
               "info",
-              `Imported ${importedItems.length} item(s); ${blockedCount} remote preview(s) blocked.`,
+              copy.toasts.importedItemsWithBlockedPreviews(
+                importedItems.length,
+                blockedCount,
+              ),
             );
           } else {
             pushToast(
               "info",
-              `Imported ${importedItems.length} item(s); ${blockedCount} remote preview(s) blocked.`,
+              copy.toasts.importedItemsWithBlockedPreviews(
+                importedItems.length,
+                blockedCount,
+              ),
             );
           }
         } else {
           if (importProgress) {
             importProgress.complete(
               "success",
-              `Imported ${importedItems.length} image item(s).`,
+              copy.toasts.importedImageItems(importedItems.length),
             );
           } else {
-            pushToast("success", `Imported ${importedItems.length} image item(s).`);
+            pushToast("success", copy.toasts.importedImageItems(importedItems.length));
           }
         }
       } catch (error) {
         console.error("Image import failed", error);
         if (importProgress) {
-          importProgress.complete("error", "Image import failed.");
+          importProgress.complete("error", copy.toasts.imageImportFailed);
         } else {
-          pushToast("error", "Image import failed.");
+          pushToast("error", copy.toasts.imageImportFailed);
         }
       }
     },
@@ -257,6 +265,7 @@ export const useWorkspaceImportActions = ({
       addGroupItems,
       autoArrangeOnImport,
       beginProgressToast,
+      copy.toasts,
       ensureCanvasFitsItems,
       patchGroupItems,
       pushToast,
@@ -274,7 +283,7 @@ export const useWorkspaceImportActions = ({
       const entry = importQueue.find((candidate) => candidate.id === entryId);
 
       if (!entry || entry.blockedItemIds.length === 0) {
-        pushToast("info", "No blocked previews to retry.");
+        pushToast("info", copy.toasts.noBlockedPreviewsToRetry);
         return;
       }
 
@@ -284,7 +293,7 @@ export const useWorkspaceImportActions = ({
       );
 
       if (!targetGroup) {
-        pushToast("error", "Target group not found for retry.");
+        pushToast("error", copy.toasts.targetGroupNotFoundForRetry);
         return;
       }
 
@@ -366,12 +375,12 @@ export const useWorkspaceImportActions = ({
       );
 
       if (recoveredCount > 0) {
-        pushToast("success", `Recovered ${recoveredCount} blocked preview(s).`);
+        pushToast("success", copy.toasts.recoveredBlockedPreviews(recoveredCount));
       } else {
-        pushToast("info", "Retry complete. No additional previews recovered.");
+        pushToast("info", copy.toasts.retryCompleteNoRecovered);
       }
     },
-    [importQueue, project, pushToast, setImportQueue, setProject],
+    [copy.toasts, importQueue, project, pushToast, setImportQueue, setProject],
   );
 
   const handleShellDragOver = useCallback((event: DragEvent) => {

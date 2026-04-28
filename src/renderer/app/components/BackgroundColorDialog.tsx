@@ -4,6 +4,7 @@ import { ColorSquare } from "@renderer/app/components/ColorSquare";
 import { HueSlider } from "@renderer/app/components/HueSlider";
 import { clamp } from "@renderer/app/components/color-picker-utils";
 import { useColorPickerState } from "@renderer/app/components/use-color-picker-state";
+import { useI18n } from "@renderer/i18n";
 
 interface BackgroundColorDialogProps {
   open: boolean;
@@ -32,6 +33,7 @@ export const BackgroundColorDialog = ({
   onPreviewChange,
   onConfirm,
 }: BackgroundColorDialogProps) => {
+  const { copy } = useI18n();
   const {
     squareCanvasRef,
     hueTrackRef,
@@ -68,7 +70,7 @@ export const BackgroundColorDialog = ({
 
   return (
     <DialogFrame
-      title="Change Background Color"
+      title={copy.backgroundDialog.title}
       onClose={onClose}
       onConfirm={handleConfirm}
     >
@@ -78,7 +80,7 @@ export const BackgroundColorDialog = ({
           className={target === "canvas" ? "color-picker-target active" : "color-picker-target"}
           onClick={() => setTarget("canvas")}
         >
-          Canvas
+          {copy.backgroundDialog.canvas}
         </button>
         <button
           type="button"
@@ -89,7 +91,7 @@ export const BackgroundColorDialog = ({
           }
           onClick={() => setTarget("background")}
         >
-          Background
+          {copy.backgroundDialog.background}
         </button>
       </div>
 
@@ -113,7 +115,7 @@ export const BackgroundColorDialog = ({
 
       <div className="dialog-grid color-picker-meta-grid">
         <div className="dialog-field">
-          <label htmlFor="color-picker-hex">Hex Color:</label>
+          <label htmlFor="color-picker-hex">{copy.backgroundDialog.hexColor}</label>
           <input
             id="color-picker-hex"
             value={hexInput}
@@ -126,7 +128,7 @@ export const BackgroundColorDialog = ({
 
         <div className="dialog-field color-picker-opacity-field">
           <label htmlFor="color-picker-opacity">
-            App Opacity: {Math.round(draftWindowOpacity * 100)}%
+            {copy.backgroundDialog.appOpacity(Math.round(draftWindowOpacity * 100))}
           </label>
           <input
             id="color-picker-opacity"
@@ -148,7 +150,7 @@ export const BackgroundColorDialog = ({
         </div>
 
         <div className="dialog-field">
-          <label>Preview:</label>
+          <label>{copy.backgroundDialog.preview}</label>
           <div
             className="color-picker-preview"
             style={{ backgroundColor: activeColor }}
@@ -162,17 +164,17 @@ export const BackgroundColorDialog = ({
           className="dialog-button"
           onClick={handleReset}
         >
-          Reset
+          {copy.common.reset}
         </button>
         <button
           type="button"
           className="dialog-button primary"
           onClick={handleConfirm}
         >
-          OK
+          {copy.common.ok}
         </button>
         <button type="button" className="dialog-button" onClick={onClose}>
-          Cancel
+          {copy.common.cancel}
         </button>
       </div>
     </DialogFrame>

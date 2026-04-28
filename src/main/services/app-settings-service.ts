@@ -3,6 +3,7 @@ import fsSync from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import type {
+  AppLocale,
   AppSettings,
   WindowBoundsSnapshot,
   WindowPlacementSettings,
@@ -86,9 +87,13 @@ const clampSavedWindowOpacity = (value: number | undefined) => {
   return Math.min(1, Math.max(0.05, value));
 };
 
+const sanitizeLocale = (value: unknown): AppLocale =>
+  value === "vi" ? "vi" : "en";
+
 const defaultSettings = (): AppSettings => ({
   recentFiles: [],
   maxRecentFiles: 12,
+  locale: "en",
   windowOpacity: 1,
   windowPlacement: undefined,
   shortcuts: { ...DEFAULT_SHORTCUT_BINDINGS },
@@ -168,6 +173,7 @@ const parseSettings = (raw: string): AppSettings => {
       typeof parsed.maxRecentFiles === "number" && parsed.maxRecentFiles > 0
         ? parsed.maxRecentFiles
         : 12,
+    locale: sanitizeLocale(parsed.locale),
     windowOpacity: clampSavedWindowOpacity(parsed.windowOpacity),
     lastOpenedFile:
       typeof parsed.lastOpenedFile === "string"
@@ -261,4 +267,16 @@ export const setLastExportPath = async (exportPath: string) => {
   });
 
   return nextExportPath;
+};
+
+export const saveLocale = async (locale: AppLocale) => {
+  const settings = await readSettings();
+  const nextLocale = sanitizeLocale(locale);
+
+  await writeSettings({
+    ...settings,
+    locale: nextLocale,
+  });
+
+  return nextLocale;
 };

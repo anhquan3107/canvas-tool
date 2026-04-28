@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ClipboardEvent, Dispatch, FormEvent, SetStateAction } from "react";
 import { DialogFrame } from "@renderer/ui/DialogFrame";
+import { useI18n } from "@renderer/i18n";
 import type { TaskDateRange } from "@renderer/features/tasks/types";
 import {
   clampTaskTitle,
@@ -31,6 +32,7 @@ export const TaskDialog = ({
   onDraftTaskTitleChange,
   onTaskDatesChange,
 }: TaskDialogProps) => {
+  const { copy, locale } = useI18n();
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const startDateInputRef = useRef<HTMLInputElement | null>(null);
   const endDateInputRef = useRef<HTMLInputElement | null>(null);
@@ -112,17 +114,17 @@ export const TaskDialog = ({
       className="task-deadline-dialog"
       title={
         mode === "rename"
-          ? "Rename Task"
+          ? copy.tasks.dialog.renameTitle
           : mode === "edit"
-            ? "Edit Task Deadline"
-            : "Set Deadline"
+            ? copy.tasks.dialog.editTitle
+            : copy.tasks.dialog.createTitle
       }
       onClose={onClose}
       onConfirm={onSubmitTask}
     >
       <div className={`task-dialog-shell task-dialog-mode-${mode}`}>
         <div className="dialog-field task-dialog-field">
-          <label htmlFor="task-title">Task Title:</label>
+          <label htmlFor="task-title">{copy.tasks.dialog.titleLabel}</label>
           <input
             ref={titleInputRef}
             id="task-title"
@@ -135,7 +137,7 @@ export const TaskDialog = ({
           />
           {showTitleLimitWarning ? (
             <p className="task-dialog-title-warning">
-              Task name is limited to 100 characters.
+              {copy.tasks.dialog.titleLimitWarning}
             </p>
           ) : null}
         </div>
@@ -144,7 +146,7 @@ export const TaskDialog = ({
           <>
             <div className="dialog-grid task-dialog-grid">
               <div className="dialog-field task-dialog-field">
-                <label htmlFor="task-start">Start Date:</label>
+                <label htmlFor="task-start">{copy.tasks.dialog.startDate}</label>
                 <div
                   className="task-dialog-date-input-shell"
                   onClick={() => openDatePicker(startDateInputRef.current)}
@@ -165,12 +167,12 @@ export const TaskDialog = ({
                   />
                 </div>
                 <span className="dialog-date-preview">
-                  {formatDateLabel(taskDates.startDate)}
+                  {formatDateLabel(taskDates.startDate, locale)}
                 </span>
               </div>
 
               <div className="dialog-field task-dialog-field">
-                <label htmlFor="task-end">End Date:</label>
+                <label htmlFor="task-end">{copy.tasks.dialog.endDate}</label>
                 <div
                   className="task-dialog-date-input-shell"
                   onClick={() => openDatePicker(endDateInputRef.current)}
@@ -191,13 +193,13 @@ export const TaskDialog = ({
                   />
                 </div>
                 <span className="dialog-date-preview">
-                  {formatDateLabel(taskDates.endDate)}
+                  {formatDateLabel(taskDates.endDate, locale)}
                 </span>
               </div>
             </div>
 
             <p className="dialog-duration task-dialog-duration">
-              Duration: {taskDuration} day(s)
+              {copy.tasks.dialog.duration(taskDuration)}
             </p>
           </>
         ) : null}
@@ -208,10 +210,10 @@ export const TaskDialog = ({
             className="dialog-button primary"
             onClick={onSubmitTask}
           >
-            {mode === "edit" || mode === "rename" ? "Save" : "OK"}
+            {mode === "edit" || mode === "rename" ? copy.common.save : copy.common.ok}
           </button>
           <button type="button" className="dialog-button" onClick={onClose}>
-            Cancel
+            {copy.common.cancel}
           </button>
         </div>
       </div>

@@ -1,6 +1,7 @@
 import type { ShortcutBindings } from "@shared/shortcuts";
 import { MenuItemContent } from "@renderer/app/components/MenuItemContent";
 import { getMenuActionContentProps } from "@renderer/app/menu/menu-action-config";
+import { useI18n } from "@renderer/i18n";
 
 interface TopBarCanvasMenuProps {
   shortcutBindings: ShortcutBindings;
@@ -26,11 +27,18 @@ export const TopBarCanvasMenu = ({
   onShowBackgroundColor,
   onResetView,
   onFitCanvasToContent,
-}: TopBarCanvasMenuProps) => (
-  <>
+}: TopBarCanvasMenuProps) => {
+  const { copy } = useI18n();
+
+  return (
+    <>
     <button type="button" onClick={() => runMenuAction(onResetView)}>
       <MenuItemContent
-        {...getMenuActionContentProps(shortcutBindings, "resetView")}
+        {...getMenuActionContentProps(
+          shortcutBindings,
+          "resetView",
+          copy.menu.actions,
+        )}
       />
     </button>
     <button
@@ -38,17 +46,29 @@ export const TopBarCanvasMenu = ({
       onClick={() => runMenuAction(onFitCanvasToContent)}
     >
       <MenuItemContent
-        {...getMenuActionContentProps(shortcutBindings, "fitCanvasToContent")}
+        {...getMenuActionContentProps(
+          shortcutBindings,
+          "fitCanvasToContent",
+          copy.menu.actions,
+        )}
       />
     </button>
     <button type="button" onClick={() => runMenuAction(onChangeCanvasSize)}>
       <MenuItemContent
-        {...getMenuActionContentProps(shortcutBindings, "changeCanvasSize")}
+        {...getMenuActionContentProps(
+          shortcutBindings,
+          "changeCanvasSize",
+          copy.menu.actions,
+        )}
       />
     </button>
     <button type="button" onClick={() => runMenuAction(onToggleSwatches)}>
       <MenuItemContent
-        {...getMenuActionContentProps(shortcutBindings, "toggleSwatches")}
+        {...getMenuActionContentProps(
+          shortcutBindings,
+          "toggleSwatches",
+          copy.menu.actions,
+        )}
       />
     </button>
 
@@ -57,9 +77,13 @@ export const TopBarCanvasMenu = ({
     <button type="button" onClick={() => runMenuAction(onToggleCanvasLock)}>
       <MenuItemContent
         icon="lock"
-        label={canvasLocked ? "Unlock Canvas" : "Lock Canvas"}
+        label={canvasLocked ? copy.menu.unlockCanvas : copy.menu.lockCanvas}
         shortcut={
-          getMenuActionContentProps(shortcutBindings, "toggleCanvasLock").shortcut
+          getMenuActionContentProps(
+            shortcutBindings,
+            "toggleCanvasLock",
+            copy.menu.actions,
+          ).shortcut
         }
       />
     </button>
@@ -68,7 +92,11 @@ export const TopBarCanvasMenu = ({
       onClick={() => runMenuAction(onShowBackgroundColor)}
     >
       <MenuItemContent
-        {...getMenuActionContentProps(shortcutBindings, "changeBackgroundColor")}
+        {...getMenuActionContentProps(
+          shortcutBindings,
+          "changeBackgroundColor",
+          copy.menu.actions,
+        )}
       />
     </button>
 
@@ -76,8 +104,13 @@ export const TopBarCanvasMenu = ({
 
     <button type="button" onClick={() => runMenuAction(onAutoArrange)}>
       <MenuItemContent
-        {...getMenuActionContentProps(shortcutBindings, "autoArrange")}
+        {...getMenuActionContentProps(
+          shortcutBindings,
+          "autoArrange",
+          copy.menu.actions,
+        )}
       />
     </button>
   </>
-);
+  );
+};

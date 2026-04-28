@@ -12,6 +12,7 @@ import {
   MIN_CANVAS_HEIGHT,
   MIN_CANVAS_WIDTH,
 } from "@renderer/features/workspace/utils/layout";
+import { useI18n } from "@renderer/i18n";
 
 interface UseWorkspaceViewActionsOptions {
   activeGroup: ReferenceGroup | undefined;
@@ -71,6 +72,7 @@ export const useWorkspaceViewActions = ({
   focusGroupOnItems,
   ensureCanvasFitsItems,
 }: UseWorkspaceViewActionsOptions) => {
+  const { copy } = useI18n();
   const scaleAnnotationStroke = useCallback(
     (stroke: AnnotationStroke, scaleX: number, scaleY: number): AnnotationStroke => ({
       ...stroke,
@@ -103,7 +105,7 @@ export const useWorkspaceViewActions = ({
       }
 
       if (activeGroup?.locked) {
-        pushToast("info", "Canvas is locked.");
+        pushToast("info", copy.toasts.canvasLocked);
         return;
       }
 
@@ -230,10 +232,11 @@ export const useWorkspaceViewActions = ({
         setGroupCanvasSize(activeGroup.id, nextWidth, nextHeight);
       });
 
-      pushToast("success", `Canvas resized to ${nextWidth} x ${nextHeight}.`);
+      pushToast("success", copy.toasts.canvasResizedTo(nextWidth, nextHeight));
     },
     [
       activeGroup,
+      copy.toasts.canvasResizedTo,
       patchGroupItems,
       pushToast,
       runHistoryBatch,
@@ -252,8 +255,8 @@ export const useWorkspaceViewActions = ({
     runHistoryBatch(() => {
       setGroupLocked(activeGroup.id, nextLocked);
     });
-    pushToast("success", nextLocked ? "Canvas locked." : "Canvas unlocked.");
-  }, [activeGroup, pushToast, runHistoryBatch, setGroupLocked]);
+    pushToast("success", copy.toasts.canvasLockedState(nextLocked));
+  }, [activeGroup, copy.toasts.canvasLockedState, pushToast, runHistoryBatch, setGroupLocked]);
 
   const changeCanvasColors = useCallback(
     (canvasColor: string, backgroundColor: string) => {
@@ -268,9 +271,9 @@ export const useWorkspaceViewActions = ({
         });
       });
 
-      pushToast("success", "Canvas colors updated.");
+      pushToast("success", copy.toasts.canvasColorsUpdated);
     },
-    [activeGroup, pushToast, runHistoryBatch, setGroupColors],
+    [activeGroup, copy.toasts.canvasColorsUpdated, pushToast, runHistoryBatch, setGroupColors],
   );
 
   const resetCanvasColors = useCallback(() => {
@@ -285,8 +288,8 @@ export const useWorkspaceViewActions = ({
       });
     });
 
-    pushToast("success", "Canvas colors reset.");
-  }, [activeGroup, pushToast, runHistoryBatch, setGroupColors]);
+    pushToast("success", copy.toasts.canvasColorsReset);
+  }, [activeGroup, copy.toasts.canvasColorsReset, pushToast, runHistoryBatch, setGroupColors]);
 
   return {
     handleBoardViewChange,

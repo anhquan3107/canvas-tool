@@ -5,6 +5,7 @@ import { ZoomRulerPanel } from "@renderer/features/tools/components/ZoomRulerPan
 import { ZoomSlideshowBar } from "@renderer/features/tools/components/ZoomSlideshowBar";
 import { ZoomViewport } from "@renderer/features/tools/components/ZoomViewport";
 import { useZoomViewport } from "@renderer/features/tools/hooks/use-zoom-viewport";
+import { useI18n } from "@renderer/i18n";
 
 interface ZoomOverlayProps {
   items: ImageItem[];
@@ -51,6 +52,7 @@ export const ZoomOverlay = ({
   onCancelRuler,
   onClose,
 }: ZoomOverlayProps) => {
+  const { copy } = useI18n();
   const activeImage = useMemo(
     () => items.find((item) => item.id === activeImageId) ?? null,
     [activeImageId, items],
@@ -139,7 +141,7 @@ export const ZoomOverlay = ({
 
       {showBlurControl ? (
         <div className="zoom-overlay-blur-bar">
-          <label htmlFor="zoom-overlay-blur-range">Blur</label>
+          <label htmlFor="zoom-overlay-blur-range">{copy.zoom.blur}</label>
           <input
             id="zoom-overlay-blur-range"
             type="range"
@@ -191,7 +193,7 @@ export const ZoomOverlay = ({
       )}
 
       <div className="zoom-overlay-hint">
-        Scroll to zoom • Hold Space and drag to pan • ESC to close
+        {copy.zoom.hint}
       </div>
     </div>
   );

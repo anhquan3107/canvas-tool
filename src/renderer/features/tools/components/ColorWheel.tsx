@@ -5,6 +5,7 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
+import { useI18n } from "@renderer/i18n";
 import type { DoodleMode } from "@renderer/features/tools/types";
 
 interface ColorWheelProps {
@@ -78,6 +79,7 @@ export const ColorWheel = ({
   onBrushSizeChange,
   onEraserSizeChange,
 }: ColorWheelProps) => {
+  const { copy } = useI18n();
   const wheelRef = useRef<HTMLButtonElement | null>(null);
   const wheelCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const ringRef = useRef<HTMLSpanElement | null>(null);
@@ -321,7 +323,7 @@ export const ColorWheel = ({
           ref={wheelRef}
           type="button"
           className={doodleMode === "brush" ? "tool-wheel interactive" : "tool-wheel"}
-          aria-label="Choose brush color"
+          aria-label={copy.doodle.chooseBrushColor}
           onPointerDown={handleWheelPointerDown}
           onPointerMove={handleWheelPointerMove}
           onPointerUp={handleWheelPointerUp}
@@ -344,11 +346,11 @@ export const ColorWheel = ({
         <button
           type="button"
           className={toolsOpen ? "doodle-tools-toggle active" : "doodle-tools-toggle"}
-          aria-label={toolsOpen ? "Hide doodle tools" : "Show doodle tools"}
+          aria-label={toolsOpen ? copy.doodle.hideTools : copy.doodle.showTools}
           aria-expanded={toolsOpen}
           onClick={() => setToolsOpen((previous) => !previous)}
         >
-          <span className="doodle-tools-toggle-label">Tools</span>
+          <span className="doodle-tools-toggle-label">{copy.doodle.tools}</span>
           <span className="doodle-tools-toggle-arrow">{toolsOpen ? "▾" : "▸"}</span>
         </button>
 
@@ -358,26 +360,26 @@ export const ColorWheel = ({
               <button
                 type="button"
                 className={doodleMode === "brush" ? "doodle-mode-button active" : "doodle-mode-button"}
-                aria-label="Brush"
-                title="Brush"
+                aria-label={copy.doodle.brush}
+                title={copy.doodle.brush}
                 onClick={() => onDoodleModeChange("brush")}
               >
-                Brush
+                {copy.doodle.brush}
               </button>
               <button
                 type="button"
                 className={
                   erasing ? "doodle-mode-button active" : "doodle-mode-button"
                 }
-                aria-label="Erase"
-                title="Erase"
+                aria-label={copy.doodle.erase}
+                title={copy.doodle.erase}
                 onClick={() =>
                   onDoodleModeChange(
                     doodleMode === "erase-pixel" ? "erase-pixel" : "erase-line",
                   )
                 }
               >
-                Erase
+                {copy.doodle.erase}
               </button>
             </div>
 
@@ -392,7 +394,7 @@ export const ColorWheel = ({
                   }
                   onClick={() => onDoodleModeChange("erase-line")}
                 >
-                  Erase Line
+                  {copy.doodle.eraseLine}
                 </button>
                 <button
                   type="button"
@@ -403,13 +405,13 @@ export const ColorWheel = ({
                   }
                   onClick={() => onDoodleModeChange("erase-pixel")}
                 >
-                  Erase Pixel
+                  {copy.doodle.erasePixel}
                 </button>
               </div>
             ) : null}
 
             <label className="doodle-size-control" htmlFor="doodle-size">
-              <span>{erasing ? "Eraser" : "Brush"}</span>
+              <span>{erasing ? copy.doodle.eraser : copy.doodle.brush}</span>
               <input
                 id="doodle-size"
                 type="range"

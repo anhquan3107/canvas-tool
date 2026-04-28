@@ -20,6 +20,7 @@ import { TopBarHelpMenu } from "@renderer/app/components/TopBarHelpMenu";
 import { TopBarSettingsMenu } from "@renderer/app/components/TopBarSettingsMenu";
 import { TopBarTools } from "@renderer/app/components/TopBarTools";
 import { TopBarWindowControls } from "@renderer/app/components/TopBarWindowControls";
+import { useI18n } from "@renderer/i18n";
 
 interface TopBarProps {
   activeGroup: ReferenceGroup | null | undefined;
@@ -138,6 +139,7 @@ export const TopBar = ({
   onPointerLeave,
   onTransitionEnd,
 }: TopBarProps) => {
+  const { copy } = useI18n();
   const [pendingTitleBarAction, setPendingTitleBarAction] =
     useState<PendingTitleBarAction | null>(null);
 
@@ -198,15 +200,14 @@ export const TopBar = ({
               runTitleBarAction(
                 {
                   id: "topbar.brand",
-                  label: "CanvasTool Info",
-                  description:
-                    "Open app information and project details from the title bar brand area.",
+                  label: copy.topbar.brandGuideLabel,
+                  description: copy.topbar.brandGuideDescription,
                 },
                 onBrandClick,
               )
             }
           >
-            <TopBarHoverTooltip label="Open app info">
+            <TopBarHoverTooltip label={copy.topbar.brandTooltip}>
               <span>CanvasTool</span>
             </TopBarHoverTooltip>
           </button>

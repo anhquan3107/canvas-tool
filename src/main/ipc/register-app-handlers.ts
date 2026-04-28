@@ -4,13 +4,18 @@ import {
   markTitleBarTooltipSeen,
   readSettings,
   resetTitleBarTooltips,
+  saveLocale,
   writeSettings,
 } from "../services/app-settings-service";
 import { resolveShortcutBindings, type ShortcutBindings } from "../../shared/shortcuts";
+import type { AppLocale } from "../../shared/types/project";
 
 export const registerAppHandlers = (_window: BrowserWindow) => {
   ipcMain.handle("app:get-version", () => app.getVersion());
   ipcMain.handle("app:get-settings", () => readSettings());
+  ipcMain.handle("app:save-locale", (_event, locale: AppLocale) =>
+    saveLocale(locale),
+  );
   ipcMain.handle(
     "app:save-shortcut-bindings",
     async (_event, bindings: ShortcutBindings) => {

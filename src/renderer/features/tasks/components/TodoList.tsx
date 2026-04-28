@@ -2,6 +2,7 @@ import { GripVertical, Trash2 } from "lucide-react";
 import type { FormEvent } from "react";
 import { useMemo, useRef, useState } from "react";
 import type { Task } from "@shared/types/project";
+import { useI18n } from "@renderer/i18n";
 
 interface TodoListProps {
   task: Task;
@@ -26,6 +27,7 @@ export const TodoList = ({
   onReorderTodo,
   onShowGuide,
 }: TodoListProps) => {
+  const { copy } = useI18n();
   const [newTodoText, setNewTodoText] = useState("");
   const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
   const [dragTodoId, setDragTodoId] = useState<string | null>(null);
@@ -70,12 +72,12 @@ export const TodoList = ({
         <div className="todo-add-field">
           {newTodoText.trim().length === 0 ? (
             <span className="todo-add-placeholder" aria-hidden="true">
-              Add a new task... (Ctrl+Enter to save)
+              {copy.tasks.todo.addPlaceholder}
             </span>
           ) : null}
           <textarea
             ref={newTodoInputRef}
-            aria-label="Add a new task"
+            aria-label={copy.tasks.todo.addAria}
             data-base-height="48"
             data-max-height="96"
             value={newTodoText}
@@ -94,7 +96,7 @@ export const TodoList = ({
             rows={1}
           />
         </div>
-        <button type="submit">Add</button>
+        <button type="submit">{copy.tasks.todo.add}</button>
       </form>
 
       <ol className="todo-list">
@@ -177,7 +179,7 @@ export const TodoList = ({
               type="button"
               className="todo-delete"
               onClick={() => onRemoveTodo(task.id, todo.id)}
-              aria-label={`Delete ${todo.text}`}
+              aria-label={copy.tasks.todo.deleteAria(todo.text)}
             >
               <Trash2 size={14} strokeWidth={1.8} />
             </button>

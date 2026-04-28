@@ -2,6 +2,7 @@ import { useCallback, useMemo, type MutableRefObject } from "react";
 import type { TaskTransferTask } from "@shared/types/ipc";
 import type { ImageItem, Project, ReferenceGroup, Task } from "@shared/types/project";
 import { extractImageSwatches } from "@renderer/features/import/swatches";
+import { useI18n } from "@renderer/i18n";
 
 type ToastKind = "success" | "error" | "info";
 
@@ -22,6 +23,7 @@ export const useExportActions = ({
   selectedTask,
   exportCanvasImageRef,
 }: UseExportActionsOptions) => {
+  const { copy } = useI18n();
   const exportableTasks = useMemo(() => {
     const groupNameById = new Map(project.groups.map((group) => [group.id, group.name]));
     return project.tasks.map<TaskTransferTask>((task) => ({
@@ -50,7 +52,7 @@ export const useExportActions = ({
       !selectedImageForSwatchExport ||
       selectedImageForSwatchExport.type !== "image"
     ) {
-      pushToast("info", "Select one image to export swatches.");
+      pushToast("info", copy.toasts.selectOneImageToExportSwatches);
       return;
     }
 
@@ -63,7 +65,9 @@ export const useExportActions = ({
         ? [
             {
               colorHex: selectedImageForSwatchExport.swatchHex,
-              name: selectedImageForSwatchExport.label ?? "Swatch 1",
+              name:
+                selectedImageForSwatchExport.label ??
+                `${copy.menu.actions.exportSwatches} 1`,
             },
           ]
         : [];
@@ -85,41 +89,47 @@ export const useExportActions = ({
     }
 
     if (swatches.length === 0) {
-      pushToast("error", "No swatches available to export for this image.");
+      pushToast("error", copy.toasts.noSwatchesAvailable);
       return;
     }
 
     if (typeof window.desktopApi.project.exportSwatchAco !== "function") {
-      pushToast(
-        "error",
-        "Swatch export needs an app restart to load the new desktop API.",
-      );
+      pushToast("error", copy.toasts.swatchExportNeedsRestart);
       return;
     }
 
     try {
       const result = await window.desktopApi.project.exportSwatchAco({
         swatches,
-        name: selectedImageForSwatchExport.label ?? "Swatch",
+        name: selectedImageForSwatchExport.label ?? copy.menu.actions.exportSwatches,
       });
 
       if (!result) {
         return;
       }
 
-      pushToast("success", "Swatches exported as .aco.");
+      pushToast("success", copy.toasts.swatchesExported);
     } catch (error) {
       pushToast(
         "error",
-        error instanceof Error ? error.message : "Swatch export failed.",
+        error instanceof Error ? error.message : copy.toasts.swatchExportFailed,
       );
     }
-  }, [pushToast, selectedImageForSwatchExport]);
+  }, [
+    copy.menu.actions.exportSwatches,
+    copy.toasts.noSwatchesAvailable,
+    copy.toasts.selectOneImageToExportSwatches,
+    copy.toasts.swatchExportFailed,
+    copy.toasts.swatchExportNeedsRestart,
+    copy.toasts.swatchesExported,
+    pushToast,
+    selectedImageForSwatchExport,
+  ]);
 
   const handleExportCanvasImage = useCallback(async () => {
     const dataUrl = exportCanvasImageRef.current?.() ?? null;
     if (!dataUrl) {
-      pushToast("error", "Canvas export is not ready yet.");
+      pushToast("error", copy.toasts.canvasExportNotReady);
       return;
     }
 
@@ -133,18 +143,26 @@ export const useExportActions = ({
         return;
       }
 
-      pushToast("success", "Canvas exported as image.");
+      pushToast("success", copy.toasts.canvasExported);
     } catch (error) {
       pushToast(
         "error",
-        error instanceof Error ? error.message : "Canvas export failed.",
+        error instanceof Error ? error.message : copy.toasts.canvasExportFailed,
       );
     }
-  }, [activeGroup?.name, exportCanvasImageRef, project.title, pushToast]);
+  }, [
+    activeGroup?.name,
+    copy.toasts.canvasExportFailed,
+    copy.toasts.canvasExportNotReady,
+    copy.toasts.canvasExported,
+    exportCanvasImageRef,
+    project.title,
+    pushToast,
+  ]);
 
   const handleExportGroupImages = useCallback(async () => {
     if (!activeGroup) {
-      pushToast("info", "No active canvas to export.");
+      pushToast("info", copy.toasts.noActiveCanvasToExport);
       return;
     }
 
@@ -155,7 +173,7 @@ export const useExportActions = ({
     );
 
     if (images.length === 0) {
-      pushToast("info", "No images in this canvas to export.");
+      pushToast("info", copy.toasts.noImagesToExport);
       return;
     }
 
@@ -169,18 +187,25 @@ export const useExportActions = ({
         return;
       }
 
-      pushToast("success", "Canvas images exported to folder.");
+      pushToast("success", copy.toasts.canvasImagesExported);
     } catch (error) {
       pushToast(
         "error",
-        error instanceof Error ? error.message : "Image export failed.",
+        error instanceof Error ? error.message : copy.toasts.imageExportFailed,
       );
     }
-  }, [activeGroup, pushToast]);
+  }, [
+    activeGroup,
+    copy.toasts.canvasImagesExported,
+    copy.toasts.imageExportFailed,
+    copy.toasts.noActiveCanvasToExport,
+    copy.toasts.noImagesToExport,
+    pushToast,
+  ]);
 
   const handleExportSelectedTaskHtml = useCallback(async () => {
     if (!selectedTask) {
-      pushToast("info", "Select a task to export.");
+      pushToast("info", copy.toasts.selectTaskToExport);
       return;
     }
 
@@ -200,44 +225,58 @@ export const useExportActions = ({
         return;
       }
 
-      pushToast("success", "Task exported to HTML.");
+      pushToast("success", copy.toasts.taskExportedHtml);
     } catch (error) {
       pushToast(
         "error",
-        error instanceof Error ? error.message : "Task export failed.",
+        error instanceof Error ? error.message : copy.toasts.taskExportFailed,
       );
     }
-  }, [exportableTasks, pushToast, selectedTask]);
+  }, [
+    copy.toasts.selectTaskToExport,
+    copy.toasts.taskExportFailed,
+    copy.toasts.taskExportedHtml,
+    exportableTasks,
+    pushToast,
+    selectedTask,
+  ]);
 
   const handleExportAllTasksHtml = useCallback(async () => {
     if (exportableTasks.length === 0) {
-      pushToast("info", "No tasks available to export.");
+      pushToast("info", copy.toasts.noTasksToExport);
       return;
     }
 
     try {
       const result = await window.desktopApi.project.exportTasksHtml({
-        projectTitle: "All Tasks",
+        projectTitle: copy.tasks.exportAllName,
         tasks: exportableTasks,
-        name: "All Tasks",
+        name: copy.tasks.exportAllName,
       });
 
       if (!result) {
         return;
       }
 
-      pushToast("success", "All tasks exported to HTML.");
+      pushToast("success", copy.toasts.allTasksExportedHtml);
     } catch (error) {
       pushToast(
         "error",
-        error instanceof Error ? error.message : "Task export failed.",
+        error instanceof Error ? error.message : copy.toasts.taskExportFailed,
       );
     }
-  }, [exportableTasks, pushToast]);
+  }, [
+    copy.tasks.exportAllName,
+    copy.toasts.allTasksExportedHtml,
+    copy.toasts.noTasksToExport,
+    copy.toasts.taskExportFailed,
+    exportableTasks,
+    pushToast,
+  ]);
 
   const handleExportSelectedTaskTxt = useCallback(async () => {
     if (!selectedTask) {
-      pushToast("info", "Select a task to export.");
+      pushToast("info", copy.toasts.selectTaskToExport);
       return;
     }
 
@@ -257,40 +296,54 @@ export const useExportActions = ({
         return;
       }
 
-      pushToast("success", "Task exported to TXT.");
+      pushToast("success", copy.toasts.taskExportedTxt);
     } catch (error) {
       pushToast(
         "error",
-        error instanceof Error ? error.message : "Task export failed.",
+        error instanceof Error ? error.message : copy.toasts.taskExportFailed,
       );
     }
-  }, [exportableTasks, pushToast, selectedTask]);
+  }, [
+    copy.toasts.selectTaskToExport,
+    copy.toasts.taskExportFailed,
+    copy.toasts.taskExportedTxt,
+    exportableTasks,
+    pushToast,
+    selectedTask,
+  ]);
 
   const handleExportAllTasksTxt = useCallback(async () => {
     if (exportableTasks.length === 0) {
-      pushToast("info", "No tasks available to export.");
+      pushToast("info", copy.toasts.noTasksToExport);
       return;
     }
 
     try {
       const result = await window.desktopApi.project.exportTasksTxt({
-        projectTitle: "All Tasks",
+        projectTitle: copy.tasks.exportAllName,
         tasks: exportableTasks,
-        name: "All Tasks",
+        name: copy.tasks.exportAllName,
       });
 
       if (!result) {
         return;
       }
 
-      pushToast("success", "All tasks exported to TXT.");
+      pushToast("success", copy.toasts.allTasksExportedTxt);
     } catch (error) {
       pushToast(
         "error",
-        error instanceof Error ? error.message : "Task export failed.",
+        error instanceof Error ? error.message : copy.toasts.taskExportFailed,
       );
     }
-  }, [exportableTasks, pushToast]);
+  }, [
+    copy.tasks.exportAllName,
+    copy.toasts.allTasksExportedTxt,
+    copy.toasts.noTasksToExport,
+    copy.toasts.taskExportFailed,
+    exportableTasks,
+    pushToast,
+  ]);
 
   return {
     canExportSelectedSwatch,

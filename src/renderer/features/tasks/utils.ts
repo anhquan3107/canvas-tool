@@ -1,3 +1,5 @@
+import type { AppLocale } from "@shared/types/project";
+
 const formatDateInput = (date: Date) => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -41,13 +43,13 @@ export const getTaskRemainingDays = (endDate?: string) => {
   return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 };
 
-export const formatDateLabel = (value: string) => {
+export const formatDateLabel = (value: string, locale?: string) => {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.valueOf())) {
     return value;
   }
 
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(locale, {
     month: "numeric",
     day: "numeric",
     year: "numeric",
@@ -76,18 +78,23 @@ export const getDayCount = (startDate: string, endDate: string) => {
   return Math.round(diff / (1000 * 60 * 60 * 24));
 };
 
-export const formatTaskDateRange = (startDate?: string, endDate?: string) => {
+export const formatTaskDateRange = (
+  startDate?: string,
+  endDate?: string,
+  locale?: string,
+  noDeadlineLabel = "No deadline",
+) => {
   if (!startDate || !endDate) {
-    return "No deadline";
+    return noDeadlineLabel;
   }
 
   const start = new Date(startDate);
   const end = new Date(endDate);
   if (Number.isNaN(start.valueOf()) || Number.isNaN(end.valueOf())) {
-    return "No deadline";
+    return noDeadlineLabel;
   }
 
-  const formatter = new Intl.DateTimeFormat(undefined, {
+  const formatter = new Intl.DateTimeFormat(locale, {
     month: "short",
     day: "numeric",
   });
@@ -95,19 +102,26 @@ export const formatTaskDateRange = (startDate?: string, endDate?: string) => {
   return `${formatter.format(start)} - ${formatter.format(end)}`;
 };
 
-export const getTaskRemainingLabel = (endDate?: string) => {
+export const getTaskRemainingLabel = (
+  endDate?: string,
+  locale: AppLocale = "en",
+) => {
+  const isVietnamese = locale === "vi";
+  const noDeadlineLabel = isVietnamese ? "Không có deadline" : "No deadline";
+  const deadlineReachedLabel = isVietnamese ? "Đã đến hạn" : "Deadline reached";
+
   if (!endDate) {
-    return "No deadline";
+    return noDeadlineLabel;
   }
 
   const deadline = toDateAtEndOfDay(endDate);
   if (!deadline) {
-    return "No deadline";
+    return noDeadlineLabel;
   }
 
   const diffMs = deadline.getTime() - Date.now();
   if (diffMs <= 0) {
-    return "Deadline reached";
+    return deadlineReachedLabel;
   }
 
   const totalHours = Math.floor(diffMs / (1000 * 60 * 60));
@@ -115,10 +129,12 @@ export const getTaskRemainingLabel = (endDate?: string) => {
   const hours = totalHours % 24;
 
   if (days <= 0) {
-    return `${hours}h remaining`;
+    return isVietnamese ? `Còn ${hours} giờ` : `${hours}h remaining`;
   }
 
-  return `${days}d ${hours}h remaining`;
+  return isVietnamese
+    ? `Còn ${days} ngày ${hours} giờ`
+    : `${days}d ${hours}h remaining`;
 };
 
 export const isTaskComplete = (

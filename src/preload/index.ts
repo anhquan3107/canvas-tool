@@ -71,6 +71,7 @@ const desktopApi: DesktopApi = {
   app: {
     getVersion: () => ipcRenderer.invoke("app:get-version"),
     getSettings: () => ipcRenderer.invoke("app:get-settings"),
+    saveLocale: (locale) => ipcRenderer.invoke("app:save-locale", locale),
     saveShortcutBindings: (bindings) =>
       ipcRenderer.invoke("app:save-shortcut-bindings", bindings),
     markTitleBarTooltipSeen: (tooltipId) =>

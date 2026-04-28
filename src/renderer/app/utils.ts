@@ -1,12 +1,12 @@
 import type { Project } from "@shared/types/project";
 
-export const formatTimestamp = (value: string) => {
+export const formatTimestamp = (value: string, locale?: string) => {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.valueOf())) {
     return value;
   }
 
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(locale, {
     month: "short",
     day: "numeric",
     hour: "numeric",

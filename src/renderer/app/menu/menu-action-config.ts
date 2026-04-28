@@ -3,6 +3,7 @@ import {
   formatMenuShortcut,
   type MenuIconId,
 } from "@renderer/app/components/MenuItemContent";
+import type { LocaleMessages } from "@renderer/i18n";
 
 export type MenuActionKey =
   | "open"
@@ -44,137 +45,116 @@ export type MenuActionKey =
 
 interface MenuActionMeta {
   icon: MenuIconId;
-  label: string;
   shortcutActionId?: ShortcutActionId;
 }
 
 export const MENU_ACTION_META: Record<MenuActionKey, MenuActionMeta> = {
-  open: { icon: "open", label: "Open", shortcutActionId: "file.open" },
-  importTasks: { icon: "task", label: "Import Tasks from HTML / TXT" },
-  saveCanvas: { icon: "save", label: "Save Canvas", shortcutActionId: "file.save" },
+  open: { icon: "open", shortcutActionId: "file.open" },
+  importTasks: { icon: "task" },
+  saveCanvas: { icon: "save", shortcutActionId: "file.save" },
   saveCanvasAs: {
     icon: "saveAs",
-    label: "Save Canvas As...",
     shortcutActionId: "file.saveAs",
   },
   exportCanvasImage: {
     icon: "export",
-    label: "Export Canvas to Images",
     shortcutActionId: "export.canvasImage",
   },
   exportGroupImages: {
     icon: "export",
-    label: "Export Every Image to Folder",
     shortcutActionId: "export.groupImages",
   },
   exportSelectedTaskHtml: {
     icon: "task",
-    label: "Export Selected Task to HTML",
   },
   exportAllTasksHtml: {
     icon: "task",
-    label: "Export All Tasks to HTML",
     shortcutActionId: "export.allTasks",
   },
   exportSelectedTaskTxt: {
     icon: "task",
-    label: "Export Selected Task to TXT",
   },
   exportAllTasksTxt: {
     icon: "task",
-    label: "Export All Tasks to TXT",
   },
   resetView: {
     icon: "resetView",
-    label: "Reset View",
     shortcutActionId: "canvas.fitToWindow",
   },
   fitCanvasToContent: {
     icon: "resetView",
-    label: "Fit Canvas to Content",
     shortcutActionId: "canvas.resetView",
   },
   changeCanvasSize: {
     icon: "canvasSize",
-    label: "Change Canvas Size",
     shortcutActionId: "canvas.changeSize",
   },
   toggleCanvasLock: {
     icon: "lock",
-    label: "Lock Canvas",
     shortcutActionId: "canvas.toggleLock",
   },
   toggleSwatches: {
     icon: "swatch",
-    label: "Hide / Show Swatches",
     shortcutActionId: "canvas.toggleSwatches",
   },
   createGroup: {
     icon: "group",
-    label: "Create Group",
     shortcutActionId: "groups.create",
   },
-  deleteCurrentGroup: { icon: "delete", label: "Delete Current Group" },
-  addTask: { icon: "task", label: "Add Task", shortcutActionId: "tasks.add" },
+  deleteCurrentGroup: { icon: "delete" },
+  addTask: { icon: "task", shortcutActionId: "tasks.add" },
   autoArrange: {
     icon: "arrange",
-    label: "Auto Arrange",
     shortcutActionId: "arrange.auto",
   },
   changeBackgroundColor: {
     icon: "background",
-    label: "Change Background Color",
   },
   filterBlackAndWhite: {
     icon: "filter",
-    label: "B&W",
     shortcutActionId: "tools.toggleBlackAndWhite",
   },
   filterBlur: {
     icon: "filter",
-    label: "Blur",
     shortcutActionId: "tools.toggleBlur",
   },
   doodle: {
     icon: "doodle",
-    label: "Doodle",
     shortcutActionId: "tools.toggleDoodle",
   },
   keyboardShortcut: {
     icon: "shortcuts",
-    label: "Keyboard Shortcuts",
     shortcutActionId: "window.showSettings",
   },
-  paste: { icon: "paste", label: "Paste", shortcutActionId: "edit.paste" },
-  crop: { icon: "crop", label: "Crop", shortcutActionId: "edit.crop" },
+  paste: { icon: "paste", shortcutActionId: "edit.paste" },
+  crop: { icon: "crop", shortcutActionId: "edit.crop" },
   flipHorizontal: {
     icon: "flip",
-    label: "Flip Horizontal",
     shortcutActionId: "edit.flipHorizontal",
   },
-  exit: { icon: "exit", label: "Exit", shortcutActionId: "app.quit" },
-  copy: { icon: "copy", label: "Copy", shortcutActionId: "edit.copy" },
-  cut: { icon: "cut", label: "Cut", shortcutActionId: "edit.cut" },
-  delete: { icon: "delete", label: "Delete", shortcutActionId: "edit.delete" },
-  exportSwatches: { icon: "swatch", label: "Export Swatches" },
-  arrangePinterest: { icon: "arrange", label: "Pinterest" },
+  exit: { icon: "exit", shortcutActionId: "app.quit" },
+  copy: { icon: "copy", shortcutActionId: "edit.copy" },
+  cut: { icon: "cut", shortcutActionId: "edit.cut" },
+  delete: { icon: "delete", shortcutActionId: "edit.delete" },
+  exportSwatches: { icon: "swatch" },
+  arrangePinterest: { icon: "arrange" },
   arrangeHorizontal: {
     icon: "arrange",
-    label: "Horizontal",
     shortcutActionId: "arrange.horizontal",
   },
-  undo: { icon: "undo", label: "Undo", shortcutActionId: "edit.undo" },
-  redo: { icon: "redo", label: "Redo", shortcutActionId: "edit.redo" },
+  undo: { icon: "undo", shortcutActionId: "edit.undo" },
+  redo: { icon: "redo", shortcutActionId: "edit.redo" },
 };
 
 export const getMenuActionContentProps = (
   shortcutBindings: ShortcutBindings,
   actionKey: MenuActionKey,
+  labels: LocaleMessages["menu"]["actions"],
 ) => {
   const meta = MENU_ACTION_META[actionKey];
   return {
     icon: meta.icon,
-    label: meta.label,
+    label: labels[actionKey],
     shortcut: formatMenuShortcut(shortcutBindings, meta.shortcutActionId),
   };
 };

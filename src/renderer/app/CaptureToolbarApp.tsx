@@ -8,6 +8,7 @@ import {
 } from "@renderer/app/capture-session";
 import { useWindowResize } from "@renderer/app/hooks/use-window-resize";
 import { useWindowRightDrag } from "@renderer/app/hooks/use-window-right-drag";
+import { useI18n } from "@renderer/i18n";
 import type { CaptureQuality } from "@renderer/features/connect/types";
 import { CAPTURE_QUALITY_PROFILES } from "@renderer/features/connect/utils";
 
@@ -15,7 +16,7 @@ const CAPTURE_WINDOW_TOPBAR_HIDE_TRANSITION_MS = 180;
 const CAPTURE_TOOLBAR_RESIZE_DIRECTIONS = ["e", "w", "ne", "nw"] as const;
 
 const DEFAULT_CAPTURE_SESSION_STATE: CaptureSessionState = {
-  sourceName: "Capture",
+  sourceName: "",
   quality: "medium",
   blurEnabled: false,
   bwEnabled: false,
@@ -27,6 +28,7 @@ const DEFAULT_CAPTURE_SESSION_STATE: CaptureSessionState = {
 
 export const CaptureToolbarApp = () => {
   useWindowRightDrag({ enableLeftWindowDrag: true });
+  const { copy } = useI18n();
 
   const initial = useMemo(() => getCaptureLocationParams(), []);
   const channelRef = useRef<BroadcastChannel | null>(null);
@@ -34,7 +36,7 @@ export const CaptureToolbarApp = () => {
   const focusCaptureOnReleaseRef = useRef(false);
   const [sessionState, setSessionState] = useState<CaptureSessionState>({
     ...DEFAULT_CAPTURE_SESSION_STATE,
-    sourceName: initial.sourceName,
+    sourceName: initial.sourceName || copy.capture.title,
     quality: initial.quality,
   });
   const [edgeRevealActive, setEdgeRevealActive] = useState(false);
@@ -315,7 +317,7 @@ export const CaptureToolbarApp = () => {
                 })
               }
             >
-              Capture
+              {copy.capture.openPicker}
             </button>
 
             <div className="capture-quality-switch">
@@ -328,7 +330,7 @@ export const CaptureToolbarApp = () => {
                       }`}
                     onClick={() => setQuality(option)}
                   >
-                    {CAPTURE_QUALITY_PROFILES[option].label}
+                    {copy.capture.quality[option]}
                   </button>
                 ),
               )}
@@ -339,17 +341,17 @@ export const CaptureToolbarApp = () => {
               className={`toolbar-button ${sessionState.blurEnabled ? "active" : ""
                 }`}
               onClick={() => postMessage({ type: "toggle-blur" })}
-              title="Blur"
+              title={copy.capture.blur}
             >
-              Blur
+              {copy.capture.blur}
             </button>
             <button
               type="button"
               className={`toolbar-button ${sessionState.bwEnabled ? "active" : ""}`}
               onClick={() => postMessage({ type: "toggle-bw" })}
-              title="B&W"
+              title={copy.capture.bw}
             >
-              B&amp;W
+              {copy.capture.bw}
             </button>
           </div>
           <div className="capture-window-drag-spacer" />
@@ -365,8 +367,8 @@ export const CaptureToolbarApp = () => {
                 .toggleAlwaysOnTop()
                 .then(syncWindowControlsState)
             }
-            title="Always on top"
-            aria-label="Toggle always on top"
+            title={copy.capture.alwaysOnTop}
+            aria-label={copy.capture.toggleAlwaysOnTop}
           >
             ⇪
           </button>

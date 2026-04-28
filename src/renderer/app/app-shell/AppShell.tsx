@@ -56,6 +56,7 @@ import { useToolFeature } from "@renderer/features/tools/hooks/use-tool-feature"
 import { useZoomOverlay } from "@renderer/features/tools/hooks/use-zoom-overlay";
 import { useCanvasWorkspace } from "@renderer/features/workspace/hooks/use-canvas-workspace";
 import { useToast } from "@renderer/hooks/use-toast";
+import { useI18n } from "@renderer/i18n";
 import { CanvasBoard } from "@renderer/pixi/CanvasBoard";
 import { hexToRgba } from "@renderer/pixi/utils/color";
 import { useProjectStore } from "@renderer/state/use-project-store";
@@ -81,6 +82,7 @@ const APP_WINDOW_RESIZE_DIRECTIONS = [
 
 export const AppShell = () => {
   useWindowRightDrag();
+  const { copy } = useI18n();
   const windowFocused = useWindowFocusState();
   const customResizeSupported =
     typeof navigator !== "undefined" &&
@@ -1563,7 +1565,7 @@ export const AppShell = () => {
 
             {activeTool === "blur" && activeGroup && !zoomOverlayOpen ? (
               <FilterFooter
-                label="Blur"
+                label={copy.tools.labels.blur}
                 htmlFor="blur-range"
                 min={0}
                 max={32}

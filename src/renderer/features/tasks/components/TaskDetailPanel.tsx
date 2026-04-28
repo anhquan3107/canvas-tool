@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Pin } from "lucide-react";
 import type { ReferenceGroup, Task } from "@shared/types/project";
+import { useI18n } from "@renderer/i18n";
 import { TodoList } from "@renderer/features/tasks/components/TodoList";
 
 interface TaskDetailPanelProps {
@@ -46,6 +47,7 @@ export const TaskDetailPanel = ({
   onReorderTodo,
   onShowTodoGuide,
 }: TaskDetailPanelProps) => {
+  const { copy } = useI18n();
   const shellRef = useRef<HTMLDivElement | null>(null);
   const doneCount = task.todos.filter((todo) => todo.completed).length;
   const activeCount = task.todos.length - doneCount;
@@ -116,9 +118,9 @@ export const TaskDetailPanel = ({
             <div className="task-detail-title-block">
               <strong>{task.title}</strong>
               <div className="task-detail-meta">
-                <span>{activeCount} active</span>
+                <span>{copy.tasks.detail.active(activeCount)}</span>
                 <span>•</span>
-                <span>{doneCount} done</span>
+                <span>{copy.tasks.detail.done(doneCount)}</span>
               </div>
             </div>
             <div className="task-detail-actions">
@@ -127,8 +129,8 @@ export const TaskDetailPanel = ({
                 className={`task-detail-pin-button ${pinned ? "active" : ""}`}
                 onClick={onTogglePinned}
                 aria-pressed={pinned}
-                aria-label={pinned ? "Unpin task panel" : "Pin task panel"}
-                title={pinned ? "Unpin task panel" : "Pin task panel"}
+                aria-label={pinned ? copy.tasks.detail.unpin : copy.tasks.detail.pin}
+                title={pinned ? copy.tasks.detail.unpin : copy.tasks.detail.pin}
               >
                 <Pin size={15} strokeWidth={1.85} />
               </button>

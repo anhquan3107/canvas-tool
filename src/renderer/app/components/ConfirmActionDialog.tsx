@@ -3,6 +3,7 @@ import { AlertTriangle, Trash2 } from "lucide-react";
 import { DialogScrim } from "@renderer/ui/DialogScrim";
 import { createDialogKeyDownHandler } from "@renderer/ui/dialog-keyboard";
 import { useDialogInitialFocus } from "@renderer/ui/use-dialog-initial-focus";
+import { useI18n } from "@renderer/i18n";
 
 interface ConfirmActionDialogProps {
   open: boolean;
@@ -21,6 +22,7 @@ export const ConfirmActionDialog = ({
   onConfirm,
   onCancel,
 }: ConfirmActionDialogProps) => {
+  const { copy } = useI18n();
   const dialogRef = useRef<HTMLDivElement | null>(null);
 
   useDialogInitialFocus(dialogRef, open);
@@ -55,13 +57,13 @@ export const ConfirmActionDialog = ({
             </div>
             <span className="confirm-action-dialog-eyebrow">
               <AlertTriangle size={11} strokeWidth={2.2} />
-              Confirm deletion
+              {copy.dialogs.confirmDeletion}
             </span>
           </div>
 
           <p className="confirm-action-dialog-copy">{message}</p>
           <p className="confirm-action-dialog-note">
-            This change happens immediately. You can still use Undo if needed.
+            {copy.dialogs.deletionNote}
           </p>
 
           <div className="confirm-action-dialog-actions">
@@ -73,7 +75,7 @@ export const ConfirmActionDialog = ({
               {confirmLabel}
             </button>
             <button type="button" className="dialog-button" onClick={onCancel}>
-              Keep It
+              {copy.common.keepIt}
             </button>
           </div>
         </div>

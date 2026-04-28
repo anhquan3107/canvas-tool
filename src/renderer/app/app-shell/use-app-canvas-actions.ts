@@ -2,6 +2,7 @@ import { useCallback, type Dispatch, type SetStateAction } from "react";
 import { MAX_CANVAS_ZOOM, MIN_CANVAS_ZOOM } from "@shared/project-defaults";
 import type { AnnotationStroke, ReferenceGroup } from "@shared/types/project";
 import { getFocusedGroupView } from "@renderer/features/workspace/utils/layout";
+import { useI18n } from "@renderer/i18n";
 import type { DoodleMode, ToolMode } from "@renderer/features/tools/types";
 
 type PushToast = (kind: "success" | "error" | "info", message: string) => void;
@@ -64,14 +65,15 @@ export const useAppCanvasActions = ({
   viewportSize,
   zoomOverlayOpen,
 }: UseAppCanvasActionsOptions) => {
+  const { copy } = useI18n();
   const toggleCropSelectedImage = useCallback(() => {
     if (activeGroup?.locked) {
-      pushToast("info", "Canvas is locked.");
+      pushToast("info", copy.toasts.canvasLocked);
       return;
     }
 
     if (!selectedStatusImage) {
-      pushToast("info", "Select exactly one image to crop.");
+      pushToast("info", copy.toasts.selectOneImageToCrop);
       return;
     }
 
@@ -87,11 +89,14 @@ export const useAppCanvasActions = ({
     });
     pushToast(
       "info",
-      "Crop mode active. Adjust handles, then press C again to apply.",
+      copy.toasts.cropModeActive,
     );
   }, [
     activeGroup?.locked,
     applyCropToSelectedImage,
+    copy.toasts.canvasLocked,
+    copy.toasts.cropModeActive,
+    copy.toasts.selectOneImageToCrop,
     cropSession,
     pushToast,
     selectedStatusImage,

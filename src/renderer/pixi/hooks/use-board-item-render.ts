@@ -6,6 +6,7 @@ import {
 } from "@renderer/pixi/utils/textures";
 import type { CaptureSession } from "@renderer/pixi/types";
 import { drawSwatchTray } from "@renderer/pixi/hooks/use-board-swatch-render";
+import { getDocumentMessages } from "@renderer/i18n";
 
 const BOARD_ITEM_VISUAL_NAME = "board-item-visual";
 const BOARD_ITEM_CROP_MASK_NAME = "board-item-crop-mask";
@@ -205,11 +206,12 @@ export const renderBoardItemVisuals = ({
           return;
         }
 
+        const copy = getDocumentMessages();
         createFallbackHint(
           itemNode,
           error instanceof Error && error.message.toLowerCase().includes("permission")
-            ? "Screen recording permission required"
-            : "Capture preview unavailable",
+            ? copy.capture.permissionRequired
+            : copy.capture.previewUnavailable,
           safeHeight,
         );
       });

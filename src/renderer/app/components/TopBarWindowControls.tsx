@@ -3,6 +3,7 @@ import { useCallback, type PointerEventHandler } from "react";
 import type { ShortcutBindings } from "@shared/shortcuts";
 import { TopBarHoverTooltip } from "@renderer/app/components/TopBarHoverTooltip";
 import { formatMenuShortcut } from "@renderer/app/components/MenuItemContent";
+import { useI18n } from "@renderer/i18n";
 
 interface TopBarWindowControlsProps {
   shortcutBindings: ShortcutBindings;
@@ -31,6 +32,7 @@ export const TopBarWindowControls = ({
   onToggleMaximize,
   onCloseWindow,
 }: TopBarWindowControlsProps) => {
+  const { copy, locale, setLocale } = useI18n();
   const handlePointerReleaseBlur = useCallback<PointerEventHandler<HTMLButtonElement>>(
     (event) => {
       if (event.pointerType !== "mouse" && event.pointerType !== "pen") {
@@ -44,22 +46,38 @@ export const TopBarWindowControls = ({
 
   return (
     <div className="window-cluster" data-window-no-drag="true">
-      <span className="locale-indicator">ENG</span>
       <TopBarHoverTooltip
-        label={`Open keyboard shortcuts (${formatMenuShortcut(shortcutBindings, "window.showSettings")})`}
+        label={
+          locale === "en"
+            ? copy.language.switchToVietnamese
+            : copy.language.switchToEnglish
+        }
+      >
+        <button
+          type="button"
+          className="topbar-locale-button"
+          onClick={() => void setLocale(locale === "en" ? "vi" : "en")}
+          onPointerUp={handlePointerReleaseBlur}
+          aria-label={copy.language.label}
+        >
+          {locale === "en" ? copy.language.english : copy.language.vietnamese}
+        </button>
+      </TopBarHoverTooltip>
+      <TopBarHoverTooltip
+        label={`${copy.windowControls.keyboardShortcuts} (${formatMenuShortcut(shortcutBindings, "window.showSettings")})`}
       >
         <button
           type="button"
           className="chrome-chip"
           onClick={onShowShortcuts}
           onPointerUp={handlePointerReleaseBlur}
-          aria-label="Keyboard shortcuts"
+          aria-label={copy.windowControls.keyboardShortcuts}
         >
           <Settings size={13} strokeWidth={1.9} />
         </button>
       </TopBarHoverTooltip>
       {canvasLocked ? (
-        <TopBarHoverTooltip label="Unlock canvas">
+        <TopBarHoverTooltip label={copy.windowControls.unlockCanvas}>
           <button
             type="button"
             className={`chrome-chip topbar-lock-indicator ${
@@ -67,26 +85,26 @@ export const TopBarWindowControls = ({
             }`}
             onClick={onToggleCanvasLock}
             onPointerUp={handlePointerReleaseBlur}
-            aria-label="Unlock canvas"
+            aria-label={copy.windowControls.unlockCanvas}
           >
             <Lock size={13} strokeWidth={1.9} />
           </button>
         </TopBarHoverTooltip>
       ) : null}
       <TopBarHoverTooltip
-        label={`Keep window on top (${formatMenuShortcut(shortcutBindings, "window.toggleAlwaysOnTop")})`}
+        label={`${copy.windowControls.alwaysOnTop} (${formatMenuShortcut(shortcutBindings, "window.toggleAlwaysOnTop")})`}
       >
         <button
           type="button"
           className={`window-button ${windowAlwaysOnTop ? "active" : ""}`}
           onClick={onToggleAlwaysOnTop}
           onPointerUp={handlePointerReleaseBlur}
-          aria-label="Toggle always on top"
+          aria-label={copy.windowControls.toggleAlwaysOnTop}
         >
           ⇪
         </button>
       </TopBarHoverTooltip>
-      <TopBarHoverTooltip label="Minimize window">
+      <TopBarHoverTooltip label={copy.windowControls.minimize}>
         <button
           type="button"
           className="window-button"
@@ -96,7 +114,13 @@ export const TopBarWindowControls = ({
           -
         </button>
       </TopBarHoverTooltip>
-      <TopBarHoverTooltip label={windowMaximized ? "Restore window" : "Maximize window"}>
+      <TopBarHoverTooltip
+        label={
+          windowMaximized
+            ? copy.windowControls.restore
+            : copy.windowControls.maximize
+        }
+      >
         <button
           type="button"
           className="window-button"
@@ -107,7 +131,7 @@ export const TopBarWindowControls = ({
         </button>
       </TopBarHoverTooltip>
       <TopBarHoverTooltip
-        label={`Close app (${formatMenuShortcut(shortcutBindings, "app.quit")})`}
+        label={`${copy.windowControls.closeApp} (${formatMenuShortcut(shortcutBindings, "app.quit")})`}
       >
         <button
           type="button"

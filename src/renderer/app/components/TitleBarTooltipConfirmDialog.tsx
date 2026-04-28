@@ -2,6 +2,7 @@ import { useRef } from "react";
 import { DialogScrim } from "@renderer/ui/DialogScrim";
 import { createDialogKeyDownHandler } from "@renderer/ui/dialog-keyboard";
 import { useDialogInitialFocus } from "@renderer/ui/use-dialog-initial-focus";
+import { useI18n } from "@renderer/i18n";
 
 const shortcutTokens = (shortcut?: string) => {
   if (!shortcut) {
@@ -29,10 +30,11 @@ export const TitleBarTooltipConfirmDialog = ({
   label,
   description,
   shortcut,
-  confirmLabel = "Got it",
+  confirmLabel,
   onConfirm,
   onClose,
 }: TitleBarTooltipConfirmDialogProps) => {
+  const { copy } = useI18n();
   const dialogRef = useRef<HTMLDivElement | null>(null);
 
   useDialogInitialFocus(dialogRef, open);
@@ -42,7 +44,7 @@ export const TitleBarTooltipConfirmDialog = ({
   }
 
   const tokens = shortcutTokens(shortcut);
-  const shortcutLabel = tokens.length > 0 ? tokens.join(" + ") : "No shortcut assigned";
+  const resolvedConfirmLabel = confirmLabel ?? copy.common.gotIt;
   const descriptionBlocks = description
     .split("\n\n")
     .map((block) => block.trim())
@@ -59,7 +61,7 @@ export const TitleBarTooltipConfirmDialog = ({
         className="dialog-card titlebar-tooltip-dialog"
         role="dialog"
         aria-modal="true"
-        aria-label={`${label} shortcut guide`}
+        aria-label={`${label} ${copy.topbar.toolGuideAriaSuffix}`}
         onClick={(event) => event.stopPropagation()}
         onKeyDown={createDialogKeyDownHandler({
           onClose,
@@ -68,7 +70,9 @@ export const TitleBarTooltipConfirmDialog = ({
         tabIndex={-1}
       >
         <div className="titlebar-tooltip-dialog-topbar">
-          <span className="titlebar-tooltip-dialog-topbar-label">Tool Guide</span>
+          <span className="titlebar-tooltip-dialog-topbar-label">
+            {copy.confirmActionDialog.title}
+          </span>
         </div>
 
         <div className="titlebar-tooltip-dialog-body">
@@ -83,7 +87,9 @@ export const TitleBarTooltipConfirmDialog = ({
           </div>
 
           <div className="titlebar-tooltip-dialog-block">
-            <span className="titlebar-tooltip-dialog-label">Keyboard Shortcut</span>
+            <span className="titlebar-tooltip-dialog-label">
+              {copy.topbar.keyboardShortcut}
+            </span>
             {tokens.length > 0 ? (
               <div className="titlebar-tooltip-dialog-keycaps">
                 {tokens.map((token) => (
@@ -93,7 +99,9 @@ export const TitleBarTooltipConfirmDialog = ({
                 ))}
               </div>
             ) : (
-              <span className="titlebar-tooltip-dialog-empty">No shortcut assigned</span>
+              <span className="titlebar-tooltip-dialog-empty">
+                {copy.topbar.noShortcutAssigned}
+              </span>
             )}
           </div>
         </div>
@@ -104,7 +112,7 @@ export const TitleBarTooltipConfirmDialog = ({
             className="primary-button titlebar-tooltip-dialog-confirm"
             onClick={onConfirm}
           >
-            {confirmLabel}
+            {resolvedConfirmLabel}
           </button>
         </div>
       </div>

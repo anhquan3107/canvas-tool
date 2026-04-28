@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import type { ReferenceGroup, Task } from "@shared/types/project";
+import { useI18n } from "@renderer/i18n";
 
 export type PendingDeletion =
   | { kind: "task"; taskId: string; label: string }
@@ -29,11 +30,12 @@ export const useAppDeletion = ({
   setSelectedItemIds,
   setGroupsOverlayOpen,
 }: UseAppDeletionOptions) => {
+  const { copy } = useI18n();
   const [pendingDeletion, setPendingDeletion] = useState<PendingDeletion>(null);
 
   const requestDeleteSelectedTask = useCallback(() => {
     if (!selectedTask) {
-      pushToast("info", "Select a task to delete.");
+      pushToast("info", copy.toasts.selectTaskToDelete);
       return;
     }
 
@@ -42,7 +44,7 @@ export const useAppDeletion = ({
       taskId: selectedTask.id,
       label: selectedTask.title,
     });
-  }, [pushToast, selectedTask]);
+  }, [copy.toasts.selectTaskToDelete, pushToast, selectedTask]);
 
   const requestDeleteTaskById = useCallback(
     (taskId: string) => {
@@ -66,7 +68,7 @@ export const useAppDeletion = ({
     }
 
     if (activeGroup.kind !== "group") {
-      pushToast("info", "Canvas cannot be deleted.");
+      pushToast("info", copy.toasts.canvasCannotBeDeleted);
       return;
     }
 
@@ -75,7 +77,7 @@ export const useAppDeletion = ({
       groupId: activeGroup.id,
       label: activeGroup.name,
     });
-  }, [activeGroup, pushToast]);
+  }, [activeGroup, copy.toasts.canvasCannotBeDeleted, pushToast]);
 
   const requestDeleteGroupById = useCallback(
     (groupId: string) => {
@@ -85,7 +87,7 @@ export const useAppDeletion = ({
       }
 
       if (targetGroup.kind !== "group") {
-        pushToast("info", "Canvas cannot be deleted.");
+        pushToast("info", copy.toasts.canvasCannotBeDeleted);
         return;
       }
 
@@ -95,7 +97,7 @@ export const useAppDeletion = ({
         label: targetGroup.name,
       });
     },
-    [groups, pushToast],
+    [copy.toasts.canvasCannotBeDeleted, groups, pushToast],
   );
 
   const handleConfirmDeletion = useCallback(() => {
@@ -113,8 +115,9 @@ export const useAppDeletion = ({
     setSelectedItemIds([]);
     setGroupsOverlayOpen(false);
     setPendingDeletion(null);
-    pushToast("success", `Deleted ${pendingDeletion.label}.`);
+    pushToast("success", copy.toasts.deletedLabel(pendingDeletion.label));
   }, [
+    copy.toasts,
     handleDeleteTask,
     pendingDeletion,
     pushToast,

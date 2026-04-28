@@ -5,6 +5,7 @@ import { TopBarCanvasMenu } from "@renderer/app/components/TopBarCanvasMenu";
 import { TopBarFileMenu } from "@renderer/app/components/TopBarFileMenu";
 import { TopBarHoverTooltip } from "@renderer/app/components/TopBarHoverTooltip";
 import { getMenuActionContentProps } from "@renderer/app/menu/menu-action-config";
+import { useI18n } from "@renderer/i18n";
 
 type TopBarMenuKey = "file" | "edit" | "view";
 
@@ -46,18 +47,6 @@ interface TopBarSettingsMenuProps {
   onExit: () => void;
 }
 
-const MENU_LABELS: Record<TopBarMenuKey, string> = {
-  file: "File",
-  edit: "Edit",
-  view: "View",
-};
-
-const MENU_TOOLTIP_LABELS: Record<TopBarMenuKey, string> = {
-  file: "Open file menu",
-  edit: "Open edit menu",
-  view: "Open view menu",
-};
-
 export const TopBarSettingsMenu = ({
   shortcutBindings,
   settingsOpen,
@@ -95,6 +84,7 @@ export const TopBarSettingsMenu = ({
   onRedo,
   onExit,
 }: TopBarSettingsMenuProps) => {
+  const { copy } = useI18n();
   const [activeMenu, setActiveMenu] = useState<TopBarMenuKey | null>(null);
 
   useEffect(() => {
@@ -147,7 +137,7 @@ export const TopBarSettingsMenu = ({
         }
       }}
     >
-      <TopBarHoverTooltip label={MENU_TOOLTIP_LABELS[menu]}>
+      <TopBarHoverTooltip label={copy.topbar.menuTooltips[menu]}>
         <button
           type="button"
           className={`toolbar-button ${
@@ -155,7 +145,7 @@ export const TopBarSettingsMenu = ({
           }`}
           onClick={() => toggleMenu(menu)}
         >
-          {MENU_LABELS[menu]}
+          {copy.topbar.menus[menu]}
         </button>
       </TopBarHoverTooltip>
 
@@ -189,7 +179,11 @@ export const TopBarSettingsMenu = ({
                 disabled={!canPaste}
               >
                 <MenuItemContent
-                  {...getMenuActionContentProps(shortcutBindings, "paste")}
+                  {...getMenuActionContentProps(
+                    shortcutBindings,
+                    "paste",
+                    copy.menu.actions,
+                  )}
                 />
               </button>
               <button
@@ -198,7 +192,11 @@ export const TopBarSettingsMenu = ({
                 disabled={!canCropSelected}
               >
                 <MenuItemContent
-                  {...getMenuActionContentProps(shortcutBindings, "crop")}
+                  {...getMenuActionContentProps(
+                    shortcutBindings,
+                    "crop",
+                    copy.menu.actions,
+                  )}
                 />
               </button>
               <button
@@ -207,7 +205,11 @@ export const TopBarSettingsMenu = ({
                 disabled={selectedCount === 0}
               >
                 <MenuItemContent
-                  {...getMenuActionContentProps(shortcutBindings, "flipHorizontal")}
+                  {...getMenuActionContentProps(
+                    shortcutBindings,
+                    "flipHorizontal",
+                    copy.menu.actions,
+                  )}
                 />
               </button>
 
@@ -219,7 +221,11 @@ export const TopBarSettingsMenu = ({
                 disabled={!canUndo}
               >
                 <MenuItemContent
-                  {...getMenuActionContentProps(shortcutBindings, "undo")}
+                  {...getMenuActionContentProps(
+                    shortcutBindings,
+                    "undo",
+                    copy.menu.actions,
+                  )}
                 />
               </button>
               <button
@@ -228,7 +234,11 @@ export const TopBarSettingsMenu = ({
                 disabled={!canRedo}
               >
                 <MenuItemContent
-                  {...getMenuActionContentProps(shortcutBindings, "redo")}
+                  {...getMenuActionContentProps(
+                    shortcutBindings,
+                    "redo",
+                    copy.menu.actions,
+                  )}
                 />
               </button>
 
@@ -236,7 +246,11 @@ export const TopBarSettingsMenu = ({
 
               <button type="button" onClick={() => runMenuAction(onShowShortcuts)}>
                 <MenuItemContent
-                  {...getMenuActionContentProps(shortcutBindings, "keyboardShortcut")}
+                  {...getMenuActionContentProps(
+                    shortcutBindings,
+                    "keyboardShortcut",
+                    copy.menu.actions,
+                  )}
                 />
               </button>
             </>

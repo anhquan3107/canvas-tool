@@ -47,7 +47,7 @@ export const getCaptureLocationParams = (): CaptureLocationParams => {
   return {
     sessionId: params.get("sessionId") ?? "default",
     sourceId: params.get("sourceId") ?? "",
-    sourceName: params.get("sourceName") ?? "Capture",
+    sourceName: params.get("sourceName") ?? "",
     sourceKind,
     quality,
   };

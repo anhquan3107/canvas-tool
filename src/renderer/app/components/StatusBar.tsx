@@ -3,6 +3,7 @@ import {
   getDataUrlByteLength,
   inferImageFormatLabel,
 } from "@renderer/features/import/image-import";
+import { useI18n } from "@renderer/i18n";
 
 interface StatusBarProps {
   selectedCount: number;
@@ -21,6 +22,7 @@ export const StatusBar = ({
   autoArrangeEnabled,
   onToggleAutoArrange,
 }: StatusBarProps) => {
+  const { copy } = useI18n();
   const fileSizeBytes =
     selectedImage?.fileSizeBytes ?? getDataUrlByteLength(selectedImage?.assetPath);
   const fileSizeLabel =
@@ -42,11 +44,13 @@ export const StatusBar = ({
   return (
     <footer className="status-bar">
       <div className="status-right">
-        <div className="status-pill status-pill-count">Selected: {selectedCount}</div>
+        <div className="status-pill status-pill-count">
+          {copy.statusBar.selected(selectedCount)}
+        </div>
         {selectedImage && dimensionLabel ? (
           <div
             className="status-pill status-pill-meta"
-            aria-label="Selected image information"
+            aria-label={copy.statusBar.selectedImageInformation}
           >
             <span>{dimensionLabel}</span>
             {fileSizeLabel ? (
@@ -66,13 +70,16 @@ export const StatusBar = ({
           aria-pressed={autoArrangeEnabled}
         >
           <span className="status-checkbox" aria-hidden="true" />
-          <span>Auto Arrange</span>
+          <span>{copy.statusBar.autoArrange}</span>
         </button>
-        <div className="status-pill status-pill-metrics" aria-label="Zoom and canvas">
-          <span className="status-pill-inline-label">Zoom:</span>
+        <div
+          className="status-pill status-pill-metrics"
+          aria-label={copy.statusBar.zoomAndCanvas}
+        >
+          <span className="status-pill-inline-label">{copy.statusBar.zoom}:</span>
           <strong>{zoomLabel}</strong>
           <span className="status-pill-divider" aria-hidden="true" />
-          <span className="status-pill-inline-label">Canvas:</span>
+          <span className="status-pill-inline-label">{copy.statusBar.canvas}:</span>
           <strong>{canvasLabel}</strong>
         </div>
       </div>

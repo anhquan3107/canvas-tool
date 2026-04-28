@@ -12,6 +12,7 @@ import {
   buildArrangeSelectedItemsUpdates,
   buildAutoArrangeUpdates,
 } from "@renderer/features/workspace/utils/layout";
+import { useI18n } from "@renderer/i18n";
 
 const getStableArrangeSize = (item: CanvasItem) => {
   if (item.type !== "image") {
@@ -73,6 +74,7 @@ export const useWorkspaceLayoutActions = ({
   runHistoryBatch,
   ensureCanvasFitsItems,
 }: UseWorkspaceLayoutActionsOptions) => {
+  const { copy } = useI18n();
   const hasMeaningfulPatchChanges = useCallback(
     (updates: Record<string, ImagePatch>) => {
       if (!activeGroup) {
@@ -105,7 +107,7 @@ export const useWorkspaceLayoutActions = ({
   const arrangeSelectedItems = useCallback(
     (mode: LayoutMode) => {
       if (!activeGroup || selectedItemIds.length === 0) {
-        pushToast("info", "No selected items to arrange.");
+        pushToast("info", copy.toasts.noSelectedItemsToArrange);
         return;
       }
 
@@ -114,7 +116,7 @@ export const useWorkspaceLayoutActions = ({
         .sort((left, right) => left.zIndex - right.zIndex);
 
       if (selectedItems.length === 0) {
-        pushToast("info", "No selected items to arrange.");
+        pushToast("info", copy.toasts.noSelectedItemsToArrange);
         return;
       }
 
@@ -134,13 +136,12 @@ export const useWorkspaceLayoutActions = ({
         });
       });
 
-      pushToast(
-        "success",
-        "Selected items auto arranged.",
-      );
+      pushToast("success", copy.toasts.selectedItemsAutoArranged);
     },
     [
       activeGroup,
+      copy.toasts.noSelectedItemsToArrange,
+      copy.toasts.selectedItemsAutoArranged,
       ensureCanvasFitsItems,
       patchGroupItems,
       pushToast,
@@ -159,7 +160,7 @@ export const useWorkspaceLayoutActions = ({
       .sort((left, right) => left.zIndex - right.zIndex);
 
     if (visibleItems.length === 0) {
-      pushToast("info", "Nothing to arrange.");
+      pushToast("info", copy.toasts.nothingToArrange);
       return;
     }
 
@@ -212,9 +213,11 @@ export const useWorkspaceLayoutActions = ({
       );
     });
 
-    pushToast("success", "Items arranged across the canvas.");
+    pushToast("success", copy.toasts.itemsArrangedAcrossCanvas);
   }, [
     activeGroup,
+    copy.toasts.itemsArrangedAcrossCanvas,
+    copy.toasts.nothingToArrange,
     ensureCanvasFitsItems,
     hasMeaningfulPatchChanges,
     patchGroupItems,

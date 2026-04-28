@@ -1,5 +1,6 @@
 import { useCallback, type Dispatch, type SetStateAction } from "react";
 import type { ReferenceGroup } from "@shared/types/project";
+import { useI18n } from "@renderer/i18n";
 
 type PushToast = (kind: "success" | "error" | "info", message: string) => void;
 
@@ -55,6 +56,7 @@ export const useAppBackgroundActions = ({
   setWindowOpacity,
   windowOpacity,
 }: UseAppBackgroundActionsOptions) => {
+  const { copy } = useI18n();
   const handleOpenCanvasSizeDialog = useCallback(() => {
     if (!activeGroup) {
       return;
@@ -82,7 +84,7 @@ export const useAppBackgroundActions = ({
       nextWidth <= 0 ||
       nextHeight <= 0
     ) {
-      pushToast("error", "Enter valid canvas width and height.");
+      pushToast("error", copy.toasts.enterValidCanvasSize);
       return;
     }
 
@@ -92,6 +94,7 @@ export const useAppBackgroundActions = ({
     canvasHeightInput,
     canvasWidthInput,
     changeCanvasSize,
+    copy.toasts.enterValidCanvasSize,
     pushToast,
     setCanvasSizeDialogOpen,
   ]);

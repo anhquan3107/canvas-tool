@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { DialogFrame } from "@renderer/ui/DialogFrame";
+import { useI18n } from "@renderer/i18n";
 
 interface CanvasSizeDialogProps {
   open: boolean;
@@ -20,6 +21,7 @@ export const CanvasSizeDialog = ({
   onWidthChange,
   onHeightChange,
 }: CanvasSizeDialogProps) => {
+  const { copy } = useI18n();
   const [maintainAspectRatio, setMaintainAspectRatio] = useState(true);
   const aspectRatioRef = useRef(1);
   const widthInputRef = useRef<HTMLInputElement | null>(null);
@@ -105,13 +107,13 @@ export const CanvasSizeDialog = ({
   return (
     <DialogFrame
       className="task-deadline-dialog canvas-size-dialog"
-      title="Change Canvas Size"
+      title={copy.canvasSizeDialog.title}
       onClose={onClose}
       onConfirm={onConfirm}
     >
       <div className="task-dialog-shell">
         <div className="dialog-field task-dialog-field group-dialog-field">
-          <label htmlFor="canvas-width">Canvas width:</label>
+          <label htmlFor="canvas-width">{copy.canvasSizeDialog.width}</label>
           <input
             ref={widthInputRef}
             className="group-dialog-input"
@@ -125,7 +127,7 @@ export const CanvasSizeDialog = ({
         </div>
 
         <div className="dialog-field task-dialog-field group-dialog-field">
-          <label htmlFor="canvas-height">Canvas height:</label>
+          <label htmlFor="canvas-height">{copy.canvasSizeDialog.height}</label>
           <input
             className="group-dialog-input"
             id="canvas-height"
@@ -143,7 +145,7 @@ export const CanvasSizeDialog = ({
             onChange={(event) => handleMaintainAspectRatioChange(event.target.checked)}
           />
           <span className="canvas-size-aspect-toggle-ui" aria-hidden="true" />
-          <span>Maintain aspect ratio</span>
+          <span>{copy.canvasSizeDialog.maintainAspectRatio}</span>
         </label>
 
         <div className="dialog-actions task-dialog-actions">
@@ -152,10 +154,10 @@ export const CanvasSizeDialog = ({
             className="dialog-button primary"
             onClick={onConfirm}
           >
-            Apply
+            {copy.common.apply}
           </button>
           <button type="button" className="dialog-button" onClick={onClose}>
-            Cancel
+            {copy.common.cancel}
           </button>
         </div>
       </div>

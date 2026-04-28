@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import type { Project } from "@shared/types/project";
+import { useI18n } from "@renderer/i18n";
 import type { ToastKind } from "@renderer/features/workspace/types";
 
 interface UseWorkspaceFileActionsOptions {
@@ -17,6 +18,7 @@ export const useWorkspaceFileActions = ({
   pushToast,
   setSelectedItemIds,
 }: UseWorkspaceFileActionsOptions) => {
+  const { copy } = useI18n();
   const saveProjectAs = useCallback(async () => {
     const response = await window.desktopApi.project.saveAs({
       project,
@@ -34,9 +36,9 @@ export const useWorkspaceFileActions = ({
 
     setProject(nextProject);
     refreshRecents();
-    pushToast("success", "Canvas saved to a new file.");
+    pushToast("success", copy.toasts.canvasSavedToNewFile);
     return nextProject;
-  }, [project, pushToast, refreshRecents, setProject]);
+  }, [copy.toasts.canvasSavedToNewFile, project, pushToast, refreshRecents, setProject]);
 
   const saveProject = useCallback(async () => {
     if (!project.filePath) {
@@ -55,9 +57,9 @@ export const useWorkspaceFileActions = ({
 
     setProject(nextProject);
     refreshRecents();
-    pushToast("success", "Canvas saved.");
+    pushToast("success", copy.toasts.canvasSaved);
     return nextProject;
-  }, [project, pushToast, refreshRecents, saveProjectAs, setProject]);
+  }, [copy.toasts.canvasSaved, project, pushToast, refreshRecents, saveProjectAs, setProject]);
 
   const openProject = useCallback(async () => {
     const response = await window.desktopApi.project.open();
@@ -68,9 +70,9 @@ export const useWorkspaceFileActions = ({
     setProject(response.project);
     setSelectedItemIds([]);
     refreshRecents();
-    pushToast("success", "Canvas opened.");
+    pushToast("success", copy.toasts.canvasOpened);
     return response.project;
-  }, [pushToast, refreshRecents, setProject, setSelectedItemIds]);
+  }, [copy.toasts.canvasOpened, pushToast, refreshRecents, setProject, setSelectedItemIds]);
 
   return {
     openProject,

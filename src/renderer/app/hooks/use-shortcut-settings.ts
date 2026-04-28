@@ -6,6 +6,7 @@ import {
   type ShortcutActionId,
   type ShortcutBindings,
 } from "@shared/shortcuts";
+import { useI18n } from "@renderer/i18n";
 
 const findBindingConflicts = (bindings: ShortcutBindings) => {
   const actionIdsByBinding = new Map<string, ShortcutActionId[]>();
@@ -37,6 +38,7 @@ interface UseShortcutSettingsOptions {
 export const useShortcutSettings = ({
   pushToast,
 }: UseShortcutSettingsOptions) => {
+  const { copy } = useI18n();
   const [shortcutBindings, setShortcutBindings] = useState<ShortcutBindings>(
     DEFAULT_SHORTCUT_BINDINGS,
   );
@@ -129,10 +131,10 @@ export const useShortcutSettings = ({
 
     try {
       await window.desktopApi.app.resetTitleBarTooltips();
-      pushToast("success", "Title bar tooltips reset.");
+      pushToast("success", copy.toasts.titleBarTooltipsReset);
       return true;
     } catch {
-      pushToast("error", "Couldn't reset title bar tooltips.");
+      pushToast("error", copy.toasts.titleBarTooltipsResetFailed);
       void window.desktopApi.app
         .getSettings()
         .then((settings) => {
@@ -143,12 +145,12 @@ export const useShortcutSettings = ({
         });
       return false;
     }
-  }, [pushToast]);
+  }, [copy.toasts.titleBarTooltipsReset, copy.toasts.titleBarTooltipsResetFailed, pushToast]);
 
   const saveShortcutBindings = useCallback(async () => {
     const hasConflicts = Object.keys(shortcutConflicts).length > 0;
     if (hasConflicts) {
-      pushToast("error", "Resolve duplicate shortcut bindings before saving.");
+      pushToast("error", copy.toasts.resolveDuplicateShortcuts);
       return false;
     }
 
@@ -159,9 +161,15 @@ export const useShortcutSettings = ({
     setShortcutBindings(savedBindings);
     setShortcutDraftBindings(savedBindings);
     setShortcutDialogOpen(false);
-    pushToast("success", "Keyboard shortcuts updated.");
+    pushToast("success", copy.toasts.keyboardShortcutsUpdated);
     return true;
-  }, [pushToast, shortcutConflicts, shortcutDraftBindings]);
+  }, [
+    copy.toasts.keyboardShortcutsUpdated,
+    copy.toasts.resolveDuplicateShortcuts,
+    pushToast,
+    shortcutConflicts,
+    shortcutDraftBindings,
+  ]);
 
   return {
     shortcutBindings,

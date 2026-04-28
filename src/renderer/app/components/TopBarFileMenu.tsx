@@ -3,6 +3,7 @@ import type { ShortcutBindings } from "@shared/shortcuts";
 import { MenuItemContent } from "@renderer/app/components/MenuItemContent";
 import { TopBarExportMenu } from "@renderer/app/components/TopBarExportMenu";
 import { getMenuActionContentProps } from "@renderer/app/menu/menu-action-config";
+import { useI18n } from "@renderer/i18n";
 
 interface TopBarFileMenuProps {
   shortcutBindings: ShortcutBindings;
@@ -39,23 +40,36 @@ export const TopBarFileMenu = ({
   onExportAllTasksTxt,
   onExit,
 }: TopBarFileMenuProps) => {
+  const { copy } = useI18n();
   const [exportOpen, setExportOpen] = useState(false);
 
   return (
     <>
       <button type="button" onClick={() => runMenuAction(onOpenProject)}>
         <MenuItemContent
-          {...getMenuActionContentProps(shortcutBindings, "open")}
+          {...getMenuActionContentProps(
+            shortcutBindings,
+            "open",
+            copy.menu.actions,
+          )}
         />
       </button>
       <button type="button" onClick={() => runMenuAction(onSaveProject)}>
         <MenuItemContent
-          {...getMenuActionContentProps(shortcutBindings, "saveCanvas")}
+          {...getMenuActionContentProps(
+            shortcutBindings,
+            "saveCanvas",
+            copy.menu.actions,
+          )}
         />
       </button>
       <button type="button" onClick={() => runMenuAction(onSaveProjectAs)}>
         <MenuItemContent
-          {...getMenuActionContentProps(shortcutBindings, "saveCanvasAs")}
+          {...getMenuActionContentProps(
+            shortcutBindings,
+            "saveCanvasAs",
+            copy.menu.actions,
+          )}
         />
       </button>
 
@@ -71,7 +85,7 @@ export const TopBarFileMenu = ({
           className="topbar-settings-submenu-trigger"
           onClick={() => setExportOpen(true)}
         >
-          <MenuItemContent icon="export" label="Export" submenu />
+          <MenuItemContent icon="export" label={copy.menu.export} submenu />
         </button>
         {exportOpen ? (
           <div className="topbar-settings-menu topbar-settings-submenu-panel">
@@ -93,7 +107,11 @@ export const TopBarFileMenu = ({
 
       <button type="button" onClick={() => runMenuAction(onImportTasks)}>
         <MenuItemContent
-          {...getMenuActionContentProps(shortcutBindings, "importTasks")}
+          {...getMenuActionContentProps(
+            shortcutBindings,
+            "importTasks",
+            copy.menu.actions,
+          )}
         />
       </button>
 
@@ -102,8 +120,14 @@ export const TopBarFileMenu = ({
       <button type="button" onClick={() => runMenuAction(onExit)}>
         <MenuItemContent
           icon="exit"
-          label="Quit"
-          shortcut={getMenuActionContentProps(shortcutBindings, "exit").shortcut}
+          label={copy.menu.quit}
+          shortcut={
+            getMenuActionContentProps(
+              shortcutBindings,
+              "exit",
+              copy.menu.actions,
+            ).shortcut
+          }
         />
       </button>
     </>

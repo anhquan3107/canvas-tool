@@ -1,5 +1,6 @@
 import { useCallback, type Dispatch, type SetStateAction } from "react";
 import type { Task } from "@shared/types/project";
+import { useI18n } from "@renderer/i18n";
 import type { TaskDateRange } from "@renderer/features/tasks/types";
 import { sanitizeTaskTitle } from "@renderer/features/tasks/utils";
 
@@ -68,10 +69,11 @@ export const useTaskCrud = ({
   registerTaskOverlayInteraction,
   registerTaskDetailInteraction,
 }: UseTaskCrudOptions) => {
+  const { copy } = useI18n();
   const handleSubmitTask = useCallback(() => {
     const title =
       sanitizeTaskTitle(draftTaskTitle) ||
-      sanitizeTaskTitle(`Task ${tasks.length + 1}`);
+      sanitizeTaskTitle(copy.tasks.defaults.newTask(tasks.length + 1));
 
     if (editingTaskId) {
       updateTask(
@@ -91,7 +93,9 @@ export const useTaskCrud = ({
       setTaskDialogMode("create");
       pushToast(
         "success",
-        taskDialogMode === "rename" ? `Renamed to ${title}.` : `Updated ${title}.`,
+        taskDialogMode === "rename"
+          ? copy.toasts.renamedTo(title)
+          : copy.toasts.updatedLabel(title),
       );
       return;
     }
@@ -109,9 +113,11 @@ export const useTaskCrud = ({
     setTaskDialogMode("create");
     registerTaskOverlayInteraction();
     registerTaskDetailInteraction();
-    pushToast("success", `Created ${title}.`);
+    pushToast("success", copy.toasts.createdLabel(title));
   }, [
     addTask,
+    copy.tasks.defaults,
+    copy.toasts,
     draftTaskTitle,
     editingTaskId,
     pushToast,
@@ -138,13 +144,13 @@ export const useTaskCrud = ({
     (taskId: string) => {
       const task = orderedTasks.find((entry) => entry.id === taskId);
       if (!task) {
-        pushToast("info", "Select a task to duplicate.");
+        pushToast("info", copy.toasts.selectTaskToDuplicate);
         return;
       }
 
       const nextTaskId = duplicateTask(taskId);
       if (!nextTaskId) {
-        pushToast("error", "Could not duplicate task.");
+        pushToast("error", copy.toasts.couldNotDuplicateTask);
         return;
       }
 
@@ -158,9 +164,10 @@ export const useTaskCrud = ({
       setTaskOverlayHovering(true);
       registerTaskOverlayInteraction();
       registerTaskDetailInteraction();
-      pushToast("success", `Duplicated ${task.title}.`);
+      pushToast("success", copy.toasts.duplicatedLabel(task.title));
     },
     [
+      copy.toasts,
       duplicateTask,
       orderedTasks,
       pushToast,
@@ -181,7 +188,7 @@ export const useTaskCrud = ({
     (taskId: string) => {
       const task = orderedTasks.find((entry) => entry.id === taskId);
       if (!task) {
-        pushToast("info", "Select a task to delete.");
+        pushToast("info", copy.toasts.selectTaskToDelete);
         return;
       }
 
@@ -203,9 +210,10 @@ export const useTaskCrud = ({
       setPendingTaskSelectionDismissal(false);
       setTaskListExpanded(false);
       setTaskCreationPreviewActive(false);
-      pushToast("success", `Deleted ${task.title}.`);
+      pushToast("success", copy.toasts.deletedLabel(task.title));
     },
     [
+      copy.toasts,
       exportSelectedTaskId,
       orderedTasks,
       pushToast,
@@ -223,12 +231,12 @@ export const useTaskCrud = ({
 
   const handleDeleteSelectedTask = useCallback(() => {
     if (!selectedTask) {
-      pushToast("info", "Select a task to delete.");
+      pushToast("info", copy.toasts.selectTaskToDelete);
       return;
     }
 
     handleDeleteTask(selectedTask.id);
-  }, [handleDeleteTask, pushToast, selectedTask]);
+  }, [copy.toasts.selectTaskToDelete, handleDeleteTask, pushToast, selectedTask]);
 
   return {
     handleSubmitTask,

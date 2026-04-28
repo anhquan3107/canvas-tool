@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { useI18n } from "@renderer/i18n";
 
 export interface FeatureGuideState {
   id: string;
@@ -16,6 +17,7 @@ export const useAppFeatureGuide = ({
   seenTitleBarTooltips,
   markTitleBarTooltipSeen,
 }: UseAppFeatureGuideOptions) => {
+  const { copy } = useI18n();
   const [featureGuide, setFeatureGuide] = useState<FeatureGuideState | null>(null);
 
   const maybeShowTodoGuide = useCallback(() => {
@@ -27,11 +29,10 @@ export const useAppFeatureGuide = ({
     markTitleBarTooltipSeen(guideId);
     setFeatureGuide({
       id: guideId,
-      label: "Todo List Management",
-      description:
-        "You can double-click on content to change it. Finish editing with Enter or click anywhere else.\n\nHold mouse on a todo task and drag to move task position. Tick the checkbox to confirm work completion. When all tasks in the todo panel are ticked, the Task deadline will automatically confirm complete.\n\nThe todo panel will be saved if you save the canvas file. If you don't save the canvas file, all edit operations, delete tasks, and move task positions will be lost. Please be careful.",
+      label: copy.tasks.todoGuide.label,
+      description: copy.tasks.todoGuide.description,
     });
-  }, [markTitleBarTooltipSeen, seenTitleBarTooltips]);
+  }, [copy.tasks.todoGuide.description, copy.tasks.todoGuide.label, markTitleBarTooltipSeen, seenTitleBarTooltips]);
 
   return {
     featureGuide,

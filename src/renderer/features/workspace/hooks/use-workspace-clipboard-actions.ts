@@ -7,6 +7,7 @@ import {
 import type { CanvasItem, ImageItem, ReferenceGroup } from "@shared/types/project";
 import type { ImagePatch, ToastKind } from "@renderer/features/workspace/types";
 import type { ImportPayload } from "@renderer/features/import/image-import";
+import { useI18n } from "@renderer/i18n";
 
 const CLIPBOARD_MAX_RENDER_PIXELS = 24_000_000;
 
@@ -249,6 +250,7 @@ export const useWorkspaceClipboardActions = ({
   runHistoryBatch,
   ensureCanvasFitsItems,
 }: UseWorkspaceClipboardActionsOptions) => {
+  const { copy } = useI18n();
   const lastSystemClipboardImageRef = useRef<string | null>(null);
 
   const syncSystemClipboardImage = useCallback(async (items: CanvasItem[]) => {
@@ -273,7 +275,7 @@ export const useWorkspaceClipboardActions = ({
 
   const copySelectedItemsToClipboard = useCallback(() => {
     if (!activeGroup || selectedItemIds.length === 0) {
-      pushToast("info", "No selected items to copy.");
+      pushToast("info", copy.toasts.noSelectedItemsToCopy);
       return;
     }
 
@@ -282,15 +284,16 @@ export const useWorkspaceClipboardActions = ({
       .sort((left, right) => left.zIndex - right.zIndex);
 
     if (selectedItems.length === 0) {
-      pushToast("info", "No selected items to copy.");
+      pushToast("info", copy.toasts.noSelectedItemsToCopy);
       return;
     }
 
     setClipboardItems(structuredClone(selectedItems));
     void syncSystemClipboardImage(selectedItems);
-    pushToast("success", `Copied ${selectedItems.length} item(s) to clipboard.`);
+    pushToast("success", copy.toasts.copiedItems(selectedItems.length));
   }, [
     activeGroup,
+    copy.toasts,
     pushToast,
     selectedItemIds,
     setClipboardItems,
@@ -299,12 +302,12 @@ export const useWorkspaceClipboardActions = ({
 
   const cutSelectedItems = useCallback(() => {
     if (!activeGroup || selectedItemIds.length === 0) {
-      pushToast("info", "No selected items to cut.");
+      pushToast("info", copy.toasts.noSelectedItemsToCut);
       return;
     }
 
     if (activeGroup.locked) {
-      pushToast("info", "Canvas is locked.");
+      pushToast("info", copy.toasts.canvasLocked);
       return;
     }
 
@@ -313,7 +316,7 @@ export const useWorkspaceClipboardActions = ({
       .sort((left, right) => left.zIndex - right.zIndex);
 
     if (selectedItems.length === 0) {
-      pushToast("info", "No selected items to cut.");
+      pushToast("info", copy.toasts.noSelectedItemsToCut);
       return;
     }
 
@@ -323,9 +326,10 @@ export const useWorkspaceClipboardActions = ({
       removeGroupItems(activeGroup.id, selectedItemIds);
       setSelectedItemIds([]);
     });
-    pushToast("success", "Selected item(s) cut.");
+    pushToast("success", copy.toasts.selectedItemsCut);
   }, [
     activeGroup,
+    copy.toasts,
     pushToast,
     removeGroupItems,
     runHistoryBatch,
@@ -337,12 +341,12 @@ export const useWorkspaceClipboardActions = ({
 
   const pasteClipboardItems = useCallback(() => {
     if (!activeGroup) {
-      pushToast("info", "Clipboard is empty.");
+      pushToast("info", copy.toasts.clipboardEmpty);
       return;
     }
 
     if (activeGroup.locked) {
-      pushToast("info", "Canvas is locked.");
+      pushToast("info", copy.toasts.canvasLocked);
       return;
     }
 
@@ -368,7 +372,7 @@ export const useWorkspaceClipboardActions = ({
       }
 
       if (clipboardItems.length === 0) {
-        pushToast("info", "Clipboard is empty.");
+        pushToast("info", copy.toasts.clipboardEmpty);
         return;
       }
 
@@ -400,12 +404,13 @@ export const useWorkspaceClipboardActions = ({
         );
       });
 
-      pushToast("success", `Pasted ${duplicates.length} item(s).`);
+      pushToast("success", copy.toasts.pastedItems(duplicates.length));
     })();
   }, [
     activeGroup,
     addGroupItems,
     clipboardItems,
+    copy.toasts,
     ensureCanvasFitsItems,
     importFromPayload,
     pushToast,
@@ -415,12 +420,12 @@ export const useWorkspaceClipboardActions = ({
 
   const deleteSelectedItems = useCallback(() => {
     if (!activeGroup || selectedItemIds.length === 0) {
-      pushToast("info", "No selected images to delete.");
+      pushToast("info", copy.toasts.noSelectedImagesToDelete);
       return;
     }
 
     if (activeGroup.locked) {
-      pushToast("info", "Canvas is locked.");
+      pushToast("info", copy.toasts.canvasLocked);
       return;
     }
 
@@ -428,9 +433,10 @@ export const useWorkspaceClipboardActions = ({
       removeGroupItems(activeGroup.id, selectedItemIds);
       setSelectedItemIds([]);
     });
-    pushToast("success", "Selected image(s) deleted.");
+    pushToast("success", copy.toasts.selectedImagesDeleted);
   }, [
     activeGroup,
+    copy.toasts,
     pushToast,
     removeGroupItems,
     runHistoryBatch,
@@ -440,30 +446,30 @@ export const useWorkspaceClipboardActions = ({
 
   const flipSelectedItemsHorizontally = useCallback(() => {
     if (!activeGroup || selectedItemIds.length === 0) {
-      pushToast("info", "No selected images to flip.");
+      pushToast("info", copy.toasts.noSelectedImagesToFlip);
       return;
     }
 
     if (activeGroup.locked) {
-      pushToast("info", "Canvas is locked.");
+      pushToast("info", copy.toasts.canvasLocked);
       return;
     }
 
     runHistoryBatch(() => {
       flipItems(activeGroup.id, selectedItemIds);
     });
-    pushToast("success", "Selected image(s) flipped horizontally.");
-  }, [activeGroup, flipItems, pushToast, runHistoryBatch, selectedItemIds]);
+    pushToast("success", copy.toasts.selectedImagesFlipped);
+  }, [activeGroup, copy.toasts, flipItems, pushToast, runHistoryBatch, selectedItemIds]);
 
   const applyCropToSelectedImage = useCallback(
     (cropRect: { left: number; top: number; right: number; bottom: number }) => {
       if (!activeGroup || selectedItemIds.length !== 1) {
-        pushToast("info", "Select exactly one image to crop.");
+        pushToast("info", copy.toasts.selectOneImageToCrop);
         return;
       }
 
       if (activeGroup.locked) {
-        pushToast("info", "Canvas is locked.");
+        pushToast("info", copy.toasts.canvasLocked);
         return;
       }
 
@@ -473,7 +479,7 @@ export const useWorkspaceClipboardActions = ({
       );
 
       if (!targetItem) {
-        pushToast("info", "Select exactly one image to crop.");
+        pushToast("info", copy.toasts.selectOneImageToCrop);
         return;
       }
 
@@ -546,9 +552,9 @@ export const useWorkspaceClipboardActions = ({
         });
       });
 
-      pushToast("success", "Image cropped.");
+      pushToast("success", copy.toasts.imageCropped);
     },
-    [activeGroup, patchGroupItems, pushToast, runHistoryBatch, selectedItemIds],
+    [activeGroup, copy.toasts, patchGroupItems, pushToast, runHistoryBatch, selectedItemIds],
   );
 
   return {

@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { ShortcutBindings } from "@shared/shortcuts";
 import { MenuItemContent } from "@renderer/app/components/MenuItemContent";
 import { getMenuActionContentProps } from "@renderer/app/menu/menu-action-config";
+import { useI18n } from "@renderer/i18n";
 
 interface TopBarExportMenuProps {
   shortcutBindings: ShortcutBindings;
@@ -28,6 +29,7 @@ export const TopBarExportMenu = ({
   onExportSelectedTaskTxt,
   onExportAllTasksTxt,
 }: TopBarExportMenuProps) => {
+  const { copy } = useI18n();
   const [taskExportOpen, setTaskExportOpen] = useState(false);
 
   return (
@@ -37,7 +39,11 @@ export const TopBarExportMenu = ({
         onClick={() => runMenuAction(onExportCanvasImage)}
       >
         <MenuItemContent
-          {...getMenuActionContentProps(shortcutBindings, "exportCanvasImage")}
+          {...getMenuActionContentProps(
+            shortcutBindings,
+            "exportCanvasImage",
+            copy.menu.actions,
+          )}
         />
       </button>
       <button
@@ -45,7 +51,11 @@ export const TopBarExportMenu = ({
         onClick={() => runMenuAction(onExportGroupImages)}
       >
         <MenuItemContent
-          {...getMenuActionContentProps(shortcutBindings, "exportGroupImages")}
+          {...getMenuActionContentProps(
+            shortcutBindings,
+            "exportGroupImages",
+            copy.menu.actions,
+          )}
         />
       </button>
       <div
@@ -58,7 +68,7 @@ export const TopBarExportMenu = ({
           className="topbar-settings-submenu-trigger"
           onClick={() => setTaskExportOpen(true)}
         >
-          <MenuItemContent icon="task" label="Export Tasks" submenu />
+          <MenuItemContent icon="task" label={copy.menu.exportTasks} submenu />
         </button>
         {taskExportOpen ? (
           <div className="topbar-settings-menu topbar-settings-submenu-panel">
@@ -71,6 +81,7 @@ export const TopBarExportMenu = ({
                 {...getMenuActionContentProps(
                   shortcutBindings,
                   "exportSelectedTaskHtml",
+                  copy.menu.actions,
                 )}
               />
             </button>
@@ -83,6 +94,7 @@ export const TopBarExportMenu = ({
                 {...getMenuActionContentProps(
                   shortcutBindings,
                   "exportAllTasksHtml",
+                  copy.menu.actions,
                 )}
               />
             </button>
@@ -95,6 +107,7 @@ export const TopBarExportMenu = ({
                 {...getMenuActionContentProps(
                   shortcutBindings,
                   "exportSelectedTaskTxt",
+                  copy.menu.actions,
                 )}
               />
             </button>
@@ -107,6 +120,7 @@ export const TopBarExportMenu = ({
                 {...getMenuActionContentProps(
                   shortcutBindings,
                   "exportAllTasksTxt",
+                  copy.menu.actions,
                 )}
               />
             </button>

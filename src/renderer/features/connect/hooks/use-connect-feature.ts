@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { CaptureItem } from "@shared/types/project";
+import { useI18n } from "@renderer/i18n";
 import type { CaptureSource, CaptureQuality } from "@renderer/features/connect/types";
 
 interface UseConnectFeatureOptions {
@@ -16,6 +17,7 @@ export const useConnectFeature = ({
   onConnect,
   qualityProfiles,
 }: UseConnectFeatureOptions) => {
+  const { copy } = useI18n();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [loadingSources, setLoadingSources] = useState(false);
   const [sources, setSources] = useState<CaptureSource[]>([]);
@@ -46,15 +48,15 @@ export const useConnectFeature = ({
       .catch(() => {
         setSources([]);
         setSelectedSourceId(null);
-        pushToast("error", "Could not list capturable windows.");
+        pushToast("error", copy.toasts.couldNotListSources);
       })
       .finally(() => setLoadingSources(false));
-  }, [dialogOpen, pushToast]);
+  }, [copy.toasts.couldNotListSources, dialogOpen, pushToast]);
 
   const handleConfirm = useCallback(() => {
     const source = sources.find((entry) => entry.id === selectedSourceId);
     if (!source) {
-      pushToast("info", "Select a window or screen to connect.");
+      pushToast("info", copy.toasts.selectSourceToConnect);
       return;
     }
 
@@ -63,13 +65,27 @@ export const useConnectFeature = ({
         setDialogOpen(false);
         pushToast(
           "success",
-          `Connected ${source.name} (${qualityProfiles[quality].label}).`,
+          copy.toasts.connectedSource(
+            source.name,
+            copy.capture.quality[quality] ?? qualityProfiles[quality].label,
+          ),
         );
       })
       .catch(() => {
-        pushToast("error", "Could not open capture window.");
+        pushToast("error", copy.toasts.couldNotOpenCaptureWindow);
       });
-  }, [onConnect, pushToast, quality, qualityProfiles, selectedSourceId, sources]);
+  }, [
+    copy.capture.quality,
+    copy.toasts.connectedSource,
+    copy.toasts.couldNotOpenCaptureWindow,
+    copy.toasts.selectSourceToConnect,
+    onConnect,
+    pushToast,
+    quality,
+    qualityProfiles,
+    selectedSourceId,
+    sources,
+  ]);
 
   return {
     dialogOpen,

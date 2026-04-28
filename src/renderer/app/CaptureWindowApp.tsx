@@ -20,6 +20,7 @@ import {
   isWindowsDesktopCapturePlatform,
 } from "@renderer/features/connect/utils";
 import { useShortcuts } from "@renderer/hooks/use-shortcuts";
+import { useI18n } from "@renderer/i18n";
 
 type PreviewCropInsets = {
   top: number;
@@ -80,6 +81,7 @@ const getEffectivePreviewSize = (
 
 export const CaptureWindowApp = () => {
   useWindowRightDrag();
+  const { copy } = useI18n();
   const windowFocused = useWindowFocusState();
   const initial = useMemo(() => getCaptureLocationParams(), []);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -89,7 +91,7 @@ export const CaptureWindowApp = () => {
   const loadSourcesRef = useRef<() => Promise<void>>(async () => undefined);
   const edgeRevealActiveRef = useRef(false);
   const sessionStateRef = useRef<CaptureSessionState>({
-    sourceName: initial.sourceName,
+    sourceName: initial.sourceName || copy.capture.title,
     quality: initial.quality,
     blurEnabled: false,
     bwEnabled: false,
@@ -99,7 +101,7 @@ export const CaptureWindowApp = () => {
     windowAlwaysOnTop: false,
   });
   const [sourceId, setSourceId] = useState(initial.sourceId);
-  const [sourceName, setSourceName] = useState(initial.sourceName);
+  const [sourceName, setSourceName] = useState(initial.sourceName || copy.capture.title);
   const [sourceKind, setSourceKind] = useState<"window" | "screen">(initial.sourceKind);
   const [quality, setQuality] = useState<CaptureQuality>(initial.quality);
   const [loading, setLoading] = useState(false);
@@ -192,8 +194,10 @@ export const CaptureWindowApp = () => {
   );
 
   useEffect(() => {
-    void window.desktopApi.window.setTitle({ title: `Capture - ${sourceName}` });
-  }, [sourceName]);
+    void window.desktopApi.window.setTitle({
+      title: `${copy.capture.title} - ${sourceName}`,
+    });
+  }, [copy.capture.title, sourceName]);
 
   useEffect(() => {
     setSelectedQuality(quality);
@@ -266,15 +270,15 @@ export const CaptureWindowApp = () => {
       setErrorMessage(
         error instanceof Error &&
           error.message.toLowerCase().includes("permission")
-          ? "Screen recording permission is required for this capture."
-          : "Could not start capture preview.",
+          ? copy.capture.permissionRequired
+          : copy.capture.previewStartFailed,
       );
     });
 
     return () => {
       mounted = false;
     };
-  }, [quality, sourceId]);
+  }, [copy.capture.permissionRequired, copy.capture.previewStartFailed, quality, sourceId]);
 
   useEffect(
     () => () => {
@@ -791,7 +795,7 @@ export const CaptureWindowApp = () => {
             {blurEnabled ? (
               <div className="capture-preview-footer">
                 <label className="capture-blur-control">
-                  <span>Blur</span>
+                  <span>{copy.capture.blur}</span>
                   <input
                     type="range"
                     min={0}
@@ -807,7 +811,7 @@ export const CaptureWindowApp = () => {
             ) : null}
 
             {loading ? (
-              <div className="capture-preview-message">Starting live preview…</div>
+              <div className="capture-preview-message">{copy.capture.startingPreview}</div>
             ) : null}
             {errorMessage ? (
               <div className="capture-preview-message capture-preview-error">

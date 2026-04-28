@@ -1,4 +1,4 @@
-import type { Project, Task } from "./project";
+import type { AppLocale, Project, Task } from "./project";
 import type { CaptureItem } from "./project";
 import type { AppSettings } from "./project";
 import type { ShortcutBindings } from "../shortcuts";
@@ -180,6 +180,7 @@ export interface DesktopApi {
   app: {
     getVersion: () => Promise<string>;
     getSettings: () => Promise<AppSettings>;
+    saveLocale: (locale: AppLocale) => Promise<AppLocale>;
     saveShortcutBindings: (
       bindings: ShortcutBindings,
     ) => Promise<ShortcutBindings>;

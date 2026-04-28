@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { useI18n } from "@renderer/i18n";
 
 interface UseGroupFeatureOptions {
   groupCount: number;
@@ -17,8 +18,9 @@ export const useGroupFeature = ({
   setSelectedItemIds,
   pushToast,
 }: UseGroupFeatureOptions) => {
+  const { copy } = useI18n();
   const [groupDialogOpen, setGroupDialogOpen] = useState(false);
-  const [draftGroupName, setDraftGroupName] = useState("Group 1");
+  const [draftGroupName, setDraftGroupName] = useState(copy.groups.defaultName(1));
   const [editingGroup, setEditingGroup] = useState<{
     id: string;
     currentName: string;
@@ -26,9 +28,9 @@ export const useGroupFeature = ({
 
   const openGroupDialog = useCallback(() => {
     setEditingGroup(null);
-    setDraftGroupName(`Group ${groupCount + 1}`);
+    setDraftGroupName(copy.groups.defaultName(groupCount + 1));
     setGroupDialogOpen(true);
-  }, [groupCount]);
+  }, [copy.groups, groupCount]);
 
   const openRenameGroupDialog = useCallback((groupId: string, currentName: string) => {
     setEditingGroup({ id: groupId, currentName });
@@ -37,14 +39,14 @@ export const useGroupFeature = ({
   }, []);
 
   const handleCreateGroup = useCallback(() => {
-    const fallbackName = editingGroup?.currentName || `Group ${groupCount + 1}`;
+    const fallbackName = editingGroup?.currentName || copy.groups.defaultName(groupCount + 1);
     const name = draftGroupName.trim() || fallbackName;
 
     if (editingGroup) {
       renameGroup(editingGroup.id, name);
       setGroupDialogOpen(false);
       setEditingGroup(null);
-      pushToast("success", `Renamed group to ${name}.`);
+      pushToast("success", copy.toasts.renamedGroupTo(name));
       return;
     }
 
@@ -52,9 +54,11 @@ export const useGroupFeature = ({
     setSelectedItemIds([]);
     setGroupDialogOpen(false);
     onCreateGroupSuccess();
-    pushToast("success", `Saved current canvas as ${name}.`);
+    pushToast("success", copy.toasts.savedCurrentCanvasAs(name));
   }, [
     addGroup,
+    copy.groups,
+    copy.toasts,
     draftGroupName,
     editingGroup,
     groupCount,

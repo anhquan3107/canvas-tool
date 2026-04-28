@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import type { CanvasItem, ReferenceGroup } from "@shared/types/project";
+import { useI18n } from "@renderer/i18n";
 
 interface GroupOverlayProps {
   groups: ReferenceGroup[];
@@ -372,6 +373,7 @@ export const GroupOverlay = ({
   onRenameGroup,
   onDeleteGroup,
 }: GroupOverlayProps) => {
+  const { copy } = useI18n();
   const [menuState, setMenuState] = useState<{
     groupId: string;
     x: number;
@@ -594,7 +596,7 @@ export const GroupOverlay = ({
               setMenuState(null);
             }}
           >
-            Rename
+            {copy.groupOverlay.rename}
           </button>
           <button
             type="button"
@@ -604,7 +606,7 @@ export const GroupOverlay = ({
               setMenuState(null);
             }}
           >
-            Delete
+            {copy.groupOverlay.delete}
           </button>
         </div>
       ) : null}

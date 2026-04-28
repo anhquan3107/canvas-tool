@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { ShortcutBindings } from "@shared/shortcuts";
 import { MenuItemContent } from "@renderer/app/components/MenuItemContent";
 import { getMenuActionContentProps } from "@renderer/app/menu/menu-action-config";
+import { useI18n } from "@renderer/i18n";
 
 interface AppMenuCanvasSectionProps {
   shortcutBindings: ShortcutBindings;
@@ -38,6 +39,7 @@ export const AppMenuCanvasSection = ({
   onToggleBlur,
   onActivateDoodle,
 }: AppMenuCanvasSectionProps) => {
+  const { copy } = useI18n();
   const [canvasArrangeOpen, setCanvasArrangeOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const canvasActionsDisabled = canvasLocked;
@@ -46,7 +48,11 @@ export const AppMenuCanvasSection = ({
     <>
       <button type="button" onClick={onResetView} disabled={canvasActionsDisabled}>
         <MenuItemContent
-          {...getMenuActionContentProps(shortcutBindings, "resetView")}
+          {...getMenuActionContentProps(
+            shortcutBindings,
+            "resetView",
+            copy.menu.actions,
+          )}
         />
       </button>
       <button
@@ -55,32 +61,52 @@ export const AppMenuCanvasSection = ({
         disabled={canvasActionsDisabled}
       >
         <MenuItemContent
-          {...getMenuActionContentProps(shortcutBindings, "fitCanvasToContent")}
+          {...getMenuActionContentProps(
+            shortcutBindings,
+            "fitCanvasToContent",
+            copy.menu.actions,
+          )}
         />
       </button>
       <button type="button" onClick={onChangeCanvasSize} disabled={canvasActionsDisabled}>
         <MenuItemContent
-          {...getMenuActionContentProps(shortcutBindings, "changeCanvasSize")}
+          {...getMenuActionContentProps(
+            shortcutBindings,
+            "changeCanvasSize",
+            copy.menu.actions,
+          )}
         />
       </button>
       <button type="button" onClick={onToggleSwatches} disabled={canvasActionsDisabled}>
         <MenuItemContent
-          {...getMenuActionContentProps(shortcutBindings, "toggleSwatches")}
+          {...getMenuActionContentProps(
+            shortcutBindings,
+            "toggleSwatches",
+            copy.menu.actions,
+          )}
         />
       </button>
       <button type="button" onClick={onToggleCanvasLock}>
         <MenuItemContent
           icon="lock"
-          label={canvasLocked ? "Unlock Canvas" : "Lock Canvas"}
+          label={canvasLocked ? copy.menu.unlockCanvas : copy.menu.lockCanvas}
           shortcut={
-            getMenuActionContentProps(shortcutBindings, "toggleCanvasLock").shortcut
+            getMenuActionContentProps(
+              shortcutBindings,
+              "toggleCanvasLock",
+              copy.menu.actions,
+            ).shortcut
           }
         />
       </button>
       <div className="app-menu-divider" />
       <button type="button" onClick={onCreateGroup} disabled={canvasActionsDisabled}>
         <MenuItemContent
-          {...getMenuActionContentProps(shortcutBindings, "createGroup")}
+          {...getMenuActionContentProps(
+            shortcutBindings,
+            "createGroup",
+            copy.menu.actions,
+          )}
         />
       </button>
       <button
@@ -89,7 +115,11 @@ export const AppMenuCanvasSection = ({
         disabled={!canDeleteActiveGroup || canvasActionsDisabled}
       >
         <MenuItemContent
-          {...getMenuActionContentProps(shortcutBindings, "deleteCurrentGroup")}
+          {...getMenuActionContentProps(
+            shortcutBindings,
+            "deleteCurrentGroup",
+            copy.menu.actions,
+          )}
         />
       </button>
       <div
@@ -111,13 +141,17 @@ export const AppMenuCanvasSection = ({
             }
           }}
         >
-          <MenuItemContent icon="arrange" label="Arrange" submenu />
+          <MenuItemContent icon="arrange" label={copy.menu.arrange} submenu />
         </button>
         {canvasArrangeOpen && !canvasActionsDisabled ? (
           <div className="app-menu app-menu-submenu-panel">
             <button type="button" onClick={onAutoArrange}>
               <MenuItemContent
-                {...getMenuActionContentProps(shortcutBindings, "autoArrange")}
+                {...getMenuActionContentProps(
+                  shortcutBindings,
+                  "autoArrange",
+                  copy.menu.actions,
+                )}
               />
             </button>
           </div>
@@ -126,7 +160,11 @@ export const AppMenuCanvasSection = ({
       <div className="app-menu-divider" />
       <button type="button" onClick={onShowBackgroundColor} disabled={canvasActionsDisabled}>
         <MenuItemContent
-          {...getMenuActionContentProps(shortcutBindings, "changeBackgroundColor")}
+          {...getMenuActionContentProps(
+            shortcutBindings,
+            "changeBackgroundColor",
+            copy.menu.actions,
+          )}
         />
       </button>
       <div
@@ -148,7 +186,7 @@ export const AppMenuCanvasSection = ({
             }
           }}
         >
-          <MenuItemContent icon="filter" label="Filter" submenu />
+          <MenuItemContent icon="filter" label={copy.menu.filter} submenu />
         </button>
         {filterOpen && !canvasActionsDisabled ? (
           <div className="app-menu app-menu-submenu-panel">
@@ -157,12 +195,17 @@ export const AppMenuCanvasSection = ({
                 {...getMenuActionContentProps(
                   shortcutBindings,
                   "filterBlackAndWhite",
+                  copy.menu.actions,
                 )}
               />
             </button>
             <button type="button" onClick={onToggleBlur}>
               <MenuItemContent
-                {...getMenuActionContentProps(shortcutBindings, "filterBlur")}
+                {...getMenuActionContentProps(
+                  shortcutBindings,
+                  "filterBlur",
+                  copy.menu.actions,
+                )}
               />
             </button>
           </div>
@@ -170,7 +213,13 @@ export const AppMenuCanvasSection = ({
       </div>
       <div className="app-menu-divider" />
       <button type="button" onClick={onActivateDoodle} disabled={canvasActionsDisabled}>
-        <MenuItemContent {...getMenuActionContentProps(shortcutBindings, "doodle")} />
+        <MenuItemContent
+          {...getMenuActionContentProps(
+            shortcutBindings,
+            "doodle",
+            copy.menu.actions,
+          )}
+        />
       </button>
     </>
   );

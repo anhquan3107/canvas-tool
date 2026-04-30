@@ -8,7 +8,6 @@ import {
 import { guardWindowDevTools } from "./devtools-guard";
 import { watchDisplayAvailability } from "./display-watch";
 import { setupIpcHandlers } from "./ipc/ipc-handlers";
-import { getSavedWindowOpacity } from "./window-opacity";
 import {
   getRestoredMainWindowPlacement,
   watchMainWindowPlacement,
@@ -113,7 +112,9 @@ const createMainWindow = async () => {
     minWidth: 1100,
     minHeight: 700,
     frame: false,
-    transparent: true,
+    transparent: false,
+    backgroundColor: "#1f1f21",
+    ...(process.platform === "win32" ? { thickFrame: true } : {}),
     title: "CanvasTool",
     ...(process.platform !== "darwin" ? { icon: getRuntimeAppIconPath() } : {}),
     webPreferences: {
@@ -126,6 +127,11 @@ const createMainWindow = async () => {
   guardWindowDevTools(mainWindow);
   registerAppShortcutOverrides(mainWindow);
   watchMainWindowPlacement(mainWindow);
+  if (process.platform === "win32") {
+    mainWindow.on("resize", () => {
+      mainWindow.webContents.invalidate();
+    });
+  }
 
   setupIpcHandlers(mainWindow);
 

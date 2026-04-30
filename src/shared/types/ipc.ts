@@ -97,11 +97,6 @@ export interface AppWindowSize {
   height: number;
 }
 
-export interface AppWindowOpacityRequest {
-  opacity: number;
-  persist?: boolean;
-}
-
 export interface AppWindowIgnoreMouseRequest {
   ignore: boolean;
   forward?: boolean;
@@ -239,8 +234,6 @@ export interface DesktopApi {
     setBounds: (payload: AppWindowBounds) => Promise<void>;
     setBoundsImmediate: (payload: AppWindowBounds) => void;
     setIgnoreMouseEvents: (payload: AppWindowIgnoreMouseRequest) => Promise<void>;
-    getOpacity: () => Promise<number>;
-    setOpacity: (payload: AppWindowOpacityRequest) => Promise<number>;
   };
   clipboard: {
     writeImageFromDataUrl: (

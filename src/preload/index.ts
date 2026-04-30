@@ -211,8 +211,6 @@ const desktopApi: DesktopApi = {
     },
     setIgnoreMouseEvents: (payload) =>
       ipcRenderer.invoke("window:set-ignore-mouse-events", payload),
-    getOpacity: () => ipcRenderer.invoke("window:get-opacity"),
-    setOpacity: (payload) => ipcRenderer.invoke("window:set-opacity", payload),
   },
   clipboard: {
     writeImageFromDataUrl: (payload) =>

@@ -25,7 +25,6 @@ import { useShortcutSettings } from "@renderer/app/hooks/use-shortcut-settings";
 import { useWindowControls } from "@renderer/app/hooks/use-window-controls";
 import { useWindowFocusState } from "@renderer/app/hooks/use-window-focus-state";
 import { useWindowRightDrag } from "@renderer/app/hooks/use-window-right-drag";
-import { useWindowResize } from "@renderer/app/hooks/use-window-resize";
 import {
   type BackgroundColorPreviewState,
   useAppBackgroundActions,
@@ -66,27 +65,13 @@ type CropSession = {
   rect: { left: number; top: number; right: number; bottom: number };
 } | null;
 
-const clampWindowOpacity = (value: number) => Math.min(1, Math.max(0.05, value));
 const TOPBAR_SLIDE_TRANSITION_MS = 180;
 const TOPBAR_HIDE_DELAY_MS = 1500;
-const APP_WINDOW_RESIZE_DIRECTIONS = [
-  "n",
-  "s",
-  "e",
-  "w",
-  "ne",
-  "nw",
-  "se",
-  "sw",
-] as const;
 
 export const AppShell = () => {
   useWindowRightDrag();
   const { copy } = useI18n();
   const windowFocused = useWindowFocusState();
-  const customResizeSupported =
-    typeof navigator !== "undefined" &&
-    navigator.userAgent.includes("Windows");
   const appShellRef = useRef<HTMLDivElement | null>(null);
   const topbarRef = useRef<HTMLElement | null>(null);
   const topbarRevealZoneRef = useRef<HTMLDivElement | null>(null);
@@ -346,7 +331,6 @@ export const AppShell = () => {
   const [cropSession, setCropSession] = useState<CropSession>(null);
   const [backgroundColorPreview, setBackgroundColorPreview] =
     useState<BackgroundColorPreviewState | null>(null);
-  const [windowOpacity, setWindowOpacity] = useState<number | null>(null);
   const [swatchesHidden, setSwatchesHidden] = useState(false);
   const [taskImportPreview, setTaskImportPreview] =
     useState<TaskImportPreviewState | null>(null);
@@ -384,27 +368,6 @@ export const AppShell = () => {
 
     return detachProgressListener;
   }, [beginProgressToast]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    void window.desktopApi.window
-      .getOpacity()
-      .then((nextOpacity) => {
-        if (!cancelled) {
-          setWindowOpacity(clampWindowOpacity(nextOpacity));
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setWindowOpacity(1);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const refreshRecents = useCallback(() => {
     window.desktopApi.project
@@ -512,24 +475,18 @@ export const AppShell = () => {
     canvasSizePreview,
     lastSavedSignature: lastSavedSignatureRef.current,
   });
-  const appBackgroundOpacity = clampWindowOpacity(
-    backgroundColorPreview?.windowOpacity ?? windowOpacity ?? 1,
-  );
   const appShellStyle = {
-    backgroundColor: hexToRgba(appShellBackgroundColor, appBackgroundOpacity),
-    "--bg-panel": `rgba(34, 34, 37, ${0.96 * appBackgroundOpacity})`,
-    "--bg-panel-soft": `rgba(42, 42, 46, ${0.86 * appBackgroundOpacity})`,
-    "--bg-menu": `rgba(38, 38, 42, ${0.98 * appBackgroundOpacity})`,
-    "--bg-chrome": `rgba(31, 31, 33, ${0.94 * appBackgroundOpacity})`,
-    "--bg-chrome-solid": `rgba(31, 31, 33, ${appBackgroundOpacity})`,
-    "--topbar-bg": `rgba(45, 44, 49, ${appBackgroundOpacity})`,
-    "--status-pill-bg": `rgba(18, 18, 20, ${0.54 * appBackgroundOpacity})`,
-    "--status-pill-hover-bg": `rgba(18, 18, 20, ${0.68 * appBackgroundOpacity})`,
+    backgroundColor: hexToRgba(appShellBackgroundColor, 1),
+    "--bg-panel": "rgba(34, 34, 37, 0.96)",
+    "--bg-panel-soft": "rgba(42, 42, 46, 0.86)",
+    "--bg-menu": "rgba(38, 38, 42, 0.98)",
+    "--bg-chrome": "rgba(31, 31, 33, 0.94)",
+    "--bg-chrome-solid": "rgba(31, 31, 33, 1)",
+    "--topbar-bg": "rgba(45, 44, 49, 1)",
+    "--status-pill-bg": "rgba(18, 18, 20, 0.54)",
+    "--status-pill-hover-bg": "rgba(18, 18, 20, 0.68)",
   } as CSSProperties;
-  const windowSurfaceColor = hexToRgba(
-    appShellBackgroundColor,
-    appBackgroundOpacity,
-  );
+  const windowSurfaceColor = hexToRgba(appShellBackgroundColor, 1);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -787,7 +744,6 @@ export const AppShell = () => {
     handleSaveProject,
     handleSaveProjectAs,
   });
-  useWindowResize(customResizeSupported && !windowMaximized);
 
   const {
     clearTransientUi,
@@ -1023,8 +979,6 @@ export const AppShell = () => {
     setMenuState,
     setSettingsOpen,
     setSwatchesHidden,
-    setWindowOpacity,
-    windowOpacity,
   });
 
   useEffect(() => {
@@ -1225,17 +1179,6 @@ export const AppShell = () => {
       onPointerCancelCapture={handleShellPointerUpCapture}
       onContextMenu={handleShellContextMenu}
     >
-      {customResizeSupported && !windowMaximized
-        ? APP_WINDOW_RESIZE_DIRECTIONS.map((direction) => (
-            <div
-              key={direction}
-              className={`app-window-resize-handle app-window-resize-${direction}`}
-              data-window-resize={direction}
-              data-window-no-drag="true"
-              aria-hidden="true"
-            />
-          ))
-        : null}
       <div
         className={`desktop-frame ${windowFocused ? "" : "window-unfocused"} ${
           topbarVisible ? "topbar-revealed" : ""
@@ -1379,14 +1322,14 @@ export const AppShell = () => {
                 backgroundColor: hexToRgba(
                   displayGroup?.backgroundColor ??
                     DEFAULT_GROUP_BACKGROUND_COLOR,
-                  appBackgroundOpacity,
+                  1,
                 ),
               }}
             >
               {displayGroup ? (
                 <CanvasBoard
                   group={displayGroup}
-                  surfaceOpacity={appBackgroundOpacity}
+                  surfaceOpacity={1}
                   showSwatches={!swatchesHidden}
                   activeTool={activeTool}
                   doodleMode={doodleMode}
@@ -1809,7 +1752,6 @@ export const AppShell = () => {
         onBackgroundColorPreviewChange={setBackgroundColorPreview}
         onBackgroundColorConfirm={handleConfirmBackgroundColorDialog}
         onConfirmCloseCancel={() => setConfirmCloseOpen(false)}
-        windowOpacity={windowOpacity ?? 1}
       />
     </div>
   );

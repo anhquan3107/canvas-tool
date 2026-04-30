@@ -21,16 +21,13 @@ interface UseColorPickerStateOptions {
   open: boolean;
   canvasColor: string;
   backgroundColor: string;
-  windowOpacity: number;
   onPreviewChange: (colors: {
     canvasColor: string;
     backgroundColor: string;
-    windowOpacity: number;
   }) => void;
   onConfirm: (colors: {
     canvasColor: string;
     backgroundColor: string;
-    windowOpacity: number;
   }) => void;
 }
 
@@ -38,7 +35,6 @@ export const useColorPickerState = ({
   open,
   canvasColor,
   backgroundColor,
-  windowOpacity,
   onPreviewChange,
   onConfirm,
 }: UseColorPickerStateOptions) => {
@@ -54,7 +50,6 @@ export const useColorPickerState = ({
   const [target, setTarget] = useState<ColorTarget>("canvas");
   const [draftCanvasColor, setDraftCanvasColor] = useState(canvasColor);
   const [draftBackgroundColor, setDraftBackgroundColor] = useState(backgroundColor);
-  const [draftWindowOpacity, setDraftWindowOpacity] = useState(windowOpacity);
   const [hue, setHue] = useState(0);
   const [saturation, setSaturation] = useState(0);
   const [value, setValue] = useState(0);
@@ -83,7 +78,6 @@ export const useColorPickerState = ({
     if (!open) {
       setDraftCanvasColor(canvasColor);
       setDraftBackgroundColor(backgroundColor);
-      setDraftWindowOpacity(windowOpacity);
       return;
     }
 
@@ -94,8 +88,7 @@ export const useColorPickerState = ({
     setTarget("canvas");
     setDraftCanvasColor(canvasColor);
     setDraftBackgroundColor(backgroundColor);
-    setDraftWindowOpacity(windowOpacity);
-  }, [backgroundColor, canvasColor, open, windowOpacity]);
+  }, [backgroundColor, canvasColor, open]);
 
   useEffect(() => {
     previousOpenRef.current = open;
@@ -158,15 +151,8 @@ export const useColorPickerState = ({
     onPreviewChange({
       canvasColor: draftCanvasColor,
       backgroundColor: draftBackgroundColor,
-      windowOpacity: draftWindowOpacity,
     });
-  }, [
-    draftBackgroundColor,
-    draftCanvasColor,
-    draftWindowOpacity,
-    onPreviewChange,
-    open,
-  ]);
+  }, [draftBackgroundColor, draftCanvasColor, onPreviewChange, open]);
 
   const squarePointer = (clientX: number, clientY: number) => {
     const canvas = squareCanvasRef.current;
@@ -368,7 +354,6 @@ export const useColorPickerState = ({
   const handleReset = () => {
     setDraftCanvasColor(DEFAULT_GROUP_CANVAS_COLOR);
     setDraftBackgroundColor(DEFAULT_GROUP_BACKGROUND_COLOR);
-    setDraftWindowOpacity(1);
   };
 
   const handleConfirm = () => {
@@ -393,7 +378,6 @@ export const useColorPickerState = ({
     onConfirm({
       canvasColor: canvasColorToConfirm,
       backgroundColor: backgroundColorToConfirm,
-      windowOpacity: draftWindowOpacity,
     });
   };
 
@@ -403,8 +387,6 @@ export const useColorPickerState = ({
     target,
     setTarget,
     activeColor,
-    draftWindowOpacity,
-    setDraftWindowOpacity,
     hexInput,
     setHexInput,
     squareThumbStyle,

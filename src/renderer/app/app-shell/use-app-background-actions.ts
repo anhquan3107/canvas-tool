@@ -12,7 +12,6 @@ type MenuState = {
 export type BackgroundColorPreviewState = {
   canvasColor: string;
   backgroundColor: string;
-  windowOpacity: number;
 };
 
 interface UseAppBackgroundActionsOptions {
@@ -32,11 +31,7 @@ interface UseAppBackgroundActionsOptions {
   setMenuState: Dispatch<SetStateAction<MenuState>>;
   setSettingsOpen: Dispatch<SetStateAction<boolean>>;
   setSwatchesHidden: Dispatch<SetStateAction<boolean>>;
-  setWindowOpacity: Dispatch<SetStateAction<number | null>>;
-  windowOpacity: number | null;
 }
-
-const clampWindowOpacity = (value: number) => Math.min(1, Math.max(0.05, value));
 
 export const useAppBackgroundActions = ({
   activeGroup,
@@ -53,8 +48,6 @@ export const useAppBackgroundActions = ({
   setMenuState,
   setSettingsOpen,
   setSwatchesHidden,
-  setWindowOpacity,
-  windowOpacity,
 }: UseAppBackgroundActionsOptions) => {
   const { copy } = useI18n();
   const handleOpenCanvasSizeDialog = useCallback(() => {
@@ -109,7 +102,6 @@ export const useAppBackgroundActions = ({
     setBackgroundColorPreview({
       canvasColor: activeGroup.canvasColor,
       backgroundColor: activeGroup.backgroundColor,
-      windowOpacity: windowOpacity ?? 1,
     });
     setBackgroundColorDialogOpen(true);
   }, [
@@ -118,7 +110,6 @@ export const useAppBackgroundActions = ({
     setBackgroundColorPreview,
     setMenuState,
     setSettingsOpen,
-    windowOpacity,
   ]);
 
   const handleCloseBackgroundColorDialog = useCallback(() => {
@@ -128,24 +119,14 @@ export const useAppBackgroundActions = ({
 
   const handleConfirmBackgroundColorDialog = useCallback(
     (colors: BackgroundColorPreviewState) => {
-      const nextWindowOpacity = clampWindowOpacity(colors.windowOpacity);
-
       setBackgroundColorPreview(null);
-      setWindowOpacity(nextWindowOpacity);
       changeCanvasColors(colors.canvasColor, colors.backgroundColor);
       setBackgroundColorDialogOpen(false);
-      void window.desktopApi.window
-        .setOpacity({
-          opacity: nextWindowOpacity,
-          persist: true,
-        })
-        .catch(() => null);
     },
     [
       changeCanvasColors,
       setBackgroundColorDialogOpen,
       setBackgroundColorPreview,
-      setWindowOpacity,
     ],
   );
 

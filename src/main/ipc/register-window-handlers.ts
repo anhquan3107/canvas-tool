@@ -2,16 +2,10 @@ import { ipcMain, screen, type BrowserWindow } from "electron";
 import type {
   AppWindowBounds,
   AppWindowIgnoreMouseRequest,
-  AppWindowOpacityRequest,
   AppWindowPosition,
   AppWindowSize,
   AppWindowState,
 } from "../../shared/types/ipc";
-import {
-  clampWindowOpacity,
-  getSavedWindowOpacity,
-  persistWindowOpacity,
-} from "../window-opacity";
 import { getWindowActionTarget } from "../window-action-targets";
 import { getSenderWindow } from "./ipc-utils";
 
@@ -230,21 +224,6 @@ export const registerWindowHandlers = (window: BrowserWindow) => {
       senderWindow.setIgnoreMouseEvents(payload.ignore, {
         forward: payload.forward ?? true,
       });
-    },
-  );
-
-  ipcMain.handle("window:get-opacity", async () => {
-    return getSavedWindowOpacity();
-  });
-
-  ipcMain.handle(
-    "window:set-opacity",
-    async (event, payload: AppWindowOpacityRequest) => {
-      const nextOpacity = clampWindowOpacity(payload.opacity);
-      if (payload.persist) {
-        await persistWindowOpacity(nextOpacity);
-      }
-      return nextOpacity;
     },
   );
 };

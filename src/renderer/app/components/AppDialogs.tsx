@@ -28,7 +28,6 @@ interface AppDialogsProps {
   backgroundColorPreview: {
     canvasColor: string;
     backgroundColor: string;
-    windowOpacity: number;
   } | null;
   canvasHeightInput: string;
   canvasSizeDialogOpen: boolean;
@@ -88,15 +87,12 @@ interface AppDialogsProps {
   onBackgroundColorPreviewChange: (colors: {
     canvasColor: string;
     backgroundColor: string;
-    windowOpacity: number;
   }) => void;
   onBackgroundColorConfirm: (colors: {
     canvasColor: string;
     backgroundColor: string;
-    windowOpacity: number;
   }) => void;
   onConfirmCloseCancel: () => void;
-  windowOpacity: number;
 }
 
 export const AppDialogs = ({
@@ -161,7 +157,6 @@ export const AppDialogs = ({
   onBackgroundColorPreviewChange,
   onBackgroundColorConfirm,
   onConfirmCloseCancel,
-  windowOpacity,
 }: AppDialogsProps) => {
   const { copy } = useI18n();
 
@@ -255,7 +250,6 @@ export const AppDialogs = ({
         activeGroup?.backgroundColor ??
         DEFAULT_GROUP_BACKGROUND_COLOR
       }
-      windowOpacity={backgroundColorPreview?.windowOpacity ?? windowOpacity}
       onClose={onBackgroundColorDialogClose}
       onPreviewChange={onBackgroundColorPreviewChange}
       onConfirm={onBackgroundColorConfirm}

@@ -211,6 +211,10 @@ const desktopApi: DesktopApi = {
     },
     setIgnoreMouseEvents: (payload) =>
       ipcRenderer.invoke("window:set-ignore-mouse-events", payload),
+    startResize: (direction: string) =>
+      ipcRenderer.sendSync("resize:start", { direction }),
+    stopResize: () =>
+      ipcRenderer.sendSync("resize:stop"),
   },
   clipboard: {
     writeImageFromDataUrl: (payload) =>

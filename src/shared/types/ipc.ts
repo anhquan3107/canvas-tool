@@ -234,6 +234,8 @@ export interface DesktopApi {
     setBounds: (payload: AppWindowBounds) => Promise<void>;
     setBoundsImmediate: (payload: AppWindowBounds) => void;
     setIgnoreMouseEvents: (payload: AppWindowIgnoreMouseRequest) => Promise<void>;
+    startResize: (direction: string) => boolean;
+    stopResize: () => boolean;
   };
   clipboard: {
     writeImageFromDataUrl: (

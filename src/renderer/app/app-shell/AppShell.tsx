@@ -25,6 +25,7 @@ import { useShortcutSettings } from "@renderer/app/hooks/use-shortcut-settings";
 import { useWindowControls } from "@renderer/app/hooks/use-window-controls";
 import { useWindowFocusState } from "@renderer/app/hooks/use-window-focus-state";
 import { useWindowRightDrag } from "@renderer/app/hooks/use-window-right-drag";
+import { useMainProcessResize } from "@renderer/app/hooks/use-main-process-resize";
 import {
   type BackgroundColorPreviewState,
   useAppBackgroundActions,
@@ -745,6 +746,8 @@ export const AppShell = () => {
     handleSaveProjectAs,
   });
 
+  useMainProcessResize(!windowMaximized);
+
   const {
     clearTransientUi,
     handleShellPointerDownCapture,
@@ -1179,6 +1182,18 @@ export const AppShell = () => {
       onPointerCancelCapture={handleShellPointerUpCapture}
       onContextMenu={handleShellContextMenu}
     >
+      {!windowMaximized && (
+        <>
+          <div className="app-window-resize-handle app-window-resize-n" data-window-resize="n" />
+          <div className="app-window-resize-handle app-window-resize-s" data-window-resize="s" />
+          <div className="app-window-resize-handle app-window-resize-e" data-window-resize="e" />
+          <div className="app-window-resize-handle app-window-resize-w" data-window-resize="w" />
+          <div className="app-window-resize-handle app-window-resize-ne" data-window-resize="ne" />
+          <div className="app-window-resize-handle app-window-resize-nw" data-window-resize="nw" />
+          <div className="app-window-resize-handle app-window-resize-se" data-window-resize="se" />
+          <div className="app-window-resize-handle app-window-resize-sw" data-window-resize="sw" />
+        </>
+      )}
       <div
         className={`desktop-frame ${windowFocused ? "" : "window-unfocused"} ${
           topbarVisible ? "topbar-revealed" : ""

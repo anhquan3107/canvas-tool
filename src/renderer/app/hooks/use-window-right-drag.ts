@@ -312,6 +312,11 @@ export const useWindowRightDrag = (options?: WindowDragOptions) => {
     };
 
     const clearDrag = (cancelQueuedBounds: boolean) => {
+      if (dragState?.button === 0 && dragState.moved) {
+        try {
+          window.desktopApi.window.stopDrag();
+        } catch {}
+      }
       releasePointerCapture();
       dragState = null;
       if (cancelQueuedBounds) {
@@ -393,7 +398,7 @@ export const useWindowRightDrag = (options?: WindowDragOptions) => {
         lastCursorDipY: startCursorDip?.y ?? 0,
         startDipWidth: initialBoundsDip?.width ?? 0,
         startDipHeight: initialBoundsDip?.height ?? 0,
-        ready: isFiniteBounds(initialBoundsDip) && startCursorDip !== null,
+        ready: button === 2 && isFiniteBounds(initialBoundsDip) && startCursorDip !== null,
         moved: false,
       };
 
@@ -406,7 +411,7 @@ export const useWindowRightDrag = (options?: WindowDragOptions) => {
         gestureState.suppressCurrentContextMenu = false;
       }
 
-      if (isFiniteBounds(initialBoundsDip) && startCursorDip !== null) {
+      if (button === 0 || (isFiniteBounds(initialBoundsDip) && startCursorDip !== null)) {
         return;
       }
 
@@ -482,6 +487,16 @@ export const useWindowRightDrag = (options?: WindowDragOptions) => {
       }
 
       dragState.moved = true;
+      if (dragState.button === 0) {
+        if (!dragState.ready) {
+          dragState.ready = true;
+          try {
+            window.desktopApi.window.startDrag();
+          } catch {}
+        }
+        return;
+      }
+
       if (dragState.button === 2) {
         gestureState.isDragging = true;
         gestureState.suppressCurrentContextMenu = true;

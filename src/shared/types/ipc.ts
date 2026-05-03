@@ -236,6 +236,8 @@ export interface DesktopApi {
     setIgnoreMouseEvents: (payload: AppWindowIgnoreMouseRequest) => Promise<void>;
     startResize: (direction: string) => boolean;
     stopResize: () => boolean;
+    startDrag: () => boolean;
+    stopDrag: () => boolean;
   };
   clipboard: {
     writeImageFromDataUrl: (

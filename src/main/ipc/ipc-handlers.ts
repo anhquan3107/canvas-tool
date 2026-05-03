@@ -5,6 +5,8 @@ import { registerExportHandlers } from "./register-export-handlers";
 import { registerImportHandlers } from "./register-import-handlers";
 import { registerProjectHandlers } from "./register-project-handlers";
 import { registerWindowHandlers } from "./register-window-handlers";
+import { registerMainProcessResize } from "../main-process-resize";
+import { registerMainProcessDrag } from "../main-process-drag";
 
 export const setupIpcHandlers = (window: BrowserWindow) => {
   registerAppHandlers(window);
@@ -13,4 +15,6 @@ export const setupIpcHandlers = (window: BrowserWindow) => {
   registerProjectHandlers(window);
   registerWindowHandlers(window);
   registerImportHandlers(window);
+  registerMainProcessResize(window);
+  registerMainProcessDrag(window);
 };

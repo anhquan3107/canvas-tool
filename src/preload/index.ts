@@ -215,6 +215,10 @@ const desktopApi: DesktopApi = {
       ipcRenderer.sendSync("resize:start", { direction }),
     stopResize: () =>
       ipcRenderer.sendSync("resize:stop"),
+    startDrag: () =>
+      ipcRenderer.sendSync("drag:start"),
+    stopDrag: () =>
+      ipcRenderer.sendSync("drag:stop"),
   },
   clipboard: {
     writeImageFromDataUrl: (payload) =>

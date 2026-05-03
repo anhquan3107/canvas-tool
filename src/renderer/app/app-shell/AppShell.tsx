@@ -492,9 +492,6 @@ export const AppShell = () => {
     const root = document.documentElement;
     const body = document.body;
     const appRoot = document.getElementById("root");
-    const previousRootBackground = root.style.backgroundColor;
-    const previousBodyBackground = body.style.backgroundColor;
-    const previousAppRootBackground = appRoot?.style.backgroundColor ?? "";
 
     root.style.backgroundColor = windowSurfaceColor;
     body.style.backgroundColor = windowSurfaceColor;
@@ -503,10 +500,13 @@ export const AppShell = () => {
     }
 
     return () => {
-      root.style.backgroundColor = previousRootBackground;
-      body.style.backgroundColor = previousBodyBackground;
+      // Fall back to the BrowserWindow background color — never restore to
+      // "transparent" because that causes a visible flash during resize.
+      const fallback = "#1f1f21";
+      root.style.backgroundColor = fallback;
+      body.style.backgroundColor = fallback;
       if (appRoot) {
-        appRoot.style.backgroundColor = previousAppRootBackground;
+        appRoot.style.backgroundColor = fallback;
       }
     };
   }, [windowSurfaceColor]);

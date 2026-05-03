@@ -111,7 +111,9 @@ const createMainWindow = async () => {
     y: restoredPlacement.bounds?.y,
     minWidth: 1100,
     minHeight: 700,
-    frame: false,
+    ...(process.platform === "darwin"
+      ? { titleBarStyle: "hiddenInset" as const, trafficLightPosition: { x: 10, y: 10 } }
+      : { frame: false }),
     transparent: false,
     backgroundColor: "#1f1f21",
     ...(process.platform === "win32" ? { thickFrame: true } : {}),
@@ -127,11 +129,6 @@ const createMainWindow = async () => {
   guardWindowDevTools(mainWindow);
   registerAppShortcutOverrides(mainWindow);
   watchMainWindowPlacement(mainWindow);
-  if (process.platform === "win32") {
-    mainWindow.on("resize", () => {
-      mainWindow.webContents.invalidate();
-    });
-  }
 
   setupIpcHandlers(mainWindow);
 

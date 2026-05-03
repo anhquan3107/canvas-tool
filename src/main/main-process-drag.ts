@@ -3,8 +3,10 @@ import { getWindowActionTarget } from "./window-action-targets";
 
 interface DragSession {
   window: BrowserWindow;
-  lastCursorX: number;
-  lastCursorY: number;
+  startCursorX: number;
+  startCursorY: number;
+  startBounds: Electron.Rectangle;
+  lastDisplayId: number;
   timerId: ReturnType<typeof setInterval> | null;
 }
 
@@ -22,27 +24,34 @@ const pollAndApplyDrag = () => {
   }
 
   const cursor = screen.getCursorScreenPoint();
-  const dx = cursor.x - activeSession.lastCursorX;
-  const dy = cursor.y - activeSession.lastCursorY;
+  const display = screen.getDisplayNearestPoint(cursor);
 
   // DPI boundary jump detection
-  if (Math.abs(dx) > 100 || Math.abs(dy) > 100) {
-    activeSession.lastCursorX = cursor.x;
-    activeSession.lastCursorY = cursor.y;
+  if (display.id !== activeSession.lastDisplayId) {
+    activeSession.lastDisplayId = display.id;
+    activeSession.startCursorX = cursor.x;
+    activeSession.startCursorY = cursor.y;
+    // Resync bounds to actual window bounds in case of DPI change
+    activeSession.startBounds = win.getBounds();
     return;
   }
 
-  activeSession.lastCursorX = cursor.x;
-  activeSession.lastCursorY = cursor.y;
+  const dx = cursor.x - activeSession.startCursorX;
+  const dy = cursor.y - activeSession.startCursorY;
 
-  if (dx === 0 && dy === 0) return;
+  const nextX = activeSession.startBounds.x + dx;
+  const nextY = activeSession.startBounds.y + dy;
 
   const current = win.getBounds();
+  if (current.x === nextX && current.y === nextY) {
+    return;
+  }
+
   win.setBounds({
-    x: current.x + dx,
-    y: current.y + dy,
-    width: current.width,
-    height: current.height,
+    x: nextX,
+    y: nextY,
+    width: activeSession.startBounds.width,
+    height: activeSession.startBounds.height,
   });
 };
 
@@ -67,11 +76,14 @@ export const registerMainProcessDrag = (window: BrowserWindow) => {
     stopDrag();
 
     const cursor = screen.getCursorScreenPoint();
+    const display = screen.getDisplayNearestPoint(cursor);
 
     activeSession = {
       window: targetWindow,
-      lastCursorX: cursor.x,
-      lastCursorY: cursor.y,
+      startCursorX: cursor.x,
+      startCursorY: cursor.y,
+      startBounds: targetWindow.getBounds(),
+      lastDisplayId: display.id,
       timerId: setInterval(pollAndApplyDrag, POLL_INTERVAL_MS),
     };
 

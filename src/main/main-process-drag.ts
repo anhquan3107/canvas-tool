@@ -5,8 +5,10 @@ interface DragSession {
   window: BrowserWindow;
   startCursorX: number;
   startCursorY: number;
-  startBounds: Electron.Rectangle;
-  lastDisplayId: number;
+  startBoundsX: number;
+  startBoundsY: number;
+  startBoundsWidth: number;
+  startBoundsHeight: number;
   timerId: ReturnType<typeof setInterval> | null;
 }
 
@@ -14,6 +16,19 @@ const POLL_INTERVAL_MS = 1000 / 120; // ~120 Hz polling
 
 let activeSession: DragSession | null = null;
 
+/**
+ * All coordinates here are in DIP (logical pixels).
+ * - screen.getCursorScreenPoint() returns DIP
+ * - win.getBounds() / win.setBounds() operate in DIP
+ * No coordinate conversion is needed in the main process.
+ *
+ * We store startBounds at drag-start and compute position purely as:
+ *   newPos = startBounds + (currentCursor - startCursor)
+ *
+ * We never re-read win.getBounds() mid-drag because the OS may report
+ * stale/lagging values during rapid movement, which would corrupt the
+ * anchor point and cause cumulative drift.
+ */
 const pollAndApplyDrag = () => {
   if (!activeSession) return;
   const { window: win } = activeSession;
@@ -24,34 +39,18 @@ const pollAndApplyDrag = () => {
   }
 
   const cursor = screen.getCursorScreenPoint();
-  const display = screen.getDisplayNearestPoint(cursor);
-
-  // DPI boundary jump detection
-  if (display.id !== activeSession.lastDisplayId) {
-    activeSession.lastDisplayId = display.id;
-    activeSession.startCursorX = cursor.x;
-    activeSession.startCursorY = cursor.y;
-    // Resync bounds to actual window bounds in case of DPI change
-    activeSession.startBounds = win.getBounds();
-    return;
-  }
 
   const dx = cursor.x - activeSession.startCursorX;
   const dy = cursor.y - activeSession.startCursorY;
 
-  const nextX = activeSession.startBounds.x + dx;
-  const nextY = activeSession.startBounds.y + dy;
-
-  const current = win.getBounds();
-  if (current.x === nextX && current.y === nextY) {
-    return;
-  }
+  const nextX = Math.round(activeSession.startBoundsX + dx);
+  const nextY = Math.round(activeSession.startBoundsY + dy);
 
   win.setBounds({
     x: nextX,
     y: nextY,
-    width: activeSession.startBounds.width,
-    height: activeSession.startBounds.height,
+    width: activeSession.startBoundsWidth,
+    height: activeSession.startBoundsHeight,
   });
 };
 
@@ -76,14 +75,16 @@ export const registerMainProcessDrag = (window: BrowserWindow) => {
     stopDrag();
 
     const cursor = screen.getCursorScreenPoint();
-    const display = screen.getDisplayNearestPoint(cursor);
+    const bounds = targetWindow.getBounds();
 
     activeSession = {
       window: targetWindow,
       startCursorX: cursor.x,
       startCursorY: cursor.y,
-      startBounds: targetWindow.getBounds(),
-      lastDisplayId: display.id,
+      startBoundsX: bounds.x,
+      startBoundsY: bounds.y,
+      startBoundsWidth: bounds.width,
+      startBoundsHeight: bounds.height,
       timerId: setInterval(pollAndApplyDrag, POLL_INTERVAL_MS),
     };
 

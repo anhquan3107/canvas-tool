@@ -80,7 +80,7 @@ const getEffectivePreviewSize = (
 };
 
 export const CaptureWindowApp = () => {
-  useWindowRightDrag();
+  useWindowRightDrag({ enableLeftWindowDrag: true });
   const { copy } = useI18n();
   const windowFocused = useWindowFocusState();
   const initial = useMemo(() => getCaptureLocationParams(), []);
@@ -507,6 +507,12 @@ export const CaptureWindowApp = () => {
 
   useEffect(() => {
     const handlePointerMove = (event: PointerEvent) => {
+      // Skip edge reveal while any mouse button is held — this prevents the
+      // toolbar from appearing and stealing focus during active drag sessions.
+      if (event.buttons !== 0) {
+        return;
+      }
+
       const active = event.clientY <= CAPTURE_WINDOW_TOP_REVEAL_THRESHOLD;
       if (edgeRevealActiveRef.current === active) {
         return;

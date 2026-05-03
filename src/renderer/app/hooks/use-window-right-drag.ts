@@ -1,5 +1,4 @@
 import { useEffect } from "react";
-import type { AppWindowPosition } from "@shared/types/ipc";
 
 const DRAG_THRESHOLD = 5;
 const CONTEXT_MENU_SUPPRESS_MS = 700;
@@ -94,42 +93,43 @@ const isInteractiveTarget = (target: EventTarget | null) => {
   );
 };
 
-const dipPointToScreenPoint = (point: AppWindowPosition | null) => {
-  if (!isFinitePosition(point)) {
-    return null;
-  }
-
-  try {
-    const nextPoint = window.desktopApi.window.dipToScreenPointSync(point);
-    return isFinitePosition(nextPoint) ? nextPoint : point;
-  } catch {
-    return point;
-  }
-};
-
+/**
+ * Get the current cursor position in DIP (logical pixels).
+ *
+ * IMPORTANT: We must NOT convert to screen pixels here. The main process
+ * drag loop (main-process-drag.ts) works entirely in DIP:
+ *   - screen.getCursorScreenPoint() returns DIP
+ *   - win.getBounds() / win.setBounds() operate in DIP
+ *
+ * If we converted to screen pixels here, the start position stored by the
+ * renderer would be in a different coordinate space than the cursor positions
+ * read by the main process polling loop, causing the window to move at a
+ * different rate than the cursor (drift that accumulates on every move).
+ */
 const getPointerScreenPosition = (event: PointerEvent) => {
+  // Primary: ask the main process for the cursor position in DIP.
   try {
     const cursorDipPoint = window.desktopApi.window.getCursorScreenPointSync();
-    const cursorScreenPoint = dipPointToScreenPoint(cursorDipPoint);
-    if (isFinitePosition(cursorScreenPoint)) {
-      return cursorScreenPoint;
+    if (isFinitePosition(cursorDipPoint)) {
+      return cursorDipPoint;
     }
   } catch {
     // Fall back to renderer pointer coordinates below.
   }
 
-  const fallbackX = window.screenX + event.clientX;
-  const fallbackY = window.screenY + event.clientY;
-  const fallbackDipPoint = {
-    x: isFiniteNumber(event.screenX) ? event.screenX : fallbackX,
-    y: isFiniteNumber(event.screenY) ? event.screenY : fallbackY,
-  };
+  // Fallback: use the renderer's own event coordinates (already in DIP/CSS pixels).
+  const fallbackX = isFiniteNumber(event.screenX)
+    ? event.screenX
+    : window.screenX + event.clientX;
+  const fallbackY = isFiniteNumber(event.screenY)
+    ? event.screenY
+    : window.screenY + event.clientY;
 
-  if (!isFinitePosition(fallbackDipPoint)) {
+  if (!isFiniteNumber(fallbackX) || !isFiniteNumber(fallbackY)) {
     return null;
   }
 
-  return dipPointToScreenPoint(fallbackDipPoint);
+  return { x: fallbackX, y: fallbackY };
 };
 
 export const useWindowRightDrag = (options?: WindowDragOptions) => {
@@ -174,7 +174,6 @@ export const useWindowRightDrag = (options?: WindowDragOptions) => {
         event.button === 0 &&
         (event.buttons & 1) === 1 &&
         isElement(event.target) &&
-        event.target.closest("[data-window-left-drag='true']") &&
         !isInteractiveTarget(event.target);
       const rightDragTarget =
         event.button === 2 &&

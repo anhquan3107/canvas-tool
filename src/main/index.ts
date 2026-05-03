@@ -12,7 +12,6 @@ import {
   getRestoredMainWindowPlacement,
   watchMainWindowPlacement,
 } from "./window-placement";
-import { registerMainProcessResize } from "./main-process-resize";
 
 if (
   process.platform === "win32" &&
@@ -117,6 +116,7 @@ const createMainWindow = async () => {
       : { frame: false }),
     transparent: false,
     backgroundColor: "#1f1f21",
+    ...(process.platform === "win32" ? { thickFrame: true } : {}),
     title: "CanvasTool",
     ...(process.platform !== "darwin" ? { icon: getRuntimeAppIconPath() } : {}),
     webPreferences: {
@@ -129,7 +129,6 @@ const createMainWindow = async () => {
   guardWindowDevTools(mainWindow);
   registerAppShortcutOverrides(mainWindow);
   watchMainWindowPlacement(mainWindow);
-  registerMainProcessResize(mainWindow);
 
   setupIpcHandlers(mainWindow);
 

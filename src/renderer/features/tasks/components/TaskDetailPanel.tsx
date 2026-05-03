@@ -93,8 +93,13 @@ export const TaskDetailPanel = ({
         onInteract();
       }}
       onBlurCapture={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-          onFocusWithinChange(false);
+        const currentTarget = event.currentTarget;
+        if (!currentTarget.contains(event.relatedTarget as Node | null)) {
+          window.requestAnimationFrame(() => {
+            if (!currentTarget.contains(document.activeElement)) {
+              onFocusWithinChange(false);
+            }
+          });
         }
       }}
       onKeyDownCapture={onInteract}

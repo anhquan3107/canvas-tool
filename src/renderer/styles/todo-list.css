@@ -50,11 +50,11 @@
 
 .todo-text-input {
   min-height: 22px;
-  padding-top: 0;
-  padding-bottom: 0;
-  align-self: center;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  align-self: stretch;
   margin: 0;
-  line-height: 20px;
+  line-height: 1.45;
   border-color: rgba(255, 255, 255, 0.16);
   background: rgba(255, 255, 255, 0.015);
   box-shadow: none;
@@ -133,8 +133,9 @@
   grid-template-columns: 26px minmax(0, 1fr) 28px;
   align-items: center;
   gap: 8px;
-  min-height: 46px;
-  padding: 0 2px 0 1px;
+  flex-shrink: 0;
+  min-height: 0;
+  padding: 10px 2px 10px 1px;
   background: transparent;
   position: relative;
   transition: background-color 140ms ease;
@@ -185,7 +186,7 @@
   background: rgba(255, 255, 255, 0.02);
 }
 
-.todo-checkbox input:checked + .todo-checkbox-ui::after {
+.todo-checkbox input:checked+.todo-checkbox-ui::after {
   content: "";
   position: absolute;
   left: 9px;
@@ -200,18 +201,19 @@
 .todo-text {
   appearance: none;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 8px;
+  width: 100%;
   min-width: 0;
   border: none;
   background: transparent;
   box-shadow: none;
   outline: none;
-  padding: 0;
+  padding: 2px 0;
   text-align: left;
   color: rgba(255, 255, 255, 0.92);
-  min-height: 46px;
-  align-self: center;
+  min-height: 0;
+  align-self: stretch;
 }
 
 .todo-text:hover,
@@ -230,12 +232,13 @@
 }
 
 .todo-text span:last-child {
-  overflow: hidden;
-  text-overflow: ellipsis;
+  min-width: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  word-break: break-word;
   font-size: 12px;
   font-weight: 400;
+  line-height: 1.45;
 }
 
 .todo-complete {

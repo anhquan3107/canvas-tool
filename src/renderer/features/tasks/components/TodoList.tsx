@@ -1,6 +1,6 @@
 import { GripVertical, Trash2 } from "lucide-react";
 import type { FormEvent } from "react";
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import type { Task } from "@shared/types/project";
 import { useI18n } from "@renderer/i18n";
 
@@ -55,10 +55,21 @@ export const TodoList = ({
   const autoResizeTextArea = (event: FormEvent<HTMLTextAreaElement>) => {
     const element = event.currentTarget;
     const baseHeight = Number(element.dataset.baseHeight ?? "48");
-    const maxHeight = Number(element.dataset.maxHeight ?? "96");
+    const maxHeight = Number(element.dataset.maxHeight ?? "200");
     element.style.height = `${baseHeight}px`;
     element.style.height = `${Math.min(element.scrollHeight, maxHeight)}px`;
   };
+
+  const editTextareaRef = useCallback((element: HTMLTextAreaElement | null) => {
+    if (!element) {
+      return;
+    }
+
+    const baseHeight = Number(element.dataset.baseHeight ?? "22");
+    const maxHeight = Number(element.dataset.maxHeight ?? "200");
+    element.style.height = `${baseHeight}px`;
+    element.style.height = `${Math.min(element.scrollHeight, maxHeight)}px`;
+  }, []);
 
   return (
     <section className="todo-panel-card">
@@ -142,10 +153,11 @@ export const TodoList = ({
 
             {editingTodoId === todo.id ? (
               <textarea
+                ref={editTextareaRef}
                 autoFocus
                 className="todo-text-input"
                 data-base-height="22"
-                data-max-height="88"
+                data-max-height="200"
                 value={todo.text}
                 onChange={(event) =>
                   onRenameTodo(task.id, todo.id, event.target.value)

@@ -1,7 +1,8 @@
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { gunzipSync } from "node:zlib";
+import { promisify } from "node:util";
+import { gunzip } from "node:zlib";
 import type {
   ColorSwatch,
   ImageItem,
@@ -22,6 +23,15 @@ import { buildImageAssetVariantsFromBuffer } from "../services/image-asset-varia
 import { decodeLegacyInkAnnotations } from "./legacy-ink-isf";
 
 const MAIN_CANVAS_GROUP_ID = "canvas-main";
+const gunzipAsync = promisify(gunzip);
+
+type ProjectProgressReporter = (message: string, progress: number) => void;
+
+interface LoadLegacyCanvasProjectOptions {
+  onProgress?: ProjectProgressReporter;
+  progressStart?: number;
+  progressEnd?: number;
+}
 
 interface LegacyDrawingData {
   canvasDrawings?: Record<string, string>;
@@ -137,6 +147,27 @@ interface InferredLegacyCrop {
 }
 
 const LEGACY_CROP_ASPECT_EPSILON = 0.01;
+
+const reportProgress = (
+  options: LoadLegacyCanvasProjectOptions | undefined,
+  label: string,
+  relativeProgress: number,
+) => {
+  if (!options?.onProgress) {
+    return;
+  }
+
+  const start = options.progressStart ?? 0;
+  const end = options.progressEnd ?? 100;
+  const progress = Math.max(
+    0,
+    Math.min(
+      100,
+      Math.round(start + ((end - start) * relativeProgress) / 100),
+    ),
+  );
+  options.onProgress(`${label} ${progress}%`, progress);
+};
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === "object";
@@ -657,11 +688,13 @@ const mapLinkedGroupId = (
 export const loadLegacyCanvasProject = async (
   raw: Buffer,
   sourcePath: string,
+  options: LoadLegacyCanvasProjectOptions = {},
 ): Promise<Project> => {
   let parsed: unknown;
 
   try {
-    parsed = JSON.parse(gunzipSync(raw).toString("utf8"));
+    reportProgress(options, "Reading legacy canvas", 8);
+    parsed = JSON.parse((await gunzipAsync(raw)).toString("utf8"));
   } catch {
     throw new Error("Unsupported legacy .canvas format.");
   }
@@ -676,14 +709,30 @@ export const loadLegacyCanvasProject = async (
   const tempDir = await createCanvasAssetTempDir();
   const imageIdUseCounts = new Map<string, number>();
   const materializedAssetsByFingerprint = new Map<string, LegacyMaterializedAsset>();
+  const legacyItems = parsed.items ?? [];
 
-  for (const item of parsed.items ?? []) {
+  for (const item of legacyItems) {
     if (typeof item.imageId === "string" && item.imageId.length > 0) {
       imageIdUseCounts.set(item.imageId, (imageIdUseCounts.get(item.imageId) ?? 0) + 1);
     }
   }
 
-  for (const item of parsed.items ?? []) {
+  let lastImageProgress = -1;
+  const reportImageProgress = (index: number) => {
+    if (legacyItems.length === 0) {
+      return;
+    }
+
+    const progress = Math.round(18 + ((index + 1) / legacyItems.length) * 52);
+    if (progress <= lastImageProgress) {
+      return;
+    }
+
+    lastImageProgress = progress;
+    reportProgress(options, "Converting legacy images", progress);
+  };
+
+  for (const [index, item] of legacyItems.entries()) {
     const base = await createLegacyImageBase(
       item,
       parsed.imageCache,
@@ -700,13 +749,16 @@ export const loadLegacyCanvasProject = async (
     }
 
     if (!base) {
+      reportImageProgress(index);
       continue;
     }
 
     imageBases.set(base.id, base);
     itemDataById.set(base.id, item);
+    reportImageProgress(index);
   }
 
+  reportProgress(options, "Building legacy groups", 76);
   const assignedItemIds = new Set<string>();
   const groups: ReferenceGroup[] = [];
 
@@ -807,6 +859,7 @@ export const loadLegacyCanvasProject = async (
     }),
   );
 
+  reportProgress(options, "Converting legacy tasks", 84);
   const todosByTaskId = buildTodoMap(parsed.todos);
   const tasks: Task[] = (parsed.tasks ?? []).map((task, index) => {
     const taskId =
@@ -840,6 +893,7 @@ export const loadLegacyCanvasProject = async (
     };
   });
 
+  reportProgress(options, "Converting legacy ink", 91);
   const expandedGroup = (parsed.groups ?? []).find((group) => group.isExpanded);
   const legacyDrawingCanvasById = parsed.drawingData?.canvasDrawings ?? {};
   const {
@@ -858,6 +912,7 @@ export const loadLegacyCanvasProject = async (
     }
   });
 
+  reportProgress(options, "Legacy canvas converted", 100);
   return {
     id: randomUUID(),
     version: 1,

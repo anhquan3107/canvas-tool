@@ -6,6 +6,7 @@ import { useI18n } from "@renderer/i18n";
 
 interface TodoListProps {
   task: Task;
+  onInteract: () => void;
   onAddTodo: (taskId: string, text: string) => void;
   onRemoveTodo: (taskId: string, todoId: string) => void;
   onToggleTodo: (taskId: string, todoId: string) => void;
@@ -20,6 +21,7 @@ interface TodoListProps {
 
 export const TodoList = ({
   task,
+  onInteract,
   onAddTodo,
   onRemoveTodo,
   onToggleTodo,
@@ -44,6 +46,7 @@ export const TodoList = ({
       return;
     }
 
+    onInteract();
     onAddTodo(task.id, trimmed);
     setNewTodoText("");
     if (newTodoInputRef.current) {

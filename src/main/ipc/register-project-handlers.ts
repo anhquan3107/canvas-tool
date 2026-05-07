@@ -30,11 +30,14 @@ export const registerProjectHandlers = (window: BrowserWindow) => {
     const filePath = result.filePaths[0];
 
     try {
-      sendOperationProgress(event, "Loading canvas 16%", 16);
-      const project = await loadCanvasProject(filePath);
+      sendOperationProgress(event, "Loading canvas 8%", 8);
+      const project = await loadCanvasProject(filePath, {
+        onProgress: (message, progress) =>
+          sendOperationProgress(event, message, progress),
+      });
       const resolvedFilePath = project.filePath ?? filePath;
-      sendOperationProgress(event, "Loading canvas 82%", 82);
       await addRecentFile(resolvedFilePath);
+      sendOperationProgress(event, "Canvas ready 100%", 100);
       updateWindowTitle(window, project);
       return { project, filePath: resolvedFilePath };
     } catch (error) {
@@ -64,10 +67,12 @@ export const registerProjectHandlers = (window: BrowserWindow) => {
       throw new Error("Missing file path. Use Save As first.");
     }
 
-    sendOperationProgress(event, "Saving canvas 18%", 18);
-    const savedPath = await saveCanvasProject(currentProject, targetPath);
-    sendOperationProgress(event, "Saving canvas 84%", 84);
+    const savedPath = await saveCanvasProject(currentProject, targetPath, {
+      onProgress: (message, progress) =>
+        sendOperationProgress(event, message, progress),
+    });
     await addRecentFile(savedPath);
+    sendOperationProgress(event, "Canvas saved 100%", 100);
 
     const projectWithPath = {
       ...currentProject,
@@ -93,17 +98,20 @@ export const registerProjectHandlers = (window: BrowserWindow) => {
       return null;
     }
 
-    sendOperationProgress(event, "Saving canvas 18%", 18);
     const savedPath = await saveCanvasProject(
       {
         ...payload.project,
         updatedAt: new Date().toISOString(),
       },
       dialogResult.filePath,
+      {
+        onProgress: (message, progress) =>
+          sendOperationProgress(event, message, progress),
+      },
     );
 
-    sendOperationProgress(event, "Saving canvas 84%", 84);
     await addRecentFile(savedPath);
+    sendOperationProgress(event, "Canvas saved 100%", 100);
 
     updateWindowTitle(window, {
       ...payload.project,

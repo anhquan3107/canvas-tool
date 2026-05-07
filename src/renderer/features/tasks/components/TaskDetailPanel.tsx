@@ -87,7 +87,15 @@ export const TaskDetailPanel = ({
         onInteract();
       }}
       onPointerLeave={() => onHoverChange(false)}
-      onPointerDown={onInteract}
+      onPointerDown={() => {
+        onFocusWithinChange(true);
+        onInteract();
+      }}
+      onPointerMove={(event) => {
+        if (event.buttons !== 0) {
+          onInteract();
+        }
+      }}
       onFocusCapture={() => {
         onFocusWithinChange(true);
         onInteract();
@@ -96,6 +104,17 @@ export const TaskDetailPanel = ({
         const currentTarget = event.currentTarget;
         if (!currentTarget.contains(event.relatedTarget as Node | null)) {
           window.requestAnimationFrame(() => {
+            const selection = window.getSelection();
+            const selectionInsidePanel =
+              selection &&
+              selection.type === "Range" &&
+              currentTarget.contains(selection.anchorNode) &&
+              currentTarget.contains(selection.focusNode);
+
+            if (selectionInsidePanel) {
+              return;
+            }
+
             if (!currentTarget.contains(document.activeElement)) {
               onFocusWithinChange(false);
             }
@@ -145,6 +164,7 @@ export const TaskDetailPanel = ({
 
         <TodoList
           task={task}
+          onInteract={onInteract}
           onAddTodo={onAddTodo}
           onRemoveTodo={onRemoveTodo}
           onToggleTodo={onToggleTodo}

@@ -15,6 +15,26 @@ import {
 import { buildImageAssetVariantsFromBuffer } from "../services/image-asset-variants";
 import { loadLegacyCanvasProject } from "./legacy-canvas-project";
 
+type ProjectProgressReporter = (message: string, progress: number) => void;
+
+interface SaveCanvasProjectOptions {
+  onProgress?: ProjectProgressReporter;
+  progressLabel?: string;
+  progressStart?: number;
+  progressEnd?: number;
+}
+
+interface PrepareProjectForSaveOptions {
+  onProgress?: ProjectProgressReporter;
+  progressLabel: string;
+  progressStart: number;
+  progressEnd: number;
+}
+
+interface LoadCanvasProjectOptions {
+  onProgress?: ProjectProgressReporter;
+}
+
 interface CanvasManifest {
   id: string;
   version: number;
@@ -32,6 +52,24 @@ const PACKAGE_ASSET_DIR = "assets";
 const PACKAGE_ORIGINAL_ASSET_DIR = `${PACKAGE_ASSET_DIR}/original`;
 const PACKAGE_PREVIEW_ASSET_DIR = `${PACKAGE_ASSET_DIR}/preview`;
 const PACKAGE_THUMBNAIL_ASSET_DIR = `${PACKAGE_ASSET_DIR}/thumbnail`;
+// Image formats are already compressed; deflating them in JS is slow on Windows.
+const STORED_ZIP_BINARY_OPTIONS = { compression: "STORE" } as const;
+
+const reportProgress = (
+  onProgress: ProjectProgressReporter | undefined,
+  label: string,
+  progress: number,
+) => {
+  if (!onProgress) {
+    return;
+  }
+
+  const clampedProgress = Math.max(0, Math.min(100, Math.round(progress)));
+  onProgress(`${label} ${clampedProgress}%`, clampedProgress);
+};
+
+const scaleProgress = (start: number, end: number, relativeProgress: number) =>
+  start + ((end - start) * relativeProgress) / 100;
 
 const decodeDataUrl = (dataUrl: string) => {
   const match = dataUrl.match(
@@ -111,6 +149,19 @@ const getImageAssetExtension = (
   return extension || "png";
 };
 
+const getAssetPathExtension = (
+  assetPath: string,
+  mimeType?: string | null,
+) => {
+  const localPath = resolveLocalAssetPath(assetPath);
+  return (
+    (localPath ? path.extname(localPath) : path.extname(assetPath))
+      .replace(".", "")
+      .toLowerCase() ||
+    extensionFromMimeType(mimeType)
+  );
+};
+
 const toPackageAssetPath = (
   item: ImageItem,
   assetIndex: number,
@@ -131,36 +182,91 @@ const isPackageAssetPath = (assetPath: string) => {
   );
 };
 
-const readImageAssetForSave = async (item: ImageItem) => {
-  if (!item.assetPath) {
+const readAssetPathForSave = async (assetPath: string | undefined) => {
+  if (!assetPath) {
     return null;
   }
 
-  const decoded = item.assetPath.startsWith("data:")
-    ? decodeDataUrl(item.assetPath)
+  const decoded = assetPath.startsWith("data:")
+    ? decodeDataUrl(assetPath)
     : null;
   if (decoded) {
     return {
       buffer: decoded.buffer,
-      extension: getImageAssetExtension(item, item.assetPath, decoded.mimeType),
+      extension: getAssetPathExtension(assetPath, decoded.mimeType),
     };
   }
 
-  const sourcePath = resolveLocalAssetPath(item.assetPath);
+  const sourcePath = resolveLocalAssetPath(assetPath);
   if (!sourcePath) {
     return null;
   }
 
   return {
     buffer: await fs.readFile(sourcePath),
-    extension: getImageAssetExtension(item, sourcePath),
+    extension: getAssetPathExtension(sourcePath),
+  };
+};
+
+const readImageAssetForSave = async (item: ImageItem) => {
+  if (!item.assetPath) {
+    return null;
+  }
+
+  const asset = await readAssetPathForSave(item.assetPath);
+  if (!asset) {
+    return null;
+  }
+
+  return {
+    buffer: asset.buffer,
+    extension:
+      asset.extension ??
+      getImageAssetExtension(item, item.assetPath) ??
+      extensionFromFormatLabel(item.format) ??
+      "png",
   };
 };
 
 const getImageAssetFingerprint = (buffer: Buffer) =>
   createHash("sha1").update(buffer).digest("hex");
 
-const prepareProjectForSave = async (project: Project, zip: JSZip) => {
+const packageImageVariantAsset = async (
+  zip: JSZip,
+  item: ImageItem,
+  assetIndex: number,
+  assetPath: string | undefined,
+  directory: string,
+) => {
+  const variant = await readAssetPathForSave(assetPath);
+  if (!variant) {
+    return undefined;
+  }
+
+  const packageAssetPath = toPackageAssetPath(
+    item,
+    assetIndex,
+    variant.extension ?? "png",
+    directory,
+  );
+  zip.file(packageAssetPath, variant.buffer, STORED_ZIP_BINARY_OPTIONS);
+  return packageAssetPath;
+};
+
+const countSaveableImageItems = (project: Project) =>
+  project.groups.reduce(
+    (count, group) =>
+      count +
+      group.items.filter((item) => item.type === "image" && Boolean(item.assetPath))
+        .length,
+    0,
+  );
+
+const prepareProjectForSave = async (
+  project: Project,
+  zip: JSZip,
+  options?: PrepareProjectForSaveOptions,
+) => {
   const packageAssetsBySource = new Map<
     string,
     {
@@ -178,6 +284,29 @@ const prepareProjectForSave = async (project: Project, zip: JSZip) => {
     }
   >();
   let assetIndex = 0;
+  let processedImageItems = 0;
+  let lastReportedProgress = -1;
+  const imageItemCount = countSaveableImageItems(project);
+
+  const reportAssetProgress = () => {
+    if (!options || imageItemCount === 0) {
+      return;
+    }
+
+    const progress = Math.round(
+      scaleProgress(
+        options.progressStart,
+        options.progressEnd,
+        (processedImageItems / imageItemCount) * 100,
+      ),
+    );
+    if (progress <= lastReportedProgress) {
+      return;
+    }
+
+    lastReportedProgress = progress;
+    reportProgress(options.onProgress, options.progressLabel, progress);
+  };
 
   const groups: ReferenceGroup[] = [];
   for (const group of project.groups) {
@@ -195,6 +324,8 @@ const prepareProjectForSave = async (project: Project, zip: JSZip) => {
       if (!packagedAssets) {
         const original = await readImageAssetForSave(item);
         if (!original) {
+          processedImageItems += 1;
+          reportAssetProgress();
           items.push(item);
           continue;
         }
@@ -203,10 +334,6 @@ const prepareProjectForSave = async (project: Project, zip: JSZip) => {
         packagedAssets = packageAssetsByFingerprint.get(fingerprint);
 
         if (!packagedAssets) {
-          const variants = await buildImageAssetVariantsFromBuffer(
-            original.buffer,
-            original.extension,
-          );
           const packageIndex = assetIndex++;
           const assetPath = toPackageAssetPath(
             item,
@@ -214,30 +341,60 @@ const prepareProjectForSave = async (project: Project, zip: JSZip) => {
             original.extension,
             PACKAGE_ORIGINAL_ASSET_DIR,
           );
-          zip.file(assetPath, original.buffer);
+          zip.file(assetPath, original.buffer, STORED_ZIP_BINARY_OPTIONS);
 
-          const previewAssetPath = variants.preview
-            ? toPackageAssetPath(
-                item,
-                packageIndex,
-                variants.preview.extension,
-                PACKAGE_PREVIEW_ASSET_DIR,
-              )
-            : undefined;
-          if (previewAssetPath && variants.preview) {
-            zip.file(previewAssetPath, variants.preview.buffer);
-          }
+          let previewAssetPath = await packageImageVariantAsset(
+            zip,
+            item,
+            packageIndex,
+            item.previewAssetPath,
+            PACKAGE_PREVIEW_ASSET_DIR,
+          );
+          let thumbnailAssetPath = await packageImageVariantAsset(
+            zip,
+            item,
+            packageIndex,
+            item.thumbnailAssetPath,
+            PACKAGE_THUMBNAIL_ASSET_DIR,
+          );
 
-          const thumbnailAssetPath = variants.thumbnail
-            ? toPackageAssetPath(
-                item,
-                packageIndex,
-                variants.thumbnail.extension,
-                PACKAGE_THUMBNAIL_ASSET_DIR,
-              )
-            : undefined;
-          if (thumbnailAssetPath && variants.thumbnail) {
-            zip.file(thumbnailAssetPath, variants.thumbnail.buffer);
+          if (!previewAssetPath && !thumbnailAssetPath) {
+            const variants = await buildImageAssetVariantsFromBuffer(
+              original.buffer,
+              original.extension,
+            );
+
+            previewAssetPath = variants.preview
+              ? toPackageAssetPath(
+                  item,
+                  packageIndex,
+                  variants.preview.extension,
+                  PACKAGE_PREVIEW_ASSET_DIR,
+                )
+              : undefined;
+            if (previewAssetPath && variants.preview) {
+              zip.file(
+                previewAssetPath,
+                variants.preview.buffer,
+                STORED_ZIP_BINARY_OPTIONS,
+              );
+            }
+
+            thumbnailAssetPath = variants.thumbnail
+              ? toPackageAssetPath(
+                  item,
+                  packageIndex,
+                  variants.thumbnail.extension,
+                  PACKAGE_THUMBNAIL_ASSET_DIR,
+                )
+              : undefined;
+            if (thumbnailAssetPath && variants.thumbnail) {
+              zip.file(
+                thumbnailAssetPath,
+                variants.thumbnail.buffer,
+                STORED_ZIP_BINARY_OPTIONS,
+              );
+            }
           }
 
           packagedAssets = {
@@ -251,6 +408,8 @@ const prepareProjectForSave = async (project: Project, zip: JSZip) => {
         packageAssetsBySource.set(item.assetPath, packagedAssets);
       }
 
+      processedImageItems += 1;
+      reportAssetProgress();
       items.push({
         ...item,
         assetPath: packagedAssets.assetPath,
@@ -389,10 +548,23 @@ const toGroupFileName = (group: ReferenceGroup, index: number) =>
 export const saveCanvasProject = async (
   project: Project,
   targetPath: string,
+  options: SaveCanvasProjectOptions = {},
 ) => {
   const safePath = validatePath(targetPath);
   const zip = new JSZip();
-  const projectForSave = await prepareProjectForSave(project, zip);
+  const progressLabel = options.progressLabel ?? "Saving canvas";
+  const progressStart = options.progressStart ?? 18;
+  const progressEnd = options.progressEnd ?? 96;
+  const progressAt = (relativeProgress: number) =>
+    scaleProgress(progressStart, progressEnd, relativeProgress);
+
+  reportProgress(options.onProgress, progressLabel, progressAt(8));
+  const projectForSave = await prepareProjectForSave(project, zip, {
+    onProgress: options.onProgress,
+    progressLabel,
+    progressStart: progressAt(12),
+    progressEnd: progressAt(68),
+  });
 
   const groupFiles = projectForSave.groups.map((group, index) => {
     const name = toGroupFileName(group, index);
@@ -415,11 +587,23 @@ export const saveCanvasProject = async (
   zip.file("manifest.json", JSON.stringify(manifest, null, 2));
   zip.file("tasks.json", JSON.stringify(projectForSave.tasks, null, 2));
 
+  let lastZipProgress = -1;
   const buffer = await zip.generateAsync({
     type: "nodebuffer",
     compression: "DEFLATE",
+    streamFiles: true,
+  }, (metadata) => {
+    const progress = Math.round(progressAt(72 + metadata.percent * 0.18));
+    if (progress <= lastZipProgress) {
+      return;
+    }
+
+    lastZipProgress = progress;
+    reportProgress(options.onProgress, progressLabel, progress);
   });
+  reportProgress(options.onProgress, progressLabel, progressAt(94));
   await fs.writeFile(safePath, buffer);
+  reportProgress(options.onProgress, progressLabel, progressAt(100));
 
   return safePath;
 };
@@ -510,29 +694,48 @@ const loadPackagedCanvasProject = async (
 
 export const loadCanvasProject = async (
   sourcePath: string,
+  options: LoadCanvasProjectOptions = {},
 ): Promise<Project> => {
   const safePath = validatePath(sourcePath);
+  reportProgress(options.onProgress, "Reading canvas", 12);
   const raw = await fs.readFile(safePath);
   const isZipPackage = raw.length >= 2 && raw[0] === 0x50 && raw[1] === 0x4b;
   const isGzipJson = raw.length >= 2 && raw[0] === 0x1f && raw[1] === 0x8b;
 
   if (isGzipJson) {
-    const legacyProject = await loadLegacyCanvasProject(raw, safePath);
+    reportProgress(options.onProgress, "Converting legacy canvas", 18);
+    const legacyProject = await loadLegacyCanvasProject(raw, safePath, {
+      onProgress: options.onProgress,
+      progressStart: 18,
+      progressEnd: 72,
+    });
     await saveCanvasProject(
       {
         ...legacyProject,
         filePath: safePath,
       },
       safePath,
+      {
+        onProgress: options.onProgress,
+        progressLabel: "Writing converted canvas",
+        progressStart: 74,
+        progressEnd: 96,
+      },
     );
 
-    const migratedRaw = await fs.readFile(safePath);
-    return loadPackagedCanvasProject(migratedRaw, safePath);
+    reportProgress(options.onProgress, "Converted canvas", 98);
+    return {
+      ...legacyProject,
+      filePath: safePath,
+    };
   }
 
   if (!isZipPackage) {
     throw new Error("Unsupported .canvas format.");
   }
 
-  return loadPackagedCanvasProject(raw, safePath);
+  reportProgress(options.onProgress, "Opening canvas package", 34);
+  const project = await loadPackagedCanvasProject(raw, safePath);
+  reportProgress(options.onProgress, "Loaded canvas package", 92);
+  return project;
 };

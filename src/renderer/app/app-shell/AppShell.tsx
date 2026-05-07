@@ -453,6 +453,8 @@ export const AppShell = () => {
     removeTask,
     pushToast,
   });
+  const { canvasStageRef, exportCanvasImageRef, viewportSize } =
+    useCanvasStage();
   const {
     activeGroup,
     activeGroupId,
@@ -474,6 +476,7 @@ export const AppShell = () => {
     backgroundColorPreview,
     canvasSizePreview,
     lastSavedSignature: lastSavedSignatureRef.current,
+    viewportSize,
   });
   const appShellStyle = {
     backgroundColor: hexToRgba(appShellBackgroundColor, 1),
@@ -608,8 +611,6 @@ export const AppShell = () => {
     setActiveTool,
     pushToast,
   });
-  const { canvasStageRef, exportCanvasImageRef, viewportSize } =
-    useCanvasStage();
   const {
     shortcutBindings,
     shortcutDialogOpen,

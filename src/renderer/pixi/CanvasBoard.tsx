@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
@@ -154,7 +155,7 @@ export const CanvasBoard = ({
     );
   }, [group.items, selectedItemIds]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     groupRef.current = group;
   }, [group]);
 
@@ -440,7 +441,7 @@ export const CanvasBoard = ({
     captureSessionByIdRef,
   });
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!appReady) {
       return;
     }
@@ -465,7 +466,7 @@ export const CanvasBoard = ({
     });
   }, [appReady, activeTool, group.items, group.locked]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!appReady) {
       return;
     }
@@ -481,11 +482,20 @@ export const CanvasBoard = ({
       previewInsetsRef.current.top !== 0 ||
       previewInsetsRef.current.right !== 0 ||
       previewInsetsRef.current.bottom !== 0;
+    const boardContainer = boardContainerRef.current;
+    const hasExternalViewChange =
+      boardContainer &&
+      (Math.abs(boardContainer.x - group.panX) > 0.75 ||
+        Math.abs(boardContainer.y - group.panY) > 0.75 ||
+        Math.abs(boardContainer.scale.x - group.zoom) > 0.001);
 
     // When a drag/transform preview expanded left or top, group state already
     // contains the corrected committed pan. Reusing the temporary preview pan
     // here would reintroduce the snap on rebuild.
-    if (!hasLivePreviewInsets) {
+    // Likewise, opening a different file can keep the same group id
+    // ("canvas-main"); in that case the stored file view must win over the
+    // previous live board view.
+    if (!hasLivePreviewInsets && !hasExternalViewChange) {
       preserveLiveBoardView();
     }
 
@@ -645,6 +655,14 @@ export const CanvasBoard = ({
       activeSelectionBoxRef.current
     ) {
       return;
+    }
+
+    if (hasExternalViewChange) {
+      cancelWheelZoomAnimationRef.current?.();
+      if (viewCommitTimerRef.current !== null) {
+        window.clearTimeout(viewCommitTimerRef.current);
+        viewCommitTimerRef.current = null;
+      }
     }
 
     syncViewFromGroup();

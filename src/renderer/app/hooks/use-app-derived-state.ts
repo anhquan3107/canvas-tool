@@ -5,6 +5,7 @@ import {
 } from "@shared/project-defaults";
 import type { ImageItem, Project, Task } from "@shared/types/project";
 import { getProjectDirtySignature } from "@renderer/app/utils";
+import { getFocusedGroupView } from "@renderer/features/workspace/utils/layout";
 
 interface UseAppDerivedStateOptions {
   project: Project;
@@ -16,6 +17,7 @@ interface UseAppDerivedStateOptions {
   } | null;
   canvasSizePreview: { width: number; height: number } | null;
   lastSavedSignature: string;
+  viewportSize: { width: number; height: number } | null;
 }
 
 export const useAppDerivedState = ({
@@ -25,6 +27,7 @@ export const useAppDerivedState = ({
   backgroundColorPreview,
   canvasSizePreview,
   lastSavedSignature,
+  viewportSize,
 }: UseAppDerivedStateOptions) => {
   const activeGroup = useMemo(
     () =>
@@ -73,8 +76,40 @@ export const useAppDerivedState = ({
     };
   }, [activeGroup, backgroundColorPreview]);
 
+  const normalizedZoomBaseline = useMemo(() => {
+    if (
+      !activeGroup ||
+      !viewportSize ||
+      viewportSize.width <= 0 ||
+      viewportSize.height <= 0
+    ) {
+      return DEFAULT_VIEW_ZOOM_BASELINE;
+    }
+
+    const visibleItems = activeGroup.items.filter((item) => item.visible);
+    const regionItems =
+      visibleItems.length > 0
+        ? visibleItems
+        : [
+            {
+              x: 0,
+              y: 0,
+              width: activeGroup.canvasSize.width,
+              height: activeGroup.canvasSize.height,
+            },
+          ];
+    const focusedView = getFocusedGroupView(
+      regionItems,
+      activeGroup.canvasSize,
+      viewportSize,
+    );
+    return focusedView?.zoom && Number.isFinite(focusedView.zoom)
+      ? focusedView.zoom
+      : DEFAULT_VIEW_ZOOM_BASELINE;
+  }, [activeGroup, viewportSize]);
+
   const zoomLabel = activeGroup
-    ? `${Math.round((activeGroup.zoom / DEFAULT_VIEW_ZOOM_BASELINE) * 100)}%`
+    ? `${Math.round((activeGroup.zoom / normalizedZoomBaseline) * 100)}%`
     : "0%";
 
   const selectedStatusImage = useMemo(() => {

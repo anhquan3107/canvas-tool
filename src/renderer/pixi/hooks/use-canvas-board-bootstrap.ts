@@ -7,7 +7,10 @@ import type {
   ActiveSelectionBoxState,
 } from "@renderer/pixi/types";
 import { clamp } from "@renderer/pixi/utils/geometry";
-import { MARQUEE_DRAG_THRESHOLD } from "@renderer/pixi/constants";
+import {
+  BOARD_WHEEL_ZOOM_SENSITIVITY,
+  MARQUEE_DRAG_THRESHOLD,
+} from "@renderer/pixi/constants";
 import {
   getNormalizedPointerData,
   type NormalizedPointerData,
@@ -438,7 +441,7 @@ export const useCanvasBoardBootstrap = ({
               ? 28
               : 1);
         const nextZoom = clamp(
-          baseScale * Math.exp(-normalizedDelta * 0.0024),
+          baseScale * Math.exp(-normalizedDelta * BOARD_WHEEL_ZOOM_SENSITIVITY),
           MIN_CANVAS_ZOOM,
           MAX_CANVAS_ZOOM,
         );

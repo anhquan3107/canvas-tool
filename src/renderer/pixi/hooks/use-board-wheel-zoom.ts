@@ -1,6 +1,7 @@
 import type { MutableRefObject } from "react";
 import type { Container } from "pixi.js";
 import { MAX_CANVAS_ZOOM, MIN_CANVAS_ZOOM } from "@shared/project-defaults";
+import { BOARD_WHEEL_ZOOM_SENSITIVITY } from "@renderer/pixi/constants";
 import { clamp } from "@renderer/pixi/utils/geometry";
 
 interface CreateBoardWheelZoomControllerOptions {
@@ -112,7 +113,7 @@ export const createBoardWheelZoomController = ({
           ? 28
           : 1);
     const nextZoom = clamp(
-      baseScale * Math.exp(-normalizedDelta * 0.0024),
+      baseScale * Math.exp(-normalizedDelta * BOARD_WHEEL_ZOOM_SENSITIVITY),
       MIN_CANVAS_ZOOM,
       MAX_CANVAS_ZOOM,
     );

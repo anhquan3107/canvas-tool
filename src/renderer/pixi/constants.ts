@@ -7,3 +7,4 @@ export const SNAP_THRESHOLD = 10;
 export const SNAP_GAP = 4;
 export const MARQUEE_DRAG_THRESHOLD = 4;
 export const ITEM_DRAG_THRESHOLD = 3;
+export const BOARD_WHEEL_ZOOM_SENSITIVITY = 0.0012;

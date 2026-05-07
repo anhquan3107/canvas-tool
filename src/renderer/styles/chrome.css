@@ -157,6 +157,10 @@
   -webkit-app-region: drag;
 }
 
+.app-topbar.macos-native-window-controls .app-drag-region {
+  padding-left: 76px;
+}
+
 .topbar-brand,
 .toolbar-button,
 .chrome-chip,

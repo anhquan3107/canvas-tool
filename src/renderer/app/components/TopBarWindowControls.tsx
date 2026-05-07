@@ -6,6 +6,7 @@ import { formatMenuShortcut } from "@renderer/app/components/MenuItemContent";
 import { useI18n } from "@renderer/i18n";
 
 interface TopBarWindowControlsProps {
+  isMacPlatform: boolean;
   shortcutBindings: ShortcutBindings;
   canvasLocked: boolean;
   lockedCanvasInteractionPulse: boolean;
@@ -20,6 +21,7 @@ interface TopBarWindowControlsProps {
 }
 
 export const TopBarWindowControls = ({
+  isMacPlatform,
   shortcutBindings,
   canvasLocked,
   lockedCanvasInteractionPulse,
@@ -104,44 +106,48 @@ export const TopBarWindowControls = ({
           ⇪
         </button>
       </TopBarHoverTooltip>
-      <TopBarHoverTooltip label={copy.windowControls.minimize}>
-        <button
-          type="button"
-          className="window-button"
-          onClick={onMinimize}
-          onPointerUp={handlePointerReleaseBlur}
-        >
-          -
-        </button>
-      </TopBarHoverTooltip>
-      <TopBarHoverTooltip
-        label={
-          windowMaximized
-            ? copy.windowControls.restore
-            : copy.windowControls.maximize
-        }
-      >
-        <button
-          type="button"
-          className="window-button"
-          onClick={onToggleMaximize}
-          onPointerUp={handlePointerReleaseBlur}
-        >
-          {windowMaximized ? "❐" : "□"}
-        </button>
-      </TopBarHoverTooltip>
-      <TopBarHoverTooltip
-        label={`${copy.windowControls.closeApp} (${formatMenuShortcut(shortcutBindings, "app.quit")})`}
-      >
-        <button
-          type="button"
-          className="window-button close"
-          onClick={onCloseWindow}
-          onPointerUp={handlePointerReleaseBlur}
-        >
-          ×
-        </button>
-      </TopBarHoverTooltip>
+      {!isMacPlatform ? (
+        <>
+          <TopBarHoverTooltip label={copy.windowControls.minimize}>
+            <button
+              type="button"
+              className="window-button"
+              onClick={onMinimize}
+              onPointerUp={handlePointerReleaseBlur}
+            >
+              -
+            </button>
+          </TopBarHoverTooltip>
+          <TopBarHoverTooltip
+            label={
+              windowMaximized
+                ? copy.windowControls.restore
+                : copy.windowControls.maximize
+            }
+          >
+            <button
+              type="button"
+              className="window-button"
+              onClick={onToggleMaximize}
+              onPointerUp={handlePointerReleaseBlur}
+            >
+              {windowMaximized ? "❐" : "□"}
+            </button>
+          </TopBarHoverTooltip>
+          <TopBarHoverTooltip
+            label={`${copy.windowControls.closeApp} (${formatMenuShortcut(shortcutBindings, "app.quit")})`}
+          >
+            <button
+              type="button"
+              className="window-button close"
+              onClick={onCloseWindow}
+              onPointerUp={handlePointerReleaseBlur}
+            >
+              ×
+            </button>
+          </TopBarHoverTooltip>
+        </>
+      ) : null}
     </div>
   );
 };

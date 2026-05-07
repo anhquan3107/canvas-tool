@@ -22,6 +22,21 @@ import { TopBarTools } from "@renderer/app/components/TopBarTools";
 import { TopBarWindowControls } from "@renderer/app/components/TopBarWindowControls";
 import { useI18n } from "@renderer/i18n";
 
+const isMacPlatform = () =>
+  /mac/i.test(
+    (() => {
+      if (typeof navigator === "undefined") {
+        return "";
+      }
+
+      const navigatorWithUAData = navigator as Navigator & {
+        userAgentData?: { platform?: string };
+      };
+
+      return navigatorWithUAData.userAgentData?.platform ?? navigator.platform ?? "";
+    })(),
+  );
+
 interface TopBarProps {
   activeGroup: ReferenceGroup | null | undefined;
   activeTool: ToolMode | null;
@@ -140,6 +155,7 @@ export const TopBar = ({
   onTransitionEnd,
 }: TopBarProps) => {
   const { copy } = useI18n();
+  const macPlatform = isMacPlatform();
   const [pendingTitleBarAction, setPendingTitleBarAction] =
     useState<PendingTitleBarAction | null>(null);
 
@@ -185,7 +201,9 @@ export const TopBar = ({
     <>
       <header
         ref={rootRef}
-        className={className ? `app-topbar ${className}` : "app-topbar"}
+        className={`app-topbar${className ? ` ${className}` : ""}${
+          macPlatform ? " macos-native-window-controls" : ""
+        }`}
         data-window-left-drag="true"
         onPointerEnter={onPointerEnter}
         onPointerLeave={onPointerLeave}
@@ -268,6 +286,7 @@ export const TopBar = ({
         </div>
 
         <TopBarWindowControls
+          isMacPlatform={macPlatform}
           shortcutBindings={shortcutBindings}
           canvasLocked={canvasLocked}
           lockedCanvasInteractionPulse={lockedCanvasInteractionPulse}

@@ -10,7 +10,27 @@ const isTypingTarget = (target: EventTarget | null) => {
   }
 
   const tag = target.tagName;
-  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+  if (tag === "TEXTAREA" || tag === "SELECT") {
+    return true;
+  }
+
+  if (target instanceof HTMLInputElement) {
+    const nonTypingInputTypes = new Set([
+      "button",
+      "checkbox",
+      "color",
+      "file",
+      "image",
+      "radio",
+      "range",
+      "reset",
+      "submit",
+    ]);
+
+    return !nonTypingInputTypes.has(target.type);
+  }
+
+  return false;
 };
 
 const normalizeShortcutKey = (key: string) => {

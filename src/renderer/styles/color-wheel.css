@@ -1,5 +1,5 @@
 .canvas-wheel-overlay {
-  pointer-events: auto;
+  pointer-events: none;
   overflow-y: auto;
   padding-top: 44px;
 }
@@ -11,6 +11,7 @@
   margin-left: auto;
   opacity: 0.94;
   transform-origin: top right;
+  pointer-events: none;
 }
 
 .tool-wheel {
@@ -29,6 +30,7 @@
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
+  pointer-events: auto;
 }
 
 .tool-wheel.interactive {
@@ -72,4 +74,5 @@
   height: 38px;
   background: #ec7a98;
   border: 1px solid rgba(0, 0, 0, 0.38);
+  pointer-events: none;
 }

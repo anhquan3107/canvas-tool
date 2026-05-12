@@ -41,6 +41,7 @@ interface TopBarProps {
   activeGroup: ReferenceGroup | null | undefined;
   activeTool: ToolMode | null;
   shortcutBindings: ShortcutBindings;
+  projectFileName: string | undefined;
   seenTitleBarTooltips: string[];
   settingsOpen: boolean;
   selectedCount: number;
@@ -100,6 +101,7 @@ export const TopBar = ({
   activeGroup,
   activeTool,
   shortcutBindings,
+  projectFileName,
   seenTitleBarTooltips,
   settingsOpen,
   selectedCount,
@@ -287,6 +289,7 @@ export const TopBar = ({
 
         <TopBarWindowControls
           isMacPlatform={macPlatform}
+          projectFileName={projectFileName}
           shortcutBindings={shortcutBindings}
           canvasLocked={canvasLocked}
           lockedCanvasInteractionPulse={lockedCanvasInteractionPulse}

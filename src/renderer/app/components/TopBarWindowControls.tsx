@@ -7,6 +7,7 @@ import { useI18n } from "@renderer/i18n";
 
 interface TopBarWindowControlsProps {
   isMacPlatform: boolean;
+  projectFileName: string | undefined;
   shortcutBindings: ShortcutBindings;
   canvasLocked: boolean;
   lockedCanvasInteractionPulse: boolean;
@@ -22,6 +23,7 @@ interface TopBarWindowControlsProps {
 
 export const TopBarWindowControls = ({
   isMacPlatform,
+  projectFileName,
   shortcutBindings,
   canvasLocked,
   lockedCanvasInteractionPulse,
@@ -48,6 +50,9 @@ export const TopBarWindowControls = ({
 
   return (
     <div className="window-cluster" data-window-no-drag="true">
+      <div className="topbar-filename" style={{ marginRight: 8, fontSize: 11, opacity: 0.6, userSelect: 'none' }}>
+        {projectFileName ? projectFileName : "Untitled"}
+      </div>
       <TopBarHoverTooltip
         label={
           locale === "en"

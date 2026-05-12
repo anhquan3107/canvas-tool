@@ -1195,6 +1195,7 @@ export const AppShell = () => {
           className={topbarVisible ? "is-revealed" : "is-hidden"}
           rootRef={topbarRef}
           activeGroup={activeGroup}
+          projectFileName={projectFileName}
           activeTool={activeTool}
           shortcutBindings={shortcutBindings}
           seenTitleBarTooltips={seenTitleBarTooltips}

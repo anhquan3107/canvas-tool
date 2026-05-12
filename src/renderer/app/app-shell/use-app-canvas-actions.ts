@@ -204,7 +204,7 @@ export const useAppCanvasActions = ({
         return;
       }
 
-      const clampSize = (value: number) => Math.max(6, Math.min(48, value));
+      const clampSize = (value: number) => Math.max(1, Math.min(100, value));
 
       if (doodleMode === "brush") {
         setBrushSize((previous) => clampSize(previous + delta));

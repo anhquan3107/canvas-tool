@@ -150,7 +150,7 @@ export const useCanvasBoardView = ({
         return;
       }
 
-      const size = Math.max(10, doodleSizeRef.current * boardContainer.scale.x);
+      const size = Math.max(1, doodleSizeRef.current * boardContainer.scale.x);
       const localX = clientX - rect.left;
       const localY = clientY - rect.top;
       const erasing =

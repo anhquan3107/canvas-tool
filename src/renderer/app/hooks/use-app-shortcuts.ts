@@ -198,14 +198,14 @@ export const useAppShortcuts = ({
           return;
         }
 
-        adjustDoodleSize(-2);
+        adjustDoodleSize(-1);
       },
       "tools.doodleIncreaseSize": () => {
         if (activeTool !== "doodle") {
           return;
         }
 
-        adjustDoodleSize(2);
+        adjustDoodleSize(1);
       },
       "tools.toggleRuler": toggleRuler,
       "tools.toggleBlur": toggleBlur,

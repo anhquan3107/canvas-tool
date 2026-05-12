@@ -472,7 +472,10 @@ export const CanvasBoard = ({
     }
 
     cancelWheelZoomAnimationRef.current?.();
-    if (viewCommitTimerRef.current !== null) {
+    const hasUncommittedLocalViewChange = viewCommitTimerRef.current !== null;
+    if (hasUncommittedLocalViewChange) {
+      commitView();
+    } else if (viewCommitTimerRef.current !== null) {
       window.clearTimeout(viewCommitTimerRef.current);
       viewCommitTimerRef.current = null;
     }
@@ -495,12 +498,14 @@ export const CanvasBoard = ({
     // Likewise, opening a different file can keep the same group id
     // ("canvas-main"); in that case the stored file view must win over the
     // previous live board view.
-    if (!hasLivePreviewInsets && !hasExternalViewChange) {
+    if (!hasLivePreviewInsets && (!hasExternalViewChange || hasUncommittedLocalViewChange)) {
       preserveLiveBoardView();
     }
 
-    previewInsetsRef.current = ZERO_INSETS;
-    onCanvasSizePreviewChangeRef.current?.(null);
+    if (!activeItemDragRef.current && !activeSelectionTransformRef.current) {
+      previewInsetsRef.current = ZERO_INSETS;
+      onCanvasSizePreviewChangeRef.current?.(null);
+    }
     rebuildScene();
   }, [
     appReady,
@@ -510,6 +515,7 @@ export const CanvasBoard = ({
     group.canvasSize.height,
     preserveLiveBoardView,
     rebuildScene,
+    commitView,
   ]);
 
   useEffect(() => {

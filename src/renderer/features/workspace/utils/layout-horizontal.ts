@@ -29,17 +29,17 @@ export const buildAutoArrangeUpdates = (
       Math.round(
         Math.sqrt(
           Math.max(1, totalArea) /
-            Math.max(
-              1,
-              availableWidth * (DEFAULT_EMPTY_GROUP_CANVAS_SIZE.height * 0.9),
-            ),
+          Math.max(
+            1,
+            availableWidth * (DEFAULT_EMPTY_GROUP_CANVAS_SIZE.height * 0.9),
+          ),
         ),
       ),
     );
     const targetRowHeight = Math.max(
       120,
       Math.min(
-        360,
+        1200,
         Math.round(totalArea / Math.max(1, availableWidth * estimatedRowCount)),
       ),
     );
@@ -85,19 +85,24 @@ export const buildAutoArrangeUpdates = (
       }
     }
 
-    const rowHeights = rows.map((row) => {
+    const rowHeights = rows.map((row, rowIndex) => {
       const totalAspectRatio = row.reduce(
         (sum, item) => sum + item.width / Math.max(1, item.height),
         0,
       );
 
-      return Math.max(
-        80,
-        Math.round(
-          (availableWidth - padding * Math.max(0, row.length - 1)) /
-            Math.max(totalAspectRatio, 0.0001),
-        ),
+      const justifiedHeight = Math.round(
+        (availableWidth - padding * Math.max(0, row.length - 1)) /
+          Math.max(totalAspectRatio, 0.0001),
       );
+
+      if (rowIndex === rows.length - 1) {
+        const maxOriginalHeight = Math.max(...row.map((item) => item.height));
+        // Don't drastically stretch small items to fit canvas, nor stretch the last row 
+        return Math.max(80, Math.min(justifiedHeight, Math.max(targetRowHeight, maxOriginalHeight)));
+      }
+
+      return Math.max(80, justifiedHeight);
     });
 
     const totalHeight =
@@ -163,7 +168,8 @@ export const buildAutoArrangeUpdates = (
       const nextHeight = rowHeight;
       const remainingWidth = bestLayout.availableWidth - (cursorX - padding);
       const isLastInRow = index === row.length - 1;
-      const nextWidth = isLastInRow
+      const isLastRow = rowIndex === bestLayout.rows.length - 1;
+      const nextWidth = isLastInRow && !isLastRow
         ? Math.max(1, Math.round(remainingWidth))
         : Math.max(1, Math.round(nextHeight * aspectRatio));
 

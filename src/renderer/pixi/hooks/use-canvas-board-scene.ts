@@ -154,9 +154,17 @@ export const useCanvasBoardScene = ({
     activeSelectionBoxRef.current = null;
     hideSelectionMarquee();
 
+    const activeDrag = activeItemDragRef.current;
+    const getZIndex = (item: typeof scene.items[0]) => {
+      if (activeDrag && activeDrag.patchBuffer[item.id]?.zIndex !== undefined) {
+        return activeDrag.patchBuffer[item.id].zIndex as number;
+      }
+      return item.zIndex;
+    };
+
     const visibleItems = scene.items
       .filter((item) => item.visible)
-      .sort((left, right) => left.zIndex - right.zIndex);
+      .sort((left, right) => getZIndex(left) - getZIndex(right));
 
     pruneBoardTextureCache(
       new Set(
@@ -375,6 +383,19 @@ export const useCanvasBoardScene = ({
           zIndexApplied: false,
         };
       });
+
+      if (activeItemDragRef.current) {
+        const dragItem = activeItemDragRef.current.items.find((d) => d.itemId === item.id);
+        if (dragItem) {
+          dragItem.itemNode = itemNode;
+          const patch = activeItemDragRef.current.patchBuffer[item.id];
+          if (patch) {
+            if (patch.x !== undefined && patch.y !== undefined) {
+              itemNode.position.set(patch.x, patch.y);
+            }
+          }
+        }
+      }
 
       itemLayer.addChild(itemNode);
     });

@@ -415,8 +415,8 @@ export const ColorWheel = ({
               <input
                 id="doodle-size"
                 type="range"
-                min={6}
-                max={48}
+                min={1}
+                max={100}
                 value={activeSize}
                 onChange={(event) => handleSizeChange(Number(event.target.value))}
               />

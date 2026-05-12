@@ -14,7 +14,7 @@ export const measureImage = (source: string) =>
   });
 
 export const normalizeSize = (width: number, height: number) => {
-  const max = 520;
+  const max = 1000;
   const min = 90;
 
   if (width <= max && height <= max) {
@@ -24,7 +24,7 @@ export const normalizeSize = (width: number, height: number) => {
     };
   }
 
-  const ratio = Math.min(max / width, max / height);
+  const ratio = Math.min(1, Math.max(max / width, max / height));
   return {
     width: Math.max(min, Math.round(width * ratio)),
     height: Math.max(min, Math.round(height * ratio)),

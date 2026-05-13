@@ -7,6 +7,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type WheelEvent as ReactWheelEvent,
 } from "react";
+import { BOARD_WHEEL_ZOOM_SENSITIVITY } from "@renderer/pixi/constants";
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
@@ -137,8 +138,15 @@ export const useZoomViewport = ({
       const viewportCenterX = rect.width * 0.5;
       const viewportCenterY = rect.height * 0.5;
 
+      const normalizedDelta =
+        event.deltaY *
+        (event.deltaMode === WheelEvent.DOM_DELTA_LINE
+          ? 8
+          : event.deltaMode === WheelEvent.DOM_DELTA_PAGE
+            ? 28
+            : 1);
       const nextScale = clamp(
-        scale * Math.exp(-event.deltaY * 0.0015),
+        scale * Math.exp(-normalizedDelta * BOARD_WHEEL_ZOOM_SENSITIVITY),
         fitScale,
         maxScale,
       );

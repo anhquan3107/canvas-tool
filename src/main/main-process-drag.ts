@@ -92,9 +92,6 @@ export const registerMainProcessDrag = (window: BrowserWindow) => {
   });
 
   ipcMain.on("drag:stop", (event) => {
-    if (activeSession) {
-      pollAndApplyDrag();
-    }
     stopDrag();
     event.returnValue = true;
   });

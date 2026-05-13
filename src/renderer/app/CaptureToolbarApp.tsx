@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { AppWindowControlsState } from "@shared/types/ipc";
 import {
   createCaptureSessionChannel,
@@ -12,7 +12,7 @@ import { useI18n } from "@renderer/i18n";
 import type { CaptureQuality } from "@renderer/features/connect/types";
 import { CAPTURE_QUALITY_PROFILES } from "@renderer/features/connect/utils";
 
-const CAPTURE_WINDOW_TOPBAR_HIDE_TRANSITION_MS = 180;
+const CAPTURE_WINDOW_TOPBAR_HIDE_TRANSITION_MS = 250;
 const CAPTURE_TOOLBAR_RESIZE_DIRECTIONS = ["e", "w", "ne", "nw"] as const;
 
 const DEFAULT_CAPTURE_SESSION_STATE: CaptureSessionState = {
@@ -32,6 +32,18 @@ export const CaptureToolbarApp = () => {
 
   const initial = useMemo(() => getCaptureLocationParams(), []);
   const channelRef = useRef<BroadcastChannel | null>(null);
+
+  useLayoutEffect(() => {
+    document.body.style.background = "transparent";
+    document.documentElement.style.background = "transparent";
+    const root = document.getElementById("root");
+    if (root) root.style.background = "transparent";
+    return () => {
+      document.body.style.background = "";
+      document.documentElement.style.background = "";
+      if (root) root.style.background = "";
+    };
+  }, []);
   const hideWindowTimeoutRef = useRef<number | null>(null);
   const focusCaptureOnReleaseRef = useRef(false);
   const [sessionState, setSessionState] = useState<CaptureSessionState>({

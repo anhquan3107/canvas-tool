@@ -9,7 +9,7 @@
 }
 
 .dialog-card {
-  width: min(430px, calc(100vw - 32px));
+  width: 430px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: #1f1f21;
   box-shadow:
@@ -42,7 +42,7 @@
 }
 
 .confirm-action-dialog {
-  width: min(430px, calc(100vw - 32px));
+  width: 430px;
 }
 
 .confirm-action-dialog-hero {
@@ -110,7 +110,7 @@
 }
 
 .titlebar-tooltip-dialog {
-  width: min(430px, calc(100vw - 40px));
+  width: 430px;
   padding: 0;
   border-radius: 0;
   border-color: rgba(255, 255, 255, 0.08);

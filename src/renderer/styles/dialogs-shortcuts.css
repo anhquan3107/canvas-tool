@@ -1,6 +1,6 @@
 .shortcut-dialog {
-  width: min(980px, calc(100vw - 48px));
-  max-height: min(86vh, 900px);
+  width: 980px;
+  max-height: 900px;
   display: flex;
   flex-direction: column;
   border: 1px solid var(--line-strong);

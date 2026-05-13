@@ -132,8 +132,8 @@ export const registerMainProcessResize = (window: BrowserWindow) => {
       startCursorX: cursor.x,
       startCursorY: cursor.y,
       startBounds: bounds,
-      minWidth: Math.max(160, mw),
-      minHeight: Math.max(160, mh),
+      minWidth: Math.max(1, mw),
+      minHeight: Math.max(1, mh),
       timerId: setInterval(pollAndApply, POLL_INTERVAL_MS),
     };
 

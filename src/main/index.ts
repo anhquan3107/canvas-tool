@@ -101,16 +101,16 @@ const createMainWindow = async () => {
   const restoredPlacement = await getRestoredMainWindowPlacement({
     width: 1440,
     height: 920,
-    minWidth: 1100,
-    minHeight: 700,
+    minWidth: 1,
+    minHeight: 1,
   });
   const mainWindow = new BrowserWindow({
     width: restoredPlacement.bounds?.width ?? 1440,
     height: restoredPlacement.bounds?.height ?? 920,
     x: restoredPlacement.bounds?.x,
     y: restoredPlacement.bounds?.y,
-    minWidth: 1100,
-    minHeight: 700,
+    minWidth: 1,
+    minHeight: 1,
     ...(process.platform === "darwin"
       ? { titleBarStyle: "hiddenInset" as const, trafficLightPosition: { x: 10, y: 10 } }
       : { frame: false }),

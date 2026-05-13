@@ -67,7 +67,7 @@
   }
 
   .help-dialog {
-    width: min(100vw - 24px, 980px);
+    width: 980px;
   }
 
   .help-guide-grid {

@@ -39,6 +39,7 @@ export const App = () => {
 
   const [initialProject, setInitialProject] = useState<Project | null>(null);
   const [initialLocale, setInitialLocale] = useState<AppLocale>("en");
+  const [initialWindowOpacity, setInitialWindowOpacity] = useState(1);
 
   useEffect(() => {
     Promise.all([
@@ -47,6 +48,7 @@ export const App = () => {
     ])
       .then(([project, settings]) => {
         setInitialLocale(settings.locale === "vi" ? "vi" : "en");
+        setInitialWindowOpacity(settings.windowOpacity ?? 1);
         setInitialProject(project);
       })
       .catch(async () => {
@@ -76,7 +78,7 @@ export const App = () => {
       <>
         <DotGain20FilterDefs />
         <ProjectProvider initialProject={initialProject}>
-          <AppShell />
+          <AppShell initialWindowOpacity={initialWindowOpacity} />
         </ProjectProvider>
       </>
     </I18nProvider>

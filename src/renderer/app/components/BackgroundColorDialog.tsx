@@ -3,11 +3,13 @@ import { ColorSquare } from "@renderer/app/components/ColorSquare";
 import { HueSlider } from "@renderer/app/components/HueSlider";
 import { useColorPickerState } from "@renderer/app/components/use-color-picker-state";
 import { useI18n } from "@renderer/i18n";
+import type { CSSProperties } from "react";
 
 interface BackgroundColorDialogProps {
   open: boolean;
   canvasColor: string;
   backgroundColor: string;
+  windowOpacity: number;
   onClose: () => void;
   onPreviewChange: (colors: {
     canvasColor: string;
@@ -17,15 +19,18 @@ interface BackgroundColorDialogProps {
     canvasColor: string;
     backgroundColor: string;
   }) => void;
+  onWindowOpacityChange: (opacity: number) => void;
 }
 
 export const BackgroundColorDialog = ({
   open,
   canvasColor,
   backgroundColor,
+  windowOpacity,
   onClose,
   onPreviewChange,
   onConfirm,
+  onWindowOpacityChange,
 }: BackgroundColorDialogProps) => {
   const { copy } = useI18n();
   const {
@@ -124,13 +129,37 @@ export const BackgroundColorDialog = ({
             style={{ backgroundColor: activeColor }}
           />
         </div>
+
+        <div className="dialog-field color-picker-opacity-field">
+          <label htmlFor="color-picker-opacity">
+            {copy.backgroundDialog.appOpacity(Math.round(windowOpacity * 100))}
+          </label>
+          <input
+            id="color-picker-opacity"
+            type="range"
+            min={1}
+            max={100}
+            step={1}
+            value={Math.round(windowOpacity * 100)}
+            className="color-picker-opacity-slider"
+            style={{ "--slider-fill": `${windowOpacity * 100}%` } as CSSProperties}
+            onChange={(event) => {
+              const nextValue =
+                Math.min(100, Math.max(1, Number(event.target.value))) / 100;
+              onWindowOpacityChange(nextValue);
+            }}
+          />
+        </div>
       </div>
 
       <div className="dialog-actions dialog-actions-triple">
         <button
           type="button"
           className="dialog-button"
-          onClick={handleReset}
+          onClick={() => {
+            handleReset();
+            onWindowOpacityChange(1);
+          }}
         >
           {copy.common.reset}
         </button>

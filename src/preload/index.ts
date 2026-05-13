@@ -133,6 +133,8 @@ const desktopApi: DesktopApi = {
     toggleAlwaysOnTop: () => ipcRenderer.invoke("window:toggle-always-on-top"),
     toggleMaximize: () => ipcRenderer.invoke("window:toggle-maximize"),
     close: () => ipcRenderer.invoke("window:close"),
+    getOpacity: () => ipcRenderer.invoke("window:get-opacity"),
+    setOpacity: (payload) => ipcRenderer.invoke("window:set-opacity", payload),
     getControlsState: () => ipcRenderer.invoke("window:get-controls-state"),
     getCursorScreenPointSync: () =>
       ipcRenderer.sendSync("window:get-cursor-screen-point-sync"),

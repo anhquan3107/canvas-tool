@@ -1,7 +1,7 @@
 import { readSettings, writeSettings } from "./services/app-settings-service";
 
 export const DEFAULT_WINDOW_OPACITY = 1;
-export const MIN_WINDOW_OPACITY = 0.05;
+export const MIN_WINDOW_OPACITY = 0.01;
 export const MAX_WINDOW_OPACITY = 1;
 
 export const clampWindowOpacity = (value: number) => {

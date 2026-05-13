@@ -87,6 +87,11 @@ export interface AppWindowPosition {
   y: number;
 }
 
+export interface AppWindowOpacityRequest {
+  opacity: number;
+  persist?: boolean;
+}
+
 export interface AppWindowBounds extends AppWindowPosition {
   width: number;
   height: number;
@@ -219,6 +224,8 @@ export interface DesktopApi {
     toggleAlwaysOnTop: () => Promise<AppWindowControlsState>;
     toggleMaximize: () => Promise<AppWindowControlsState>;
     close: () => Promise<void>;
+    getOpacity: () => Promise<number>;
+    setOpacity: (payload: AppWindowOpacityRequest) => Promise<number>;
     getControlsState: () => Promise<AppWindowControlsState>;
     getCursorScreenPointSync: () => AppWindowPosition;
     dipToScreenPointSync: (payload: AppWindowPosition) => AppWindowPosition;

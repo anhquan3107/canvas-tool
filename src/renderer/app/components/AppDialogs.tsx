@@ -29,6 +29,7 @@ interface AppDialogsProps {
     canvasColor: string;
     backgroundColor: string;
   } | null;
+  windowOpacity: number;
   canvasHeightInput: string;
   canvasSizeDialogOpen: boolean;
   canvasWidthInput: string;
@@ -92,6 +93,7 @@ interface AppDialogsProps {
     canvasColor: string;
     backgroundColor: string;
   }) => void;
+  onWindowOpacityChange: (opacity: number) => void;
   onConfirmCloseCancel: () => void;
 }
 
@@ -99,6 +101,7 @@ export const AppDialogs = ({
   activeGroup,
   backgroundColorDialogOpen,
   backgroundColorPreview,
+  windowOpacity,
   canvasHeightInput,
   canvasSizeDialogOpen,
   canvasWidthInput,
@@ -156,6 +159,7 @@ export const AppDialogs = ({
   onBackgroundColorDialogClose,
   onBackgroundColorPreviewChange,
   onBackgroundColorConfirm,
+  onWindowOpacityChange,
   onConfirmCloseCancel,
 }: AppDialogsProps) => {
   const { copy } = useI18n();
@@ -250,9 +254,11 @@ export const AppDialogs = ({
         activeGroup?.backgroundColor ??
         DEFAULT_GROUP_BACKGROUND_COLOR
       }
+      windowOpacity={windowOpacity}
       onClose={onBackgroundColorDialogClose}
       onPreviewChange={onBackgroundColorPreviewChange}
       onConfirm={onBackgroundColorConfirm}
+      onWindowOpacityChange={onWindowOpacityChange}
     />
 
     <KeyboardShortcutsDialog

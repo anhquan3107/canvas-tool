@@ -84,7 +84,7 @@ const clampSavedWindowOpacity = (value: number | undefined) => {
     return 1;
   }
 
-  return Math.min(1, Math.max(0.05, value));
+  return Math.min(1, Math.max(0.01, value));
 };
 
 const sanitizeLocale = (value: unknown): AppLocale =>

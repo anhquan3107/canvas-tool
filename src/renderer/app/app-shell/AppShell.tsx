@@ -68,7 +68,13 @@ type CropSession = {
 const TOPBAR_SLIDE_TRANSITION_MS = 180;
 const TOPBAR_HIDE_DELAY_MS = 1500;
 
-export const AppShell = () => {
+interface AppShellProps {
+  initialWindowOpacity: number;
+}
+
+const clampWindowOpacity = (value: number) => Math.min(1, Math.max(0.01, value));
+
+export const AppShell = ({ initialWindowOpacity }: AppShellProps) => {
   useWindowRightDrag();
   const { copy } = useI18n();
   const windowFocused = useWindowFocusState();
@@ -87,6 +93,10 @@ export const AppShell = () => {
     useState(false);
   const topbarVisibleRef = useRef(true);
   const topbarAnimatingRef = useRef(false);
+  const savedWindowOpacityRef = useRef(clampWindowOpacity(initialWindowOpacity));
+  const [windowOpacity, setWindowOpacity] = useState(
+    clampWindowOpacity(initialWindowOpacity),
+  );
 
   const {
     recentFiles,
@@ -342,6 +352,12 @@ export const AppShell = () => {
   const { importQueue, setImportQueue } = useImportQueueSession(project);
 
   useEffect(() => {
+    const nextOpacity = clampWindowOpacity(initialWindowOpacity);
+    savedWindowOpacityRef.current = nextOpacity;
+    setWindowOpacity(nextOpacity);
+  }, [initialWindowOpacity]);
+
+  useEffect(() => {
     if (!toast || typeof toast.progress !== "number") {
       progressToastControllerRef.current = null;
     }
@@ -479,17 +495,17 @@ export const AppShell = () => {
     viewportSize,
   });
   const appShellStyle = {
-    backgroundColor: hexToRgba(appShellBackgroundColor, 1),
-    "--bg-panel": "rgba(34, 34, 37, 0.96)",
-    "--bg-panel-soft": "rgba(42, 42, 46, 0.86)",
-    "--bg-menu": "rgba(38, 38, 42, 0.98)",
-    "--bg-chrome": "rgba(31, 31, 33, 0.94)",
-    "--bg-chrome-solid": "rgba(31, 31, 33, 1)",
-    "--topbar-bg": "rgba(45, 44, 49, 1)",
-    "--status-pill-bg": "rgba(18, 18, 20, 0.54)",
-    "--status-pill-hover-bg": "rgba(18, 18, 20, 0.68)",
+    backgroundColor: hexToRgba(appShellBackgroundColor, windowOpacity),
+    "--bg-panel": `rgba(34, 34, 37, ${0.96 * windowOpacity})`,
+    "--bg-panel-soft": `rgba(42, 42, 46, ${0.86 * windowOpacity})`,
+    "--bg-menu": `rgba(38, 38, 42, ${0.98 * windowOpacity})`,
+    "--bg-chrome": `rgba(31, 31, 33, ${0.94 * windowOpacity})`,
+    "--bg-chrome-solid": `rgba(31, 31, 33, ${windowOpacity})`,
+    "--topbar-bg": `rgba(45, 44, 49, ${windowOpacity})`,
+    "--status-pill-bg": `rgba(18, 18, 20, ${0.54 * windowOpacity})`,
+    "--status-pill-hover-bg": `rgba(18, 18, 20, ${0.68 * windowOpacity})`,
   } as CSSProperties;
-  const windowSurfaceColor = hexToRgba(appShellBackgroundColor, 1);
+  const windowSurfaceColor = hexToRgba(appShellBackgroundColor, windowOpacity);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -981,6 +997,36 @@ export const AppShell = () => {
     setSwatchesHidden,
   });
 
+  const handleOpenBackgroundColorDialogWithOpacity = useCallback(() => {
+    savedWindowOpacityRef.current = windowOpacity;
+    handleOpenBackgroundColorDialog();
+  }, [handleOpenBackgroundColorDialog, windowOpacity]);
+
+  const handleCloseBackgroundColorDialogWithOpacity = useCallback(() => {
+    setWindowOpacity(savedWindowOpacityRef.current);
+    handleCloseBackgroundColorDialog();
+  }, [handleCloseBackgroundColorDialog]);
+
+  const handleWindowOpacityChange = useCallback((nextOpacity: number) => {
+    setWindowOpacity(clampWindowOpacity(nextOpacity));
+  }, []);
+
+  const handleConfirmBackgroundColorDialogWithOpacity = useCallback(
+    async (colors: {
+      canvasColor: string;
+      backgroundColor: string;
+    }) => {
+      const nextOpacity = await window.desktopApi.window.setOpacity({
+        opacity: windowOpacity,
+        persist: true,
+      });
+      setWindowOpacity(nextOpacity);
+      savedWindowOpacityRef.current = nextOpacity;
+      handleConfirmBackgroundColorDialog(colors);
+    },
+    [handleConfirmBackgroundColorDialog, windowOpacity],
+  );
+
   useEffect(() => {
     if (!cropSession) {
       return;
@@ -1271,7 +1317,7 @@ export const AppShell = () => {
             setSettingsOpen(false);
             autoArrange();
           }}
-          onShowBackgroundColor={handleOpenBackgroundColorDialog}
+          onShowBackgroundColor={handleOpenBackgroundColorDialogWithOpacity}
           onResetView={handleFitCanvasToWindow}
           onFitCanvasToContent={resetView}
           onTaskClick={openTaskDialog}
@@ -1323,14 +1369,14 @@ export const AppShell = () => {
                 backgroundColor: hexToRgba(
                   displayGroup?.backgroundColor ??
                     DEFAULT_GROUP_BACKGROUND_COLOR,
-                  1,
+                  windowOpacity,
                 ),
               }}
             >
               {displayGroup ? (
                 <CanvasBoard
                   group={displayGroup}
-                  surfaceOpacity={1}
+                  surfaceOpacity={windowOpacity}
                   showSwatches={!swatchesHidden}
                   activeTool={activeTool}
                   doodleMode={doodleMode}
@@ -1548,6 +1594,7 @@ export const AppShell = () => {
           canDeleteActiveGroup={canDeleteActiveGroup}
           canUndo={canUndo}
           canRedo={canRedo}
+          useLightTheme={windowOpacity <= 0.05}
           onClose={() => setMenuState(null)}
           onUndo={() => {
             setMenuState(null);
@@ -1586,7 +1633,7 @@ export const AppShell = () => {
             setMenuState(null);
             handleToolButton("doodle");
           }}
-          onShowBackgroundColor={handleOpenBackgroundColorDialog}
+          onShowBackgroundColor={handleOpenBackgroundColorDialogWithOpacity}
           onChangeCanvasSize={handleOpenCanvasSizeDialog}
           onToggleCanvasLock={() => {
             setMenuState(null);
@@ -1695,6 +1742,7 @@ export const AppShell = () => {
         activeGroup={activeGroup}
         backgroundColorDialogOpen={backgroundColorDialogOpen}
         backgroundColorPreview={backgroundColorPreview}
+        windowOpacity={windowOpacity}
         canvasHeightInput={canvasHeightInput}
         canvasSizeDialogOpen={canvasSizeDialogOpen}
         canvasWidthInput={canvasWidthInput}
@@ -1749,9 +1797,10 @@ export const AppShell = () => {
         taskDuration={taskDuration}
         toast={toast}
         updateShortcutDraftBinding={updateShortcutDraftBinding}
-        onBackgroundColorDialogClose={handleCloseBackgroundColorDialog}
+        onBackgroundColorDialogClose={handleCloseBackgroundColorDialogWithOpacity}
         onBackgroundColorPreviewChange={setBackgroundColorPreview}
-        onBackgroundColorConfirm={handleConfirmBackgroundColorDialog}
+        onBackgroundColorConfirm={handleConfirmBackgroundColorDialogWithOpacity}
+        onWindowOpacityChange={handleWindowOpacityChange}
         onConfirmCloseCancel={() => setConfirmCloseOpen(false)}
       />
     </div>

@@ -114,9 +114,8 @@ const createMainWindow = async () => {
     ...(process.platform === "darwin"
       ? { titleBarStyle: "hiddenInset" as const, trafficLightPosition: { x: 10, y: 10 } }
       : { frame: false }),
-    transparent: false,
-    backgroundColor: "#1f1f21",
-    ...(process.platform === "win32" ? { thickFrame: true } : {}),
+    transparent: true,
+    backgroundColor: "#00000000",
     title: "CanvasTool",
     ...(process.platform !== "darwin" ? { icon: getRuntimeAppIconPath() } : {}),
     webPreferences: {

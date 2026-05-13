@@ -2,11 +2,13 @@ import { ipcMain, screen, type BrowserWindow } from "electron";
 import type {
   AppWindowBounds,
   AppWindowIgnoreMouseRequest,
+  AppWindowOpacityRequest,
   AppWindowPosition,
   AppWindowSize,
   AppWindowState,
 } from "../../shared/types/ipc";
 import { getWindowActionTarget } from "../window-action-targets";
+import { clampWindowOpacity, getSavedWindowOpacity, persistWindowOpacity } from "../window-opacity";
 import { getSenderWindow } from "./ipc-utils";
 
 export const registerWindowHandlers = (window: BrowserWindow) => {
@@ -98,6 +100,20 @@ export const registerWindowHandlers = (window: BrowserWindow) => {
   ipcMain.handle("window:close", (event) => {
     getTargetWindow(event)?.close();
   });
+
+  ipcMain.handle("window:get-opacity", () => getSavedWindowOpacity());
+
+  ipcMain.handle(
+    "window:set-opacity",
+    async (_event, payload: AppWindowOpacityRequest) => {
+      const nextOpacity = clampWindowOpacity(payload.opacity);
+      if (payload.persist) {
+        await persistWindowOpacity(nextOpacity);
+      }
+
+      return nextOpacity;
+    },
+  );
 
   ipcMain.handle("window:get-controls-state", (event) => ({
     isMaximized: getTargetWindow(event).isMaximized(),

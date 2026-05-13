@@ -18,6 +18,7 @@ interface AppMenuProps extends MenuState {
   canDeleteActiveGroup: boolean;
   canUndo: boolean;
   canRedo: boolean;
+  useLightTheme: boolean;
   onClose: () => void;
   onUndo: () => void;
   onRedo: () => void;
@@ -69,6 +70,7 @@ export const AppMenu = ({
   canDeleteActiveGroup,
   canUndo,
   canRedo,
+  useLightTheme,
   onClose,
   onUndo,
   onRedo,
@@ -153,7 +155,7 @@ export const AppMenu = ({
   return (
     <div
       ref={menuRef}
-      className="app-menu"
+      className={`app-menu${useLightTheme ? " app-menu--light" : ""}`}
       data-horizontal={placement?.horizontal ?? "right"}
       data-vertical={placement?.vertical ?? "down"}
       style={{

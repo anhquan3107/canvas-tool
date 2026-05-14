@@ -6,10 +6,14 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { useI18n } from "@renderer/i18n";
-import type { DoodleMode } from "@renderer/features/tools/types";
+import type {
+  DoodleEraserMode,
+  DoodleMode,
+} from "@renderer/features/tools/types";
 
 interface ColorWheelProps {
   doodleMode: DoodleMode;
+  lastEraserMode: DoodleEraserMode;
   doodleColor: string;
   brushSize: number;
   eraserSize: number;
@@ -71,6 +75,7 @@ const hexToRgb = (hex: string) => {
 
 export const ColorWheel = ({
   doodleMode,
+  lastEraserMode,
   doodleColor,
   brushSize,
   eraserSize,
@@ -373,11 +378,7 @@ export const ColorWheel = ({
                 }
                 aria-label={copy.doodle.erase}
                 title={copy.doodle.erase}
-                onClick={() =>
-                  onDoodleModeChange(
-                    doodleMode === "erase-pixel" ? "erase-pixel" : "erase-line",
-                  )
-                }
+                onClick={() => onDoodleModeChange(lastEraserMode)}
               >
                 {copy.doodle.erase}
               </button>

@@ -4,17 +4,21 @@ import {
   markTitleBarTooltipSeen,
   readSettings,
   resetTitleBarTooltips,
+  saveDoodleMode,
   saveLocale,
   writeSettings,
 } from "../services/app-settings-service";
 import { resolveShortcutBindings, type ShortcutBindings } from "../../shared/shortcuts";
-import type { AppLocale } from "../../shared/types/project";
+import type { AppLocale, DoodleMode } from "../../shared/types/project";
 
 export const registerAppHandlers = (_window: BrowserWindow) => {
   ipcMain.handle("app:get-version", () => app.getVersion());
   ipcMain.handle("app:get-settings", () => readSettings());
   ipcMain.handle("app:save-locale", (_event, locale: AppLocale) =>
     saveLocale(locale),
+  );
+  ipcMain.handle("app:save-doodle-mode", (_event, mode: DoodleMode) =>
+    saveDoodleMode(mode),
   );
   ipcMain.handle(
     "app:save-shortcut-bindings",

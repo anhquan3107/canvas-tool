@@ -41,6 +41,10 @@ import {
 import { useConnectFeature } from "@renderer/features/connect/hooks/use-connect-feature";
 import type { CaptureSource } from "@renderer/features/connect/types";
 import { CAPTURE_QUALITY_PROFILES } from "@renderer/features/connect/utils";
+import type {
+  DoodleEraserMode,
+  DoodleMode,
+} from "@renderer/features/tools/types";
 import { useGroupFeature } from "@renderer/features/groups/hooks/use-group-feature";
 import { GroupOverlay } from "@renderer/features/groups/components/GroupOverlay";
 import { useImportQueueSession } from "@renderer/features/import/hooks/use-import-queue-session";
@@ -70,11 +74,17 @@ const TOPBAR_HIDE_DELAY_MS = 1500;
 
 interface AppShellProps {
   initialWindowOpacity: number;
+  initialDoodleMode: DoodleMode;
+  initialDoodleEraserMode: DoodleEraserMode;
 }
 
 const clampWindowOpacity = (value: number) => Math.min(1, Math.max(0.01, value));
 
-export const AppShell = ({ initialWindowOpacity }: AppShellProps) => {
+export const AppShell = ({
+  initialWindowOpacity,
+  initialDoodleMode,
+  initialDoodleEraserMode,
+}: AppShellProps) => {
   useWindowRightDrag();
   const { copy } = useI18n();
   const windowFocused = useWindowFocusState();
@@ -583,6 +593,7 @@ export const AppShell = ({ initialWindowOpacity }: AppShellProps) => {
     activeTool,
     showColorWheel,
     doodleMode,
+    lastEraserMode,
     doodleColor,
     brushSize,
     eraserSize,
@@ -596,6 +607,8 @@ export const AppShell = ({ initialWindowOpacity }: AppShellProps) => {
     toggleBlackAndWhite,
   } = useToolFeature({
     activeGroup,
+    initialDoodleMode,
+    initialDoodleEraserMode,
     setGroupFilters,
     pushToast,
     onConnectRequested: openConnectDialog,
@@ -1200,6 +1213,7 @@ export const AppShell = ({ initialWindowOpacity }: AppShellProps) => {
       setAutoArrangeOnImport((previous) => !previous),
     openConnectDialog,
     toggleDoodle: () => handleToolButton("doodle"),
+    lastEraserMode,
     setDoodleMode,
     adjustDoodleSize,
     toggleRuler: handleRulerTool,
@@ -1506,6 +1520,7 @@ export const AppShell = ({ initialWindowOpacity }: AppShellProps) => {
                     <div className="canvas-overlay-column top-right canvas-wheel-overlay">
                       <ColorWheel
                         doodleMode={doodleMode}
+                        lastEraserMode={lastEraserMode}
                         doodleColor={doodleColor}
                         brushSize={brushSize}
                         eraserSize={eraserSize}

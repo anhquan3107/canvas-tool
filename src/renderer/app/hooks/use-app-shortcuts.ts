@@ -6,7 +6,11 @@ import {
   collectClipboardPayload,
   type ImportPayload,
 } from "@renderer/features/import/image-import";
-import type { DoodleMode, ToolMode } from "@renderer/features/tools/types";
+import type {
+  DoodleEraserMode,
+  DoodleMode,
+  ToolMode,
+} from "@renderer/features/tools/types";
 
 const isMacPlatform = () =>
   /mac/i.test(
@@ -73,6 +77,7 @@ interface UseAppShortcutsOptions {
   toggleAutoArrangeOnImport: () => void;
   openConnectDialog: () => void;
   toggleDoodle: () => void;
+  lastEraserMode: DoodleEraserMode;
   setDoodleMode: (mode: DoodleMode) => void;
   adjustDoodleSize: (delta: number) => void;
   toggleRuler: () => void;
@@ -121,6 +126,7 @@ export const useAppShortcuts = ({
   toggleAutoArrangeOnImport,
   openConnectDialog,
   toggleDoodle,
+  lastEraserMode,
   setDoodleMode,
   adjustDoodleSize,
   toggleRuler,
@@ -178,7 +184,12 @@ export const useAppShortcuts = ({
       "arrange.horizontal": () => arrangeSelectedItems("horizontal"),
       "arrange.toggleAutoArrangeOnImport": toggleAutoArrangeOnImport,
       "tools.connect": openConnectDialog,
-      "tools.toggleDoodle": toggleDoodle,
+      "tools.toggleDoodle": () => {
+        if (activeTool !== "doodle") {
+          setDoodleMode("brush");
+        }
+        toggleDoodle();
+      },
       "tools.doodleBrush": () => {
         if (activeTool !== "doodle") {
           return;
@@ -191,7 +202,7 @@ export const useAppShortcuts = ({
           return;
         }
 
-        setDoodleMode("erase-line");
+        setDoodleMode(lastEraserMode);
       },
       "tools.doodleDecreaseSize": () => {
         if (activeTool !== "doodle") {
@@ -235,6 +246,7 @@ export const useAppShortcuts = ({
       handleOpenProject,
       handleSaveProject,
       handleSaveProjectAs,
+      lastEraserMode,
       openCanvasSizeDialog,
       openConnectDialog,
       exitDoodle,

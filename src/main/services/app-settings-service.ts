@@ -3,6 +3,8 @@ import fsSync from "node:fs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import type {
+  DoodleEraserMode,
+  DoodleMode,
   AppLocale,
   AppSettings,
   WindowBoundsSnapshot,
@@ -90,11 +92,19 @@ const clampSavedWindowOpacity = (value: number | undefined) => {
 const sanitizeLocale = (value: unknown): AppLocale =>
   value === "vi" ? "vi" : "en";
 
+const sanitizeDoodleMode = (value: unknown): DoodleMode =>
+  value === "erase-line" || value === "erase-pixel" ? value : "brush";
+
+const sanitizeDoodleEraserMode = (value: unknown): DoodleEraserMode =>
+  value === "erase-pixel" ? "erase-pixel" : "erase-line";
+
 const defaultSettings = (): AppSettings => ({
   recentFiles: [],
   maxRecentFiles: 12,
   locale: "en",
   windowOpacity: 1,
+  doodleMode: "brush",
+  doodleEraserMode: "erase-line",
   windowPlacement: undefined,
   shortcuts: { ...DEFAULT_SHORTCUT_BINDINGS },
   seenTitleBarTooltips: [],
@@ -175,6 +185,10 @@ const parseSettings = (raw: string): AppSettings => {
         : 12,
     locale: sanitizeLocale(parsed.locale),
     windowOpacity: clampSavedWindowOpacity(parsed.windowOpacity),
+    doodleMode: sanitizeDoodleMode(parsed.doodleMode),
+    doodleEraserMode: sanitizeDoodleEraserMode(
+      parsed.doodleEraserMode ?? parsed.doodleMode,
+    ),
     lastOpenedFile:
       typeof parsed.lastOpenedFile === "string"
         ? parsed.lastOpenedFile
@@ -251,6 +265,23 @@ export const resetTitleBarTooltips = async () => {
     seenTitleBarTooltips: [],
   });
   return [];
+};
+
+export const saveDoodleMode = async (mode: DoodleMode) => {
+  const settings = await readSettings();
+  const nextMode = sanitizeDoodleMode(mode);
+  const nextEraserMode =
+    nextMode === "brush"
+      ? sanitizeDoodleEraserMode(settings.doodleEraserMode)
+      : sanitizeDoodleEraserMode(nextMode);
+
+  await writeSettings({
+    ...settings,
+    doodleMode: nextMode,
+    doodleEraserMode: nextEraserMode,
+  });
+
+  return nextMode;
 };
 
 export const setLastExportPath = async (exportPath: string) => {

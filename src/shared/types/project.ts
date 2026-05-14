@@ -4,6 +4,9 @@ export type AppLocale = "en" | "vi";
 
 export type LayoutMode = "pinterest-dynamic" | "horizontal";
 
+export type DoodleMode = "brush" | "erase-line" | "erase-pixel";
+export type DoodleEraserMode = Extract<DoodleMode, "erase-line" | "erase-pixel">;
+
 export interface Project {
   id: string;
   version: number;
@@ -31,6 +34,8 @@ export interface AppSettings {
   maxRecentFiles: number;
   locale?: AppLocale;
   windowOpacity?: number;
+  doodleMode?: DoodleMode;
+  doodleEraserMode?: DoodleEraserMode;
   windowPlacement?: WindowPlacementSettings;
   shortcuts?: Partial<Record<ShortcutActionId, string>>;
   seenTitleBarTooltips?: string[];

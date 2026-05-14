@@ -1,11 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReferenceGroup } from "@shared/types/project";
 import { useI18n } from "@renderer/i18n";
-import type { DoodleMode, ToolMode } from "@renderer/features/tools/types";
+import type {
+  DoodleEraserMode,
+  DoodleMode,
+  ToolMode,
+} from "@renderer/features/tools/types";
 import { warmDotGain20TextureAssetPath } from "@renderer/pixi/utils/textures";
 
 interface UseToolFeatureOptions {
   activeGroup: ReferenceGroup | undefined;
+  initialDoodleMode?: DoodleMode;
+  initialDoodleEraserMode?: DoodleEraserMode;
   setGroupFilters: (
     groupId: string,
     filters: { blur?: number; grayscale?: number },
@@ -16,13 +22,18 @@ interface UseToolFeatureOptions {
 
 export const useToolFeature = ({
   activeGroup,
+  initialDoodleMode = "brush",
+  initialDoodleEraserMode = "erase-line",
   setGroupFilters,
   pushToast,
   onConnectRequested,
 }: UseToolFeatureOptions) => {
   const { copy } = useI18n();
   const [activeTool, setActiveTool] = useState<ToolMode | null>(null);
-  const [doodleMode, setDoodleMode] = useState<DoodleMode>("brush");
+  const [doodleModeState, setDoodleModeState] =
+    useState<DoodleMode>(initialDoodleMode);
+  const [lastEraserMode, setLastEraserMode] =
+    useState<DoodleEraserMode>(initialDoodleEraserMode);
   const [doodleColor, setDoodleColor] = useState("#f38ba8");
   const [brushSize, setBrushSize] = useState(18);
   const [eraserSize, setEraserSize] = useState(24);
@@ -166,10 +177,18 @@ export const useToolFeature = ({
     void toggleBlackAndWhiteInternal();
   }, [toggleBlackAndWhiteInternal]);
 
+  const setDoodleMode = useCallback((mode: DoodleMode) => {
+    setDoodleModeState(mode);
+    if (mode !== "brush") {
+      setLastEraserMode(mode);
+    }
+  }, []);
+
   return {
     activeTool,
     showColorWheel: activeTool === "doodle",
-    doodleMode,
+    doodleMode: doodleModeState,
+    lastEraserMode,
     doodleColor,
     brushSize,
     eraserSize,

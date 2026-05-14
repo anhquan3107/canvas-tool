@@ -72,6 +72,7 @@ const desktopApi: DesktopApi = {
     getVersion: () => ipcRenderer.invoke("app:get-version"),
     getSettings: () => ipcRenderer.invoke("app:get-settings"),
     saveLocale: (locale) => ipcRenderer.invoke("app:save-locale", locale),
+    saveDoodleMode: (mode) => ipcRenderer.invoke("app:save-doodle-mode", mode),
     saveShortcutBindings: (bindings) =>
       ipcRenderer.invoke("app:save-shortcut-bindings", bindings),
     markTitleBarTooltipSeen: (tooltipId) =>

@@ -3,6 +3,10 @@ import type { AppLocale, Project } from "@shared/types/project";
 import { CaptureToolbarApp } from "@renderer/app/CaptureToolbarApp";
 import { CaptureWindowApp } from "@renderer/app/CaptureWindowApp";
 import { AppShell } from "@renderer/app/app-shell/AppShell";
+import type {
+  DoodleEraserMode,
+  DoodleMode,
+} from "@renderer/features/tools/types";
 import { I18nProvider, useI18n } from "@renderer/i18n";
 import { DotGain20FilterDefs } from "@renderer/features/tools/components/DotGain20FilterDefs";
 import { ProjectProvider } from "@renderer/state/project-store";
@@ -40,6 +44,10 @@ export const App = () => {
   const [initialProject, setInitialProject] = useState<Project | null>(null);
   const [initialLocale, setInitialLocale] = useState<AppLocale>("en");
   const [initialWindowOpacity, setInitialWindowOpacity] = useState(1);
+  const [initialDoodleMode, setInitialDoodleMode] =
+    useState<DoodleMode>("brush");
+  const [initialDoodleEraserMode, setInitialDoodleEraserMode] =
+    useState<DoodleEraserMode>("erase-line");
 
   useEffect(() => {
     Promise.all([
@@ -49,6 +57,8 @@ export const App = () => {
       .then(([project, settings]) => {
         setInitialLocale(settings.locale === "vi" ? "vi" : "en");
         setInitialWindowOpacity(settings.windowOpacity ?? 1);
+        setInitialDoodleMode("brush");
+        setInitialDoodleEraserMode("erase-line");
         setInitialProject(project);
       })
       .catch(async () => {
@@ -78,7 +88,11 @@ export const App = () => {
       <>
         <DotGain20FilterDefs />
         <ProjectProvider initialProject={initialProject}>
-          <AppShell initialWindowOpacity={initialWindowOpacity} />
+          <AppShell
+            initialWindowOpacity={initialWindowOpacity}
+            initialDoodleMode={initialDoodleMode}
+            initialDoodleEraserMode={initialDoodleEraserMode}
+          />
         </ProjectProvider>
       </>
     </I18nProvider>

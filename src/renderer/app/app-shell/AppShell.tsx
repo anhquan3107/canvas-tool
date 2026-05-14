@@ -498,7 +498,7 @@ export const AppShell = ({ initialWindowOpacity }: AppShellProps) => {
     backgroundColor: hexToRgba(appShellBackgroundColor, windowOpacity),
     "--bg-panel": `rgba(34, 34, 37, ${0.96 * windowOpacity})`,
     "--bg-panel-soft": `rgba(42, 42, 46, ${0.86 * windowOpacity})`,
-    "--bg-menu": `rgba(38, 38, 42, ${0.98 * windowOpacity})`,
+    "--bg-menu": "#26262a",
     "--bg-chrome": `rgba(31, 31, 33, ${0.94 * windowOpacity})`,
     "--bg-chrome-solid": `rgba(31, 31, 33, ${windowOpacity})`,
     "--topbar-bg": `rgba(45, 44, 49, ${windowOpacity})`,
@@ -1594,7 +1594,6 @@ export const AppShell = ({ initialWindowOpacity }: AppShellProps) => {
           canDeleteActiveGroup={canDeleteActiveGroup}
           canUndo={canUndo}
           canRedo={canRedo}
-          useLightTheme={windowOpacity <= 0.05}
           onClose={() => setMenuState(null)}
           onUndo={() => {
             setMenuState(null);

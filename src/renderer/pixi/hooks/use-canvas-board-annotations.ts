@@ -110,6 +110,18 @@ export const useCanvasBoardAnnotations = ({
     [annotationPreviewLayerRef],
   );
 
+  const appendCommittedAnnotation = useCallback(
+    (stroke: AnnotationStroke) => {
+      const annotationLayer = annotationLayerRef.current;
+      if (!annotationLayer) {
+        return;
+      }
+
+      drawAnnotationStroke(annotationLayer, stroke);
+    },
+    [annotationLayerRef],
+  );
+
   const commitBrushDraftStroke = useCallback(
     (session: ActiveAnnotationSessionState) => {
       if (session.mode !== "brush" || !session.draftStroke) {
@@ -163,6 +175,7 @@ export const useCanvasBoardAnnotations = ({
       session: ActiveAnnotationSessionState,
       point: { x: number; y: number },
       pressure: number,
+      smooth = true,
     ) => {
       if (session.mode !== "brush" || !session.draftStroke) {
         return false;
@@ -173,16 +186,16 @@ export const useCanvasBoardAnnotations = ({
         return false;
       }
 
-      const positionAlpha = getBrushPositionAlpha(inputDistance);
-      const nextPressure = lerp(
-        session.lastPressure,
-        pressure,
-        BRUSH_PRESSURE_SMOOTHING,
-      );
-      const nextPoint = {
-        x: lerp(session.lastPoint.x, point.x, positionAlpha),
-        y: lerp(session.lastPoint.y, point.y, positionAlpha),
-      };
+      const positionAlpha = smooth ? getBrushPositionAlpha(inputDistance) : 1;
+      const nextPressure = smooth
+        ? lerp(session.lastPressure, pressure, BRUSH_PRESSURE_SMOOTHING)
+        : pressure;
+      const nextPoint = smooth
+        ? {
+            x: lerp(session.lastPoint.x, point.x, positionAlpha),
+            y: lerp(session.lastPoint.y, point.y, positionAlpha),
+          }
+        : point;
 
       session.lastInputPoint = point;
       session.lastPoint = nextPoint;
@@ -206,7 +219,7 @@ export const useCanvasBoardAnnotations = ({
       >,
     ) => {
       const point = clientPointToCanvas(pointer.clientX, pointer.clientY);
-      if (!point || !point.insideCanvas) {
+      if (!point) {
         return;
       }
 
@@ -217,6 +230,23 @@ export const useCanvasBoardAnnotations = ({
 
       const mode = doodleModeRef.current;
       const pressure = resolvePointerPressure(pointer.pointerType, pointer.pressure);
+
+      if (!point.insideCanvas) {
+        activeAnnotationSessionRef.current = {
+          pointerId: pointer.pointerId,
+          mode,
+          draftStroke: null,
+          draftRenderedPointCount: 0,
+          annotations: groupRef.current.annotations,
+          lastPoint: point,
+          lastInputPoint: point,
+          lastPressure: pressure,
+          changed: false,
+          outsideCanvas: true,
+        };
+        redrawDraftAnnotation(null);
+        return;
+      }
 
       if (mode === "brush") {
         const draftStroke: AnnotationStroke = {
@@ -258,14 +288,14 @@ export const useCanvasBoardAnnotations = ({
               doodleSizeRef.current * pressure,
             );
 
-        activeAnnotationSessionRef.current = {
-          pointerId: pointer.pointerId,
-          mode,
-          draftStroke: null,
-          draftRenderedPointCount: 0,
-          annotations: nextAnnotations,
-          lastPoint: point,
-          lastInputPoint: point,
+      activeAnnotationSessionRef.current = {
+        pointerId: pointer.pointerId,
+        mode,
+        draftStroke: null,
+        draftRenderedPointCount: 0,
+        annotations: nextAnnotations,
+        lastPoint: point,
+        lastInputPoint: point,
         lastPressure: pressure,
         changed: nextAnnotations !== groupRef.current.annotations,
         outsideCanvas: false,
@@ -308,41 +338,67 @@ export const useCanvasBoardAnnotations = ({
 
       if (!point.insideCanvas) {
         if (session.mode === "brush") {
-          if (!session.outsideCanvas) {
-            appendBrushPoint(session, point, pressure);
+          if (session.outsideCanvas) {
+            session.lastPoint = point;
+            session.lastInputPoint = point;
+            session.lastPressure = pressure;
+            return;
           }
 
+          const hadDraftStroke = Boolean(session.draftStroke);
+          appendBrushPoint(session, point, pressure, false);
           const nextSession = commitBrushDraftStroke(session);
           nextSession.outsideCanvas = true;
+          nextSession.lastPoint = point;
+          nextSession.lastInputPoint = point;
+          nextSession.lastPressure = pressure;
           activeAnnotationSessionRef.current = nextSession;
-          redrawAnnotations(nextSession.annotations);
+          if (hadDraftStroke) {
+            const committedStroke =
+              nextSession.annotations[nextSession.annotations.length - 1];
+            if (committedStroke) {
+              appendCommittedAnnotation(committedStroke);
+            }
+          }
           clearDraftAnnotation();
         } else {
           session.outsideCanvas = true;
+          session.lastPoint = point;
+          session.lastInputPoint = point;
+          session.lastPressure = pressure;
         }
         return;
       }
 
       if (session.outsideCanvas) {
+        const edgePoint = session.lastPoint;
+        const edgePressure = session.lastPressure;
         session.outsideCanvas = false;
-        session.lastPoint = point;
-        session.lastInputPoint = point;
-        session.lastPressure = pressure;
 
         if (session.mode === "brush") {
           session.draftStroke = {
             id: crypto.randomUUID(),
-            points: [point.x, point.y],
-            ...(isPenPointerType(pointer.pointerType) ? { pressures: [pressure] } : {}),
+            points: [edgePoint.x, edgePoint.y],
+            ...(isPenPointerType(pointer.pointerType)
+              ? { pressures: [edgePressure] }
+              : {}),
             color: doodleColorRef.current,
             size: doodleSizeRef.current,
             tool: "brush",
             createdAt: new Date().toISOString(),
           };
           session.draftRenderedPointCount = 1;
+          session.lastPoint = edgePoint;
+          session.lastInputPoint = edgePoint;
+          session.lastPressure = edgePressure;
           redrawDraftAnnotation(session.draftStroke);
+          appendBrushPoint(session, point, pressure);
           return;
         }
+
+        session.lastPoint = edgePoint;
+        session.lastInputPoint = edgePoint;
+        session.lastPressure = edgePressure;
       }
 
       if (session.mode === "brush" && session.draftStroke) {
@@ -383,9 +439,11 @@ export const useCanvasBoardAnnotations = ({
     },
     [
       activeAnnotationSessionRef,
+      appendCommittedAnnotation,
       appendBrushPoint,
       clientPointToCanvas,
       clearDraftAnnotation,
+      commitBrushDraftStroke,
       doodleSizeRef,
       finalizeAnnotationSession,
       redrawAnnotations,

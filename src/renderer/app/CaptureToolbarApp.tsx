@@ -14,6 +14,7 @@ import { CAPTURE_QUALITY_PROFILES } from "@renderer/features/connect/utils";
 
 const CAPTURE_WINDOW_TOPBAR_HIDE_TRANSITION_MS = 250;
 const CAPTURE_TOOLBAR_RESIZE_DIRECTIONS = ["e", "w", "ne", "nw"] as const;
+const DOUBLE_CLICK_TOGGLE_SUPPRESS_MS = 250;
 
 const DEFAULT_CAPTURE_SESSION_STATE: CaptureSessionState = {
   sourceName: "",
@@ -32,6 +33,7 @@ export const CaptureToolbarApp = () => {
 
   const initial = useMemo(() => getCaptureLocationParams(), []);
   const channelRef = useRef<BroadcastChannel | null>(null);
+  const lastPointerDoubleClickToggleRef = useRef(0);
 
   useLayoutEffect(() => {
     document.body.style.background = "transparent";
@@ -242,7 +244,7 @@ export const CaptureToolbarApp = () => {
     [],
   );
 
-  const syncWindowControlsState = (controls: AppWindowControlsState) => {
+  const syncWindowControlsState = useCallback((controls: AppWindowControlsState) => {
     setSessionState((previous) => ({
       ...previous,
       windowAlwaysOnTop: controls.isAlwaysOnTop,
@@ -252,7 +254,7 @@ export const CaptureToolbarApp = () => {
       type: "set-window-controls-state",
       controls,
     });
-  };
+  }, [postMessage]);
 
   const setQuality = (quality: CaptureQuality) => {
     postMessage({
@@ -264,6 +266,15 @@ export const CaptureToolbarApp = () => {
       quality,
     }));
   };
+
+  const toggleMaximize = useCallback(() => {
+    void window.desktopApi.window.toggleMaximize().then(syncWindowControlsState);
+  }, [syncWindowControlsState]);
+
+  const toggleMaximizeFromPointerDoubleClick = useCallback(() => {
+    lastPointerDoubleClickToggleRef.current = performance.now();
+    toggleMaximize();
+  }, [toggleMaximize]);
 
   return (
     <div
@@ -303,6 +314,12 @@ export const CaptureToolbarApp = () => {
           setTopbarPointerActive(true);
           const target = event.target;
           if (!(target instanceof HTMLElement)) {
+            if (event.detail === 2) {
+              event.preventDefault();
+              toggleMaximizeFromPointerDoubleClick();
+              return;
+            }
+
             queueCaptureFocusOnRelease();
             return;
           }
@@ -312,7 +329,31 @@ export const CaptureToolbarApp = () => {
             return;
           }
 
+          if (event.detail === 2) {
+            event.preventDefault();
+            toggleMaximizeFromPointerDoubleClick();
+            return;
+          }
+
           queueCaptureFocusOnRelease();
+        }}
+        onDoubleClick={(event) => {
+          if (
+            performance.now() - lastPointerDoubleClickToggleRef.current <
+            DOUBLE_CLICK_TOGGLE_SUPPRESS_MS
+          ) {
+            return;
+          }
+
+          const target = event.target;
+          if (
+            target instanceof HTMLElement &&
+            target.closest("[data-window-no-drag='true']")
+          ) {
+            return;
+          }
+
+          toggleMaximize();
         }}
         onPointerEnter={() => setTopbarHovered(true)}
         onPointerLeave={() => setTopbarHovered(false)}
@@ -394,11 +435,7 @@ export const CaptureToolbarApp = () => {
           <button
             type="button"
             className="window-button"
-            onClick={() =>
-              void window.desktopApi.window
-                .toggleMaximize()
-                .then(syncWindowControlsState)
-            }
+            onClick={toggleMaximize}
           >
             {sessionState.windowMaximized ? "❐" : "□"}
           </button>

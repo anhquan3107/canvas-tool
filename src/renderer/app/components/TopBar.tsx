@@ -1,5 +1,6 @@
 import {
   useCallback,
+  useRef,
   useState,
   type MouseEventHandler,
   type PointerEventHandler,
@@ -36,6 +37,20 @@ const isMacPlatform = () =>
       return navigatorWithUAData.userAgentData?.platform ?? navigator.platform ?? "";
     })(),
   );
+
+const DOUBLE_CLICK_TOGGLE_SUPPRESS_MS = 250;
+
+const isWindowDragTarget = (target: EventTarget | null) => {
+  if (!(target instanceof Element)) {
+    return false;
+  }
+
+  if (target.closest("[data-window-no-drag='true']")) {
+    return false;
+  }
+
+  return Boolean(target.closest("[data-window-left-drag='true']"));
+};
 
 interface TopBarProps {
   activeGroup: ReferenceGroup | null | undefined;
@@ -158,26 +173,40 @@ export const TopBar = ({
 }: TopBarProps) => {
   const { copy } = useI18n();
   const macPlatform = isMacPlatform();
+  const lastPointerDoubleClickToggleRef = useRef(0);
   const [pendingTitleBarAction, setPendingTitleBarAction] =
     useState<PendingTitleBarAction | null>(null);
 
   const handleHeaderDoubleClick = useCallback<MouseEventHandler<HTMLElement>>(
     (event) => {
-      const target = event.target;
-      if (!(target instanceof Element)) {
+      if (
+        performance.now() - lastPointerDoubleClickToggleRef.current <
+        DOUBLE_CLICK_TOGGLE_SUPPRESS_MS
+      ) {
         return;
       }
 
-      const noDragTarget = target.closest("[data-window-no-drag='true']");
-      if (noDragTarget) {
+      if (!isWindowDragTarget(event.target)) {
         return;
       }
 
-      const dragTarget = target.closest("[data-window-left-drag='true']");
-      if (!dragTarget) {
+      onToggleMaximize();
+    },
+    [onToggleMaximize],
+  );
+
+  const handleHeaderPointerDown = useCallback<PointerEventHandler<HTMLElement>>(
+    (event) => {
+      if (event.button !== 0 || event.detail !== 2) {
         return;
       }
 
+      if (!isWindowDragTarget(event.target)) {
+        return;
+      }
+
+      event.preventDefault();
+      lastPointerDoubleClickToggleRef.current = performance.now();
       onToggleMaximize();
     },
     [onToggleMaximize],
@@ -209,6 +238,7 @@ export const TopBar = ({
         data-window-left-drag="true"
         onPointerEnter={onPointerEnter}
         onPointerLeave={onPointerLeave}
+        onPointerDown={handleHeaderPointerDown}
         onTransitionEnd={onTransitionEnd}
         onDoubleClick={handleHeaderDoubleClick}
       >

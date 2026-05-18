@@ -40,7 +40,7 @@ export const vi: LocaleMessages = {
     menus: {
       file: "Tệp",
       edit: "Sửa",
-      view: "Xem",
+      view: "View",
     },
     menuTooltips: {
       file: "Mở menu tệp",
@@ -75,7 +75,7 @@ export const vi: LocaleMessages = {
   tools: {
     labels: {
       connect: "Kết nối",
-      doodle: "Vẽ tay",
+      doodle: "Vẽ",
       blur: "Làm mờ",
       bw: "Đen trắng",
       ruler: "Thước",

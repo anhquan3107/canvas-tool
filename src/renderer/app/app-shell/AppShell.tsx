@@ -85,7 +85,7 @@ export const AppShell = ({
   initialDoodleMode,
   initialDoodleEraserMode,
 }: AppShellProps) => {
-  useWindowRightDrag();
+  useWindowRightDrag({ enableLeftWindowDrag: true });
   const { copy } = useI18n();
   const windowFocused = useWindowFocusState();
   const appShellRef = useRef<HTMLDivElement | null>(null);

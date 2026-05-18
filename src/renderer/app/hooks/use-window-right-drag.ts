@@ -22,7 +22,7 @@ type DragState = {
   button: 0 | 2;
   buttonMask: 1 | 2;
   pointerId: number;
-  captureTarget: HTMLElement | null;
+  captureTarget: Element | null;
   startScreenX: number;
   startScreenY: number;
   lastScreenX: number;
@@ -54,8 +54,8 @@ export const getWindowRightMouseGestureState = () => {
 const isSupportedRightDragPointerType = (pointerType: string) =>
   pointerType === "mouse" || pointerType === "pen";
 
-const isElement = (target: EventTarget | null): target is HTMLElement =>
-  target instanceof HTMLElement;
+const isElement = (target: EventTarget | null): target is Element =>
+  target instanceof Element;
 
 const isFiniteNumber = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value);
@@ -70,7 +70,7 @@ const isTypingTarget = (target: EventTarget | null) => {
     return false;
   }
 
-  if (target.isContentEditable) {
+  if (target instanceof HTMLElement && target.isContentEditable) {
     return true;
   }
 
@@ -92,6 +92,11 @@ const isInteractiveTarget = (target: EventTarget | null) => {
     ),
   );
 };
+
+const isLeftWindowDragTarget = (target: EventTarget | null) =>
+  isElement(target) &&
+  Boolean(target.closest("[data-window-left-drag='true']")) &&
+  !isInteractiveTarget(target);
 
 /**
  * Get the current cursor position in DIP (logical pixels).
@@ -173,8 +178,7 @@ export const useWindowRightDrag = (options?: WindowDragOptions) => {
         enableLeftWindowDrag &&
         event.button === 0 &&
         (event.buttons & 1) === 1 &&
-        isElement(event.target) &&
-        !isInteractiveTarget(event.target);
+        isLeftWindowDragTarget(event.target);
       const rightDragTarget =
         event.button === 2 &&
         (event.buttons & 2) === 2 &&

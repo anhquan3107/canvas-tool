@@ -379,6 +379,11 @@ export const GroupOverlay = ({
     x: number;
     y: number;
   } | null>(null);
+  const [scrollIndicators, setScrollIndicators] = useState({
+    up: false,
+    down: false,
+  });
+  const stackRef = useRef<HTMLDivElement | null>(null);
   const autoHideTimerRef = useRef<number | null>(null);
 
   const getMenuPosition = useCallback((x: number, y: number) => {
@@ -449,16 +454,59 @@ export const GroupOverlay = ({
     scheduleAutoHide();
   }, [onOpenChange, open, scheduleAutoHide]);
 
+  const updateScrollIndicators = useCallback(() => {
+    const stack = stackRef.current;
+    if (!open || !stack) {
+      setScrollIndicators((current) =>
+        current.up || current.down ? { up: false, down: false } : current,
+      );
+      return;
+    }
+
+    const maxScrollTop = stack.scrollHeight - stack.clientHeight;
+    const nextIndicators = {
+      up: stack.scrollTop > 1,
+      down: stack.scrollTop < maxScrollTop - 1,
+    };
+
+    setScrollIndicators((current) =>
+      current.up === nextIndicators.up && current.down === nextIndicators.down
+        ? current
+        : nextIndicators,
+    );
+  }, [open]);
+
   useEffect(() => {
     if (!open) {
       setMenuState(null);
       clearAutoHideTimer();
+      updateScrollIndicators();
       return;
     }
 
     scheduleAutoHide();
     return clearAutoHideTimer;
-  }, [clearAutoHideTimer, menuState, open, scheduleAutoHide]);
+  }, [clearAutoHideTimer, menuState, open, scheduleAutoHide, updateScrollIndicators]);
+
+  useEffect(() => {
+    updateScrollIndicators();
+  }, [orderedGroups.length, updateScrollIndicators]);
+
+  useEffect(() => {
+    const stack = stackRef.current;
+    if (!open || !stack) {
+      updateScrollIndicators();
+      return;
+    }
+
+    const resizeObserver = new ResizeObserver(updateScrollIndicators);
+    resizeObserver.observe(stack);
+    updateScrollIndicators();
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [open, updateScrollIndicators]);
 
   useEffect(() => {
     if (!menuState) {
@@ -537,7 +585,15 @@ export const GroupOverlay = ({
         event.stopPropagation();
       }}
     >
-      <div className="group-preview-stack" aria-hidden={!open}>
+      <div
+        ref={stackRef}
+        className="group-preview-stack"
+        aria-hidden={!open}
+        onScroll={() => {
+          updateScrollIndicators();
+          registerInteraction();
+        }}
+      >
         {orderedGroups.map((group) => (
           <div
             key={group.id}
@@ -576,6 +632,18 @@ export const GroupOverlay = ({
           </div>
         ))}
       </div>
+      {open && scrollIndicators.up ? (
+        <div
+          className="group-preview-scroll-cue group-preview-scroll-cue-top"
+          aria-hidden="true"
+        />
+      ) : null}
+      {open && scrollIndicators.down ? (
+        <div
+          className="group-preview-scroll-cue group-preview-scroll-cue-bottom"
+          aria-hidden="true"
+        />
+      ) : null}
       {menuState ? (
         <div
           className="group-preview-context-menu"

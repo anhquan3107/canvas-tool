@@ -14,9 +14,8 @@
   max-height: min(50vh, calc(100vh - 120px));
   overflow-y: auto;
   overflow-x: visible;
-  padding: 4px 6px 4px 4px;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+  padding: 4px;
+  scrollbar-width: none;
 }
 
 .group-preview-stack {
@@ -38,19 +37,29 @@
 }
 
 .group-preview-stack::-webkit-scrollbar {
-  width: 6px;
+  display: none;
 }
 
-.group-preview-stack::-webkit-scrollbar-track {
-  background: transparent;
+.group-preview-scroll-cue {
+  position: absolute;
+  left: calc(24px + (var(--group-preview-width) / 2));
+  z-index: 3;
+  width: 8px;
+  height: 5px;
+  background: rgba(224, 224, 224, 0.78);
+  pointer-events: none;
+  transform: translateX(-50%);
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.38));
 }
 
-.group-preview-stack::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.16);
+.group-preview-scroll-cue-top {
+  top: -12px;
+  clip-path: polygon(50% 0, 0 100%, 100% 100%);
 }
 
-.group-preview-stack::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.24);
+.group-preview-scroll-cue-bottom {
+  bottom: -14px;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
 }
 
 .group-preview-row {

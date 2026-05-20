@@ -53,7 +53,7 @@ export const useColorPickerState = ({
   const [hue, setHue] = useState(0);
   const [saturation, setSaturation] = useState(0);
   const [value, setValue] = useState(0);
-  const [hexInput, setHexInput] = useState(canvasColor.toUpperCase());
+  const [hexInput, setHexInput] = useState(() => canvasColor.toUpperCase());
 
   const activeColor =
     target === "canvas" ? draftCanvasColor : draftBackgroundColor;
@@ -118,8 +118,10 @@ export const useColorPickerState = ({
     const pixelSize = Math.round(size * dpr);
     canvas.width = pixelSize;
     canvas.height = pixelSize;
-    canvas.style.width = `${size}px`;
-    canvas.style.height = `${size}px`;
+    Object.assign(canvas.style, {
+      width: `${size}px`,
+      height: `${size}px`,
+    });
 
     const context = canvas.getContext("2d");
     if (!context) {

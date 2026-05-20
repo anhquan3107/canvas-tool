@@ -167,8 +167,9 @@ export const registerExportHandlers = (window: BrowserWindow) => {
       await fs.mkdir(folderPath, { recursive: true });
 
       sendOperationProgress(event, "Exporting images 16%", 16);
+      let completedImageCount = 0;
 
-      for (const [index, image] of payload.images.entries()) {
+      await Promise.all(payload.images.map(async (image, index) => {
         const safeStem =
           sanitizeFileStem(image.label ?? `Image ${index + 1}`) ||
           `Image ${index + 1}`;
@@ -188,7 +189,7 @@ export const registerExportHandlers = (window: BrowserWindow) => {
         } else {
           const sourcePath = resolveLocalAssetPath(image.assetPath);
           if (!sourcePath) {
-            continue;
+            return;
           }
 
           const parsedExtension =
@@ -199,16 +200,17 @@ export const registerExportHandlers = (window: BrowserWindow) => {
           );
         }
 
+        completedImageCount += 1;
         const progress = Math.min(
           92,
-          Math.round(((index + 1) / payload.images.length) * 76) + 16,
+          Math.round((completedImageCount / payload.images.length) * 76) + 16,
         );
         sendOperationProgress(
           event,
           `Exporting images ${progress}%`,
           progress,
         );
-      }
+      }));
 
       await setLastExportPath(folderPath);
       return { filePath: folderPath };

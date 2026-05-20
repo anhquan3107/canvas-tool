@@ -334,9 +334,9 @@ export const TaskOverlay = ({
           className={`task-list-popover ${expanded ? "open" : "closing"}`}
           aria-hidden={!expanded}
         >
-          {orderedDisplayTasks
-            .filter((task) => task.id !== primaryTask.id)
-            .map((task) => renderTaskButton(task, true))}
+          {orderedDisplayTasks.flatMap((task) =>
+            task.id === primaryTask.id ? [] : [renderTaskButton(task, true)],
+          )}
         </div>
       ) : null}
 

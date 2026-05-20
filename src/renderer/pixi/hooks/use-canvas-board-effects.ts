@@ -1,5 +1,5 @@
 import { useEffect, type MutableRefObject } from "react";
-import type { CaptureItem, ReferenceGroup } from "@shared/types/project";
+import type { ReferenceGroup } from "@shared/types/project";
 import { ZERO_INSETS } from "@renderer/pixi/constants";
 import type { CanvasBoardProps } from "@renderer/pixi/types";
 import type { useCanvasBoardRefs } from "@renderer/pixi/hooks/use-canvas-board-refs";
@@ -120,11 +120,12 @@ export const useCanvasBoardEffects = ({
   ]);
 
   useEffect(() => {
-    const activeCaptureIds = new Set(
-      group.items
-        .filter((item): item is CaptureItem => item.type === "capture")
-        .map((item) => item.id),
-    );
+    const activeCaptureIds = new Set<string>();
+    for (const item of group.items) {
+      if (item.type === "capture") {
+        activeCaptureIds.add(item.id);
+      }
+    }
 
     captureSessionByIdRef.current.forEach((_value, captureId) => {
       if (!activeCaptureIds.has(captureId)) {

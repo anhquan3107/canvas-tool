@@ -65,11 +65,14 @@ export const useAppSelectionActions = ({
     }
 
     setAppInfoOpen(false);
-    setSelectedItemIds(
-      activeGroup.items
-        .filter((item) => item.visible !== false)
-        .map((item) => item.id),
-    );
+    const visibleItemIds: string[] = [];
+    for (const item of activeGroup.items) {
+      if (item.visible !== false) {
+        visibleItemIds.push(item.id);
+      }
+    }
+
+    setSelectedItemIds(visibleItemIds);
   }, [activeGroup, setAppInfoOpen, setSelectedItemIds, zoomOverlayOpen]);
 
   return {

@@ -113,15 +113,22 @@ export const reduceTaskAction = (
         ),
       });
     case "remove-task":
-      return touchProject({
-        ...project,
-        tasks: project.tasks
-          .filter((task) => task.id !== action.payload.taskId)
-          .map((task, index) => ({
-            ...task,
-            order: index,
-          })),
-      });
+      {
+        const tasks: Project["tasks"] = [];
+        for (const task of project.tasks) {
+          if (task.id !== action.payload.taskId) {
+            tasks.push({
+              ...task,
+              order: tasks.length,
+            });
+          }
+        }
+
+        return touchProject({
+          ...project,
+          tasks,
+        });
+      }
     default:
       return null;
   }

@@ -89,10 +89,8 @@ export const ColorWheel = ({
   const wheelCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const ringRef = useRef<HTMLSpanElement | null>(null);
   const wheelDraggingRef = useRef(false);
+  const thumbPositionRef = useRef<{ x: number; y: number } | null>(null);
   const [toolsOpen, setToolsOpen] = useState(false);
-  const [thumbPosition, setThumbPosition] = useState<{ x: number; y: number } | null>(
-    null,
-  );
 
   const fallbackThumbPosition = useMemo(() => {
     const hex = doodleColor.replace("#", "");
@@ -139,9 +137,9 @@ export const ColorWheel = ({
       return;
     }
 
-    const nextPosition = thumbPosition ?? fallbackThumbPosition;
+    const nextPosition = thumbPositionRef.current ?? fallbackThumbPosition;
     ring.style.transform = `translate(${nextPosition.x}px, ${nextPosition.y}px)`;
-  }, [fallbackThumbPosition, thumbPosition]);
+  }, [fallbackThumbPosition]);
 
   useEffect(() => {
     const canvas = wheelCanvasRef.current;
@@ -154,8 +152,10 @@ export const ColorWheel = ({
     const pixelSize = Math.round(size * dpr);
     canvas.width = pixelSize;
     canvas.height = pixelSize;
-    canvas.style.width = `${size}px`;
-    canvas.style.height = `${size}px`;
+    Object.assign(canvas.style, {
+      width: `${size}px`,
+      height: `${size}px`,
+    });
 
     const context = canvas.getContext("2d");
     if (!context) {
@@ -213,10 +213,14 @@ export const ColorWheel = ({
     const saturation = clamp(clampedDistance / radius, 0, 1);
     const nextColor = hsvToHex(hue, saturation, 1);
 
-    setThumbPosition({
+    const nextThumbPosition = {
       x: distance === 0 ? 0 : (deltaX / distance) * clampedDistance,
       y: distance === 0 ? 0 : (deltaY / distance) * clampedDistance,
-    });
+    };
+    thumbPositionRef.current = nextThumbPosition;
+    if (ringRef.current) {
+      ringRef.current.style.transform = `translate(${nextThumbPosition.x}px, ${nextThumbPosition.y}px)`;
+    }
     onDoodleColorChange(nextColor);
   };
 

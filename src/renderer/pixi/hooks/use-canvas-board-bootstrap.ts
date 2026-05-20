@@ -137,6 +137,10 @@ export const useCanvasBoardBootstrap = ({
     };
 
     const bootstrap = async () => {
+      if (!mounted) {
+        return;
+      }
+
       const app = new Application();
       const rendererResolution = Math.max(window.devicePixelRatio || 1, 2);
       await app.init({

@@ -407,7 +407,7 @@ export const GroupOverlay = ({
 
   const orderedGroups = useMemo(
     () =>
-      [...groups].sort((left, right) => {
+      groups.toSorted((left, right) => {
         if (left.kind !== right.kind) {
           return left.kind === "canvas" ? -1 : 1;
         }
@@ -523,13 +523,20 @@ export const GroupOverlay = ({
   }, [menuState]);
 
   useEffect(() => {
-    const previewGroups = orderedGroups.map((group) => ({
-      group,
-      previewKey: getGroupPreviewCompositeKey(group),
-      assetPaths: getGroupPreviewEntries(group)
-        .map((entry) => entry.assetPath)
-        .filter((assetPath): assetPath is string => Boolean(assetPath)),
-    }));
+    const previewGroups = orderedGroups.map((group) => {
+      const assetPaths: string[] = [];
+      for (const entry of getGroupPreviewEntries(group)) {
+        if (entry.assetPath) {
+          assetPaths.push(entry.assetPath);
+        }
+      }
+
+      return {
+        group,
+        previewKey: getGroupPreviewCompositeKey(group),
+        assetPaths,
+      };
+    });
 
     if (previewGroups.length === 0) {
       return;
@@ -542,28 +549,31 @@ export const GroupOverlay = ({
       previewGroups.length,
     );
 
-    const workers = Array.from({ length: workerCount }, async () => {
-      while (!cancelled) {
-        const previewGroup = previewGroups[nextIndex];
-        nextIndex += 1;
+    const runWorker = (): Promise<void> => {
+      if (cancelled) {
+        return Promise.resolve();
+      }
 
-        if (!previewGroup) {
-          return;
-        }
+      const previewGroup = previewGroups[nextIndex];
+      nextIndex += 1;
 
-        try {
-          await Promise.all(
-            previewGroup.assetPaths.map((assetPath) => warmGroupPreviewSrc(assetPath)),
-          );
-          await buildGroupPreviewComposite(
+      if (!previewGroup) {
+        return Promise.resolve();
+      }
+
+      return Promise.all(
+        previewGroup.assetPaths.map((assetPath) => warmGroupPreviewSrc(assetPath)),
+      )
+        .then(() =>
+          buildGroupPreviewComposite(
             previewGroup.group,
             previewGroup.previewKey,
-          );
-        } catch {
-          return;
-        }
-      }
-    });
+          ),
+        )
+        .then(runWorker, () => undefined);
+    };
+
+    const workers = Array.from({ length: workerCount }, runWorker);
 
     void Promise.all(workers);
 

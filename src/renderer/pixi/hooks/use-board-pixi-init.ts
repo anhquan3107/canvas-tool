@@ -26,6 +26,10 @@ export const initializeBoardPixi = async ({
   annotationLayerRef,
   annotationPreviewLayerRef,
 }: InitializeBoardPixiOptions) => {
+  if (!isMounted()) {
+    return null;
+  }
+
   const app = new Application();
   const rendererResolution = Math.max(window.devicePixelRatio || 1, 2);
   await app.init({

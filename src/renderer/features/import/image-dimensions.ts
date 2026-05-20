@@ -56,7 +56,7 @@ export const pickBestDropImageCandidate = (urls: string[]) => {
     return urls;
   }
 
-  const ranked = [...urls].sort((left, right) => {
+  const ranked = urls.toSorted((left, right) => {
     const scoreDelta = readDimensionScore(right) - readDimensionScore(left);
     if (scoreDelta !== 0) {
       return scoreDelta;

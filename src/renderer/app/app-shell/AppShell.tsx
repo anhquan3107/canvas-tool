@@ -95,8 +95,8 @@ export const AppShell = ({
   const topbarTransitionTimerRef = useRef<number | null>(null);
   const topbarHideDelayTimerRef = useRef<number | null>(null);
   const lockedCanvasIndicatorTimerRef = useRef<number | null>(null);
-  const [topbarRevealZoneHovered, setTopbarRevealZoneHovered] = useState(false);
-  const [topbarHovered, setTopbarHovered] = useState(false);
+  const topbarRevealZoneHoveredRef = useRef(false);
+  const topbarHoveredRef = useRef(false);
   const [topbarVisible, setTopbarVisible] = useState(true);
   const [topbarAnimating, setTopbarAnimating] = useState(false);
   const [lockedCanvasInteractionPulse, setLockedCanvasInteractionPulse] =
@@ -104,7 +104,7 @@ export const AppShell = ({
   const topbarVisibleRef = useRef(true);
   const topbarAnimatingRef = useRef(false);
   const savedWindowOpacityRef = useRef(clampWindowOpacity(initialWindowOpacity));
-  const [windowOpacity, setWindowOpacity] = useState(
+  const [windowOpacity, setWindowOpacity] = useState(() =>
     clampWindowOpacity(initialWindowOpacity),
   );
 
@@ -238,33 +238,29 @@ export const AppShell = ({
     [clearTopbarTransitionTimer, requestTopbarVisibility],
   );
 
-  useEffect(() => {
-    if (windowFocused) {
-      clearTopbarHideDelayTimer();
-      setTopbarRevealZoneHovered(false);
-      setTopbarHovered(false);
-      requestTopbarVisibility(true);
-      return;
-    }
-
-    if (topbarRevealZoneHovered || topbarHovered) {
-      clearTopbarHideDelayTimer();
-      requestTopbarVisibility(true);
-      return;
-    }
-
+  const scheduleTopbarAutoVisibility = useCallback(() => {
     clearTopbarHideDelayTimer();
+    if (windowFocused) {
+      topbarRevealZoneHoveredRef.current = false;
+      topbarHoveredRef.current = false;
+      requestTopbarVisibility(true);
+      return;
+    }
+
+    if (topbarRevealZoneHoveredRef.current || topbarHoveredRef.current) {
+      requestTopbarVisibility(true);
+      return;
+    }
+
     topbarHideDelayTimerRef.current = window.setTimeout(() => {
       topbarHideDelayTimerRef.current = null;
       requestTopbarVisibility(false);
     }, TOPBAR_HIDE_DELAY_MS);
-  }, [
-    clearTopbarHideDelayTimer,
-    requestTopbarVisibility,
-    topbarHovered,
-    topbarRevealZoneHovered,
-    windowFocused,
-  ]);
+  }, [clearTopbarHideDelayTimer, requestTopbarVisibility, windowFocused]);
+
+  useEffect(() => {
+    scheduleTopbarAutoVisibility();
+  }, [scheduleTopbarAutoVisibility]);
 
   useEffect(() => {
     return () => {
@@ -278,8 +274,9 @@ export const AppShell = ({
       return;
     }
 
-    setTopbarRevealZoneHovered(true);
-  }, [windowFocused]);
+    topbarRevealZoneHoveredRef.current = true;
+    scheduleTopbarAutoVisibility();
+  }, [scheduleTopbarAutoVisibility, windowFocused]);
 
   const handleTopbarRevealZonePointerLeave = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -287,9 +284,10 @@ export const AppShell = ({
         return;
       }
 
-      setTopbarRevealZoneHovered(false);
+      topbarRevealZoneHoveredRef.current = false;
+      scheduleTopbarAutoVisibility();
     },
-    [],
+    [scheduleTopbarAutoVisibility],
   );
 
   const handleTopbarPointerEnter = useCallback(() => {
@@ -297,8 +295,9 @@ export const AppShell = ({
       return;
     }
 
-    setTopbarHovered(true);
-  }, [windowFocused]);
+    topbarHoveredRef.current = true;
+    scheduleTopbarAutoVisibility();
+  }, [scheduleTopbarAutoVisibility, windowFocused]);
 
   const handleTopbarPointerLeave = useCallback(
     (event: ReactPointerEvent<HTMLElement>) => {
@@ -308,9 +307,10 @@ export const AppShell = ({
         return;
       }
 
-      setTopbarHovered(false);
+      topbarHoveredRef.current = false;
+      scheduleTopbarAutoVisibility();
     },
-    [],
+    [scheduleTopbarAutoVisibility],
   );
 
   const {
@@ -522,20 +522,20 @@ export const AppShell = ({
     const body = document.body;
     const appRoot = document.getElementById("root");
 
-    root.style.backgroundColor = windowSurfaceColor;
-    body.style.backgroundColor = windowSurfaceColor;
+    Object.assign(root.style, { backgroundColor: windowSurfaceColor });
+    Object.assign(body.style, { backgroundColor: windowSurfaceColor });
     if (appRoot) {
-      appRoot.style.backgroundColor = windowSurfaceColor;
+      Object.assign(appRoot.style, { backgroundColor: windowSurfaceColor });
     }
 
     return () => {
       // Fall back to the BrowserWindow background color — never restore to
       // "transparent" because that causes a visible flash during resize.
       const fallback = "#1f1f21";
-      root.style.backgroundColor = fallback;
-      body.style.backgroundColor = fallback;
+      Object.assign(root.style, { backgroundColor: fallback });
+      Object.assign(body.style, { backgroundColor: fallback });
       if (appRoot) {
-        appRoot.style.backgroundColor = fallback;
+        Object.assign(appRoot.style, { backgroundColor: fallback });
       }
     };
   }, [windowSurfaceColor]);

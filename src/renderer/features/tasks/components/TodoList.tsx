@@ -32,11 +32,11 @@ export const TodoList = ({
   const { copy } = useI18n();
   const [newTodoText, setNewTodoText] = useState("");
   const [editingTodoId, setEditingTodoId] = useState<string | null>(null);
-  const [dragTodoId, setDragTodoId] = useState<string | null>(null);
+  const dragTodoIdRef = useRef<string | null>(null);
   const newTodoInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   const sortedTodos = useMemo(
-    () => [...task.todos].sort((left, right) => left.order - right.order),
+    () => task.todos.toSorted((left, right) => left.order - right.order),
     [task.todos],
   );
 
@@ -59,8 +59,11 @@ export const TodoList = ({
     const element = event.currentTarget;
     const baseHeight = Number(element.dataset.baseHeight ?? "48");
     const maxHeight = Number(element.dataset.maxHeight ?? "200");
-    element.style.height = `${baseHeight}px`;
-    element.style.height = `${Math.min(element.scrollHeight, maxHeight)}px`;
+    element.style.setProperty("height", `${baseHeight}px`);
+    element.style.setProperty(
+      "height",
+      `${Math.min(element.scrollHeight, maxHeight)}px`,
+    );
   };
 
   const editTextareaRef = useCallback((element: HTMLTextAreaElement | null) => {
@@ -70,8 +73,11 @@ export const TodoList = ({
 
     const baseHeight = Number(element.dataset.baseHeight ?? "22");
     const maxHeight = Number(element.dataset.maxHeight ?? "200");
-    element.style.height = `${baseHeight}px`;
-    element.style.height = `${Math.min(element.scrollHeight, maxHeight)}px`;
+    element.style.setProperty("height", `${baseHeight}px`);
+    element.style.setProperty(
+      "height",
+      `${Math.min(element.scrollHeight, maxHeight)}px`,
+    );
   }, []);
 
   return (
@@ -120,13 +126,16 @@ export const TodoList = ({
             className={`todo-item ${todo.completed ? "todo-item-completed" : ""}`}
             draggable
             onDragStart={() => {
-              setDragTodoId(todo.id);
+              dragTodoIdRef.current = todo.id;
             }}
-            onDragEnd={() => setDragTodoId(null)}
+            onDragEnd={() => {
+              dragTodoIdRef.current = null;
+            }}
             onDragOver={(event) => {
               event.preventDefault();
             }}
             onDrop={() => {
+              const dragTodoId = dragTodoIdRef.current;
               if (!dragTodoId || dragTodoId === todo.id) {
                 return;
               }
@@ -138,7 +147,7 @@ export const TodoList = ({
                 onReorderTodo(task.id, sourceIndex, index);
               }
 
-              setDragTodoId(null);
+              dragTodoIdRef.current = null;
             }}
           >
             <span className="todo-drag-handle" aria-hidden="true">

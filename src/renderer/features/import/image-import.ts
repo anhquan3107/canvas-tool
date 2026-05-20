@@ -63,13 +63,19 @@ export const collectClipboardPayload = (
     return { source: "clipboard", files: [], urls: [] };
   }
 
-  const files = dedupeFiles(
-    Array.from(clipboard.items)
-      .filter((item) => item.kind === "file")
-      .map((item) => item.getAsFile())
-      .filter((file): file is File => file !== null)
-      .filter((file) => isImageFile(file)),
-  );
+  const clipboardFiles: File[] = [];
+  for (const item of clipboard.items) {
+    if (item.kind !== "file") {
+      continue;
+    }
+
+    const file = item.getAsFile();
+    if (file && isImageFile(file)) {
+      clipboardFiles.push(file);
+    }
+  }
+
+  const files = dedupeFiles(clipboardFiles);
 
   const rawUrls = [
     ...new Set([
@@ -111,11 +117,13 @@ export const buildImageItemsFromPayload = async ({
     -1,
   );
 
-  const localItems = await Promise.all(
+  const localItemsPromise = Promise.all(
     payload.files.map(async (file, index) => {
       const dataUrl = await fileToDataUrl(file);
-      const measured = await measureImage(dataUrl);
-      const swatches = await extractImageSwatches(dataUrl);
+      const [measured, swatches] = await Promise.all([
+        measureImage(dataUrl),
+        extractImageSwatches(dataUrl),
+      ]);
       const size = normalizeSize(measured.width, measured.height);
       const sourceType: ImageItem["source"] =
         payload.source === "clipboard" ? "clipboard" : "local";
@@ -150,9 +158,9 @@ export const buildImageItemsFromPayload = async ({
     }),
   );
 
-  const webStart = localItems.length;
+  const webStart = payload.files.length;
 
-  const webItems = await Promise.all<ImageItem | null>(
+  const webItemsPromise = Promise.all<ImageItem | null>(
     payload.urls.map(async (url, index): Promise<ImageItem | null> => {
       let size = { width: 320, height: 220 };
       let originalSize = size;
@@ -170,15 +178,17 @@ export const buildImageItemsFromPayload = async ({
         return null;
       }
 
-      try {
-        const measured = await measureImage(finalAssetPath);
-        originalSize = measured;
-        size = normalizeSize(measured.width, measured.height);
-      } catch {
+      const measuredPromise = measureImage(finalAssetPath);
+      const swatchesPromise = extractImageSwatches(finalAssetPath);
+      const measured = await measuredPromise.catch(() => null);
+      if (!measured) {
+        void swatchesPromise.catch(() => undefined);
         return null;
       }
 
-      const swatches = await extractImageSwatches(finalAssetPath);
+      originalSize = measured;
+      size = normalizeSize(measured.width, measured.height);
+      const swatches = await swatchesPromise;
 
       const fallbackLabel = (() => {
         if (isDataImageUrl(url)) {
@@ -224,22 +234,30 @@ export const buildImageItemsFromPayload = async ({
     }),
   );
 
+  const [localItems, webItems] = await Promise.all([
+    localItemsPromise,
+    webItemsPromise,
+  ]);
+
   const seenAssetPaths = new Set<string>();
+  const dedupedItems: ImageItem[] = [];
 
-  return [...localItems, ...webItems.filter((item) => item !== null)].filter(
-    (item) => {
-      const fingerprint = item.assetPath
-        ? toUrlFingerprint(item.assetPath)
-        : `${item.type}-${item.label ?? item.id}`;
+  for (const item of [...localItems, ...webItems]) {
+    if (!item) {
+      continue;
+    }
 
-      if (seenAssetPaths.has(fingerprint)) {
-        return false;
-      }
+    const fingerprint = item.assetPath
+      ? toUrlFingerprint(item.assetPath)
+      : `${item.type}-${item.label ?? item.id}`;
 
+    if (!seenAssetPaths.has(fingerprint)) {
       seenAssetPaths.add(fingerprint);
-      return true;
-    },
-  );
+      dedupedItems.push(item);
+    }
+  }
+
+  return dedupedItems;
 };
 
 export { getDataUrlByteLength, inferImageFormatLabel };

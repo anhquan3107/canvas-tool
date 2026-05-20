@@ -323,48 +323,45 @@ export const useCanvasBoardScene = ({
         }
 
         const selectionSet = new Set(nextSelection);
-        const dragItems = groupRef.current.items
-          .filter((entry) => selectionSet.has(entry.id) && !entry.locked)
-          .sort((left, right) => left.zIndex - right.zIndex)
-          .map((entry) => {
-            const node = itemNodeByIdRef.current.get(entry.id);
-            if (!node) {
-              return null;
-            }
+        const dragItems = [];
+        for (const entry of groupRef.current.items.toSorted(
+          (left, right) => left.zIndex - right.zIndex,
+        )) {
+          if (!selectionSet.has(entry.id) || entry.locked) {
+            continue;
+          }
 
-            return {
-              itemId: entry.id,
-              itemNode: node,
-              startPos: { x: entry.x, y: entry.y },
-              width:
-                Number.isFinite(entry.width) && entry.width > 1
-                  ? entry.width
-                  : 180,
-              height:
-                Number.isFinite(entry.height) && entry.height > 1
-                  ? entry.height
-                  : 120,
-              visualWidth:
-                (Number.isFinite(entry.width) && entry.width > 1
-                  ? entry.width
-                  : 180) *
-                Math.abs(
-                  Number.isFinite(entry.scaleX) && entry.scaleX !== 0
-                    ? entry.scaleX
-                    : 1,
-                ),
-              visualHeight:
-                (Number.isFinite(entry.height) && entry.height > 1
-                  ? entry.height
-                  : 120) *
-                Math.abs(
-                  Number.isFinite(entry.scaleY) && entry.scaleY !== 0
-                    ? entry.scaleY
-                    : 1,
-                ),
-            };
-          })
-          .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
+          const node = itemNodeByIdRef.current.get(entry.id);
+          if (!node) {
+            continue;
+          }
+
+          const width =
+            Number.isFinite(entry.width) && entry.width > 1 ? entry.width : 180;
+          const height =
+            Number.isFinite(entry.height) && entry.height > 1 ? entry.height : 120;
+          dragItems.push({
+            itemId: entry.id,
+            itemNode: node,
+            startPos: { x: entry.x, y: entry.y },
+            width,
+            height,
+            visualWidth:
+              width *
+              Math.abs(
+                Number.isFinite(entry.scaleX) && entry.scaleX !== 0
+                  ? entry.scaleX
+                  : 1,
+              ),
+            visualHeight:
+              height *
+              Math.abs(
+                Number.isFinite(entry.scaleY) && entry.scaleY !== 0
+                  ? entry.scaleY
+                  : 1,
+              ),
+          });
+        }
 
         if (dragItems.length === 0) {
           return;

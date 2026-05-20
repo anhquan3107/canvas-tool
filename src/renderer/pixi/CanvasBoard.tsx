@@ -12,7 +12,6 @@ import {
   Graphics,
   Rectangle,
 } from "pixi.js";
-import type { CanvasItem, CaptureItem, ImageItem } from "@shared/types/project";
 import {
   applySelectionVisualState,
   syncSelectionItemOrder,
@@ -556,11 +555,12 @@ export const CanvasBoard = ({
   }, [appReady, group.filters.grayscale, group.id, group.items, group.zoom]);
 
   useEffect(() => {
-    const activeCaptureIds = new Set(
-      group.items
-        .filter((item): item is CaptureItem => item.type === "capture")
-        .map((item) => item.id),
-    );
+    const activeCaptureIds = new Set<string>();
+    for (const item of group.items) {
+      if (item.type === "capture") {
+        activeCaptureIds.add(item.id);
+      }
+    }
 
     captureSessionByIdRef.current.forEach((_, captureId) => {
       if (!activeCaptureIds.has(captureId)) {

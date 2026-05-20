@@ -374,7 +374,7 @@ const buildSwatches = (colors: string[] | undefined): ColorSwatch[] | undefined 
 };
 
 const sortItemsByZIndex = <T extends { zIndex: number }>(items: T[]) =>
-  [...items].sort((left, right) => left.zIndex - right.zIndex);
+  items.toSorted((left, right) => left.zIndex - right.zIndex);
 
 const coerceGroupName = (value: unknown, fallback: string) =>
   typeof value === "string" && value.trim().length > 0 ? value.trim() : fallback;

@@ -5,7 +5,7 @@ import {
   type DragEvent,
   type SetStateAction,
 } from "react";
-import type { ImageItem, Project, ReferenceGroup } from "@shared/types/project";
+import type { Project, ReferenceGroup } from "@shared/types/project";
 import {
   buildImageItemsFromPayload,
   collectDropPayload,
@@ -204,9 +204,12 @@ export const useWorkspaceImportActions = ({
         });
         importProgress?.update(86, `${copy.toasts.importingImages} 86%`);
 
-        const blockedItemIds = importedItems
-          .filter((item) => item.previewStatus === "blocked")
-          .map((item) => item.id);
+        const blockedItemIds: string[] = [];
+        for (const item of importedItems) {
+          if (item.previewStatus === "blocked") {
+            blockedItemIds.push(item.id);
+          }
+        }
         const blockedCount = blockedItemIds.length;
 
         setImportQueue((previous) =>
@@ -297,20 +300,21 @@ export const useWorkspaceImportActions = ({
         return;
       }
 
-      let recoveredCount = 0;
+      const imageItemsById = new Map(
+        targetGroup.items.flatMap((item) =>
+          item.type === "image" ? [[item.id, item]] : [],
+        ),
+      );
 
-      for (const itemId of entry.blockedItemIds) {
-        const targetItem = targetGroup.items.find(
-          (item): item is ImageItem =>
-            item.type === "image" && item.id === itemId,
-        );
+      const recoveryResults = await Promise.all(entry.blockedItemIds.map(async (itemId) => {
+        const targetItem = imageItemsById.get(itemId);
 
         if (!targetItem || targetItem.previewStatus !== "blocked") {
-          continue;
+          return false;
         }
 
         if (!targetItem.assetPath || !/^https?:\/\//i.test(targetItem.assetPath)) {
-          continue;
+          return false;
         }
 
         const dataUrl = await window.desktopApi.import.fetchRemoteImageDataUrl({
@@ -318,13 +322,15 @@ export const useWorkspaceImportActions = ({
         });
 
         if (!dataUrl) {
-          continue;
+          return false;
         }
 
         try {
-          const measured = await measureImageSize(dataUrl);
+          const [measured, swatches] = await Promise.all([
+            measureImageSize(dataUrl),
+            extractImageSwatches(dataUrl),
+          ]);
           const size = normalizePreviewSize(measured.width, measured.height);
-          const swatches = await extractImageSwatches(dataUrl);
 
           targetItem.assetPath = dataUrl;
           targetItem.previewStatus = "ready";
@@ -341,11 +347,13 @@ export const useWorkspaceImportActions = ({
           targetItem.height = size.height;
           targetItem.swatchHex = swatches[0]?.colorHex;
           targetItem.swatches = swatches;
-          recoveredCount += 1;
+          return true;
         } catch {
-          continue;
+          return false;
         }
-      }
+      }));
+
+      const recoveredCount = recoveryResults.filter(Boolean).length;
 
       if (recoveredCount > 0) {
         nextProject.updatedAt = new Date().toISOString();
@@ -356,15 +364,17 @@ export const useWorkspaceImportActions = ({
         (group) => group.id === entry.groupId,
       );
 
-      const remainingBlockedIds =
-        refreshedGroup?.items
-          .filter(
-            (item): item is ImageItem =>
-              item.type === "image" &&
-              entry.blockedItemIds.includes(item.id) &&
-              item.previewStatus === "blocked",
-          )
-          .map((item) => item.id) ?? [];
+      const blockedItemIdSet = new Set(entry.blockedItemIds);
+      const remainingBlockedIds: string[] = [];
+      for (const item of refreshedGroup?.items ?? []) {
+        if (
+          item.type === "image" &&
+          blockedItemIdSet.has(item.id) &&
+          item.previewStatus === "blocked"
+        ) {
+          remainingBlockedIds.push(item.id);
+        }
+      }
 
       setImportQueue((previous) =>
         previous.map((candidate) =>

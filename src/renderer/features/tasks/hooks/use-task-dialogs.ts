@@ -19,9 +19,11 @@ export const useTaskDialogs = ({
   const [taskDialogMode, setTaskDialogMode] = useState<"create" | "edit" | "rename">(
     "create",
   );
-  const [draftTaskTitle, setDraftTaskTitle] = useState(copy.tasks.defaults.newTask(1));
+  const [draftTaskTitle, setDraftTaskTitle] = useState(() =>
+    copy.tasks.defaults.newTask(1),
+  );
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
-  const [taskDates, setTaskDates] = useState<TaskDateRange>(
+  const [taskDates, setTaskDates] = useState<TaskDateRange>(() =>
     createDefaultTaskDates(),
   );
 

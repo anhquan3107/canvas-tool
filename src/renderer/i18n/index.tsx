@@ -1,7 +1,7 @@
 import {
   createContext,
+  use,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -52,16 +52,10 @@ export const I18nProvider = ({
   children: ReactNode;
   initialLocale?: AppLocale;
 }) => {
-  const [locale, setLocaleState] = useState<AppLocale>(
+  const [locale, setLocaleState] = useState<AppLocale>(() =>
     normalizeLocale(initialLocale),
   );
   const channelRef = useRef<BroadcastChannel | null>(null);
-
-  useEffect(() => {
-    if (initialLocale) {
-      setLocaleState(normalizeLocale(initialLocale));
-    }
-  }, [initialLocale]);
 
   useEffect(() => {
     if (typeof document === "undefined") {
@@ -99,13 +93,15 @@ export const I18nProvider = ({
 
     const channel = new BroadcastChannel(LOCALE_CHANNEL_NAME);
     channelRef.current = channel;
-
-    channel.addEventListener("message", (event: MessageEvent<{ locale?: AppLocale }>) => {
+    const syncLocale = (event: MessageEvent<{ locale?: AppLocale }>) => {
       const nextLocale = normalizeLocale(event.data?.locale);
       setLocaleState(nextLocale);
-    });
+    };
+
+    channel.addEventListener("message", syncLocale);
 
     return () => {
+      channel.removeEventListener("message", syncLocale);
       channel.close();
       if (channelRef.current === channel) {
         channelRef.current = null;
@@ -146,7 +142,7 @@ export const I18nProvider = ({
 };
 
 export const useI18n = () => {
-  const context = useContext(I18nContext);
+  const context = use(I18nContext);
   if (!context) {
     throw new Error("useI18n must be used inside I18nProvider.");
   }

@@ -5,32 +5,37 @@ import {
 } from "@renderer/features/import/image-format";
 
 export const parseUrlText = (input: string) => {
-  const urls = input
-    .split(/\r?\n/)
-    .map((part) => normalizeUrlCandidate(part))
-    .filter((part) => part.length > 0)
-    .filter((part) => !part.startsWith("#"))
-    .filter(isImportableImageSource);
-
   const unique = new Map<string, string>();
-  urls.forEach((url) => {
+  for (const part of input.split(/\r?\n/)) {
+    const url = normalizeUrlCandidate(part);
+    if (
+      url.length === 0 ||
+      url.startsWith("#") ||
+      !isImportableImageSource(url)
+    ) {
+      continue;
+    }
+
     const fingerprint = toUrlFingerprint(url);
     if (!unique.has(fingerprint)) {
       unique.set(fingerprint, url);
     }
-  });
+  }
 
   return [...unique.values()];
 };
 
-const parseSrcSet = (srcset: string) =>
-  srcset
-    .split(",")
-    .map((entry) => entry.trim())
-    .map((entry) => entry.split(/\s+/)[0])
-    .map((entry) => normalizeUrlCandidate(entry))
-    .filter((candidate) => candidate.length > 0)
-    .filter(isImportableImageSource);
+const parseSrcSet = (srcset: string) => {
+  const urls: string[] = [];
+  for (const entry of srcset.split(",")) {
+    const candidate = normalizeUrlCandidate(entry.trim().split(/\s+/)[0] ?? "");
+    if (candidate.length > 0 && isImportableImageSource(candidate)) {
+      urls.push(candidate);
+    }
+  }
+
+  return urls;
+};
 
 export const parseUrlsFromHtml = (html: string) => {
   if (!html.trim()) {

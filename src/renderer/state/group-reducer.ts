@@ -139,12 +139,17 @@ export const reduceGroupAction = (
         return project;
       }
 
-      const nextGroups = project.groups
-        .filter((group) => group.id !== action.payload.groupId)
-        .map((group, index) => ({
+      const nextGroups: Project["groups"] = [];
+      for (const group of project.groups) {
+        if (group.id === action.payload.groupId) {
+          continue;
+        }
+
+        nextGroups.push({
           ...group,
-          order: index,
-        }));
+          order: nextGroups.length,
+        });
+      }
       const canvasGroup =
         nextGroups.find((group) => group.kind === "canvas") ?? nextGroups[0];
 

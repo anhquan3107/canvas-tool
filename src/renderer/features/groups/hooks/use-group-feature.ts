@@ -20,7 +20,9 @@ export const useGroupFeature = ({
 }: UseGroupFeatureOptions) => {
   const { copy } = useI18n();
   const [groupDialogOpen, setGroupDialogOpen] = useState(false);
-  const [draftGroupName, setDraftGroupName] = useState(copy.groups.defaultName(1));
+  const [draftGroupName, setDraftGroupName] = useState(() =>
+    copy.groups.defaultName(1),
+  );
   const [editingGroup, setEditingGroup] = useState<{
     id: string;
     currentName: string;

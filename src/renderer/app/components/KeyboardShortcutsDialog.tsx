@@ -52,16 +52,23 @@ export const KeyboardShortcutsDialog = ({
 
   useDialogInitialFocus(dialogRef, open);
 
-  const sections = useMemo(
-    () =>
-      SECTION_ORDER.map((section) => ({
-        section,
-        definitions: SHORTCUT_DEFINITIONS.filter(
-          (definition) => definition.section === section,
-        ),
-      })).filter((entry) => entry.definitions.length > 0),
-    [],
-  );
+  const sections = useMemo(() => {
+    const nextSections: {
+      section: (typeof SECTION_ORDER)[number];
+      definitions: typeof SHORTCUT_DEFINITIONS;
+    }[] = [];
+
+    for (const section of SECTION_ORDER) {
+      const definitions = SHORTCUT_DEFINITIONS.filter(
+        (definition) => definition.section === section,
+      );
+      if (definitions.length > 0) {
+        nextSections.push({ section, definitions });
+      }
+    }
+
+    return nextSections;
+  }, []);
 
   if (!open) {
     return null;

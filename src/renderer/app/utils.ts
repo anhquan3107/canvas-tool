@@ -1,17 +1,38 @@
 import type { Project } from "@shared/types/project";
 
+const defaultTimestampFormatter = new Intl.DateTimeFormat(undefined, {
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+});
+const englishTimestampFormatter = new Intl.DateTimeFormat("en", {
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+});
+const vietnameseTimestampFormatter = new Intl.DateTimeFormat("vi", {
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+});
+
+const getTimestampFormatter = (locale?: string) =>
+  locale === "vi"
+    ? vietnameseTimestampFormatter
+    : locale === "en"
+      ? englishTimestampFormatter
+      : defaultTimestampFormatter;
+
 export const formatTimestamp = (value: string, locale?: string) => {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.valueOf())) {
     return value;
   }
 
-  return new Intl.DateTimeFormat(locale, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(parsed);
+  return getTimestampFormatter(locale).format(parsed);
 };
 
 export const getProjectDirtySignature = (project: Project) =>

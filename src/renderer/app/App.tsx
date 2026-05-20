@@ -17,6 +17,92 @@ const BootScreen = () => {
   return <div className="booting">{copy.app.booting}</div>;
 };
 
+interface AppBootState {
+  project: Project | null;
+  locale: AppLocale;
+  windowOpacity: number;
+  doodleMode: DoodleMode;
+  doodleEraserMode: DoodleEraserMode;
+}
+
+const DEFAULT_BOOT_STATE: AppBootState = {
+  project: null,
+  locale: "en",
+  windowOpacity: 1,
+  doodleMode: "brush",
+  doodleEraserMode: "erase-line",
+};
+
+const MainApp = () => {
+  const [bootState, setBootState] = useState<AppBootState>(DEFAULT_BOOT_STATE);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    Promise.all([
+      window.desktopApi.project.create(),
+      window.desktopApi.app.getSettings(),
+    ])
+      .then(([project, settings]) => {
+        if (cancelled) {
+          return;
+        }
+
+        setBootState({
+          project,
+          locale: settings.locale === "vi" ? "vi" : "en",
+          windowOpacity: settings.windowOpacity ?? 1,
+          doodleMode: "brush",
+          doodleEraserMode: "erase-line",
+        });
+      })
+      .catch(async () => {
+        try {
+          const project = await window.desktopApi.project.create();
+          if (!cancelled) {
+            setBootState((currentBootState) => ({
+              ...currentBootState,
+              project,
+            }));
+          }
+        } catch {
+          return null;
+        }
+        return null;
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (!bootState.project) {
+    return (
+      <I18nProvider key={bootState.locale} initialLocale={bootState.locale}>
+        <>
+          <DotGain20FilterDefs />
+          <BootScreen />
+        </>
+      </I18nProvider>
+    );
+  }
+
+  return (
+    <I18nProvider key={bootState.locale} initialLocale={bootState.locale}>
+      <>
+        <DotGain20FilterDefs />
+        <ProjectProvider initialProject={bootState.project}>
+          <AppShell
+            initialWindowOpacity={bootState.windowOpacity}
+            initialDoodleMode={bootState.doodleMode}
+            initialDoodleEraserMode={bootState.doodleEraserMode}
+          />
+        </ProjectProvider>
+      </>
+    </I18nProvider>
+  );
+};
+
 export const App = () => {
   const mode = new URLSearchParams(window.location.search).get("mode");
   if (mode === "capture-toolbar") {
@@ -41,60 +127,5 @@ export const App = () => {
     );
   }
 
-  const [initialProject, setInitialProject] = useState<Project | null>(null);
-  const [initialLocale, setInitialLocale] = useState<AppLocale>("en");
-  const [initialWindowOpacity, setInitialWindowOpacity] = useState(1);
-  const [initialDoodleMode, setInitialDoodleMode] =
-    useState<DoodleMode>("brush");
-  const [initialDoodleEraserMode, setInitialDoodleEraserMode] =
-    useState<DoodleEraserMode>("erase-line");
-
-  useEffect(() => {
-    Promise.all([
-      window.desktopApi.project.create(),
-      window.desktopApi.app.getSettings(),
-    ])
-      .then(([project, settings]) => {
-        setInitialLocale(settings.locale === "vi" ? "vi" : "en");
-        setInitialWindowOpacity(settings.windowOpacity ?? 1);
-        setInitialDoodleMode("brush");
-        setInitialDoodleEraserMode("erase-line");
-        setInitialProject(project);
-      })
-      .catch(async () => {
-        try {
-          const project = await window.desktopApi.project.create();
-          setInitialProject(project);
-        } catch {
-          return null;
-        }
-        return null;
-      });
-  }, []);
-
-  if (!initialProject) {
-    return (
-      <I18nProvider initialLocale={initialLocale}>
-        <>
-          <DotGain20FilterDefs />
-          <BootScreen />
-        </>
-      </I18nProvider>
-    );
-  }
-
-  return (
-    <I18nProvider initialLocale={initialLocale}>
-      <>
-        <DotGain20FilterDefs />
-        <ProjectProvider initialProject={initialProject}>
-          <AppShell
-            initialWindowOpacity={initialWindowOpacity}
-            initialDoodleMode={initialDoodleMode}
-            initialDoodleEraserMode={initialDoodleEraserMode}
-          />
-        </ProjectProvider>
-      </>
-    </I18nProvider>
-  );
+  return <MainApp />;
 };

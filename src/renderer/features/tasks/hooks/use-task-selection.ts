@@ -45,7 +45,7 @@ export const useTaskSelection = ({ tasks }: { tasks: Task[] }) => {
     useState(false);
 
   const orderedTasks = useMemo(
-    () => [...tasks].sort(compareTasksForLeftPanel),
+    () => tasks.toSorted(compareTasksForLeftPanel),
     [tasks],
   );
 

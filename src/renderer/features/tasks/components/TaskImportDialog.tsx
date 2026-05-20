@@ -7,6 +7,38 @@ import { useDialogInitialFocus } from "@renderer/ui/use-dialog-initial-focus";
 
 type TaskImportMode = "merge" | "replace" | "skip-duplicates";
 
+const defaultExportedAtFormatter = new Intl.DateTimeFormat(undefined, {
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+const englishExportedAtFormatter = new Intl.DateTimeFormat("en", {
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+const vietnameseExportedAtFormatter = new Intl.DateTimeFormat("vi", {
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+
+const getExportedAtFormatter = (locale: string) =>
+  locale === "vi"
+    ? vietnameseExportedAtFormatter
+    : locale === "en"
+      ? englishExportedAtFormatter
+      : defaultExportedAtFormatter;
+
 interface TaskImportDialogProps {
   preview: TasksImportResult & {
     duplicateCount: number;
@@ -26,14 +58,7 @@ const formatExportedAt = (value: string | undefined, locale: string) => {
     return value;
   }
 
-  return new Intl.DateTimeFormat(locale, {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(parsed);
+  return getExportedAtFormatter(locale).format(parsed);
 };
 
 export const TaskImportDialog = ({

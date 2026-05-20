@@ -94,19 +94,21 @@ export const useBoardCursorOverlay = ({
         doodleModeRef.current === "erase-line" ||
         doodleModeRef.current === "erase-pixel";
 
-      cursorOverlay.style.width = `${size}px`;
-      cursorOverlay.style.height = `${size}px`;
-      cursorOverlay.style.transform = `translate(${localX - size * 0.5}px, ${localY - size * 0.5}px)`;
-      cursorOverlay.style.borderColor = erasing
-        ? "rgba(255, 255, 255, 0.88)"
-        : hexToRgba(doodleColorRef.current, 0.98);
-      cursorOverlay.style.background = erasing
-        ? "rgba(255, 255, 255, 0.08)"
-        : doodleColorRef.current;
-      cursorOverlay.style.boxShadow = erasing
-        ? "0 0 0 1px rgba(0, 0, 0, 0.38), inset 0 0 0 1px rgba(255, 255, 255, 0.08)"
-        : "0 0 0 1px rgba(0, 0, 0, 0.42), 0 0 0 2px rgba(255, 255, 255, 0.14)";
-      cursorOverlay.style.opacity = "1";
+      Object.assign(cursorOverlay.style, {
+        width: `${size}px`,
+        height: `${size}px`,
+        transform: `translate(${localX - size * 0.5}px, ${localY - size * 0.5}px)`,
+        borderColor: erasing
+          ? "rgba(255, 255, 255, 0.88)"
+          : hexToRgba(doodleColorRef.current, 0.98),
+        background: erasing
+          ? "rgba(255, 255, 255, 0.08)"
+          : doodleColorRef.current,
+        boxShadow: erasing
+          ? "0 0 0 1px rgba(0, 0, 0, 0.38), inset 0 0 0 1px rgba(255, 255, 255, 0.08)"
+          : "0 0 0 1px rgba(0, 0, 0, 0.42), 0 0 0 2px rgba(255, 255, 255, 0.14)",
+        opacity: "1",
+      });
     },
     [
       activeToolRef,

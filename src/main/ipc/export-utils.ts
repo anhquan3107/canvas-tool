@@ -8,6 +8,15 @@ const escapeHtml = (value: string) =>
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
 
+const taskDateTimeFormatter = new Intl.DateTimeFormat(undefined, {
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+
 const formatTaskDateTime = (value?: string) => {
   if (!value) {
     return "No date";
@@ -18,14 +27,7 @@ const formatTaskDateTime = (value?: string) => {
     return value;
   }
 
-  return new Intl.DateTimeFormat(undefined, {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(parsed);
+  return taskDateTimeFormatter.format(parsed);
 };
 
 const getTaskRemainingLabel = (endDate?: string) => {
@@ -76,7 +78,7 @@ const getTaskStatus = (task: Task) => {
 };
 
 export const renderTasksHtml = (projectTitle: string, tasks: Task[]) => {
-  const orderedTasks = [...tasks].sort(
+  const orderedTasks = tasks.toSorted(
     (left, right) => left.order - right.order,
   );
   const completedCount = orderedTasks.filter(
@@ -90,7 +92,7 @@ export const renderTasksHtml = (projectTitle: string, tasks: Task[]) => {
   ).length;
   const body = orderedTasks
     .map((task, index) => {
-      const orderedTodos = [...task.todos].sort(
+      const orderedTodos = task.todos.toSorted(
         (left, right) => left.order - right.order,
       );
       const taskStatus = getTaskStatus(task);

@@ -11,20 +11,19 @@ import { getDocumentMessages } from "@renderer/i18n";
 const BOARD_ITEM_VISUAL_NAME = "board-item-visual";
 const BOARD_ITEM_CROP_MASK_NAME = "board-item-crop-mask";
 const BOARD_ITEM_FALLBACK_NAME = "board-item-fallback";
+const BOARD_ITEM_CLEARABLE_NAMES = new Set([
+  BOARD_ITEM_VISUAL_NAME,
+  BOARD_ITEM_CROP_MASK_NAME,
+  BOARD_ITEM_FALLBACK_NAME,
+]);
 
 const clearBoardItemVisuals = (itemNode: Container) => {
-  itemNode.children
-    .filter((child) =>
-      [
-        BOARD_ITEM_VISUAL_NAME,
-        BOARD_ITEM_CROP_MASK_NAME,
-        BOARD_ITEM_FALLBACK_NAME,
-      ].includes(child.name ?? ""),
-    )
-    .forEach((child) => {
+  for (const child of [...itemNode.children]) {
+    if (BOARD_ITEM_CLEARABLE_NAMES.has(child.name ?? "")) {
       itemNode.removeChild(child);
       child.destroy({ children: true });
-    });
+    }
+  }
 };
 
 const createFallbackHint = (

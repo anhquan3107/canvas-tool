@@ -12,7 +12,7 @@ export const buildArrangeSelectedItemsUpdates = (
     return {} as Record<string, ImagePatch>;
   }
 
-  const selectedItems = [...items].sort(
+  const selectedItems = items.toSorted(
     (left, right) => (left.zIndex ?? 0) - (right.zIndex ?? 0),
   );
   const anchorX = Math.min(...selectedItems.map((item) => item.x));

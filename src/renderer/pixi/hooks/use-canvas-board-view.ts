@@ -92,10 +92,12 @@ export const useCanvasBoardView = ({
       return;
     }
 
-    marquee.style.opacity = "0";
-    marquee.style.transform = "translate(-9999px, -9999px)";
-    marquee.style.width = "0px";
-    marquee.style.height = "0px";
+    Object.assign(marquee.style, {
+      opacity: "0",
+      transform: "translate(-9999px, -9999px)",
+      width: "0px",
+      height: "0px",
+    });
   }, [selectionMarqueeRef]);
 
   const hideSelectedBoundsOverlay = useCallback(() => {
@@ -104,10 +106,12 @@ export const useCanvasBoardView = ({
       return;
     }
 
-    boundsOverlay.style.opacity = "0";
-    boundsOverlay.style.transform = "translate(-9999px, -9999px)";
-    boundsOverlay.style.width = "0px";
-    boundsOverlay.style.height = "0px";
+    Object.assign(boundsOverlay.style, {
+      opacity: "0",
+      transform: "translate(-9999px, -9999px)",
+      width: "0px",
+      height: "0px",
+    });
   }, [selectedBoundsOverlayRef]);
 
   const updateDoodleCursor = useCallback(
@@ -168,25 +172,15 @@ export const useCanvasBoardView = ({
         ? "0 0 0 1px rgba(0, 0, 0, 0.38), inset 0 0 0 1px rgba(255, 255, 255, 0.08)"
         : "0 0 0 1px rgba(0, 0, 0, 0.42), 0 0 0 2px rgba(255, 255, 255, 0.14)";
 
-      if (cursorOverlay.style.width !== nextWidth) {
-        cursorOverlay.style.width = nextWidth;
-      }
-      if (cursorOverlay.style.height !== nextHeight) {
-        cursorOverlay.style.height = nextHeight;
-      }
-      cursorOverlay.style.transform = `translate(${localX - size * 0.5}px, ${localY - size * 0.5}px)`;
-      if (cursorOverlay.style.borderColor !== nextBorderColor) {
-        cursorOverlay.style.borderColor = nextBorderColor;
-      }
-      if (cursorOverlay.style.background !== nextBackground) {
-        cursorOverlay.style.background = nextBackground;
-      }
-      if (cursorOverlay.style.boxShadow !== nextBoxShadow) {
-        cursorOverlay.style.boxShadow = nextBoxShadow;
-      }
-      if (cursorOverlay.style.opacity !== "1") {
-        cursorOverlay.style.opacity = "1";
-      }
+      Object.assign(cursorOverlay.style, {
+        width: nextWidth,
+        height: nextHeight,
+        transform: `translate(${localX - size * 0.5}px, ${localY - size * 0.5}px)`,
+        borderColor: nextBorderColor,
+        background: nextBackground,
+        boxShadow: nextBoxShadow,
+        opacity: "1",
+      });
     },
     [
       activeToolRef,
@@ -435,10 +429,12 @@ export const useCanvasBoardView = ({
       const width = Math.abs(currentLeft - startLeft);
       const height = Math.abs(currentTop - startTop);
 
-      marquee.style.opacity = width > 0 || height > 0 ? "1" : "0";
-      marquee.style.transform = `translate(${left}px, ${top}px)`;
-      marquee.style.width = `${width}px`;
-      marquee.style.height = `${height}px`;
+      Object.assign(marquee.style, {
+        opacity: width > 0 || height > 0 ? "1" : "0",
+        transform: `translate(${left}px, ${top}px)`,
+        width: `${width}px`,
+        height: `${height}px`,
+      });
 
       const startWorld = clientPointToWorld(
         selectionBox.startClient.x,
@@ -454,16 +450,18 @@ export const useCanvasBoardView = ({
       const maxX = Math.max(startWorld.x, endWorld.x);
       const maxY = Math.max(startWorld.y, endWorld.y);
 
-      const hitIds = groupRef.current.items
-        .filter((item) => item.visible)
-        .filter(
-          (item) =>
-            item.x < maxX &&
-            item.x + item.width > minX &&
-            item.y < maxY &&
-            item.y + item.height > minY,
-        )
-        .map((item) => item.id);
+      const hitIds: string[] = [];
+      for (const item of groupRef.current.items) {
+        if (
+          item.visible &&
+          item.x < maxX &&
+          item.x + item.width > minX &&
+          item.y < maxY &&
+          item.y + item.height > minY
+        ) {
+          hitIds.push(item.id);
+        }
+      }
 
       const nextSelection = selectionBox.additive
         ? Array.from(new Set([...selectionBox.baseSelection, ...hitIds]))
@@ -579,10 +577,12 @@ export const useCanvasBoardView = ({
     const width = (maxX - minX) * boardContainer.scale.x;
     const height = (maxY - minY) * boardContainer.scale.y;
 
-    boundsOverlay.style.opacity = "1";
-    boundsOverlay.style.transform = `translate(${left}px, ${top}px)`;
-    boundsOverlay.style.width = `${Math.max(0, width)}px`;
-    boundsOverlay.style.height = `${Math.max(0, height)}px`;
+    Object.assign(boundsOverlay.style, {
+      opacity: "1",
+      transform: `translate(${left}px, ${top}px)`,
+      width: `${Math.max(0, width)}px`,
+      height: `${Math.max(0, height)}px`,
+    });
   }, [
     boardContainerRef,
     itemNodeByIdRef,

@@ -9,10 +9,10 @@ const shortcutTokens = (shortcut?: string) => {
     return [];
   }
 
-  return shortcut
-    .split("+")
-    .map((token) => token.trim())
-    .filter(Boolean);
+  return shortcut.split("+").flatMap((token) => {
+    const trimmed = token.trim();
+    return trimmed ? [trimmed] : [];
+  });
 };
 
 interface TitleBarTooltipConfirmDialogProps {
@@ -45,10 +45,10 @@ export const TitleBarTooltipConfirmDialog = ({
 
   const tokens = shortcutTokens(shortcut);
   const resolvedConfirmLabel = confirmLabel ?? copy.common.gotIt;
-  const descriptionBlocks = description
-    .split("\n\n")
-    .map((block) => block.trim())
-    .filter(Boolean);
+  const descriptionBlocks = description.split("\n\n").flatMap((block) => {
+    const trimmed = block.trim();
+    return trimmed ? [trimmed] : [];
+  });
 
   return (
     <DialogScrim

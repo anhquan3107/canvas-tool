@@ -36,30 +36,78 @@ export const CaptureToolbarApp = () => {
   const lastPointerDoubleClickToggleRef = useRef(0);
 
   useLayoutEffect(() => {
-    document.body.style.background = "transparent";
-    document.documentElement.style.background = "transparent";
     const root = document.getElementById("root");
-    if (root) root.style.background = "transparent";
+    Object.assign(document.body.style, { background: "transparent" });
+    Object.assign(document.documentElement.style, { background: "transparent" });
+    if (root) {
+      Object.assign(root.style, { background: "transparent" });
+    }
     return () => {
-      document.body.style.background = "";
-      document.documentElement.style.background = "";
-      if (root) root.style.background = "";
+      Object.assign(document.body.style, { background: "" });
+      Object.assign(document.documentElement.style, { background: "" });
+      if (root) {
+        Object.assign(root.style, { background: "" });
+      }
     };
   }, []);
   const hideWindowTimeoutRef = useRef<number | null>(null);
   const focusCaptureOnReleaseRef = useRef(false);
+  const edgeRevealActiveRef = useRef(false);
+  const topbarHoveredRef = useRef(false);
+  const topbarPointerActiveRef = useRef(false);
+  const captureWindowFocusedRef = useRef(false);
+  const sessionWindowFocusedRef = useRef(DEFAULT_CAPTURE_SESSION_STATE.windowFocused);
   const [sessionState, setSessionState] = useState<CaptureSessionState>({
     ...DEFAULT_CAPTURE_SESSION_STATE,
     sourceName: initial.sourceName || copy.capture.title,
     quality: initial.quality,
   });
-  const [edgeRevealActive, setEdgeRevealActive] = useState(false);
-  const [topbarHovered, setTopbarHovered] = useState(false);
   const [topbarVisible, setTopbarVisible] = useState(false);
-  const [topbarPointerActive, setTopbarPointerActive] = useState(false);
-  const [captureWindowFocused, setCaptureWindowFocused] = useState(false);
   const customResizeEnabled = !sessionState.windowMaximized;
   useWindowResize(customResizeEnabled);
+
+  const syncTopbarVisibility = useCallback(() => {
+    const focused =
+      captureWindowFocusedRef.current || sessionWindowFocusedRef.current;
+    if (
+      !focused &&
+      !edgeRevealActiveRef.current &&
+      !topbarPointerActiveRef.current
+    ) {
+      topbarHoveredRef.current = false;
+    }
+
+    setTopbarVisible(
+      focused ||
+        edgeRevealActiveRef.current ||
+        topbarHoveredRef.current ||
+        topbarPointerActiveRef.current,
+    );
+  }, []);
+
+  const setEdgeRevealActive = useCallback(
+    (active: boolean) => {
+      edgeRevealActiveRef.current = active;
+      syncTopbarVisibility();
+    },
+    [syncTopbarVisibility],
+  );
+
+  const setTopbarHovered = useCallback(
+    (hovered: boolean) => {
+      topbarHoveredRef.current = hovered;
+      syncTopbarVisibility();
+    },
+    [syncTopbarVisibility],
+  );
+
+  const setTopbarPointerActive = useCallback(
+    (active: boolean) => {
+      topbarPointerActiveRef.current = active;
+      syncTopbarVisibility();
+    },
+    [syncTopbarVisibility],
+  );
 
   const postMessage = useCallback((message: CaptureSessionMessage) => {
     channelRef.current?.postMessage(message);
@@ -95,7 +143,9 @@ export const CaptureToolbarApp = () => {
       }
 
       if (message.type === "state") {
+        sessionWindowFocusedRef.current = message.state.windowFocused;
         setSessionState(message.state);
+        syncTopbarVisibility();
         return;
       }
 
@@ -115,41 +165,16 @@ export const CaptureToolbarApp = () => {
         channelRef.current = null;
       }
     };
-  }, [initial.sessionId]);
+  }, [initial.sessionId, setEdgeRevealActive, syncTopbarVisibility]);
 
   useEffect(
-    () => window.desktopApi.capture.onWindowFocusChanged(setCaptureWindowFocused),
-    [],
+    () =>
+      window.desktopApi.capture.onWindowFocusChanged((focused) => {
+        captureWindowFocusedRef.current = focused;
+        syncTopbarVisibility();
+      }),
+    [syncTopbarVisibility],
   );
-
-  const effectiveWindowFocused =
-    captureWindowFocused || sessionState.windowFocused;
-
-  useEffect(() => {
-    if (
-      effectiveWindowFocused ||
-      edgeRevealActive ||
-      topbarHovered ||
-      topbarPointerActive
-    ) {
-      setTopbarVisible(true);
-      return;
-    }
-    setTopbarVisible(false);
-  }, [
-    effectiveWindowFocused,
-    edgeRevealActive,
-    topbarHovered,
-    topbarPointerActive,
-  ]);
-
-  useEffect(() => {
-    if (effectiveWindowFocused || edgeRevealActive || topbarPointerActive) {
-      return;
-    }
-
-    setTopbarHovered(false);
-  }, [edgeRevealActive, effectiveWindowFocused, topbarPointerActive]);
 
   useEffect(() => {
     const clearHoverState = () => {

@@ -22,13 +22,18 @@ const findBindingConflicts = (bindings: ShortcutBindings) => {
     actionIdsByBinding.set(binding, existing);
   });
 
-  return Object.fromEntries(
-    Array.from(actionIdsByBinding.entries())
-      .filter(([, actionIds]) => actionIds.length > 1)
-      .flatMap(([, actionIds]) =>
-        actionIds.map((actionId) => [actionId, actionIds]),
-      ),
-  ) as Partial<Record<ShortcutActionId, ShortcutActionId[]>>;
+  const conflicts: Partial<Record<ShortcutActionId, ShortcutActionId[]>> = {};
+  actionIdsByBinding.forEach((actionIds) => {
+    if (actionIds.length <= 1) {
+      return;
+    }
+
+    actionIds.forEach((actionId) => {
+      conflicts[actionId] = actionIds;
+    });
+  });
+
+  return conflicts;
 };
 
 interface UseShortcutSettingsOptions {

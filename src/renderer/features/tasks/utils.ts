@@ -15,6 +15,49 @@ export const clampTaskTitle = (value: string) =>
 export const sanitizeTaskTitle = (value: string) =>
   clampTaskTitle(value.trim());
 
+const defaultDateLabelFormatter = new Intl.DateTimeFormat(undefined, {
+  month: "numeric",
+  day: "numeric",
+  year: "numeric",
+});
+const englishDateLabelFormatter = new Intl.DateTimeFormat("en", {
+  month: "numeric",
+  day: "numeric",
+  year: "numeric",
+});
+const vietnameseDateLabelFormatter = new Intl.DateTimeFormat("vi", {
+  month: "numeric",
+  day: "numeric",
+  year: "numeric",
+});
+
+const defaultDateRangeFormatter = new Intl.DateTimeFormat(undefined, {
+  month: "short",
+  day: "numeric",
+});
+const englishDateRangeFormatter = new Intl.DateTimeFormat("en", {
+  month: "short",
+  day: "numeric",
+});
+const vietnameseDateRangeFormatter = new Intl.DateTimeFormat("vi", {
+  month: "short",
+  day: "numeric",
+});
+
+const getDateLabelFormatter = (locale?: string) =>
+  locale === "vi"
+    ? vietnameseDateLabelFormatter
+    : locale === "en"
+      ? englishDateLabelFormatter
+      : defaultDateLabelFormatter;
+
+const getDateRangeFormatter = (locale?: string) =>
+  locale === "vi"
+    ? vietnameseDateRangeFormatter
+    : locale === "en"
+      ? englishDateRangeFormatter
+      : defaultDateRangeFormatter;
+
 const toDateAtEndOfDay = (value: string) => {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.valueOf())) {
@@ -49,11 +92,7 @@ export const formatDateLabel = (value: string, locale?: string) => {
     return value;
   }
 
-  return new Intl.DateTimeFormat(locale, {
-    month: "numeric",
-    day: "numeric",
-    year: "numeric",
-  }).format(parsed);
+  return getDateLabelFormatter(locale).format(parsed);
 };
 
 export const createDefaultTaskDates = () => {
@@ -94,10 +133,7 @@ export const formatTaskDateRange = (
     return noDeadlineLabel;
   }
 
-  const formatter = new Intl.DateTimeFormat(locale, {
-    month: "short",
-    day: "numeric",
-  });
+  const formatter = getDateRangeFormatter(locale);
 
   return `${formatter.format(start)} - ${formatter.format(end)}`;
 };

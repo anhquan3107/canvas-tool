@@ -31,8 +31,8 @@ const buildTaskDuplicateSignature = (
     startDate: task.startDate ?? "",
     endDate: task.endDate ?? "",
     linkedGroupName: task.linkedGroupName?.trim().toLowerCase() ?? "",
-    todos: [...task.todos]
-      .sort((left, right) => left.order - right.order)
+    todos: task.todos
+      .toSorted((left, right) => left.order - right.order)
       .map((todo) => ({
         text: todo.text.trim().toLowerCase(),
         completed: todo.completed,
@@ -87,8 +87,8 @@ const cloneImportedTasksForProject = (
     startDate: task.startDate,
     endDate: task.endDate,
     linkedGroupId: resolveImportedTaskGroupId(task, groups),
-    todos: [...task.todos]
-      .sort((left, right) => left.order - right.order)
+    todos: task.todos
+      .toSorted((left, right) => left.order - right.order)
       .map((todo, todoIndex) => ({
         id: crypto.randomUUID(),
         text: todo.text,

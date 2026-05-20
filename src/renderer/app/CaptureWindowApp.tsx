@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { DEFAULT_SHORTCUT_BINDINGS, resolveShortcutBindings } from "@shared/shortcuts";
 import {
   createCaptureSessionChannel,
@@ -35,6 +35,17 @@ const NO_PREVIEW_CROP: PreviewCropInsets = {
   bottom: 0,
   left: 0,
 };
+
+interface CaptureSourceSelection {
+  id: string;
+  name: string;
+  kind: "window" | "screen";
+}
+
+interface CaptureWindowControls {
+  isMaximized: boolean;
+  isAlwaysOnTop: boolean;
+}
 
 const WINDOWS_WINDOW_PREVIEW_CROP: PreviewCropInsets = {
   top: 5,
@@ -100,9 +111,14 @@ export const CaptureWindowApp = () => {
     windowMaximized: false,
     windowAlwaysOnTop: false,
   });
-  const [sourceId, setSourceId] = useState(initial.sourceId);
-  const [sourceName, setSourceName] = useState(initial.sourceName || copy.capture.title);
-  const [sourceKind, setSourceKind] = useState<"window" | "screen">(initial.sourceKind);
+  const [sourceSelection, setSourceSelection] = useReducer(
+    (_current: CaptureSourceSelection, next: CaptureSourceSelection) => next,
+    {
+      id: initial.sourceId,
+      name: initial.sourceName || copy.capture.title,
+      kind: initial.sourceKind,
+    },
+  );
   const [quality, setQuality] = useState<CaptureQuality>(initial.quality);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -117,10 +133,19 @@ export const CaptureWindowApp = () => {
   const [bwFrameReady, setBwFrameReady] = useState(false);
   const [previewCropInsets, setPreviewCropInsets] =
     useState<PreviewCropInsets>(NO_PREVIEW_CROP);
-  const [windowMaximized, setWindowMaximized] = useState(false);
-  const [windowAlwaysOnTop, setWindowAlwaysOnTop] = useState(false);
-  const [shortcutBindings, setShortcutBindings] = useState(DEFAULT_SHORTCUT_BINDINGS);
-  useWindowResize(!windowMaximized);
+  const [windowControls, setWindowControls] = useReducer(
+    (_current: CaptureWindowControls, next: CaptureWindowControls) => next,
+    {
+      isMaximized: false,
+      isAlwaysOnTop: false,
+    },
+  );
+  const [shortcutBindings, setShortcutBindings] = useReducer(
+    (_current: typeof DEFAULT_SHORTCUT_BINDINGS, next: typeof DEFAULT_SHORTCUT_BINDINGS) =>
+      next,
+    DEFAULT_SHORTCUT_BINDINGS,
+  );
+  useWindowResize(!windowControls.isMaximized);
 
   const toggleDotGainBlackAndWhite = useCallback(() => {
     setBwEnabled((previous) => !previous);
@@ -135,12 +160,12 @@ export const CaptureWindowApp = () => {
         if (previous && nextSources.some((source) => source.id === previous)) {
           return previous;
         }
-        return nextSources.find((source) => source.id === sourceId)?.id ?? nextSources[0]?.id ?? null;
+        return nextSources.find((source) => source.id === sourceSelection.id)?.id ?? nextSources[0]?.id ?? null;
       });
     } finally {
       setLoadingSources(false);
     }
-  }, [sourceId]);
+  }, [sourceSelection.id]);
   loadSourcesRef.current = loadSources;
 
   const postSessionMessage = useCallback((message: CaptureSessionMessage) => {
@@ -151,12 +176,13 @@ export const CaptureWindowApp = () => {
     void window.desktopApi.window
       .getControlsState()
       .then((state) => {
-        setWindowMaximized(state.isMaximized);
-        setWindowAlwaysOnTop(state.isAlwaysOnTop);
+        setWindowControls(state);
       })
       .catch(() => {
-        setWindowMaximized(false);
-        setWindowAlwaysOnTop(false);
+        setWindowControls({
+          isMaximized: false,
+          isAlwaysOnTop: false,
+        });
       });
   }, []);
 
@@ -182,8 +208,7 @@ export const CaptureWindowApp = () => {
           void window.desktopApi.window
             .toggleAlwaysOnTop()
             .then((state) => {
-              setWindowMaximized(state.isMaximized);
-              setWindowAlwaysOnTop(state.isAlwaysOnTop);
+              setWindowControls(state);
             }),
         [shortcutBindings["app.quit"]]: () => void window.desktopApi.app.quit(),
         [shortcutBindings["window.closeAuxiliary"]]: () =>
@@ -195,9 +220,9 @@ export const CaptureWindowApp = () => {
 
   useEffect(() => {
     void window.desktopApi.window.setTitle({
-      title: `${copy.capture.title} - ${sourceName}`,
+      title: `${copy.capture.title} - ${sourceSelection.name}`,
     });
-  }, [copy.capture.title, sourceName]);
+  }, [copy.capture.title, sourceSelection.name]);
 
   useEffect(() => {
     setSelectedQuality(quality);
@@ -205,32 +230,32 @@ export const CaptureWindowApp = () => {
 
   useEffect(() => {
     setPreviewCropInsets(NO_PREVIEW_CROP);
-  }, [quality, sourceId, sourceKind]);
+  }, [quality, sourceSelection.id, sourceSelection.kind]);
 
   useEffect(() => {
     sessionStateRef.current = {
-      sourceName,
+      sourceName: sourceSelection.name,
       quality,
       blurEnabled,
       bwEnabled,
       dialogOpen,
       windowFocused,
-      windowMaximized,
-      windowAlwaysOnTop,
+      windowMaximized: windowControls.isMaximized,
+      windowAlwaysOnTop: windowControls.isAlwaysOnTop,
     };
   }, [
     blurEnabled,
     bwEnabled,
     dialogOpen,
     quality,
-    sourceName,
+    sourceSelection.name,
     windowFocused,
-    windowAlwaysOnTop,
-    windowMaximized,
+    windowControls.isAlwaysOnTop,
+    windowControls.isMaximized,
   ]);
 
   useEffect(() => {
-    if (!sourceId) {
+    if (!sourceSelection.id) {
       return;
     }
 
@@ -241,7 +266,7 @@ export const CaptureWindowApp = () => {
     const startStream = async () => {
       const profile = CAPTURE_QUALITY_PROFILES[quality];
       const stream = await navigator.mediaDevices.getUserMedia(
-        createDesktopCaptureConstraints(sourceId, profile),
+        createDesktopCaptureConstraints(sourceSelection.id, profile),
       );
 
       if (!mounted) {
@@ -278,7 +303,7 @@ export const CaptureWindowApp = () => {
     return () => {
       mounted = false;
     };
-  }, [copy.capture.permissionRequired, copy.capture.previewStartFailed, quality, sourceId]);
+  }, [copy.capture.permissionRequired, copy.capture.previewStartFailed, quality, sourceSelection.id]);
 
   useEffect(
     () => () => {
@@ -471,7 +496,7 @@ export const CaptureWindowApp = () => {
     previewCropInsets.right,
     previewCropInsets.top,
     quality,
-    sourceId,
+    sourceSelection.id,
   ]);
 
   useEffect(() => {
@@ -496,14 +521,14 @@ export const CaptureWindowApp = () => {
     if (
       dialogOpen ||
       !isWindowsDesktopCapturePlatform() ||
-      sourceKind !== "window"
+      sourceSelection.kind !== "window"
     ) {
       setPreviewCropInsets(NO_PREVIEW_CROP);
       return;
     }
 
     setPreviewCropInsets(WINDOWS_WINDOW_PREVIEW_CROP);
-  }, [dialogOpen, quality, sourceId, sourceKind]);
+  }, [dialogOpen, quality, sourceSelection.id, sourceSelection.kind]);
 
   useEffect(() => {
     const handlePointerMove = (event: PointerEvent) => {
@@ -579,8 +604,7 @@ export const CaptureWindowApp = () => {
           toggleDotGainBlackAndWhite();
           break;
         case "set-window-controls-state":
-          setWindowMaximized(message.controls.isMaximized);
-          setWindowAlwaysOnTop(message.controls.isAlwaysOnTop);
+          setWindowControls(message.controls);
           break;
         default:
           break;
@@ -607,14 +631,14 @@ export const CaptureWindowApp = () => {
     postSessionMessage({
       type: "state",
       state: {
-        sourceName,
+        sourceName: sourceSelection.name,
         quality,
         blurEnabled,
         bwEnabled,
         dialogOpen,
         windowFocused,
-        windowMaximized,
-        windowAlwaysOnTop,
+        windowMaximized: windowControls.isMaximized,
+        windowAlwaysOnTop: windowControls.isAlwaysOnTop,
       },
     });
   }, [
@@ -623,10 +647,10 @@ export const CaptureWindowApp = () => {
     dialogOpen,
     postSessionMessage,
     quality,
-    sourceName,
+    sourceSelection.name,
     windowFocused,
-    windowAlwaysOnTop,
-    windowMaximized,
+    windowControls.isAlwaysOnTop,
+    windowControls.isMaximized,
   ]);
 
   useEffect(() => {
@@ -707,7 +731,7 @@ export const CaptureWindowApp = () => {
     previewCropInsets.left,
     previewCropInsets.right,
     previewCropInsets.top,
-    sourceId,
+    sourceSelection.id,
   ]);
 
   const handleConfirmSource = () => {
@@ -716,9 +740,11 @@ export const CaptureWindowApp = () => {
       return;
     }
 
-    setSourceId(nextSource.id);
-    setSourceName(nextSource.name);
-    setSourceKind(nextSource.kind);
+    setSourceSelection({
+      id: nextSource.id,
+      name: nextSource.name,
+      kind: nextSource.kind,
+    });
     setQuality(selectedQuality);
     setDialogOpen(false);
   };
@@ -756,7 +782,7 @@ export const CaptureWindowApp = () => {
 
   return (
     <div className="capture-window-shell">
-      {!windowMaximized
+      {!windowControls.isMaximized
         ? CAPTURE_WINDOW_RESIZE_DIRECTIONS.map((direction) => (
             <div
               key={direction}

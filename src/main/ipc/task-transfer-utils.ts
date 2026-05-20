@@ -30,6 +30,15 @@ const encodeJsonForHtmlScript = (value: unknown) =>
     .replaceAll("<", "\\u003c")
     .replaceAll(">", "\\u003e");
 
+const taskDateTimeFormatter = new Intl.DateTimeFormat(undefined, {
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+
 const normalizeTodo = (
   value: unknown,
   index: number,
@@ -70,13 +79,19 @@ const normalizeTask = (
     return null;
   }
 
-  const todos = Array.isArray(record.todos)
-    ? record.todos
-        .map((todo, todoIndex) => normalizeTodo(todo, todoIndex))
-        .filter((todo): todo is Task["todos"][number] => todo !== null)
-        .sort((left, right) => left.order - right.order)
-        .map((todo, todoIndex) => ({ ...todo, order: todoIndex }))
-    : [];
+  const normalizedTodos: Task["todos"] = [];
+  if (Array.isArray(record.todos)) {
+    record.todos.forEach((todo, todoIndex) => {
+      const normalized = normalizeTodo(todo, todoIndex);
+      if (normalized) {
+        normalizedTodos.push(normalized);
+      }
+    });
+  }
+
+  const todos = normalizedTodos
+    .toSorted((left, right) => left.order - right.order)
+    .map((todo, todoIndex) => ({ ...todo, order: todoIndex }));
 
   return {
     id:
@@ -110,7 +125,7 @@ const buildTaskTransferPackage = (
   version: TASK_TRANSFER_VERSION,
   projectTitle,
   exportedAt: new Date().toISOString(),
-  tasks: [...tasks].sort((left, right) => left.order - right.order),
+  tasks: tasks.toSorted((left, right) => left.order - right.order),
 });
 
 const parseTaskTransferPackage = (
@@ -135,15 +150,16 @@ const parseTaskTransferPackage = (
   }
 
   let invalidTaskCount = 0;
-  const tasks = record.tasks
-    .map((task, index) => {
-      const normalized = normalizeTask(task, index);
-      if (!normalized) {
-        invalidTaskCount += 1;
-      }
-      return normalized;
-    })
-    .filter((task): task is TaskTransferTask => task !== null);
+  const tasks: TaskTransferTask[] = [];
+  record.tasks.forEach((task, index) => {
+    const normalized = normalizeTask(task, index);
+    if (normalized) {
+      tasks.push(normalized);
+      return;
+    }
+
+    invalidTaskCount += 1;
+  });
 
   return {
     filePath,
@@ -189,14 +205,7 @@ const formatTaskDateTime = (value?: string) => {
     return value;
   }
 
-  return new Intl.DateTimeFormat(undefined, {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(parsed);
+  return taskDateTimeFormatter.format(parsed);
 };
 
 const getTaskRemainingLabel = (endDate?: string) => {
@@ -231,7 +240,7 @@ export const renderTasksHtml = (
   tasks: TaskTransferTask[],
 ) => {
   const taskPackage = buildTaskTransferPackage(projectTitle, tasks);
-  const orderedTasks = [...taskPackage.tasks].sort(
+  const orderedTasks = taskPackage.tasks.toSorted(
     (left, right) => left.order - right.order,
   );
   const completedCount = orderedTasks.filter(
@@ -245,7 +254,7 @@ export const renderTasksHtml = (
   ).length;
   const body = orderedTasks
     .map((task, index) => {
-      const orderedTodos = [...task.todos].sort(
+      const orderedTodos = task.todos.toSorted(
         (left, right) => left.order - right.order,
       );
       const taskStatus = getTaskStatus(task);

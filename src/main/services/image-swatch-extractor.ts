@@ -248,7 +248,7 @@ const extractFrequentColors = (
   colorCount: number,
 ) => {
   const extractedColors: ExtractedColorEntry[] = [];
-  const byFrequency = [...colorDataList].sort(
+  const byFrequency = colorDataList.toSorted(
     (left, right) => right.frequency - left.frequency,
   );
   const frequentColorSlots = Math.floor(colorCount * 0.9);
@@ -322,7 +322,7 @@ const extractDistinctColors = (
     });
   }
 
-  for (const distinctColor of [...distinctColors].sort(
+  for (const distinctColor of distinctColors.toSorted(
     (left, right) => right.distinctiveness - left.distinctiveness,
   )) {
     if (extractedColors.length >= colorCount) {

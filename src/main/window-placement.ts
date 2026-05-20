@@ -52,14 +52,16 @@ export const isLikelyUsableDisplay = (display: Display) => {
   return true;
 };
 
-const getDisplayLayoutKey = (displays: Display[]) =>
-  displays
-    .filter(isLikelyUsableDisplay)
-    .map((display) => {
-      return getDisplaySnapshotKey(display);
-    })
-    .sort()
-    .join("|");
+const getDisplayLayoutKey = (displays: Display[]) => {
+  const displayKeys: string[] = [];
+  for (const display of displays) {
+    if (isLikelyUsableDisplay(display)) {
+      displayKeys.push(getDisplaySnapshotKey(display));
+    }
+  }
+
+  return displayKeys.toSorted().join("|");
+};
 
 const getDisplaySnapshotKey = (display: Display) => {
   const { x, y, width, height } = display.bounds;

@@ -1,5 +1,6 @@
 import { BrowserWindow, screen, ipcMain } from "electron";
 import { getWindowActionTarget } from "./window-action-targets";
+import { getWindowMotionPollIntervalMs } from "./window-motion-rate";
 
 interface DragSession {
   window: BrowserWindow;
@@ -9,10 +10,10 @@ interface DragSession {
   startBoundsY: number;
   startBoundsWidth: number;
   startBoundsHeight: number;
+  lastAppliedX: number;
+  lastAppliedY: number;
   timerId: ReturnType<typeof setInterval> | null;
 }
-
-const POLL_INTERVAL_MS = 1000 / 120; // ~120 Hz polling
 
 let activeSession: DragSession | null = null;
 
@@ -46,12 +47,16 @@ const pollAndApplyDrag = () => {
   const nextX = Math.round(activeSession.startBoundsX + dx);
   const nextY = Math.round(activeSession.startBoundsY + dy);
 
-  win.setBounds({
-    x: nextX,
-    y: nextY,
-    width: activeSession.startBoundsWidth,
-    height: activeSession.startBoundsHeight,
-  });
+  if (
+    nextX === activeSession.lastAppliedX &&
+    nextY === activeSession.lastAppliedY
+  ) {
+    return;
+  }
+
+  win.setPosition(nextX, nextY, false);
+  activeSession.lastAppliedX = nextX;
+  activeSession.lastAppliedY = nextY;
 };
 
 const stopDrag = () => {
@@ -85,7 +90,9 @@ export const registerMainProcessDrag = (window: BrowserWindow) => {
       startBoundsY: bounds.y,
       startBoundsWidth: bounds.width,
       startBoundsHeight: bounds.height,
-      timerId: setInterval(pollAndApplyDrag, POLL_INTERVAL_MS),
+      lastAppliedX: bounds.x,
+      lastAppliedY: bounds.y,
+      timerId: setInterval(pollAndApplyDrag, getWindowMotionPollIntervalMs()),
     };
 
     event.returnValue = true;

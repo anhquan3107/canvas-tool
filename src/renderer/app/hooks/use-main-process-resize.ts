@@ -6,7 +6,7 @@
  *
  *  1. Detects pointerdown on a `[data-window-resize]` element
  *  2. Sends a single synchronous "resize:start" IPC to the main process
- *  3. The main process polls the cursor at 120 Hz and applies setBounds directly
+ *  3. The main process polls the cursor and applies setBounds directly
  *  4. On pointerup, sends "resize:stop" to end the polling loop
  *
  * This eliminates ALL IPC during the drag — the main process does everything.

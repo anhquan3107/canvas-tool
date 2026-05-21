@@ -9,6 +9,7 @@
 import { BrowserWindow, screen, ipcMain } from "electron";
 import { notifyWindowBoundsChanged } from "./window-bounds-listeners";
 import { getWindowActionTarget } from "./window-action-targets";
+import { getWindowMotionPollIntervalMs } from "./window-motion-rate";
 
 type ResizeDirection = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
 
@@ -28,8 +29,6 @@ const hasWest = (d: ResizeDirection) => d.includes("w");
 const hasEast = (d: ResizeDirection) => d.includes("e");
 const hasNorth = (d: ResizeDirection) => d.includes("n");
 const hasSouth = (d: ResizeDirection) => d.includes("s");
-
-const POLL_INTERVAL_MS = 1000 / 120; // ~120 Hz polling
 
 let activeSession: ResizeSession | null = null;
 const resizeAspectRatioByWindow = new WeakMap<BrowserWindow, number>();
@@ -242,7 +241,7 @@ export const registerMainProcessResize = (window: BrowserWindow) => {
       minWidth: Math.max(1, mw),
       minHeight: Math.max(1, mh),
       aspectRatio: resizeAspectRatioByWindow.get(targetWindow) ?? null,
-      timerId: setInterval(pollAndApply, POLL_INTERVAL_MS),
+      timerId: setInterval(pollAndApply, getWindowMotionPollIntervalMs()),
     };
 
     event.returnValue = true;

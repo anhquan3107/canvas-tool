@@ -6,6 +6,7 @@
   min-height: 0;
   overflow: hidden;
   background: #0f0f10;
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 0;
 }
 
@@ -107,6 +108,7 @@
   gap: 10px;
   padding: 4px 8px 4px 9px;
   background: #1f1e21;
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-bottom: none;
   border-radius: 0;
   -webkit-app-region: no-drag;

@@ -7,6 +7,7 @@ import type {
   AppWindowSize,
   AppWindowState,
 } from "../../shared/types/ipc";
+import { notifyWindowBoundsChanged } from "../window-bounds-listeners";
 import { getWindowActionTarget } from "../window-action-targets";
 import { clampWindowOpacity, getSavedWindowOpacity, persistWindowOpacity } from "../window-opacity";
 import { getSenderWindow } from "./ipc-utils";
@@ -219,6 +220,7 @@ export const registerWindowHandlers = (window: BrowserWindow) => {
       width: Math.round(payload.width),
       height: Math.round(payload.height),
     });
+    notifyWindowBoundsChanged(targetWindow);
   });
 
   ipcMain.on("window:set-bounds-immediate", (event, payload: AppWindowBounds) => {
@@ -229,6 +231,7 @@ export const registerWindowHandlers = (window: BrowserWindow) => {
       width: Math.round(payload.width),
       height: Math.round(payload.height),
     });
+    notifyWindowBoundsChanged(targetWindow);
     // Required: set returnValue so ipcRenderer.sendSync() unblocks immediately.
     event.returnValue = null;
   });

@@ -7,6 +7,7 @@ import {
 } from "electron";
 import path from "node:path";
 import { guardWindowDevTools } from "../devtools-guard";
+import { setWindowBoundsListener } from "../window-bounds-listeners";
 import {
   clearWindowActionTarget,
   getWindowActionTarget,
@@ -237,6 +238,8 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
       syncToolbarWindowToBounds();
     };
 
+    setWindowBoundsListener(captureWindow, syncToolbarWindowToBounds);
+
     const hideToolbarWindow = () => {
       if (!toolbarWindow.isDestroyed() && toolbarWindow.isVisible()) {
         toolbarWindow.hide();
@@ -260,6 +263,7 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
       }
 
       clearWindowActionTarget(toolbarWindow);
+      setWindowBoundsListener(captureWindow, null);
       if (!toolbarWindow.isDestroyed()) {
         toolbarWindow.close();
       }

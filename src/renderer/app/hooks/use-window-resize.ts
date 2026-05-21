@@ -100,15 +100,7 @@ const getResizedBounds = (
 
   const aspectRatio = startBounds.width / Math.max(1, startBounds.height);
   if (lockAspectRatio && Number.isFinite(aspectRatio) && aspectRatio > 0) {
-    const widthDeltaRatio =
-      Math.abs(width - startBounds.width) / Math.max(1, startBounds.width);
-    const heightDeltaRatio =
-      Math.abs(height - startBounds.height) / Math.max(1, startBounds.height);
-    const useWidthAsPrimary =
-      (hasEast(direction) || hasWest(direction)) &&
-      (!hasNorth(direction) && !hasSouth(direction)
-        ? true
-        : widthDeltaRatio >= heightDeltaRatio);
+    const useWidthAsPrimary = hasEast(direction) || hasWest(direction);
 
     if (useWidthAsPrimary) {
       height = Math.max(minHeight, Math.round(width / aspectRatio));

@@ -85,9 +85,11 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
       (Math.abs(currentBounds.width - nextBounds.width) > 1 ||
         Math.abs(currentBounds.height - nextBounds.height) > 1);
 
-    captureWindow.setAspectRatio(
-      normalizedSourceSize.width / normalizedSourceSize.height,
-    );
+    if (process.platform !== "win32") {
+      captureWindow.setAspectRatio(
+        normalizedSourceSize.width / normalizedSourceSize.height,
+      );
+    }
     setMainProcessResizeAspectRatio(
       captureWindow,
       normalizedSourceSize.width / normalizedSourceSize.height,
@@ -189,9 +191,11 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
 
     guardWindowDevTools(captureWindow);
     guardWindowDevTools(toolbarWindow);
-    captureWindow.setAspectRatio(
-      initialSourceSize.width / initialSourceSize.height,
-    );
+    if (process.platform !== "win32") {
+      captureWindow.setAspectRatio(
+        initialSourceSize.width / initialSourceSize.height,
+      );
+    }
     setMainProcessResizeAspectRatio(
       captureWindow,
       initialSourceSize.width / initialSourceSize.height,
@@ -289,15 +293,13 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
     captureWindow.on("will-move", (_event, nextBounds) => {
       syncToolbarWindowToBounds(nextBounds);
     });
-    captureWindow.on("will-resize", (event, nextBounds, details) => {
+    captureWindow.on("will-resize", (event, _nextBounds, details) => {
       const edge = details?.edge as BrowserWindowResizeEdge | undefined;
       if (edge && BLOCKED_CAPTURE_RESIZE_EDGES.has(edge)) {
         event.preventDefault();
         syncToolbarWindowToBounds(captureWindow.getBounds());
         return;
       }
-
-      syncToolbarWindowToBounds(nextBounds);
     });
     captureWindow.on("show", syncToolbarWindow);
     captureWindow.on("restore", syncToolbarWindow);

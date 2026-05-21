@@ -33,6 +33,10 @@ const POLL_INTERVAL_MS = 1000 / 120; // ~120 Hz polling
 
 let activeSession: ResizeSession | null = null;
 const resizeAspectRatioByWindow = new WeakMap<BrowserWindow, number>();
+const resizingWindows = new WeakSet<BrowserWindow>();
+
+export const isMainProcessResizeApplying = (window: BrowserWindow) =>
+  resizingWindows.has(window);
 
 export const setMainProcessResizeAspectRatio = (
   window: BrowserWindow,
@@ -193,7 +197,12 @@ const pollAndApply = () => {
     return;
   }
 
-  win.setBounds(next, false);
+  resizingWindows.add(win);
+  try {
+    win.setBounds(next, false);
+  } finally {
+    resizingWindows.delete(win);
+  }
   notifyWindowBoundsChanged(win);
 };
 

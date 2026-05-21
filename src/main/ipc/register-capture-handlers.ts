@@ -7,7 +7,10 @@ import {
 } from "electron";
 import path from "node:path";
 import { guardWindowDevTools } from "../devtools-guard";
-import { setMainProcessResizeAspectRatio } from "../main-process-resize";
+import {
+  isMainProcessResizeApplying,
+  setMainProcessResizeAspectRatio,
+} from "../main-process-resize";
 import { setWindowBoundsListener } from "../window-bounds-listeners";
 import {
   clearWindowActionTarget,
@@ -300,7 +303,11 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
     });
     captureWindow.on("will-resize", (event, _nextBounds, details) => {
       const edge = details?.edge as BrowserWindowResizeEdge | undefined;
-      if (edge && BLOCKED_CAPTURE_RESIZE_EDGES.has(edge)) {
+      if (
+        edge &&
+        BLOCKED_CAPTURE_RESIZE_EDGES.has(edge) &&
+        !isMainProcessResizeApplying(captureWindow)
+      ) {
         event.preventDefault();
         syncToolbarWindowToBounds(captureWindow.getBounds());
         return;

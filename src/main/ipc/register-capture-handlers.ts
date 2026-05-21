@@ -42,8 +42,13 @@ type BrowserWindowResizeEdge =
 
 const BLOCKED_CAPTURE_RESIZE_EDGES = new Set<BrowserWindowResizeEdge>([
   "top",
+  "bottom",
+  "left",
+  "right",
   "top-left",
   "top-right",
+  "bottom-left",
+  "bottom-right",
 ]);
 
 const getCaptureToolbarBoundsForBounds = (bounds: Electron.Rectangle) => {

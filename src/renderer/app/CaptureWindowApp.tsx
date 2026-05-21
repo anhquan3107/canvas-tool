@@ -6,8 +6,8 @@ import {
   type CaptureSessionMessage,
   type CaptureSessionState,
 } from "@renderer/app/capture-session";
+import { useMainProcessResize } from "@renderer/app/hooks/use-main-process-resize";
 import { useWindowFocusState } from "@renderer/app/hooks/use-window-focus-state";
-import { useWindowResize } from "@renderer/app/hooks/use-window-resize";
 import { ConnectDialog } from "@renderer/features/connect/components/ConnectDialog";
 import { useWindowRightDrag } from "@renderer/app/hooks/use-window-right-drag";
 import type {
@@ -145,7 +145,7 @@ export const CaptureWindowApp = () => {
       next,
     DEFAULT_SHORTCUT_BINDINGS,
   );
-  useWindowResize(!windowControls.isMaximized, { lockAspectRatio: true });
+  useMainProcessResize(!windowControls.isMaximized);
 
   const toggleDotGainBlackAndWhite = useCallback(() => {
     setBwEnabled((previous) => !previous);

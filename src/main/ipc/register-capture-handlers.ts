@@ -7,6 +7,7 @@ import {
 } from "electron";
 import path from "node:path";
 import { guardWindowDevTools } from "../devtools-guard";
+import { setMainProcessResizeAspectRatio } from "../main-process-resize";
 import { setWindowBoundsListener } from "../window-bounds-listeners";
 import {
   clearWindowActionTarget,
@@ -85,6 +86,10 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
         Math.abs(currentBounds.height - nextBounds.height) > 1);
 
     captureWindow.setAspectRatio(
+      normalizedSourceSize.width / normalizedSourceSize.height,
+    );
+    setMainProcessResizeAspectRatio(
+      captureWindow,
       normalizedSourceSize.width / normalizedSourceSize.height,
     );
     captureWindow.setMinimumSize(minimumSize.width, minimumSize.height);
@@ -187,6 +192,10 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
     captureWindow.setAspectRatio(
       initialSourceSize.width / initialSourceSize.height,
     );
+    setMainProcessResizeAspectRatio(
+      captureWindow,
+      initialSourceSize.width / initialSourceSize.height,
+    );
     toolbarVisibilityByWindow.set(toolbarWindow, false);
     toolbarWindow.setIgnoreMouseEvents(true, { forward: true });
     setWindowActionTarget(toolbarWindow, captureWindow);
@@ -238,14 +247,7 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
       syncToolbarWindowToBounds();
     };
 
-    const scheduleToolbarWindowSync = () => {
-      syncToolbarWindow();
-      for (const delay of [16, 50, 100, 200]) {
-        setTimeout(syncToolbarWindow, delay);
-      }
-    };
-
-    setWindowBoundsListener(captureWindow, scheduleToolbarWindowSync);
+    setWindowBoundsListener(captureWindow, syncToolbarWindowToBounds);
 
     const hideToolbarWindow = () => {
       if (!toolbarWindow.isDestroyed() && toolbarWindow.isVisible()) {
@@ -270,6 +272,7 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
       }
 
       clearWindowActionTarget(toolbarWindow);
+      setMainProcessResizeAspectRatio(captureWindow, null);
       setWindowBoundsListener(captureWindow, null);
       if (!toolbarWindow.isDestroyed()) {
         toolbarWindow.close();
@@ -282,7 +285,7 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
     });
 
     captureWindow.on("move", syncToolbarWindow);
-    captureWindow.on("resize", scheduleToolbarWindowSync);
+    captureWindow.on("resize", syncToolbarWindow);
     captureWindow.on("will-move", (_event, nextBounds) => {
       syncToolbarWindowToBounds(nextBounds);
     });

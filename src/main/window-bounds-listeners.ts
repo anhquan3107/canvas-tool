@@ -22,16 +22,5 @@ export const notifyWindowBoundsChanged = (window: BrowserWindow) => {
     return;
   }
 
-  const notify = () => {
-    const currentListener = boundsListenerByWindow.get(window);
-    if (!currentListener || window.isDestroyed()) {
-      return;
-    }
-
-    currentListener(window.getBounds());
-  };
-
-  notify();
-  setImmediate(notify);
-  setTimeout(notify, 16);
+  listener(window.getBounds());
 };

@@ -6,7 +6,7 @@ import {
   type CaptureSessionMessage,
   type CaptureSessionState,
 } from "@renderer/app/capture-session";
-import { useWindowResize } from "@renderer/app/hooks/use-window-resize";
+import { useMainProcessResize } from "@renderer/app/hooks/use-main-process-resize";
 import { useWindowRightDrag } from "@renderer/app/hooks/use-window-right-drag";
 import { useI18n } from "@renderer/i18n";
 import type { CaptureQuality } from "@renderer/features/connect/types";
@@ -64,7 +64,7 @@ export const CaptureToolbarApp = () => {
   });
   const [topbarVisible, setTopbarVisible] = useState(false);
   const customResizeEnabled = !sessionState.windowMaximized;
-  useWindowResize(customResizeEnabled, { lockAspectRatio: true });
+  useMainProcessResize(customResizeEnabled);
 
   const syncTopbarVisibility = useCallback(() => {
     const focused =

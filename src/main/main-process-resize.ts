@@ -7,6 +7,8 @@
  * jitter caused by IPC latency when the renderer drives setBounds().
  */
 import { BrowserWindow, screen, ipcMain } from "electron";
+import { notifyWindowBoundsChanged } from "./window-bounds-listeners";
+import { getWindowActionTarget } from "./window-action-targets";
 
 type ResizeDirection = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
 
@@ -18,6 +20,7 @@ interface ResizeSession {
   startBounds: Electron.Rectangle;
   minWidth: number;
   minHeight: number;
+  aspectRatio: number | null;
   timerId: ReturnType<typeof setInterval> | null;
 }
 
@@ -29,6 +32,56 @@ const hasSouth = (d: ResizeDirection) => d.includes("s");
 const POLL_INTERVAL_MS = 1000 / 120; // ~120 Hz polling
 
 let activeSession: ResizeSession | null = null;
+const resizeAspectRatioByWindow = new WeakMap<BrowserWindow, number>();
+
+export const setMainProcessResizeAspectRatio = (
+  window: BrowserWindow,
+  aspectRatio: number | null,
+) => {
+  if (aspectRatio && Number.isFinite(aspectRatio) && aspectRatio > 0) {
+    resizeAspectRatioByWindow.set(window, aspectRatio);
+    return;
+  }
+
+  resizeAspectRatioByWindow.delete(window);
+};
+
+const applyAspectRatio = (
+  direction: ResizeDirection,
+  width: number,
+  height: number,
+  minWidth: number,
+  minHeight: number,
+  aspectRatio: number | null,
+) => {
+  if (!aspectRatio || !Number.isFinite(aspectRatio) || aspectRatio <= 0) {
+    return { width, height };
+  }
+
+  const useHeightAsPrimary =
+    hasSouth(direction) || (!hasEast(direction) && !hasWest(direction));
+
+  if (useHeightAsPrimary) {
+    width = Math.round(height * aspectRatio);
+  } else {
+    height = Math.round(width / aspectRatio);
+  }
+
+  if (width < minWidth) {
+    width = minWidth;
+    height = Math.round(width / aspectRatio);
+  }
+
+  if (height < minHeight) {
+    height = minHeight;
+    width = Math.round(height * aspectRatio);
+  }
+
+  return {
+    width: Math.max(minWidth, Math.round(width)),
+    height: Math.max(minHeight, Math.round(height)),
+  };
+};
 
 const computeBounds = (
   startBounds: Electron.Rectangle,
@@ -37,6 +90,7 @@ const computeBounds = (
   dy: number,
   minWidth: number,
   minHeight: number,
+  aspectRatio: number | null,
 ): Electron.Rectangle => {
   let x: number;
   let width: number;
@@ -68,12 +122,46 @@ const computeBounds = (
     height = startBounds.height;
   }
 
+  const aspectLockedSize = applyAspectRatio(
+    direction,
+    width,
+    height,
+    minWidth,
+    minHeight,
+    aspectRatio,
+  );
+  width = aspectLockedSize.width;
+  height = aspectLockedSize.height;
+
+  if (aspectRatio && Number.isFinite(aspectRatio) && aspectRatio > 0) {
+    if (hasWest(direction)) {
+      x = startBounds.x + startBounds.width - width;
+    } else {
+      x = startBounds.x;
+    }
+
+    if (hasNorth(direction)) {
+      y = startBounds.y + startBounds.height - height;
+    } else {
+      y = startBounds.y;
+    }
+  }
+
   return { x, y, width, height };
 };
 
 const pollAndApply = () => {
   if (!activeSession) return;
-  const { window: win, direction, startCursorX, startCursorY, startBounds, minWidth, minHeight } = activeSession;
+  const {
+    window: win,
+    direction,
+    startCursorX,
+    startCursorY,
+    startBounds,
+    minWidth,
+    minHeight,
+    aspectRatio,
+  } = activeSession;
 
   if (win.isDestroyed()) {
     stopResize();
@@ -84,7 +172,15 @@ const pollAndApply = () => {
   const dx = cursor.x - startCursorX;
   const dy = cursor.y - startCursorY;
 
-  const next = computeBounds(startBounds, direction, dx, dy, minWidth, minHeight);
+  const next = computeBounds(
+    startBounds,
+    direction,
+    dx,
+    dy,
+    minWidth,
+    minHeight,
+    aspectRatio,
+  );
 
   // Only setBounds when something actually changed.
   const current = win.getBounds();
@@ -97,7 +193,8 @@ const pollAndApply = () => {
     return;
   }
 
-  win.setBounds(next);
+  win.setBounds(next, false);
+  notifyWindowBoundsChanged(win);
 };
 
 const stopResize = () => {
@@ -112,7 +209,8 @@ export const registerMainProcessResize = (window: BrowserWindow) => {
   ipcMain.on("resize:start", (event, payload: { direction: string }) => {
     // Only handle resize for the correct window.
     const senderWindow = BrowserWindow.fromWebContents(event.sender);
-    const targetWindow = senderWindow ?? window;
+    const targetWindow =
+      getWindowActionTarget(senderWindow) ?? senderWindow ?? window;
 
     if (targetWindow.isDestroyed() || targetWindow.isMaximized()) {
       event.returnValue = false;
@@ -134,6 +232,7 @@ export const registerMainProcessResize = (window: BrowserWindow) => {
       startBounds: bounds,
       minWidth: Math.max(1, mw),
       minHeight: Math.max(1, mh),
+      aspectRatio: resizeAspectRatioByWindow.get(targetWindow) ?? null,
       timerId: setInterval(pollAndApply, POLL_INTERVAL_MS),
     };
 

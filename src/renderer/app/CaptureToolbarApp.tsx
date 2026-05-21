@@ -64,7 +64,7 @@ export const CaptureToolbarApp = () => {
   });
   const [topbarVisible, setTopbarVisible] = useState(false);
   const customResizeEnabled = !sessionState.windowMaximized;
-  useWindowResize(customResizeEnabled);
+  useWindowResize(customResizeEnabled, { lockAspectRatio: true });
 
   const syncTopbarVisibility = useCallback(() => {
     const focused =

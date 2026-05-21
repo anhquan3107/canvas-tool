@@ -19,6 +19,10 @@ type ResizeState = {
   latestBounds: AppWindowBounds;
 };
 
+interface WindowResizeOptions {
+  lockAspectRatio?: boolean;
+}
+
 const hasWest = (d: ResizeDirection) => d.includes("w");
 const hasEast = (d: ResizeDirection) => d.includes("e");
 const hasNorth = (d: ResizeDirection) => d.includes("n");
@@ -48,6 +52,7 @@ const getResizedBounds = (
   direction: ResizeDirection,
   deltaX: number,
   deltaY: number,
+  lockAspectRatio = false,
 ): AppWindowBounds => {
   const minWidth = Math.max(MIN_RESIZE_EDGE, minimumSize.width);
   const minHeight = Math.max(MIN_RESIZE_EDGE, minimumSize.height);
@@ -91,6 +96,51 @@ const getResizedBounds = (
     // Pure E/W: vertical axis completely unchanged.
     y = startBounds.y;
     height = startBounds.height;
+  }
+
+  const aspectRatio = startBounds.width / Math.max(1, startBounds.height);
+  if (lockAspectRatio && Number.isFinite(aspectRatio) && aspectRatio > 0) {
+    const widthDeltaRatio =
+      Math.abs(width - startBounds.width) / Math.max(1, startBounds.width);
+    const heightDeltaRatio =
+      Math.abs(height - startBounds.height) / Math.max(1, startBounds.height);
+    const useWidthAsPrimary =
+      (hasEast(direction) || hasWest(direction)) &&
+      (!hasNorth(direction) && !hasSouth(direction)
+        ? true
+        : widthDeltaRatio >= heightDeltaRatio);
+
+    if (useWidthAsPrimary) {
+      height = Math.max(minHeight, Math.round(width / aspectRatio));
+    } else {
+      width = Math.max(minWidth, Math.round(height * aspectRatio));
+    }
+
+    if (height < minHeight) {
+      height = minHeight;
+      width = Math.max(minWidth, Math.round(height * aspectRatio));
+    }
+
+    if (width < minWidth) {
+      width = minWidth;
+      height = Math.max(minHeight, Math.round(width / aspectRatio));
+    }
+
+    if (hasWest(direction)) {
+      x = startBounds.x + startBounds.width - width;
+    } else if (hasEast(direction)) {
+      x = startBounds.x;
+    } else {
+      x = startBounds.x + Math.round((startBounds.width - width) / 2);
+    }
+
+    if (hasNorth(direction)) {
+      y = startBounds.y + startBounds.height - height;
+    } else if (hasSouth(direction)) {
+      y = startBounds.y;
+    } else {
+      y = startBounds.y;
+    }
   }
 
   return { x, y, width, height };
@@ -162,7 +212,12 @@ const isSameBounds = (a: AppWindowBounds, b: AppWindowBounds) =>
 
 
 
-export const useWindowResize = (enabled: boolean) => {
+export const useWindowResize = (
+  enabled: boolean,
+  options: WindowResizeOptions = {},
+) => {
+  const lockAspectRatio = options.lockAspectRatio ?? false;
+
   useEffect(() => {
     if (!enabled) return;
 
@@ -232,6 +287,7 @@ export const useWindowResize = (enabled: boolean) => {
         state.direction,
         dx,
         dy,
+        lockAspectRatio,
       );
 
       state = {
@@ -267,5 +323,5 @@ export const useWindowResize = (enabled: boolean) => {
       window.removeEventListener("blur", clear);
       clear();
     };
-  }, [enabled]);
+  }, [enabled, lockAspectRatio]);
 };

@@ -145,7 +145,7 @@ export const CaptureWindowApp = () => {
       next,
     DEFAULT_SHORTCUT_BINDINGS,
   );
-  useWindowResize(!windowControls.isMaximized);
+  useWindowResize(!windowControls.isMaximized, { lockAspectRatio: true });
 
   const toggleDotGainBlackAndWhite = useCallback(() => {
     setBwEnabled((previous) => !previous);

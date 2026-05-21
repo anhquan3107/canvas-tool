@@ -114,6 +114,7 @@ const createMainWindow = async () => {
     ...(process.platform === "darwin"
       ? { titleBarStyle: "hiddenInset" as const, trafficLightPosition: { x: 10, y: 10 } }
       : { frame: false }),
+    hasShadow: true,
     transparent: true,
     backgroundColor: "#00000000",
     title: "CanvasTool",

@@ -238,7 +238,14 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
       syncToolbarWindowToBounds();
     };
 
-    setWindowBoundsListener(captureWindow, syncToolbarWindowToBounds);
+    const scheduleToolbarWindowSync = () => {
+      syncToolbarWindow();
+      for (const delay of [16, 50, 100, 200]) {
+        setTimeout(syncToolbarWindow, delay);
+      }
+    };
+
+    setWindowBoundsListener(captureWindow, scheduleToolbarWindowSync);
 
     const hideToolbarWindow = () => {
       if (!toolbarWindow.isDestroyed() && toolbarWindow.isVisible()) {
@@ -275,7 +282,7 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
     });
 
     captureWindow.on("move", syncToolbarWindow);
-    captureWindow.on("resize", syncToolbarWindow);
+    captureWindow.on("resize", scheduleToolbarWindowSync);
     captureWindow.on("will-move", (_event, nextBounds) => {
       syncToolbarWindowToBounds(nextBounds);
     });

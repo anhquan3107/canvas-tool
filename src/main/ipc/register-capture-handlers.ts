@@ -160,7 +160,7 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
       show: false,
       resizable: false,
       frame: false,
-      thickFrame: process.platform === "win32",
+      thickFrame: false,
       transparent: false,
       hasShadow: true,
       backgroundColor: "#0f0f10",

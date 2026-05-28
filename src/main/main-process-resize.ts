@@ -32,6 +32,10 @@ const hasSouth = (d: ResizeDirection) => d.includes("s");
 
 let activeSession: ResizeSession | null = null;
 const resizeAspectRatioByWindow = new WeakMap<BrowserWindow, number>();
+const resizeMinimumSizeByWindow = new WeakMap<
+  BrowserWindow,
+  { width: number; height: number }
+>();
 const resizingWindows = new WeakSet<BrowserWindow>();
 
 export const isMainProcessResizeApplying = (window: BrowserWindow) =>
@@ -50,6 +54,27 @@ export const setMainProcessResizeAspectRatio = (
   }
 
   resizeAspectRatioByWindow.delete(window);
+};
+
+export const setMainProcessResizeMinimumSize = (
+  window: BrowserWindow,
+  minimumSize: { width: number; height: number } | null,
+) => {
+  if (
+    minimumSize &&
+    Number.isFinite(minimumSize.width) &&
+    Number.isFinite(minimumSize.height) &&
+    minimumSize.width > 0 &&
+    minimumSize.height > 0
+  ) {
+    resizeMinimumSizeByWindow.set(window, {
+      width: Math.round(minimumSize.width),
+      height: Math.round(minimumSize.height),
+    });
+    return;
+  }
+
+  resizeMinimumSizeByWindow.delete(window);
 };
 
 const applyAspectRatio = (
@@ -233,7 +258,10 @@ export const registerMainProcessResize = (window: BrowserWindow) => {
 
     const cursor = screen.getCursorScreenPoint();
     const bounds = targetWindow.getBounds();
-    const [mw, mh] = targetWindow.getMinimumSize();
+    const configuredMinimumSize = resizeMinimumSizeByWindow.get(targetWindow);
+    const [mw, mh] = configuredMinimumSize
+      ? [configuredMinimumSize.width, configuredMinimumSize.height]
+      : targetWindow.getMinimumSize();
 
     activeSession = {
       window: targetWindow,

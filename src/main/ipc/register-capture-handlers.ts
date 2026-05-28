@@ -11,6 +11,7 @@ import {
   isMainProcessResizeActive,
   isMainProcessResizeApplying,
   setMainProcessResizeAspectRatio,
+  setMainProcessResizeMinimumSize,
 } from "../main-process-resize";
 import { isMainProcessDragActive } from "../main-process-drag";
 import { setWindowBoundsListener } from "../window-bounds-listeners";
@@ -33,6 +34,7 @@ import {
 
 const CAPTURE_TOOLBAR_HEIGHT = 34;
 const CAPTURE_TOOLBAR_SEAM_OVERLAP = 1;
+const CAPTURE_WINDOW_NATIVE_MIN_SIZE = 1;
 
 type BrowserWindowResizeEdge =
   | "top"
@@ -101,7 +103,11 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
       captureWindow,
       normalizedSourceSize.width / normalizedSourceSize.height,
     );
-    captureWindow.setMinimumSize(minimumSize.width, minimumSize.height);
+    setMainProcessResizeMinimumSize(captureWindow, minimumSize);
+    captureWindow.setMinimumSize(
+      CAPTURE_WINDOW_NATIVE_MIN_SIZE,
+      CAPTURE_WINDOW_NATIVE_MIN_SIZE,
+    );
 
     if (shouldResizeWindow) {
       captureWindow.setBounds(
@@ -155,8 +161,8 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
     const captureWindowOptions: BrowserWindowConstructorOptions = {
       width: initialBounds.width,
       height: initialBounds.height,
-      minWidth: minimumSize.width,
-      minHeight: minimumSize.height,
+      minWidth: CAPTURE_WINDOW_NATIVE_MIN_SIZE,
+      minHeight: CAPTURE_WINDOW_NATIVE_MIN_SIZE,
       show: false,
       resizable: false,
       frame: false,
@@ -205,6 +211,7 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
       captureWindow,
       initialSourceSize.width / initialSourceSize.height,
     );
+    setMainProcessResizeMinimumSize(captureWindow, minimumSize);
     toolbarVisibilityByWindow.set(toolbarWindow, false);
     toolbarWindow.setIgnoreMouseEvents(true, { forward: true });
     setWindowActionTarget(toolbarWindow, captureWindow);
@@ -282,6 +289,7 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
 
       clearWindowActionTarget(toolbarWindow);
       setMainProcessResizeAspectRatio(captureWindow, null);
+      setMainProcessResizeMinimumSize(captureWindow, null);
       setWindowBoundsListener(captureWindow, null);
       if (!toolbarWindow.isDestroyed()) {
         toolbarWindow.close();

@@ -5,6 +5,7 @@ import type {
   CanvasItemBase,
   ReferenceGroup,
 } from "@shared/types/project";
+import type { AnnotationStrokeBounds } from "@renderer/pixi/utils/annotations";
 import type { DoodleMode, ToolMode } from "@renderer/features/tools/types";
 
 export type CanvasItemPatch = Partial<Omit<CanvasItemBase, "id" | "type">>;
@@ -92,6 +93,7 @@ export interface ActiveAnnotationSessionState {
   draftStroke: AnnotationStroke | null;
   draftRenderedPointCount: number;
   annotations: AnnotationStroke[];
+  annotationBoundsById?: Map<string, AnnotationStrokeBounds>;
   lastPoint: { x: number; y: number };
   lastInputPoint: { x: number; y: number };
   lastPressure: number;

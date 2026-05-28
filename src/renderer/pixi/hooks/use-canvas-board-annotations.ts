@@ -4,8 +4,9 @@ import type { AnnotationStroke, ReferenceGroup } from "@shared/types/project";
 import { MIN_STROKE_POINT_DISTANCE } from "@renderer/pixi/constants";
 import {
   drawAnnotationStroke,
-  eraseStrokePixelsAtPointFromAnnotations,
+  eraseStrokePixelsAlongSegmentFromAnnotations,
   eraseWholeStrokesAtPoint,
+  getAnnotationStrokeBounds,
 } from "@renderer/pixi/utils/annotations";
 import { distanceBetween } from "@renderer/pixi/utils/geometry";
 import type { ActiveAnnotationSessionState } from "@renderer/pixi/types";
@@ -33,6 +34,17 @@ const getBrushPositionAlpha = (distance: number) =>
   Math.min(
     BRUSH_SMOOTHING_MAX_ALPHA,
     Math.max(BRUSH_SMOOTHING_MIN_ALPHA, distance / 10),
+  );
+
+const getEraserRadius = (size: number, pressure: number) =>
+  Math.max(0.5, size * pressure * 0.5);
+
+const getAnnotationBoundsById = (annotations: AnnotationStroke[]) =>
+  new Map(
+    annotations.map((stroke) => [
+      stroke.id,
+      getAnnotationStrokeBounds(stroke),
+    ]),
   );
 
 interface UseCanvasBoardAnnotationsOptions {
@@ -275,17 +287,24 @@ export const useCanvasBoardAnnotations = ({
         return;
       }
 
+      const annotationBoundsById =
+        mode === "erase-pixel"
+          ? getAnnotationBoundsById(groupRef.current.annotations)
+          : undefined;
       const nextAnnotations =
         mode === "erase-line"
           ? eraseWholeStrokesAtPoint(
               groupRef.current.annotations,
               point,
-              doodleSizeRef.current * pressure,
+              getEraserRadius(doodleSizeRef.current, pressure),
             )
-          : eraseStrokePixelsAtPointFromAnnotations(
+          : eraseStrokePixelsAlongSegmentFromAnnotations(
               groupRef.current.annotations,
               point,
-              doodleSizeRef.current * pressure,
+              point,
+              getEraserRadius(doodleSizeRef.current, pressure),
+              undefined,
+              annotationBoundsById,
             );
 
       activeAnnotationSessionRef.current = {
@@ -294,6 +313,7 @@ export const useCanvasBoardAnnotations = ({
         draftStroke: null,
         draftRenderedPointCount: 0,
         annotations: nextAnnotations,
+        annotationBoundsById,
         lastPoint: point,
         lastInputPoint: point,
         lastPressure: pressure,
@@ -412,22 +432,28 @@ export const useCanvasBoardAnnotations = ({
         return;
       }
 
-      session.lastInputPoint = point;
-      session.lastPoint = point;
-      session.lastPressure = pressure;
+      const previousPoint = session.lastInputPoint;
+      const previousPressure = session.lastPressure;
 
       const nextAnnotations =
         session.mode === "erase-line"
           ? eraseWholeStrokesAtPoint(
               session.annotations,
               point,
-              doodleSizeRef.current * pressure,
+              getEraserRadius(doodleSizeRef.current, pressure),
             )
-          : eraseStrokePixelsAtPointFromAnnotations(
+          : eraseStrokePixelsAlongSegmentFromAnnotations(
               session.annotations,
+              previousPoint,
               point,
-              doodleSizeRef.current * pressure,
+              getEraserRadius(doodleSizeRef.current, previousPressure),
+              getEraserRadius(doodleSizeRef.current, pressure),
+              session.annotationBoundsById,
             );
+
+      session.lastInputPoint = point;
+      session.lastPoint = point;
+      session.lastPressure = pressure;
 
       if (nextAnnotations === session.annotations) {
         return;

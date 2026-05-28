@@ -8,6 +8,8 @@ import {
 } from "react";
 import {
   Application,
+  BlurFilter,
+  ColorMatrixFilter,
   Container,
   Graphics,
   Rectangle,
@@ -64,6 +66,7 @@ export const CanvasBoard = ({
   const selectedBoundsOverlayRef = useRef<HTMLDivElement | null>(null);
   const appRef = useRef<Application | null>(null);
   const boardContainerRef = useRef<Container | null>(null);
+  const contentLayerRef = useRef<Container | null>(null);
   const boardGraphicRef = useRef<Graphics | null>(null);
   const gridGraphicRef = useRef<Graphics | null>(null);
   const itemLayerRef = useRef<Container | null>(null);
@@ -122,7 +125,8 @@ export const CanvasBoard = ({
   const lastItemPressRef = useRef<{ itemId: string; time: number } | null>(null);
   const cropSessionRef = useRef<CropSession | null>(cropSession);
   const [appReady, setAppReady] = useState(false);
-  const boardFilter = `blur(${group.filters.blur}px) grayscale(${group.filters.grayscale}%)`;
+  const contentBlurFilterRef = useRef<BlurFilter | null>(null);
+  const contentColorMatrixFilterRef = useRef<ColorMatrixFilter | null>(null);
   const lastAppliedGrayscaleRef = useRef(group.filters.grayscale);
 
   useEffect(() => {
@@ -402,6 +406,7 @@ export const CanvasBoard = ({
     hostRef,
     appRef,
     boardContainerRef,
+    contentLayerRef,
     boardGraphicRef,
     gridGraphicRef,
     itemLayerRef,
@@ -553,6 +558,42 @@ export const CanvasBoard = ({
       });
     });
   }, [appReady, group.filters.grayscale, group.id, group.items, group.zoom]);
+
+  useEffect(() => {
+    if (!appReady) {
+      return;
+    }
+
+    const contentLayer = contentLayerRef.current;
+    if (!contentLayer) {
+      return;
+    }
+
+    const filters = [];
+
+    if (group.filters.blur > 0) {
+      const blurFilter =
+        contentBlurFilterRef.current ??
+        new BlurFilter({ strength: group.filters.blur, quality: 2, kernelSize: 5 });
+      blurFilter.strength = group.filters.blur;
+      contentBlurFilterRef.current = blurFilter;
+      filters.push(blurFilter);
+    }
+
+    if (group.filters.grayscale > 0) {
+      const colorMatrixFilter =
+        contentColorMatrixFilterRef.current ?? new ColorMatrixFilter();
+      colorMatrixFilter.reset();
+      colorMatrixFilter.saturate(
+        -Math.min(1, Math.max(0, group.filters.grayscale / 100)),
+        false,
+      );
+      contentColorMatrixFilterRef.current = colorMatrixFilter;
+      filters.push(colorMatrixFilter);
+    }
+
+    contentLayer.filters = filters.length > 0 ? filters : null;
+  }, [appReady, group.filters.blur, group.filters.grayscale]);
 
   useEffect(() => {
     const activeCaptureIds = new Set<string>();
@@ -746,7 +787,6 @@ export const CanvasBoard = ({
         className="canvas-surface"
         ref={hostRef}
         style={{
-          filter: boardFilter,
           cursor: activeTool === "doodle" ? "none" : "default",
         }}
       />

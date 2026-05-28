@@ -20,6 +20,7 @@ interface UseCanvasBoardBootstrapOptions {
   hostRef: MutableRefObject<HTMLDivElement | null>;
   appRef: MutableRefObject<Application | null>;
   boardContainerRef: MutableRefObject<Container | null>;
+  contentLayerRef: MutableRefObject<Container | null>;
   boardGraphicRef: MutableRefObject<Graphics | null>;
   gridGraphicRef: MutableRefObject<Graphics | null>;
   itemLayerRef: MutableRefObject<Container | null>;
@@ -74,6 +75,7 @@ export const useCanvasBoardBootstrap = ({
   hostRef,
   appRef,
   boardContainerRef,
+  contentLayerRef,
   boardGraphicRef,
   gridGraphicRef,
   itemLayerRef,
@@ -169,16 +171,20 @@ export const useCanvasBoardBootstrap = ({
       root.addChild(boardContainer);
       boardContainerRef.current = boardContainer;
 
+      const contentLayer = new Container();
+      boardContainer.addChild(contentLayer);
+      contentLayerRef.current = contentLayer;
+
       const board = new Graphics();
-      boardContainer.addChild(board);
+      contentLayer.addChild(board);
       boardGraphicRef.current = board;
 
       const grid = new Graphics();
-      boardContainer.addChild(grid);
+      contentLayer.addChild(grid);
       gridGraphicRef.current = grid;
 
       const itemLayer = new Container();
-      boardContainer.addChild(itemLayer);
+      contentLayer.addChild(itemLayer);
       itemLayerRef.current = itemLayer;
 
       const annotationMask = new Graphics();
@@ -552,6 +558,7 @@ export const useCanvasBoardBootstrap = ({
       appRef.current?.destroy(true, { children: true });
       appRef.current = null;
       boardContainerRef.current = null;
+      contentLayerRef.current = null;
       boardGraphicRef.current = null;
       gridGraphicRef.current = null;
       itemLayerRef.current = null;

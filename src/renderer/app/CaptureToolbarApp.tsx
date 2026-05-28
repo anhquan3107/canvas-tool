@@ -6,7 +6,7 @@ import {
   type CaptureSessionMessage,
   type CaptureSessionState,
 } from "@renderer/app/capture-session";
-import { useMainProcessResize } from "@renderer/app/hooks/use-main-process-resize";
+import { useWindowResize } from "@renderer/app/hooks/use-window-resize";
 import { useWindowRightDrag } from "@renderer/app/hooks/use-window-right-drag";
 import { useI18n } from "@renderer/i18n";
 import type { CaptureQuality } from "@renderer/features/connect/types";
@@ -31,7 +31,7 @@ export const CaptureToolbarApp = () => {
   const { copy } = useI18n();
 
   const initial = useMemo(() => getCaptureLocationParams(), []);
-  useWindowRightDrag({ enableLeftWindowDrag: true });
+  useWindowRightDrag({ enableLeftWindowDrag: true, mode: "renderer" });
   const channelRef = useRef<BroadcastChannel | null>(null);
   const lastPointerDoubleClickToggleRef = useRef(0);
 
@@ -64,7 +64,7 @@ export const CaptureToolbarApp = () => {
   });
   const [topbarVisible, setTopbarVisible] = useState(false);
   const customResizeEnabled = !sessionState.windowMaximized;
-  useMainProcessResize(customResizeEnabled);
+  useWindowResize(customResizeEnabled, { lockAspectRatio: true });
 
   const syncTopbarVisibility = useCallback(() => {
     const focused =

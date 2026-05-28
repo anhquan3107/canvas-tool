@@ -6,7 +6,7 @@ import {
   type CaptureSessionMessage,
   type CaptureSessionState,
 } from "@renderer/app/capture-session";
-import { useMainProcessResize } from "@renderer/app/hooks/use-main-process-resize";
+import { useWindowResize } from "@renderer/app/hooks/use-window-resize";
 import { useWindowFocusState } from "@renderer/app/hooks/use-window-focus-state";
 import { ConnectDialog } from "@renderer/features/connect/components/ConnectDialog";
 import { useWindowRightDrag } from "@renderer/app/hooks/use-window-right-drag";
@@ -84,7 +84,7 @@ const getEffectivePreviewSize = (
 
 export const CaptureWindowApp = () => {
   const { copy } = useI18n();
-  useWindowRightDrag({ enableLeftWindowDrag: true });
+  useWindowRightDrag({ enableLeftWindowDrag: true, mode: "renderer" });
   const windowFocused = useWindowFocusState();
   const initial = useMemo(() => getCaptureLocationParams(), []);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -137,7 +137,7 @@ export const CaptureWindowApp = () => {
       next,
     DEFAULT_SHORTCUT_BINDINGS,
   );
-  useMainProcessResize(!windowControls.isMaximized);
+  useWindowResize(!windowControls.isMaximized, { lockAspectRatio: true });
 
   const toggleDotGainBlackAndWhite = useCallback(() => {
     setBwEnabled((previous) => !previous);
@@ -675,18 +675,6 @@ export const CaptureWindowApp = () => {
     let pendingSignature = "";
     let pendingSize: { width: number; height: number } | null = null;
     let syncTimeoutId: number | null = null;
-    let cancelled = false;
-
-    const scheduleCaptureWindowAspectFlush = () => {
-      if (syncTimeoutId !== null) {
-        window.clearTimeout(syncTimeoutId);
-      }
-      syncTimeoutId = window.setTimeout(
-        flushCaptureWindowAspect,
-        CAPTURE_WINDOW_ASPECT_SYNC_DELAY_MS,
-      );
-    };
-
     const flushCaptureWindowAspect = () => {
       syncTimeoutId = null;
       if (!pendingSize) {
@@ -697,24 +685,11 @@ export const CaptureWindowApp = () => {
       const nextSignature = pendingSignature;
       pendingSize = null;
       pendingSignature = "";
+      lastReportedSignature = nextSignature;
       void window.desktopApi.capture
         .updateWindowAspect({
           sourceWidth: nextSize.width,
           sourceHeight: nextSize.height,
-        })
-        .then((applied) => {
-          if (cancelled) {
-            return;
-          }
-
-          if (applied) {
-            lastReportedSignature = nextSignature;
-            return;
-          }
-
-          pendingSignature = nextSignature;
-          pendingSize = nextSize;
-          scheduleCaptureWindowAspectFlush();
         })
         .catch(() => undefined);
     };
@@ -735,7 +710,13 @@ export const CaptureWindowApp = () => {
 
       pendingSignature = nextSignature;
       pendingSize = nextSize;
-      scheduleCaptureWindowAspectFlush();
+      if (syncTimeoutId !== null) {
+        window.clearTimeout(syncTimeoutId);
+      }
+      syncTimeoutId = window.setTimeout(
+        flushCaptureWindowAspect,
+        CAPTURE_WINDOW_ASPECT_SYNC_DELAY_MS,
+      );
     };
 
     syncCaptureWindowAspect();
@@ -744,7 +725,6 @@ export const CaptureWindowApp = () => {
     video.addEventListener("playing", syncCaptureWindowAspect);
 
     return () => {
-      cancelled = true;
       if (syncTimeoutId !== null) {
         window.clearTimeout(syncTimeoutId);
       }

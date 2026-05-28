@@ -8,14 +8,6 @@ import {
 import path from "node:path";
 import { guardWindowDevTools } from "../devtools-guard";
 import {
-  isMainProcessResizeActive,
-  isMainProcessResizeApplying,
-  setMainProcessResizeAspectRatio,
-  setMainProcessResizeMinimumSize,
-} from "../main-process-resize";
-import { isMainProcessDragActive } from "../main-process-drag";
-import { setWindowBoundsListener } from "../window-bounds-listeners";
-import {
   clearWindowActionTarget,
   getWindowActionTarget,
   setWindowActionTarget,
@@ -23,6 +15,7 @@ import {
 import {
   getCaptureWindowBounds,
   getCaptureWindowBoundsForSource,
+  getCaptureWindowBoundsWithinBox,
   getCaptureWindowMinimumSize,
   getSenderWindow,
   normalizeCaptureSourceSize,
@@ -34,7 +27,6 @@ import {
 
 const CAPTURE_TOOLBAR_HEIGHT = 34;
 const CAPTURE_TOOLBAR_SEAM_OVERLAP = 1;
-const CAPTURE_WINDOW_NATIVE_MIN_SIZE = 1;
 
 type BrowserWindowResizeEdge =
   | "top"
@@ -48,13 +40,8 @@ type BrowserWindowResizeEdge =
 
 const BLOCKED_CAPTURE_RESIZE_EDGES = new Set<BrowserWindowResizeEdge>([
   "top",
-  "bottom",
-  "left",
-  "right",
   "top-left",
   "top-right",
-  "bottom-left",
-  "bottom-right",
 ]);
 
 const getCaptureToolbarBoundsForBounds = (bounds: Electron.Rectangle) => {
@@ -78,36 +65,28 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
     nextSourceSize: { width: number; height: number },
     preserveScale: boolean,
   ) => {
-    if (
-      isMainProcessDragActive(captureWindow) ||
-      isMainProcessResizeActive(captureWindow)
-    ) {
-      return false;
-    }
-
     const normalizedSourceSize = normalizeCaptureSourceSize(
       nextSourceSize.width,
       nextSourceSize.height,
     );
     const currentBounds = captureWindow.getBounds();
-    const nextBounds = getCaptureWindowBoundsForSource(normalizedSourceSize);
+    const nextBounds = preserveScale
+      ? getCaptureWindowBoundsWithinBox(normalizedSourceSize, {
+          width: currentBounds.width,
+          height: currentBounds.height,
+        })
+      : getCaptureWindowBoundsForSource(normalizedSourceSize);
     const minimumSize = getCaptureWindowMinimumSize(normalizedSourceSize);
     const shouldResizeWindow =
-      !preserveScale &&
       !captureWindow.isMaximized() &&
       !captureWindow.isFullScreen() &&
       (Math.abs(currentBounds.width - nextBounds.width) > 1 ||
         Math.abs(currentBounds.height - nextBounds.height) > 1);
 
-    setMainProcessResizeAspectRatio(
-      captureWindow,
+    captureWindow.setAspectRatio(
       normalizedSourceSize.width / normalizedSourceSize.height,
     );
-    setMainProcessResizeMinimumSize(captureWindow, minimumSize);
-    captureWindow.setMinimumSize(
-      CAPTURE_WINDOW_NATIVE_MIN_SIZE,
-      CAPTURE_WINDOW_NATIVE_MIN_SIZE,
-    );
+    captureWindow.setMinimumSize(minimumSize.width, minimumSize.height);
 
     if (shouldResizeWindow) {
       captureWindow.setBounds(
@@ -119,8 +98,6 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
         false,
       );
     }
-
-    return true;
   };
 
   ipcMain.handle("capture:list-sources", async () => {
@@ -161,14 +138,13 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
     const captureWindowOptions: BrowserWindowConstructorOptions = {
       width: initialBounds.width,
       height: initialBounds.height,
-      minWidth: CAPTURE_WINDOW_NATIVE_MIN_SIZE,
-      minHeight: CAPTURE_WINDOW_NATIVE_MIN_SIZE,
+      minWidth: minimumSize.width,
+      minHeight: minimumSize.height,
       show: false,
-      resizable: false,
+      resizable: true,
       frame: false,
       thickFrame: false,
       transparent: false,
-      hasShadow: true,
       backgroundColor: "#0f0f10",
       roundedCorners: false,
       acceptFirstMouse: true,
@@ -207,11 +183,9 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
 
     guardWindowDevTools(captureWindow);
     guardWindowDevTools(toolbarWindow);
-    setMainProcessResizeAspectRatio(
-      captureWindow,
+    captureWindow.setAspectRatio(
       initialSourceSize.width / initialSourceSize.height,
     );
-    setMainProcessResizeMinimumSize(captureWindow, minimumSize);
     toolbarVisibilityByWindow.set(toolbarWindow, false);
     toolbarWindow.setIgnoreMouseEvents(true, { forward: true });
     setWindowActionTarget(toolbarWindow, captureWindow);
@@ -263,8 +237,6 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
       syncToolbarWindowToBounds();
     };
 
-    setWindowBoundsListener(captureWindow, syncToolbarWindowToBounds);
-
     const hideToolbarWindow = () => {
       if (!toolbarWindow.isDestroyed() && toolbarWindow.isVisible()) {
         toolbarWindow.hide();
@@ -288,9 +260,6 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
       }
 
       clearWindowActionTarget(toolbarWindow);
-      setMainProcessResizeAspectRatio(captureWindow, null);
-      setMainProcessResizeMinimumSize(captureWindow, null);
-      setWindowBoundsListener(captureWindow, null);
       if (!toolbarWindow.isDestroyed()) {
         toolbarWindow.close();
       }
@@ -306,17 +275,15 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
     captureWindow.on("will-move", (_event, nextBounds) => {
       syncToolbarWindowToBounds(nextBounds);
     });
-    captureWindow.on("will-resize", (event, _nextBounds, details) => {
+    captureWindow.on("will-resize", (event, nextBounds, details) => {
       const edge = details?.edge as BrowserWindowResizeEdge | undefined;
-      if (
-        edge &&
-        BLOCKED_CAPTURE_RESIZE_EDGES.has(edge) &&
-        !isMainProcessResizeApplying(captureWindow)
-      ) {
+      if (edge && BLOCKED_CAPTURE_RESIZE_EDGES.has(edge)) {
         event.preventDefault();
         syncToolbarWindowToBounds(captureWindow.getBounds());
         return;
       }
+
+      syncToolbarWindowToBounds(nextBounds);
     });
     captureWindow.on("show", syncToolbarWindow);
     captureWindow.on("restore", syncToolbarWindow);
@@ -386,10 +353,10 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
     const payload = ensureCaptureWindowAspectPayload(rawPayload);
     const captureWindow = getSenderWindow(event.sender);
     if (!captureWindow || captureWindow.isDestroyed()) {
-      return false;
+      return;
     }
 
-    const applied = applyCaptureWindowAspect(
+    applyCaptureWindowAspect(
       captureWindow,
       {
         width: payload.sourceWidth,
@@ -401,8 +368,6 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
     if (!captureWindow.isVisible()) {
       captureWindow.show();
     }
-
-    return applied;
   });
 
   ipcMain.handle("capture:set-toolbar-visibility", (event, rawPayload) => {

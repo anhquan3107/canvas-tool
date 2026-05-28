@@ -72,7 +72,8 @@ export const toDataUrl = (contentType: string, buffer: Buffer) => {
 export const getSenderWindow = (sender: WebContents) =>
   BrowserWindow.fromWebContents(sender);
 
-const CAPTURE_WINDOW_MIN_EDGE = 220;
+const CAPTURE_WINDOW_MIN_EDGE = 96;
+const CAPTURE_WINDOW_MIN_DIMENSION = 64;
 const CAPTURE_WINDOW_WORKAREA_MARGIN = 48;
 const CAPTURE_WINDOW_DEFAULT_WIDTH_RATIO = 0.62;
 const CAPTURE_WINDOW_DEFAULT_HEIGHT_RATIO = 0.58;
@@ -97,8 +98,14 @@ export const getCaptureWindowMinimumSize = (sourceSize: {
   );
 
   return {
-    width: Math.max(160, Math.round(sourceSize.width * scale)),
-    height: Math.max(160, Math.round(sourceSize.height * scale)),
+    width: Math.max(
+      CAPTURE_WINDOW_MIN_DIMENSION,
+      Math.round(sourceSize.width * scale),
+    ),
+    height: Math.max(
+      CAPTURE_WINDOW_MIN_DIMENSION,
+      Math.round(sourceSize.height * scale),
+    ),
   };
 };
 

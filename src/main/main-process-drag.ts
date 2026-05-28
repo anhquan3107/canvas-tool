@@ -1,4 +1,5 @@
 import { BrowserWindow, screen, ipcMain } from "electron";
+import { notifyWindowBoundsChanged } from "./window-bounds-listeners";
 import { getWindowActionTarget } from "./window-action-targets";
 import { getWindowMotionPollIntervalMs } from "./window-motion-rate";
 
@@ -16,6 +17,9 @@ interface DragSession {
 }
 
 let activeSession: DragSession | null = null;
+
+export const isMainProcessDragActive = (window: BrowserWindow) =>
+  activeSession?.window === window;
 
 /**
  * All coordinates here are in DIP (logical pixels).
@@ -57,6 +61,7 @@ const pollAndApplyDrag = () => {
   win.setPosition(nextX, nextY, false);
   activeSession.lastAppliedX = nextX;
   activeSession.lastAppliedY = nextY;
+  notifyWindowBoundsChanged(win);
 };
 
 const stopDrag = () => {

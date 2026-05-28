@@ -37,6 +37,9 @@ const resizingWindows = new WeakSet<BrowserWindow>();
 export const isMainProcessResizeApplying = (window: BrowserWindow) =>
   resizingWindows.has(window);
 
+export const isMainProcessResizeActive = (window: BrowserWindow) =>
+  activeSession?.window === window;
+
 export const setMainProcessResizeAspectRatio = (
   window: BrowserWindow,
   aspectRatio: number | null,

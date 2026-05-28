@@ -8,9 +8,11 @@ import {
 import path from "node:path";
 import { guardWindowDevTools } from "../devtools-guard";
 import {
+  isMainProcessResizeActive,
   isMainProcessResizeApplying,
   setMainProcessResizeAspectRatio,
 } from "../main-process-resize";
+import { isMainProcessDragActive } from "../main-process-drag";
 import { setWindowBoundsListener } from "../window-bounds-listeners";
 import {
   clearWindowActionTarget,
@@ -20,7 +22,6 @@ import {
 import {
   getCaptureWindowBounds,
   getCaptureWindowBoundsForSource,
-  getCaptureWindowBoundsWithinBox,
   getCaptureWindowMinimumSize,
   getSenderWindow,
   normalizeCaptureSourceSize,
@@ -75,29 +76,27 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
     nextSourceSize: { width: number; height: number },
     preserveScale: boolean,
   ) => {
+    if (
+      isMainProcessDragActive(captureWindow) ||
+      isMainProcessResizeActive(captureWindow)
+    ) {
+      return false;
+    }
+
     const normalizedSourceSize = normalizeCaptureSourceSize(
       nextSourceSize.width,
       nextSourceSize.height,
     );
     const currentBounds = captureWindow.getBounds();
-    const nextBounds = preserveScale
-      ? getCaptureWindowBoundsWithinBox(normalizedSourceSize, {
-          width: currentBounds.width,
-          height: currentBounds.height,
-        })
-      : getCaptureWindowBoundsForSource(normalizedSourceSize);
+    const nextBounds = getCaptureWindowBoundsForSource(normalizedSourceSize);
     const minimumSize = getCaptureWindowMinimumSize(normalizedSourceSize);
     const shouldResizeWindow =
+      !preserveScale &&
       !captureWindow.isMaximized() &&
       !captureWindow.isFullScreen() &&
       (Math.abs(currentBounds.width - nextBounds.width) > 1 ||
         Math.abs(currentBounds.height - nextBounds.height) > 1);
 
-    if (process.platform !== "win32") {
-      captureWindow.setAspectRatio(
-        normalizedSourceSize.width / normalizedSourceSize.height,
-      );
-    }
     setMainProcessResizeAspectRatio(
       captureWindow,
       normalizedSourceSize.width / normalizedSourceSize.height,
@@ -114,6 +113,8 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
         false,
       );
     }
+
+    return true;
   };
 
   ipcMain.handle("capture:list-sources", async () => {
@@ -200,11 +201,6 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
 
     guardWindowDevTools(captureWindow);
     guardWindowDevTools(toolbarWindow);
-    if (process.platform !== "win32") {
-      captureWindow.setAspectRatio(
-        initialSourceSize.width / initialSourceSize.height,
-      );
-    }
     setMainProcessResizeAspectRatio(
       captureWindow,
       initialSourceSize.width / initialSourceSize.height,
@@ -382,10 +378,10 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
     const payload = ensureCaptureWindowAspectPayload(rawPayload);
     const captureWindow = getSenderWindow(event.sender);
     if (!captureWindow || captureWindow.isDestroyed()) {
-      return;
+      return false;
     }
 
-    applyCaptureWindowAspect(
+    const applied = applyCaptureWindowAspect(
       captureWindow,
       {
         width: payload.sourceWidth,
@@ -397,6 +393,8 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
     if (!captureWindow.isVisible()) {
       captureWindow.show();
     }
+
+    return applied;
   });
 
   ipcMain.handle("capture:set-toolbar-visibility", (event, rawPayload) => {

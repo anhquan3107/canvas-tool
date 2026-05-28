@@ -17,7 +17,6 @@ import type {
 import {
   CAPTURE_QUALITY_PROFILES,
   createDesktopCaptureConstraints,
-  isWindowsDesktopCapturePlatform,
 } from "@renderer/features/connect/utils";
 import { useShortcuts } from "@renderer/hooks/use-shortcuts";
 import { useI18n } from "@renderer/i18n";
@@ -46,13 +45,6 @@ interface CaptureWindowControls {
   isMaximized: boolean;
   isAlwaysOnTop: boolean;
 }
-
-const WINDOWS_WINDOW_PREVIEW_CROP: PreviewCropInsets = {
-  top: 5,
-  right: 4,
-  bottom: 5,
-  left: 4,
-};
 
 const CAPTURE_WINDOW_ASPECT_SYNC_DELAY_MS = 90;
 const CAPTURE_WINDOW_TOP_REVEAL_THRESHOLD = 34;
@@ -91,8 +83,8 @@ const getEffectivePreviewSize = (
 };
 
 export const CaptureWindowApp = () => {
-  useWindowRightDrag({ enableLeftWindowDrag: true });
   const { copy } = useI18n();
+  useWindowRightDrag({ enableLeftWindowDrag: true });
   const windowFocused = useWindowFocusState();
   const initial = useMemo(() => getCaptureLocationParams(), []);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -184,6 +176,35 @@ export const CaptureWindowApp = () => {
           isAlwaysOnTop: false,
         });
       });
+  }, []);
+
+  useEffect(() => {
+    let syncFrameId = 0;
+
+    const syncWindowControls = () => {
+      if (syncFrameId !== 0) {
+        return;
+      }
+
+      syncFrameId = window.requestAnimationFrame(() => {
+        syncFrameId = 0;
+        void window.desktopApi.window
+          .getControlsState()
+          .then(setWindowControls)
+          .catch(() => undefined);
+      });
+    };
+
+    window.addEventListener("resize", syncWindowControls);
+    window.addEventListener("focus", syncWindowControls);
+
+    return () => {
+      if (syncFrameId !== 0) {
+        window.cancelAnimationFrame(syncFrameId);
+      }
+      window.removeEventListener("resize", syncWindowControls);
+      window.removeEventListener("focus", syncWindowControls);
+    };
   }, []);
 
   useEffect(() => {
@@ -518,19 +539,6 @@ export const CaptureWindowApp = () => {
   }, [dialogOpen]);
 
   useEffect(() => {
-    if (
-      dialogOpen ||
-      !isWindowsDesktopCapturePlatform() ||
-      sourceSelection.kind !== "window"
-    ) {
-      setPreviewCropInsets(NO_PREVIEW_CROP);
-      return;
-    }
-
-    setPreviewCropInsets(WINDOWS_WINDOW_PREVIEW_CROP);
-  }, [dialogOpen, quality, sourceSelection.id, sourceSelection.kind]);
-
-  useEffect(() => {
     const handlePointerMove = (event: PointerEvent) => {
       // Skip edge reveal while any mouse button is held — this prevents the
       // toolbar from appearing and stealing focus during active drag sessions.
@@ -667,6 +675,17 @@ export const CaptureWindowApp = () => {
     let pendingSignature = "";
     let pendingSize: { width: number; height: number } | null = null;
     let syncTimeoutId: number | null = null;
+    let cancelled = false;
+
+    const scheduleCaptureWindowAspectFlush = () => {
+      if (syncTimeoutId !== null) {
+        window.clearTimeout(syncTimeoutId);
+      }
+      syncTimeoutId = window.setTimeout(
+        flushCaptureWindowAspect,
+        CAPTURE_WINDOW_ASPECT_SYNC_DELAY_MS,
+      );
+    };
 
     const flushCaptureWindowAspect = () => {
       syncTimeoutId = null;
@@ -678,11 +697,24 @@ export const CaptureWindowApp = () => {
       const nextSignature = pendingSignature;
       pendingSize = null;
       pendingSignature = "";
-      lastReportedSignature = nextSignature;
       void window.desktopApi.capture
         .updateWindowAspect({
           sourceWidth: nextSize.width,
           sourceHeight: nextSize.height,
+        })
+        .then((applied) => {
+          if (cancelled) {
+            return;
+          }
+
+          if (applied) {
+            lastReportedSignature = nextSignature;
+            return;
+          }
+
+          pendingSignature = nextSignature;
+          pendingSize = nextSize;
+          scheduleCaptureWindowAspectFlush();
         })
         .catch(() => undefined);
     };
@@ -703,13 +735,7 @@ export const CaptureWindowApp = () => {
 
       pendingSignature = nextSignature;
       pendingSize = nextSize;
-      if (syncTimeoutId !== null) {
-        window.clearTimeout(syncTimeoutId);
-      }
-      syncTimeoutId = window.setTimeout(
-        flushCaptureWindowAspect,
-        CAPTURE_WINDOW_ASPECT_SYNC_DELAY_MS,
-      );
+      scheduleCaptureWindowAspectFlush();
     };
 
     syncCaptureWindowAspect();
@@ -718,6 +744,7 @@ export const CaptureWindowApp = () => {
     video.addEventListener("playing", syncCaptureWindowAspect);
 
     return () => {
+      cancelled = true;
       if (syncTimeoutId !== null) {
         window.clearTimeout(syncTimeoutId);
       }

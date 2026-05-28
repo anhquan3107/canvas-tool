@@ -28,10 +28,10 @@ const DEFAULT_CAPTURE_SESSION_STATE: CaptureSessionState = {
 };
 
 export const CaptureToolbarApp = () => {
-  useWindowRightDrag({ enableLeftWindowDrag: true });
   const { copy } = useI18n();
 
   const initial = useMemo(() => getCaptureLocationParams(), []);
+  useWindowRightDrag({ enableLeftWindowDrag: true });
   const channelRef = useRef<BroadcastChannel | null>(null);
   const lastPointerDoubleClickToggleRef = useRef(0);
 

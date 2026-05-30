@@ -31,6 +31,48 @@ interface UseColorPickerStateOptions {
   }) => void;
 }
 
+interface ColorPickerState {
+  target: ColorTarget;
+  draftCanvasColor: string;
+  draftBackgroundColor: string;
+  hue: number;
+  saturation: number;
+  value: number;
+  hexInput: string;
+}
+
+const getStateForActiveColor = (color: string) => {
+  const hsv = hexToHsv(color);
+  return {
+    hue: hsv.hue,
+    saturation: hsv.saturation,
+    value: hsv.value,
+    hexInput: color.toUpperCase(),
+  };
+};
+
+const createColorPickerState = (
+  canvasColor: string,
+  backgroundColor: string,
+): ColorPickerState => ({
+  target: "canvas",
+  draftCanvasColor: canvasColor,
+  draftBackgroundColor: backgroundColor,
+  ...getStateForActiveColor(canvasColor),
+});
+
+const getDraftColors = (state: ColorPickerState) => ({
+  canvasColor: state.draftCanvasColor,
+  backgroundColor: state.draftBackgroundColor,
+});
+
+const updateActiveDraftColor = (state: ColorPickerState, nextColor: string) => ({
+  ...state,
+  ...(state.target === "canvas"
+    ? { draftCanvasColor: nextColor }
+    : { draftBackgroundColor: nextColor }),
+});
+
 export const useColorPickerState = ({
   canvasColor,
   backgroundColor,
@@ -41,47 +83,61 @@ export const useColorPickerState = ({
   const hueTrackRef = useRef<HTMLDivElement | null>(null);
   const squareDraggingRef = useRef(false);
   const hueDraggingRef = useRef(false);
-  const targetRef = useRef<ColorTarget>("canvas");
-  const hueRef = useRef(0);
-  const saturationRef = useRef(0);
-  const valueRef = useRef(0);
-  const [target, setTarget] = useState<ColorTarget>("canvas");
-  const [draftCanvasColor, setDraftCanvasColor] = useState(canvasColor);
-  const [draftBackgroundColor, setDraftBackgroundColor] = useState(backgroundColor);
-  const [hue, setHue] = useState(() => hexToHsv(canvasColor).hue);
-  const [saturation, setSaturation] = useState(
-    () => hexToHsv(canvasColor).saturation,
+  const [pickerState, setPickerState] = useState(() =>
+    createColorPickerState(canvasColor, backgroundColor),
   );
-  const [value, setValue] = useState(() => hexToHsv(canvasColor).value);
-  const [hexInput, setHexInput] = useState(() => canvasColor.toUpperCase());
+  const pickerStateRef = useRef(pickerState);
+
+  const updatePickerState = useCallback(
+    (nextState: ColorPickerState, preview = true) => {
+      pickerStateRef.current = nextState;
+      setPickerState(nextState);
+
+      if (preview) {
+        onPreviewChange(getDraftColors(nextState));
+      }
+    },
+    [onPreviewChange],
+  );
+
+  const setTarget = useCallback(
+    (nextTarget: ColorTarget) => {
+      const current = pickerStateRef.current;
+      const nextColor =
+        nextTarget === "canvas"
+          ? current.draftCanvasColor
+          : current.draftBackgroundColor;
+
+      updatePickerState(
+        {
+          ...current,
+          target: nextTarget,
+          ...getStateForActiveColor(nextColor),
+        },
+        false,
+      );
+    },
+    [updatePickerState],
+  );
+
+  const setHexInput = useCallback(
+    (nextHexInput: string) => {
+      const current = pickerStateRef.current;
+      updatePickerState(
+        {
+          ...current,
+          hexInput: nextHexInput,
+        },
+        false,
+      );
+    },
+    [updatePickerState],
+  );
 
   const activeColor =
-    target === "canvas" ? draftCanvasColor : draftBackgroundColor;
-
-  useEffect(() => {
-    targetRef.current = target;
-  }, [target]);
-
-  useEffect(() => {
-    hueRef.current = hue;
-  }, [hue]);
-
-  useEffect(() => {
-    saturationRef.current = saturation;
-  }, [saturation]);
-
-  useEffect(() => {
-    valueRef.current = value;
-  }, [value]);
-
-  useEffect(() => {
-    const nextColor = target === "canvas" ? draftCanvasColor : draftBackgroundColor;
-    const nextHsv = hexToHsv(nextColor);
-    setHue(nextHsv.hue);
-    setSaturation(nextHsv.saturation);
-    setValue(nextHsv.value);
-    setHexInput(nextColor.toUpperCase());
-  }, [draftBackgroundColor, draftCanvasColor, target]);
+    pickerState.target === "canvas"
+      ? pickerState.draftCanvasColor
+      : pickerState.draftBackgroundColor;
 
   useEffect(() => {
     const canvas = squareCanvasRef.current;
@@ -105,7 +161,7 @@ export const useColorPickerState = ({
     }
 
     context.clearRect(0, 0, pixelSize, pixelSize);
-    context.fillStyle = hsvToHex(hue, 1, 1);
+    context.fillStyle = hsvToHex(pickerState.hue, 1, 1);
     context.fillRect(0, 0, pixelSize, pixelSize);
 
     const whiteGradient = context.createLinearGradient(0, 0, pixelSize, 0);
@@ -119,14 +175,7 @@ export const useColorPickerState = ({
     blackGradient.addColorStop(1, "rgba(0,0,0,1)");
     context.fillStyle = blackGradient;
     context.fillRect(0, 0, pixelSize, pixelSize);
-  }, [hue]);
-
-  useEffect(() => {
-    onPreviewChange({
-      canvasColor: draftCanvasColor,
-      backgroundColor: draftBackgroundColor,
-    });
-  }, [draftBackgroundColor, draftCanvasColor, onPreviewChange]);
+  }, [pickerState.hue]);
 
   const squarePointer = useCallback((clientX: number, clientY: number) => {
     const canvas = squareCanvasRef.current;
@@ -137,17 +186,21 @@ export const useColorPickerState = ({
     const rect = canvas.getBoundingClientRect();
     const nextSaturation = clamp((clientX - rect.left) / rect.width, 0, 1);
     const nextValue = clamp(1 - (clientY - rect.top) / rect.height, 0, 1);
-    const nextHex = hsvToHex(hueRef.current, nextSaturation, nextValue);
+    const current = pickerStateRef.current;
+    const nextHex = hsvToHex(current.hue, nextSaturation, nextValue);
 
-    setSaturation(nextSaturation);
-    setValue(nextValue);
-    setHexInput(nextHex);
-    if (targetRef.current === "canvas") {
-      setDraftCanvasColor(nextHex);
-    } else {
-      setDraftBackgroundColor(nextHex);
-    }
-  }, []);
+    updatePickerState(
+      updateActiveDraftColor(
+        {
+          ...current,
+          saturation: nextSaturation,
+          value: nextValue,
+          hexInput: nextHex,
+        },
+        nextHex,
+      ),
+    );
+  }, [updatePickerState]);
 
   const huePointer = useCallback((clientY: number) => {
     const track = hueTrackRef.current;
@@ -158,16 +211,20 @@ export const useColorPickerState = ({
     const rect = track.getBoundingClientRect();
     const ratio = clamp((clientY - rect.top) / rect.height, 0, 1);
     const nextHue = ratio * 360;
-    const nextHex = hsvToHex(nextHue, saturationRef.current, valueRef.current);
+    const current = pickerStateRef.current;
+    const nextHex = hsvToHex(nextHue, current.saturation, current.value);
 
-    setHue(nextHue);
-    setHexInput(nextHex);
-    if (targetRef.current === "canvas") {
-      setDraftCanvasColor(nextHex);
-    } else {
-      setDraftBackgroundColor(nextHex);
-    }
-  }, []);
+    updatePickerState(
+      updateActiveDraftColor(
+        {
+          ...current,
+          hue: nextHue,
+          hexInput: nextHex,
+        },
+        nextHex,
+      ),
+    );
+  }, [updatePickerState]);
 
   const handleSquarePointerDown = (event: ReactPointerEvent<HTMLCanvasElement>) => {
     event.preventDefault();
@@ -292,56 +349,74 @@ export const useColorPickerState = ({
 
   const squareThumbStyle = useMemo(
     () => ({
-      left: `${saturation * 100}%`,
-      top: `${(1 - value) * 100}%`,
+      left: `${pickerState.saturation * 100}%`,
+      top: `${(1 - pickerState.value) * 100}%`,
     }),
-    [saturation, value],
+    [pickerState.saturation, pickerState.value],
   );
 
   const hueThumbStyle = useMemo(
     () => ({
-      top: `${(hue / 360) * 100}%`,
+      top: `${(pickerState.hue / 360) * 100}%`,
     }),
-    [hue],
+    [pickerState.hue],
   );
 
   const commitHexInput = () => {
-    const normalized = normalizeHex(hexInput);
+    const current = pickerStateRef.current;
+    const normalized = normalizeHex(current.hexInput);
     const nextHsv = hexToHsv(normalized);
-    setHue(nextHsv.hue);
-    setSaturation(nextHsv.saturation);
-    setValue(nextHsv.value);
-    setHexInput(normalized);
-    if (target === "canvas") {
-      setDraftCanvasColor(normalized);
-    } else {
-      setDraftBackgroundColor(normalized);
-    }
+    updatePickerState(
+      updateActiveDraftColor(
+        {
+          ...current,
+          hue: nextHsv.hue,
+          saturation: nextHsv.saturation,
+          value: nextHsv.value,
+          hexInput: normalized,
+        },
+        normalized,
+      ),
+    );
   };
 
   const handleReset = () => {
-    setDraftCanvasColor(DEFAULT_GROUP_CANVAS_COLOR);
-    setDraftBackgroundColor(DEFAULT_GROUP_BACKGROUND_COLOR);
+    const current = pickerStateRef.current;
+    const activeResetColor =
+      current.target === "canvas"
+        ? DEFAULT_GROUP_CANVAS_COLOR
+        : DEFAULT_GROUP_BACKGROUND_COLOR;
+
+    updatePickerState({
+      ...current,
+      draftCanvasColor: DEFAULT_GROUP_CANVAS_COLOR,
+      draftBackgroundColor: DEFAULT_GROUP_BACKGROUND_COLOR,
+      ...getStateForActiveColor(activeResetColor),
+    });
   };
 
   const handleConfirm = () => {
-    const normalizedHex = normalizeHex(hexInput);
+    const current = pickerStateRef.current;
+    const normalizedHex = normalizeHex(current.hexInput);
     const canvasColorToConfirm =
-      target === "canvas" ? normalizedHex : draftCanvasColor;
+      current.target === "canvas" ? normalizedHex : current.draftCanvasColor;
     const backgroundColorToConfirm =
-      target === "background" ? normalizedHex : draftBackgroundColor;
+      current.target === "background" ? normalizedHex : current.draftBackgroundColor;
 
     const nextHsv = hexToHsv(normalizedHex);
-    setHue(nextHsv.hue);
-    setSaturation(nextHsv.saturation);
-    setValue(nextHsv.value);
-    setHexInput(normalizedHex);
-
-    if (target === "canvas") {
-      setDraftCanvasColor(normalizedHex);
-    } else {
-      setDraftBackgroundColor(normalizedHex);
-    }
+    updatePickerState(
+      updateActiveDraftColor(
+        {
+          ...current,
+          hue: nextHsv.hue,
+          saturation: nextHsv.saturation,
+          value: nextHsv.value,
+          hexInput: normalizedHex,
+        },
+        normalizedHex,
+      ),
+      false,
+    );
 
     onConfirm({
       canvasColor: canvasColorToConfirm,
@@ -352,10 +427,10 @@ export const useColorPickerState = ({
   return {
     squareCanvasRef,
     hueTrackRef,
-    target,
+    target: pickerState.target,
     setTarget,
     activeColor,
-    hexInput,
+    hexInput: pickerState.hexInput,
     setHexInput,
     squareThumbStyle,
     hueThumbStyle,

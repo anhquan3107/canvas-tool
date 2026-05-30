@@ -119,8 +119,20 @@ export const useCanvasBoardBootstrap = ({
       return;
     }
 
+    const activeItemDragState = activeItemDragRef;
+    const appState = appRef;
+    const boardContainerState = boardContainerRef;
+    const contentLayerState = contentLayerRef;
+    const boardGraphicState = boardGraphicRef;
+    const gridGraphicState = gridGraphicRef;
+    const itemLayerState = itemLayerRef;
+    const annotationMaskState = annotationMaskRef;
+    const annotationLayerState = annotationLayerRef;
+    const annotationPreviewLayerState = annotationPreviewLayerRef;
+    const captureSessionByIdState = captureSessionByIdRef;
     let mounted = true;
     let resizeObserver: ResizeObserver | null = null;
+    let appInstance: Application | null = null;
 
     const isTypingTarget = (target: EventTarget | null) => {
       if (!(target instanceof HTMLElement)) {
@@ -167,7 +179,8 @@ export const useCanvasBoardBootstrap = ({
         return;
       }
 
-      appRef.current = app;
+      appState.current = app;
+      appInstance = app;
       host.replaceChildren(app.canvas);
 
       const root = new Container();
@@ -557,19 +570,20 @@ export const useCanvasBoardBootstrap = ({
       cleanupListeners?.();
       resizeObserver?.disconnect();
       host.removeEventListener("pointerleave", onPointerLeave);
-      activeItemDragRef.current = null;
+      activeItemDragState.current = null;
       host.replaceChildren();
-      appRef.current?.destroy(true, { children: true });
-      appRef.current = null;
-      boardContainerRef.current = null;
-      contentLayerRef.current = null;
-      boardGraphicRef.current = null;
-      gridGraphicRef.current = null;
-      itemLayerRef.current = null;
-      annotationMaskRef.current = null;
-      annotationLayerRef.current = null;
-      annotationPreviewLayerRef.current = null;
-      captureSessionByIdRef.current.forEach((_, captureId) => {
+      appInstance?.destroy(true, { children: true });
+      appInstance = null;
+      appState.current = null;
+      boardContainerState.current = null;
+      contentLayerState.current = null;
+      boardGraphicState.current = null;
+      gridGraphicState.current = null;
+      itemLayerState.current = null;
+      annotationMaskState.current = null;
+      annotationLayerState.current = null;
+      annotationPreviewLayerState.current = null;
+      captureSessionByIdState.current.forEach((_, captureId) => {
         stopCaptureSession(captureId);
       });
     };

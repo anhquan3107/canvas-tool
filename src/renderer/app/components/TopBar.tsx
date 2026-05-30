@@ -60,16 +60,22 @@ interface TopBarProps {
   seenTitleBarTooltips: string[];
   settingsOpen: boolean;
   selectedCount: number;
-  canCropSelected: boolean;
-  canPaste: boolean;
-  canExportSelectedTask: boolean;
-  canExportAnyTask: boolean;
-  canvasLocked: boolean;
-  lockedCanvasInteractionPulse: boolean;
-  canUndo: boolean;
-  canRedo: boolean;
-  windowMaximized: boolean;
-  windowAlwaysOnTop: boolean;
+  menuAvailability: {
+    cropSelected: boolean;
+    paste: boolean;
+    exportSelectedTask: boolean;
+    exportAnyTask: boolean;
+    undo: boolean;
+    redo: boolean;
+  };
+  canvasState: {
+    locked: boolean;
+    lockedInteractionPulse: boolean;
+  };
+  windowState: {
+    maximized: boolean;
+    alwaysOnTop: boolean;
+  };
   onBrandClick: () => void;
   onToggleSettings: () => void;
   onShowHelp: () => void;
@@ -120,16 +126,9 @@ export const TopBar = ({
   seenTitleBarTooltips,
   settingsOpen,
   selectedCount,
-  canCropSelected,
-  canPaste,
-  canExportSelectedTask,
-  canExportAnyTask,
-  canvasLocked,
-  lockedCanvasInteractionPulse,
-  canUndo,
-  canRedo,
-  windowMaximized,
-  windowAlwaysOnTop,
+  menuAvailability,
+  canvasState,
+  windowState,
   onBrandClick,
   onToggleSettings,
   onShowHelp,
@@ -267,13 +266,8 @@ export const TopBar = ({
               shortcutBindings={shortcutBindings}
               settingsOpen={settingsOpen}
               selectedCount={selectedCount}
-              canCropSelected={canCropSelected}
-              canPaste={canPaste}
-              canExportSelectedTask={canExportSelectedTask}
-              canExportAnyTask={canExportAnyTask}
-              canvasLocked={canvasLocked}
-              canUndo={canUndo}
-              canRedo={canRedo}
+              canvasLocked={canvasState.locked}
+              availability={menuAvailability}
               onToggleSettings={onToggleSettings}
               onOpenProject={onOpenProject}
               onImportTasks={onImportTasks}
@@ -321,10 +315,10 @@ export const TopBar = ({
           isMacPlatform={macPlatform}
           projectFileName={projectFileName}
           shortcutBindings={shortcutBindings}
-          canvasLocked={canvasLocked}
-          lockedCanvasInteractionPulse={lockedCanvasInteractionPulse}
-          windowAlwaysOnTop={windowAlwaysOnTop}
-          windowMaximized={windowMaximized}
+          canvasLocked={canvasState.locked}
+          lockedCanvasInteractionPulse={canvasState.lockedInteractionPulse}
+          windowAlwaysOnTop={windowState.alwaysOnTop}
+          windowMaximized={windowState.maximized}
           onShowShortcuts={onShowShortcuts}
           onToggleCanvasLock={onToggleCanvasLock}
           onToggleAlwaysOnTop={onToggleAlwaysOnTop}

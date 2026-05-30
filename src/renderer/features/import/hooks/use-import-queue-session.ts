@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type SetStateAction,
+} from "react";
 import type { Project } from "@shared/types/project";
 import {
   loadImportQueueFromSession,
@@ -8,27 +14,40 @@ import {
 } from "@renderer/features/import/import-queue";
 
 export const useImportQueueSession = (project: Project) => {
-  const [queue, setQueue] = useState<ImportQueueEntry[]>([]);
-  const loadedKeyRef = useRef<string | null>(null);
-
   const storageKey = useMemo(() => toImportQueueStorageKey(project), [project]);
+  const [queueState, setQueueState] = useState(() => ({
+    storageKey,
+    queue: loadImportQueueFromSession(storageKey),
+  }));
+
+  let activeQueueState = queueState;
+  if (queueState.storageKey !== storageKey) {
+    activeQueueState = {
+      storageKey,
+      queue: loadImportQueueFromSession(storageKey),
+    };
+    setQueueState(activeQueueState);
+  }
+
+  const setImportQueue = useCallback((nextQueue: SetStateAction<ImportQueueEntry[]>) => {
+    setQueueState((current) => ({
+      ...current,
+      queue:
+        typeof nextQueue === "function"
+          ? nextQueue(current.queue)
+          : nextQueue,
+    }));
+  }, []);
 
   useEffect(() => {
-    const restoredQueue = loadImportQueueFromSession(storageKey);
-    setQueue(restoredQueue);
-    loadedKeyRef.current = storageKey;
-  }, [storageKey]);
-
-  useEffect(() => {
-    if (loadedKeyRef.current !== storageKey) {
-      return;
-    }
-
-    persistImportQueueToSession(storageKey, queue);
-  }, [queue, storageKey]);
+    persistImportQueueToSession(
+      activeQueueState.storageKey,
+      activeQueueState.queue,
+    );
+  }, [activeQueueState.queue, activeQueueState.storageKey]);
 
   return {
-    importQueue: queue,
-    setImportQueue: setQueue,
+    importQueue: activeQueueState.queue,
+    setImportQueue,
   };
 };

@@ -1,4 +1,12 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+} from "react";
 import {
   CalendarDays,
   Check,
@@ -41,6 +49,12 @@ interface TaskOverlayProps {
 const TASK_MENU_WIDTH = 164;
 const TASK_MENU_MARGIN = 12;
 const TASK_META_HIDE_DURATION_MS = 640;
+type TaskMenuState = {
+  taskId: string;
+  x: number;
+  y: number;
+};
+
 const getTaskToneClass = (task: Task) => {
   if (isTaskComplete(task)) {
     return "task-tone-complete";
@@ -52,6 +66,109 @@ const getTaskToneClass = (task: Task) => {
 const getDisplayTaskTitle = (title: string) => {
   const normalized = title.trim();
   return clampTaskTitle(normalized);
+};
+
+interface TaskButtonProps {
+  task: Task;
+  compact: boolean;
+  selectedTaskId: string | null;
+  expanded: boolean;
+  primaryTaskId: string;
+  taskCount: number;
+  renderPrimaryMeta: boolean;
+  linkedName: string | null;
+  onInteract: () => void;
+  onToggleExpanded: () => void;
+  onSelectTask: (taskId: string) => void;
+  onOpenTaskMenu: (event: MouseEvent, taskId: string) => void;
+}
+
+const TaskButton = ({
+  task,
+  compact,
+  selectedTaskId,
+  expanded,
+  primaryTaskId,
+  taskCount,
+  renderPrimaryMeta,
+  linkedName,
+  onInteract,
+  onToggleExpanded,
+  onSelectTask,
+  onOpenTaskMenu,
+}: TaskButtonProps) => {
+  const { copy, locale } = useI18n();
+  const toneClass = getTaskToneClass(task);
+  const compactExpanded = compact && task.id === selectedTaskId;
+  const displayTitle = getDisplayTaskTitle(task.title);
+  const showCompactMeta = compact && task.id === selectedTaskId;
+  const shouldExpandListOnClick =
+    compact && task.id === primaryTaskId && taskCount > 1 && !expanded;
+  const taskCompleted = isTaskComplete(task);
+  const remainingLabel = taskCompleted
+    ? copy.tasks.overlay.taskCompleted
+    : getTaskRemainingLabel(task.endDate, locale);
+
+  return (
+    <button
+      type="button"
+      className={[
+        compact ? "task-summary-card" : "task-list-item",
+        compact && !expanded ? "task-summary-card-primary" : "",
+        compact && expanded ? "task-summary-card-stack" : "",
+        compactExpanded ? "task-summary-card-expanded" : "",
+        task.id === selectedTaskId ? "task-list-item-active" : "",
+        toneClass,
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      onClick={() => {
+        onInteract();
+        if (shouldExpandListOnClick) {
+          onToggleExpanded();
+        }
+        onSelectTask(task.id);
+      }}
+      onContextMenu={(event) => onOpenTaskMenu(event, task.id)}
+      title={task.title}
+    >
+      <span className={`task-chip-dot ${toneClass}`} />
+      <span className={compact ? "task-summary-copy" : "task-list-item-copy"}>
+        <strong>{displayTitle}</strong>
+        {!compact ? (
+          <>
+            <small>
+              {formatTaskDateRange(
+                task.startDate,
+                task.endDate,
+                locale,
+                copy.tasks.dates.noDeadline,
+              )}
+            </small>
+            {linkedName ? <em>{linkedName}</em> : null}
+          </>
+        ) : showCompactMeta ? (
+          <span
+            className={`task-summary-meta ${renderPrimaryMeta ? "shown" : "hidden"}`}
+            aria-hidden={!renderPrimaryMeta}
+          >
+            <small>
+              {formatTaskDateRange(
+                task.startDate,
+                task.endDate,
+                locale,
+                copy.tasks.dates.noDeadline,
+              )}
+            </small>
+            <em className={taskCompleted ? "task-summary-meta-complete" : ""}>
+              {taskCompleted ? <Check size={12} strokeWidth={2.4} /> : null}
+              {remainingLabel}
+            </em>
+          </span>
+        ) : null}
+      </span>
+    </button>
+  );
 };
 
 export const TaskOverlay = (props: TaskOverlayProps) => useTaskOverlay(props);
@@ -77,23 +194,37 @@ const useTaskOverlay = ({
 }: TaskOverlayProps) => {
   const { copy, locale } = useI18n();
   const shellRef = useRef<HTMLElement | null>(null);
-  const [renderPopover, setRenderPopover] = useState(() => expanded);
   const [renderPrimaryMeta, setRenderPrimaryMeta] = useState(Boolean(selectedTaskId));
-  const [menuState, setMenuState] = useState<{
-    taskId: string;
-    x: number;
-    y: number;
-  } | null>(null);
+  const [overlayState, setOverlayState] = useState<{
+    renderPopover: boolean;
+    menuState: TaskMenuState | null;
+  }>(() => ({
+    renderPopover: expanded,
+    menuState: null,
+  }));
+  const { renderPopover, menuState } = overlayState;
+
+  const setMenuState = useCallback((menuState: TaskMenuState | null) => {
+    setOverlayState((current) => ({
+      ...current,
+      menuState,
+    }));
+  }, []);
 
   useEffect(() => {
     if (expanded) {
-      setRenderPopover(true);
+      setOverlayState((current) =>
+        current.renderPopover ? current : { ...current, renderPopover: true },
+      );
       return;
     }
 
     const timeoutId = window.setTimeout(() => {
-      setRenderPopover(false);
-      setMenuState(null);
+      setOverlayState((current) => ({
+        ...current,
+        renderPopover: false,
+        menuState: null,
+      }));
     }, 180);
 
     return () => {
@@ -128,7 +259,7 @@ const useTaskOverlay = ({
       window.removeEventListener("pointerdown", closeMenu);
       window.removeEventListener("blur", closeMenu);
     };
-  }, [menuState]);
+  }, [menuState, setMenuState]);
 
   useEffect(() => {
     const shell = shellRef.current;
@@ -180,7 +311,7 @@ const useTaskOverlay = ({
     ];
   }, [primaryTask, tasks]);
 
-  const openTaskMenu = (event: React.MouseEvent, taskId: string) => {
+  const openTaskMenu = (event: MouseEvent, taskId: string) => {
     event.preventDefault();
     event.stopPropagation();
     onInteract();
@@ -197,88 +328,9 @@ const useTaskOverlay = ({
     });
   };
 
-  const renderTaskButton = (task: Task, compact = false) => {
-    const toneClass = getTaskToneClass(task);
-    const linkedName = task.linkedGroupId
-      ? linkedGroups.get(task.linkedGroupId) ?? null
-      : null;
-    const compactExpanded = compact && task.id === selectedTaskId;
-    const displayTitle = getDisplayTaskTitle(task.title);
-    const showCompactMeta = compact && task.id === selectedTaskId;
-    const shouldExpandListOnClick =
-      compact &&
-      task.id === primaryTask.id &&
-      tasks.length > 1 &&
-      !expanded;
-    const taskCompleted = isTaskComplete(task);
-    const remainingLabel = taskCompleted
-      ? copy.tasks.overlay.taskCompleted
-      : getTaskRemainingLabel(task.endDate, locale);
-
-    return (
-      <button
-        key={task.id}
-        type="button"
-        className={[
-          compact ? "task-summary-card" : "task-list-item",
-          compact && !expanded ? "task-summary-card-primary" : "",
-          compact && expanded ? "task-summary-card-stack" : "",
-          compactExpanded ? "task-summary-card-expanded" : "",
-          task.id === selectedTaskId ? "task-list-item-active" : "",
-          toneClass,
-        ]
-          .filter(Boolean)
-          .join(" ")}
-        onClick={() => {
-        onInteract();
-        if (shouldExpandListOnClick) {
-          onToggleExpanded();
-        }
-        onSelectTask(task.id);
-      }}
-        onContextMenu={(event) => openTaskMenu(event, task.id)}
-        title={task.title}
-      >
-        <span className={`task-chip-dot ${toneClass}`} />
-        <span className={compact ? "task-summary-copy" : "task-list-item-copy"}>
-          <strong>{displayTitle}</strong>
-          {!compact ? (
-            <>
-              <small>
-                {formatTaskDateRange(
-                  task.startDate,
-                  task.endDate,
-                  locale,
-                  copy.tasks.dates.noDeadline,
-                )}
-              </small>
-              {linkedName ? <em>{linkedName}</em> : null}
-            </>
-          ) : showCompactMeta ? (
-            <span
-              className={`task-summary-meta ${renderPrimaryMeta ? "shown" : "hidden"}`}
-              aria-hidden={!renderPrimaryMeta}
-            >
-              <small>
-                {formatTaskDateRange(
-                  task.startDate,
-                  task.endDate,
-                  locale,
-                  copy.tasks.dates.noDeadline,
-                )}
-              </small>
-              <em className={taskCompleted ? "task-summary-meta-complete" : ""}>
-                {taskCompleted ? <Check size={12} strokeWidth={2.4} /> : null}
-                {remainingLabel}
-              </em>
-            </span>
-          ) : null}
-        </span>
-      </button>
-    );
-  };
-
   const selectedMenuTask = tasks.find((task) => task.id === menuState?.taskId) ?? null;
+  const getLinkedGroupName = (task: Task) =>
+    task.linkedGroupId ? linkedGroups.get(task.linkedGroupId) ?? null : null;
 
   return (
     <section
@@ -305,7 +357,20 @@ const useTaskOverlay = ({
       }}
     >
       <div className="task-summary-row">
-        {renderTaskButton(primaryTask, true)}
+        <TaskButton
+          task={primaryTask}
+          compact
+          selectedTaskId={selectedTaskId}
+          expanded={expanded}
+          primaryTaskId={primaryTask.id}
+          taskCount={tasks.length}
+          renderPrimaryMeta={renderPrimaryMeta}
+          linkedName={getLinkedGroupName(primaryTask)}
+          onInteract={onInteract}
+          onToggleExpanded={onToggleExpanded}
+          onSelectTask={onSelectTask}
+          onOpenTaskMenu={openTaskMenu}
+        />
         {tasks.length > 1 ? (
           <div
             className={[
@@ -337,7 +402,25 @@ const useTaskOverlay = ({
           aria-hidden={!expanded}
         >
           {orderedDisplayTasks.flatMap((task) =>
-            task.id === primaryTask.id ? [] : [renderTaskButton(task, true)],
+            task.id === primaryTask.id
+              ? []
+              : [
+                  <TaskButton
+                    key={task.id}
+                    task={task}
+                    compact
+                    selectedTaskId={selectedTaskId}
+                    expanded={expanded}
+                    primaryTaskId={primaryTask.id}
+                    taskCount={tasks.length}
+                    renderPrimaryMeta={renderPrimaryMeta}
+                    linkedName={getLinkedGroupName(task)}
+                    onInteract={onInteract}
+                    onToggleExpanded={onToggleExpanded}
+                    onSelectTask={onSelectTask}
+                    onOpenTaskMenu={openTaskMenu}
+                  />,
+                ],
           )}
         </div>
       ) : null}

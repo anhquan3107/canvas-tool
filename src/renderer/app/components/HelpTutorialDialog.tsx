@@ -23,8 +23,8 @@ import type { ShortcutActionId, ShortcutBindings } from "@shared/shortcuts";
 import { formatMenuShortcut } from "@renderer/app/components/menu-shortcuts";
 import { useI18n } from "@renderer/i18n";
 import { DialogScrim } from "@renderer/ui/DialogScrim";
-import { createDialogKeyDownHandler } from "@renderer/ui/dialog-keyboard";
 import { useDialogInitialFocus } from "@renderer/ui/use-dialog-initial-focus";
+import { useDialogKeyboardShortcuts } from "@renderer/ui/use-dialog-keyboard-shortcuts";
 
 interface HelpFeature {
   icon: LucideIcon;
@@ -51,7 +51,7 @@ export const HelpTutorialDialog = ({
   onClose,
 }: HelpTutorialDialogProps) => {
   const { copy } = useI18n();
-  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const dialogRef = useRef<HTMLDialogElement | null>(null);
   const sections = useMemo<HelpSection[]>(
     () => [
       {
@@ -190,6 +190,7 @@ export const HelpTutorialDialog = ({
   );
 
   useDialogInitialFocus(dialogRef, open);
+  useDialogKeyboardShortcuts({ onClose }, open);
 
   if (!open) {
     return null;
@@ -197,12 +198,10 @@ export const HelpTutorialDialog = ({
 
   return (
     <DialogScrim onClose={onClose}>
-      <div
+      <dialog
+        open
         ref={dialogRef}
         className="help-dialog"
-        onClick={(event) => event.stopPropagation()}
-        onKeyDown={createDialogKeyDownHandler({ onClose })}
-        role="dialog"
         aria-modal="true"
         aria-label={copy.helpDialog.ariaLabel}
         tabIndex={-1}
@@ -261,7 +260,7 @@ export const HelpTutorialDialog = ({
             </section>
           ))}
         </div>
-      </div>
+      </dialog>
     </DialogScrim>
   );
 };

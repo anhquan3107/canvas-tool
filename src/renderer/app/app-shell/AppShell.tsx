@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -104,16 +105,32 @@ const useAppShell = ({
   const [topbarAnimating, setTopbarAnimating] = useState(false);
   const [lockedCanvasInteractionPulse, setLockedCanvasInteractionPulse] =
     useState(false);
-  const initialSavedWindowOpacity = useMemo(
-    () => clampWindowOpacity(initialWindowOpacity),
-    [initialWindowOpacity],
-  );
   const topbarVisibleRef = useRef(true);
   const topbarAnimatingRef = useRef(false);
-  const savedWindowOpacityRef = useRef(initialSavedWindowOpacity);
-  const [windowOpacity, setWindowOpacity] = useState(() =>
-    clampWindowOpacity(initialWindowOpacity),
-  );
+  const savedWindowOpacityRef = useRef<number | null>(null);
+  if (savedWindowOpacityRef.current === null) {
+    savedWindowOpacityRef.current = clampWindowOpacity(initialWindowOpacity);
+  }
+  const [windowOpacityState, setWindowOpacityState] = useState(() => ({
+    sourceOpacity: initialWindowOpacity,
+    value: clampWindowOpacity(initialWindowOpacity),
+  }));
+  let windowOpacity = windowOpacityState.value;
+  if (windowOpacityState.sourceOpacity !== initialWindowOpacity) {
+    const nextOpacity = clampWindowOpacity(initialWindowOpacity);
+    savedWindowOpacityRef.current = nextOpacity;
+    setWindowOpacityState({
+      sourceOpacity: initialWindowOpacity,
+      value: nextOpacity,
+    });
+    windowOpacity = nextOpacity;
+  }
+  const setWindowOpacity = useCallback((nextOpacity: number) => {
+    setWindowOpacityState((current) => ({
+      ...current,
+      value: clampWindowOpacity(nextOpacity),
+    }));
+  }, []);
 
   const {
     recentFiles,
@@ -369,12 +386,6 @@ const useAppShell = ({
   const { importQueue, setImportQueue } = useImportQueueSession(project);
 
   useEffect(() => {
-    const nextOpacity = clampWindowOpacity(initialWindowOpacity);
-    savedWindowOpacityRef.current = nextOpacity;
-    setWindowOpacity(nextOpacity);
-  }, [initialWindowOpacity]);
-
-  useEffect(() => {
     if (!toast || typeof toast.progress !== "number") {
       progressToastControllerRef.current = null;
     }
@@ -533,8 +544,20 @@ const useAppShell = ({
     "--status-pill-hover-bg": `rgba(18, 18, 20, ${0.68 * windowOpacity})`,
   } as CSSProperties;
   const windowSurfaceColor = hexToRgba(appShellBackgroundColor, windowOpacity);
+  const activeCropSession =
+    activeGroup?.locked || selectedStatusImage?.id !== cropSession?.itemId
+      ? null
+      : cropSession;
 
-  useEffect(() => {
+  if (cropSession !== activeCropSession) {
+    setCropSession(activeCropSession);
+  }
+
+  if (activeGroup?.locked && selectedItemIds.length > 0) {
+    setSelectedItemIds([]);
+  }
+
+  useLayoutEffect(() => {
     const root = document.documentElement;
     const body = document.body;
     const appRoot = document.getElementById("root");
@@ -849,29 +872,13 @@ const useAppShell = ({
     [],
   );
 
-  useEffect(() => {
-    if (!activeGroup?.locked || !cropSession) {
-      return;
-    }
-
-    setCropSession(null);
-  }, [activeGroup?.locked, cropSession]);
-
-  useEffect(() => {
-    if (!activeGroup?.locked || selectedItemIds.length === 0) {
-      return;
-    }
-
-    setSelectedItemIds([]);
-  }, [activeGroup?.locked, selectedItemIds.length, setSelectedItemIds]);
-
   const handleToggleCanvasLock = useCallback(() => {
     if (!activeGroup) {
       return;
     }
 
     if (!activeGroup.locked) {
-      if (cropSession) {
+      if (activeCropSession) {
         setCropSession(null);
       }
       if (selectedItemIds.length > 0) {
@@ -881,8 +888,8 @@ const useAppShell = ({
 
     toggleCanvasLock();
   }, [
+    activeCropSession,
     activeGroup,
-    cropSession,
     selectedItemIds.length,
     setCropSession,
     setSelectedItemIds,
@@ -1033,13 +1040,13 @@ const useAppShell = ({
   }, [handleOpenBackgroundColorDialog, windowOpacity]);
 
   const handleCloseBackgroundColorDialogWithOpacity = useCallback(() => {
-    setWindowOpacity(savedWindowOpacityRef.current);
+    setWindowOpacity(savedWindowOpacityRef.current ?? 1);
     handleCloseBackgroundColorDialog();
-  }, [handleCloseBackgroundColorDialog]);
+  }, [handleCloseBackgroundColorDialog, setWindowOpacity]);
 
   const handleWindowOpacityChange = useCallback((nextOpacity: number) => {
     setWindowOpacity(clampWindowOpacity(nextOpacity));
-  }, []);
+  }, [setWindowOpacity]);
 
   const handleConfirmBackgroundColorDialogWithOpacity = useCallback(
     async (colors: {
@@ -1054,18 +1061,8 @@ const useAppShell = ({
       savedWindowOpacityRef.current = nextOpacity;
       handleConfirmBackgroundColorDialog(colors);
     },
-    [handleConfirmBackgroundColorDialog, windowOpacity],
+    [handleConfirmBackgroundColorDialog, setWindowOpacity, windowOpacity],
   );
-
-  useEffect(() => {
-    if (!cropSession) {
-      return;
-    }
-
-    if (selectedStatusImage?.id !== cropSession.itemId) {
-      setCropSession(null);
-    }
-  }, [cropSession, selectedStatusImage]);
 
   const {
     activeDoodleSize,
@@ -1083,7 +1080,7 @@ const useAppShell = ({
     displayGroup,
     doodleMode,
     eraserSize,
-    cropSession,
+    cropSession: activeCropSession,
     pushToast,
     resetView,
     selectedStatusImage,
@@ -1278,16 +1275,22 @@ const useAppShell = ({
           seenTitleBarTooltips={seenTitleBarTooltips}
           settingsOpen={settingsOpen}
           selectedCount={selectedItemIds.length}
-          canCropSelected={Boolean(selectedStatusImage)}
-          canPaste={clipboardItems.length > 0}
-          canExportSelectedTask={Boolean(exportSelectedTask)}
-          canExportAnyTask={project.tasks.length > 0}
-          canvasLocked={activeGroup?.locked ?? false}
-          lockedCanvasInteractionPulse={lockedCanvasInteractionPulse}
-          canUndo={canUndo}
-          canRedo={canRedo}
-          windowMaximized={windowMaximized}
-          windowAlwaysOnTop={windowAlwaysOnTop}
+          menuAvailability={{
+            cropSelected: Boolean(selectedStatusImage),
+            paste: clipboardItems.length > 0,
+            exportSelectedTask: Boolean(exportSelectedTask),
+            exportAnyTask: project.tasks.length > 0,
+            undo: canUndo,
+            redo: canRedo,
+          }}
+          canvasState={{
+            locked: activeGroup?.locked ?? false,
+            lockedInteractionPulse: lockedCanvasInteractionPulse,
+          }}
+          windowState={{
+            maximized: windowMaximized,
+            alwaysOnTop: windowAlwaysOnTop,
+          }}
           onBrandClick={handleBrandClick}
           onToggleSettings={handleToggleSettings}
           onShowHelp={handleShowHelp}
@@ -1414,7 +1417,7 @@ const useAppShell = ({
                   doodleColor={doodleColor}
                   doodleSize={activeDoodleSize}
                   selectedItemIds={selectedItemIds}
-                  cropSession={cropSession}
+                  cropSession={activeCropSession}
                   onCropRectChange={(rect) =>
                     setCropSession((previous) =>
                       previous ? { ...previous, rect } : previous,
@@ -1618,14 +1621,16 @@ const useAppShell = ({
           y={menuState.y}
           shortcutBindings={shortcutBindings}
           selectedCount={selectedItemIds.length}
-          canCropSelected={Boolean(selectedStatusImage)}
-          canExportSwatch={canExportSelectedSwatch}
-          canPaste={clipboardItems.length > 0}
-          canExportSelectedTask={Boolean(exportSelectedTask)}
-          canExportAnyTask={project.tasks.length > 0}
-          canDeleteActiveGroup={canDeleteActiveGroup}
-          canUndo={canUndo}
-          canRedo={canRedo}
+          availability={{
+            cropSelected: Boolean(selectedStatusImage),
+            exportSwatch: canExportSelectedSwatch,
+            paste: clipboardItems.length > 0,
+            exportSelectedTask: Boolean(exportSelectedTask),
+            exportAnyTask: project.tasks.length > 0,
+            deleteActiveGroup: canDeleteActiveGroup,
+            undo: canUndo,
+            redo: canRedo,
+          }}
           onClose={() => setMenuState(null)}
           onUndo={() => {
             setMenuState(null);

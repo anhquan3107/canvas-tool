@@ -2,9 +2,11 @@ import {
   startTransition,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import type { CanvasItem, ReferenceGroup } from "@shared/types/project";
 import { useI18n } from "@renderer/i18n";
@@ -42,6 +44,25 @@ const CONTEXT_MENU_HEIGHT = 80;
 const CONTEXT_MENU_MARGIN = 10;
 const CUSTOM_ASSET_PROTOCOL_PREFIX = "canvastool-asset://";
 const GROUP_PREVIEW_PREWARM_CONCURRENCY = 4;
+const SCROLL_INDICATOR_UP = 1;
+const SCROLL_INDICATOR_DOWN = 2;
+
+const getScrollIndicatorMask = (
+  stack: HTMLDivElement | null,
+  open: boolean,
+) => {
+  if (!open || !stack) {
+    return 0;
+  }
+
+  const maxScrollTop = stack.scrollHeight - stack.clientHeight;
+  return (
+    (stack.scrollTop > 1 ? SCROLL_INDICATOR_UP : 0) |
+    (stack.scrollTop < maxScrollTop - 1 ? SCROLL_INDICATOR_DOWN : 0)
+  );
+};
+
+const getServerScrollIndicatorMask = () => 0;
 
 const groupPreviewResolvedSrcCache = new Map<string, Promise<string>>();
 const groupPreviewObjectUrlCache = new Map<string, string>();
@@ -381,10 +402,6 @@ const useGroupOverlay = ({
     x: number;
     y: number;
   } | null>(null);
-  const [scrollIndicators, setScrollIndicators] = useState({
-    up: false,
-    down: false,
-  });
   const stackRef = useRef<HTMLDivElement | null>(null);
   const autoHideTimerRef = useRef<number | null>(null);
   const visibleMenuState = open ? menuState : null;
@@ -436,82 +453,87 @@ const useGroupOverlay = ({
     }
   }, []);
 
+  const closeOverlayFromAutoHide = useCallback(() => {
+    setMenuState(null);
+    onOpenChange(false);
+  }, [onOpenChange]);
+
   const scheduleAutoHide = useCallback(() => {
     clearAutoHideTimer();
     if (!open || visibleMenuState) {
       return;
     }
 
-    autoHideTimerRef.current = window.setTimeout(() => {
-      setMenuState(null);
-      onOpenChange(false);
-    }, AUTO_HIDE_DELAY_MS);
-  }, [clearAutoHideTimer, onOpenChange, open, visibleMenuState]);
+    autoHideTimerRef.current = window.setTimeout(
+      closeOverlayFromAutoHide,
+      AUTO_HIDE_DELAY_MS,
+    );
+  }, [clearAutoHideTimer, closeOverlayFromAutoHide, open, visibleMenuState]);
 
   const registerInteraction = useCallback(() => {
     if (!open) {
+      clearAutoHideTimer();
       setMenuState(null);
       onOpenChange(true);
+      autoHideTimerRef.current = window.setTimeout(
+        closeOverlayFromAutoHide,
+        AUTO_HIDE_DELAY_MS,
+      );
       return;
     }
 
     scheduleAutoHide();
-  }, [onOpenChange, open, scheduleAutoHide]);
+  }, [
+    clearAutoHideTimer,
+    closeOverlayFromAutoHide,
+    onOpenChange,
+    open,
+    scheduleAutoHide,
+  ]);
 
-  const updateScrollIndicators = useCallback(() => {
-    const stack = stackRef.current;
-    if (!open || !stack) {
-      return;
-    }
+  const subscribeScrollIndicators = useCallback(
+    (onStoreChange: () => void) => {
+      const stack = stackRef.current;
+      if (!open || !stack) {
+        return () => undefined;
+      }
 
-    const maxScrollTop = stack.scrollHeight - stack.clientHeight;
-    const nextIndicators = {
-      up: stack.scrollTop > 1,
-      down: stack.scrollTop < maxScrollTop - 1,
-    };
+      const resizeObserver = new ResizeObserver(onStoreChange);
+      resizeObserver.observe(stack);
+      stack.addEventListener("scroll", onStoreChange, { passive: true });
+      onStoreChange();
 
-    setScrollIndicators((current) =>
-      current.up === nextIndicators.up && current.down === nextIndicators.down
-        ? current
-        : nextIndicators,
-    );
-  }, [open]);
+      return () => {
+        resizeObserver.disconnect();
+        stack.removeEventListener("scroll", onStoreChange);
+      };
+    },
+    [open],
+  );
 
-  useEffect(() => {
+  const getScrollIndicatorSnapshot = useCallback(
+    () => getScrollIndicatorMask(stackRef.current, open),
+    [open],
+  );
+
+  const scrollIndicatorMask = useSyncExternalStore(
+    subscribeScrollIndicators,
+    getScrollIndicatorSnapshot,
+    getServerScrollIndicatorMask,
+  );
+  const showScrollCueUp = Boolean(scrollIndicatorMask & SCROLL_INDICATOR_UP);
+  const showScrollCueDown = Boolean(scrollIndicatorMask & SCROLL_INDICATOR_DOWN);
+
+  useLayoutEffect(() => {
     if (!open) {
       clearAutoHideTimer();
       return;
     }
 
-    clearAutoHideTimer();
-    if (!visibleMenuState) {
-      autoHideTimerRef.current = window.setTimeout(() => {
-        setMenuState(null);
-        onOpenChange(false);
-      }, AUTO_HIDE_DELAY_MS);
-    }
+    scheduleAutoHide();
 
     return clearAutoHideTimer;
-  }, [clearAutoHideTimer, onOpenChange, open, visibleMenuState]);
-
-  useEffect(() => {
-    updateScrollIndicators();
-  }, [orderedGroups.length, updateScrollIndicators]);
-
-  useEffect(() => {
-    const stack = stackRef.current;
-    if (!open || !stack) {
-      return;
-    }
-
-    const resizeObserver = new ResizeObserver(updateScrollIndicators);
-    resizeObserver.observe(stack);
-    updateScrollIndicators();
-
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, [open, updateScrollIndicators]);
+  }, [clearAutoHideTimer, open, scheduleAutoHide]);
 
   useEffect(() => {
     if (!visibleMenuState) {
@@ -605,7 +627,6 @@ const useGroupOverlay = ({
         className="group-preview-stack"
         aria-hidden={!open}
         onScroll={() => {
-          updateScrollIndicators();
           registerInteraction();
         }}
       >
@@ -647,13 +668,13 @@ const useGroupOverlay = ({
           </div>
         ))}
       </div>
-      {open && scrollIndicators.up ? (
+      {open && showScrollCueUp ? (
         <div
           className="group-preview-scroll-cue group-preview-scroll-cue-top"
           aria-hidden="true"
         />
       ) : null}
-      {open && scrollIndicators.down ? (
+      {open && showScrollCueDown ? (
         <div
           className="group-preview-scroll-cue group-preview-scroll-cue-bottom"
           aria-hidden="true"

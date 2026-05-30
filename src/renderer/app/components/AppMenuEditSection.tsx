@@ -7,11 +7,13 @@ interface AppMenuEditSectionProps {
   shortcutBindings: ShortcutBindings;
   canvasLocked: boolean;
   selectedCount: number;
-  canCropSelected: boolean;
-  canExportSwatch: boolean;
-  canPaste: boolean;
-  canUndo: boolean;
-  canRedo: boolean;
+  availability: {
+    cropSelected: boolean;
+    exportSwatch: boolean;
+    paste: boolean;
+    undo: boolean;
+    redo: boolean;
+  };
   onCopySelected: () => void;
   onCutSelected: () => void;
   onPaste: () => void;
@@ -29,11 +31,7 @@ export const AppMenuEditSection = ({
   shortcutBindings,
   canvasLocked,
   selectedCount,
-  canCropSelected,
-  canExportSwatch,
-  canPaste,
-  canUndo,
-  canRedo,
+  availability,
   onCopySelected,
   onCutSelected,
   onPaste,
@@ -68,7 +66,11 @@ export const AppMenuEditSection = ({
             )}
           />
         </button>
-        <button type="button" onClick={onPaste} disabled={!canPaste || canvasLocked}>
+        <button
+          type="button"
+          onClick={onPaste}
+          disabled={!availability.paste || canvasLocked}
+        >
           <MenuItemContent
             {...getMenuActionContentProps(
               shortcutBindings,
@@ -90,7 +92,7 @@ export const AppMenuEditSection = ({
         <button
           type="button"
           onClick={onCropSelected}
-          disabled={!canCropSelected || canvasLocked}
+          disabled={!availability.cropSelected || canvasLocked}
         >
           <MenuItemContent
             {...getMenuActionContentProps(
@@ -127,7 +129,7 @@ export const AppMenuEditSection = ({
         <button
           type="button"
           onClick={onExportSwatch}
-          disabled={!canExportSwatch}
+          disabled={!availability.exportSwatch}
         >
           <MenuItemContent
             {...getMenuActionContentProps(
@@ -143,7 +145,11 @@ export const AppMenuEditSection = ({
 
   return (
     <>
-      <button type="button" onClick={onUndo} disabled={!canUndo || canvasLocked}>
+      <button
+        type="button"
+        onClick={onUndo}
+        disabled={!availability.undo || canvasLocked}
+      >
         <MenuItemContent
           {...getMenuActionContentProps(
             shortcutBindings,
@@ -152,7 +158,11 @@ export const AppMenuEditSection = ({
           )}
         />
       </button>
-      <button type="button" onClick={onRedo} disabled={!canRedo || canvasLocked}>
+      <button
+        type="button"
+        onClick={onRedo}
+        disabled={!availability.redo || canvasLocked}
+      >
         <MenuItemContent
           {...getMenuActionContentProps(
             shortcutBindings,
@@ -161,7 +171,7 @@ export const AppMenuEditSection = ({
           )}
         />
       </button>
-      {canPaste ? (
+      {availability.paste ? (
         <button type="button" onClick={onPaste} disabled={canvasLocked}>
           <MenuItemContent
             {...getMenuActionContentProps(
@@ -178,7 +188,7 @@ export const AppMenuEditSection = ({
           <button
             type="button"
             onClick={onCropSelected}
-            disabled={!canCropSelected || canvasLocked}
+            disabled={!availability.cropSelected || canvasLocked}
           >
             <MenuItemContent
               {...getMenuActionContentProps(

@@ -1,6 +1,4 @@
-import type { KeyboardEventHandler } from "react";
-
-interface DialogKeyboardOptions {
+export interface DialogKeyboardOptions {
   onClose: () => void;
   onConfirm?: () => void;
   confirmDisabled?: boolean;
@@ -58,44 +56,48 @@ const shouldHandleEnterConfirm = (target: EventTarget | null) => {
   return false;
 };
 
-export const createDialogKeyDownHandler = ({
-  onClose,
-  onConfirm,
-  confirmDisabled = false,
-}: DialogKeyboardOptions): KeyboardEventHandler<HTMLElement> => {
-  return (event) => {
-    if (event.defaultPrevented || event.nativeEvent.isComposing) {
-      return;
-    }
+const handleDialogKeyboardEvent = (
+  event: KeyboardEvent,
+  {
+    onClose,
+    onConfirm,
+    confirmDisabled = false,
+  }: DialogKeyboardOptions,
+) => {
+  if (event.defaultPrevented || event.isComposing) {
+    return;
+  }
 
-    if (event.key === "Escape") {
-      event.preventDefault();
-      event.stopPropagation();
-      onClose();
-      return;
-    }
-
-    if (
-      event.key !== "Enter" &&
-      event.key !== "NumpadEnter"
-    ) {
-      return;
-    }
-
-    if (
-      !onConfirm ||
-      confirmDisabled ||
-      event.altKey ||
-      event.ctrlKey ||
-      event.metaKey ||
-      event.shiftKey ||
-      !shouldHandleEnterConfirm(event.target)
-    ) {
-      return;
-    }
-
+  if (event.key === "Escape") {
     event.preventDefault();
     event.stopPropagation();
-    onConfirm();
+    onClose();
+    return;
+  }
+
+  if (event.key !== "Enter" && event.key !== "NumpadEnter") {
+    return;
+  }
+
+  if (
+    !onConfirm ||
+    confirmDisabled ||
+    event.altKey ||
+    event.ctrlKey ||
+    event.metaKey ||
+    event.shiftKey ||
+    !shouldHandleEnterConfirm(event.target)
+  ) {
+    return;
+  }
+
+  event.preventDefault();
+  event.stopPropagation();
+  onConfirm();
+};
+
+export const createDialogDomKeyDownHandler = (options: DialogKeyboardOptions) => {
+  return (event: KeyboardEvent) => {
+    handleDialogKeyboardEvent(event, options);
   };
 };

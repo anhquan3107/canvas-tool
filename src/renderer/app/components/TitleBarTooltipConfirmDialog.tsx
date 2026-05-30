@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { DialogScrim } from "@renderer/ui/DialogScrim";
-import { createDialogKeyDownHandler } from "@renderer/ui/dialog-keyboard";
 import { useDialogInitialFocus } from "@renderer/ui/use-dialog-initial-focus";
+import { useDialogKeyboardShortcuts } from "@renderer/ui/use-dialog-keyboard-shortcuts";
 import { useI18n } from "@renderer/i18n";
 
 const shortcutTokens = (shortcut?: string) => {
@@ -35,9 +35,10 @@ export const TitleBarTooltipConfirmDialog = ({
   onClose,
 }: TitleBarTooltipConfirmDialogProps) => {
   const { copy } = useI18n();
-  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const dialogRef = useRef<HTMLDialogElement | null>(null);
 
   useDialogInitialFocus(dialogRef, open);
+  useDialogKeyboardShortcuts({ onClose, onConfirm }, open);
 
   if (!open) {
     return null;
@@ -56,17 +57,12 @@ export const TitleBarTooltipConfirmDialog = ({
       role="presentation"
       onClose={onClose}
     >
-      <div
+      <dialog
+        open
         ref={dialogRef}
         className="dialog-card titlebar-tooltip-dialog"
-        role="dialog"
         aria-modal="true"
         aria-label={`${label} ${copy.topbar.toolGuideAriaSuffix}`}
-        onClick={(event) => event.stopPropagation()}
-        onKeyDown={createDialogKeyDownHandler({
-          onClose,
-          onConfirm,
-        })}
         tabIndex={-1}
       >
         <div className="titlebar-tooltip-dialog-topbar">
@@ -115,7 +111,7 @@ export const TitleBarTooltipConfirmDialog = ({
             {resolvedConfirmLabel}
           </button>
         </div>
-      </div>
+      </dialog>
     </DialogScrim>
   );
 };

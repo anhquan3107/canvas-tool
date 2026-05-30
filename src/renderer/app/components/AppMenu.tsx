@@ -10,14 +10,16 @@ import { AppMenuTaskSection } from "@renderer/app/components/AppMenuTaskSection"
 interface AppMenuProps extends MenuState {
   shortcutBindings: ShortcutBindings;
   selectedCount: number;
-  canCropSelected: boolean;
-  canExportSwatch: boolean;
-  canPaste: boolean;
-  canExportSelectedTask: boolean;
-  canExportAnyTask: boolean;
-  canDeleteActiveGroup: boolean;
-  canUndo: boolean;
-  canRedo: boolean;
+  availability: {
+    cropSelected: boolean;
+    exportSwatch: boolean;
+    paste: boolean;
+    exportSelectedTask: boolean;
+    exportAnyTask: boolean;
+    deleteActiveGroup: boolean;
+    undo: boolean;
+    redo: boolean;
+  };
   onClose: () => void;
   onUndo: () => void;
   onRedo: () => void;
@@ -61,14 +63,7 @@ export const AppMenu = ({
   y,
   shortcutBindings,
   selectedCount,
-  canCropSelected,
-  canExportSwatch,
-  canPaste,
-  canExportSelectedTask,
-  canExportAnyTask,
-  canDeleteActiveGroup,
-  canUndo,
-  canRedo,
+  availability,
   onClose,
   onUndo,
   onRedo,
@@ -148,7 +143,14 @@ export const AppMenu = ({
       horizontal,
       vertical,
     });
-  }, [x, y, selectedCount, canPaste, canExportSelectedTask, canExportAnyTask]);
+  }, [
+    x,
+    y,
+    selectedCount,
+    availability.paste,
+    availability.exportSelectedTask,
+    availability.exportAnyTask,
+  ]);
 
   return (
     <div
@@ -169,11 +171,13 @@ export const AppMenu = ({
           shortcutBindings={shortcutBindings}
           canvasLocked={canvasLocked}
           selectedCount={selectedCount}
-          canCropSelected={canCropSelected}
-          canExportSwatch={canExportSwatch}
-          canPaste={canPaste}
-          canUndo={canUndo}
-          canRedo={canRedo}
+          availability={{
+            cropSelected: availability.cropSelected,
+            exportSwatch: availability.exportSwatch,
+            paste: availability.paste,
+            undo: availability.undo,
+            redo: availability.redo,
+          }}
           onCopySelected={onCopySelected}
           onCutSelected={onCutSelected}
           onPaste={onPaste}
@@ -190,8 +194,8 @@ export const AppMenu = ({
         <>
           <AppMenuFileSection
             shortcutBindings={shortcutBindings}
-            canExportSelectedTask={canExportSelectedTask}
-            canExportAnyTask={canExportAnyTask}
+            canExportSelectedTask={availability.exportSelectedTask}
+            canExportAnyTask={availability.exportAnyTask}
             onOpen={onOpen}
             onSave={onSave}
             onSaveAs={onSaveAs}
@@ -208,7 +212,7 @@ export const AppMenu = ({
           <AppMenuCanvasSection
             shortcutBindings={shortcutBindings}
             canvasLocked={canvasLocked}
-            canDeleteActiveGroup={canDeleteActiveGroup}
+            canDeleteActiveGroup={availability.deleteActiveGroup}
             onResetView={onResetView}
             onFitCanvasToContent={onFitCanvasToContent}
             onChangeCanvasSize={onChangeCanvasSize}
@@ -226,8 +230,8 @@ export const AppMenu = ({
           <AppMenuTaskSection
             shortcutBindings={shortcutBindings}
             canvasLocked={canvasLocked}
-            canExportSelectedTask={canExportSelectedTask}
-            canExportAnyTask={canExportAnyTask}
+            canExportSelectedTask={availability.exportSelectedTask}
+            canExportAnyTask={availability.exportAnyTask}
             onCreateTask={onCreateTask}
             onExportSelectedTaskHtml={onExportSelectedTaskHtml}
             onExportAllTasksHtml={onExportAllTasksHtml}
@@ -240,11 +244,13 @@ export const AppMenu = ({
             shortcutBindings={shortcutBindings}
             canvasLocked={canvasLocked}
             selectedCount={selectedCount}
-            canCropSelected={canCropSelected}
-            canExportSwatch={canExportSwatch}
-            canPaste={canPaste}
-            canUndo={canUndo}
-            canRedo={canRedo}
+            availability={{
+              cropSelected: availability.cropSelected,
+              exportSwatch: availability.exportSwatch,
+              paste: availability.paste,
+              undo: availability.undo,
+              redo: availability.redo,
+            }}
             onCopySelected={onCopySelected}
             onCutSelected={onCutSelected}
             onPaste={onPaste}

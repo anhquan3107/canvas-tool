@@ -6,6 +6,8 @@ import {
   useMemo,
   useRef,
   useState,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
 } from "react";
 import type { AppWindowControlsState } from "@shared/types/ipc";
 import {
@@ -323,6 +325,83 @@ const useCaptureToolbarApp = () => {
     toggleMaximize();
   }, [toggleMaximize]);
 
+  const handleResizePointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (event.button !== 0) {
+        clearQueuedCaptureFocus();
+        return;
+      }
+
+      setTopbarPointerActive(true);
+      queueCaptureFocusOnRelease();
+    },
+    [clearQueuedCaptureFocus, queueCaptureFocusOnRelease, setTopbarPointerActive],
+  );
+
+  const handleTopbarPointerDown = useCallback(
+    (event: ReactPointerEvent<HTMLElement>) => {
+      if (event.button !== 0) {
+        setTopbarPointerActive(false);
+        clearQueuedCaptureFocus();
+        return;
+      }
+
+      setTopbarPointerActive(true);
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        if (event.detail === 2) {
+          event.preventDefault();
+          toggleMaximizeFromPointerDoubleClick();
+          return;
+        }
+
+        queueCaptureFocusOnRelease();
+        return;
+      }
+
+      if (target.closest("[data-window-no-drag='true']")) {
+        clearQueuedCaptureFocus();
+        return;
+      }
+
+      if (event.detail === 2) {
+        event.preventDefault();
+        toggleMaximizeFromPointerDoubleClick();
+        return;
+      }
+
+      queueCaptureFocusOnRelease();
+    },
+    [
+      clearQueuedCaptureFocus,
+      queueCaptureFocusOnRelease,
+      setTopbarPointerActive,
+      toggleMaximizeFromPointerDoubleClick,
+    ],
+  );
+
+  const handleTopbarDoubleClick = useCallback(
+    (event: ReactMouseEvent<HTMLElement>) => {
+      if (
+        performance.now() - lastPointerDoubleClickToggleRef.current <
+        DOUBLE_CLICK_TOGGLE_SUPPRESS_MS
+      ) {
+        return;
+      }
+
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        target.closest("[data-window-no-drag='true']")
+      ) {
+        return;
+      }
+
+      toggleMaximize();
+    },
+    [toggleMaximize],
+  );
+
   return (
     <div
       className={`capture-toolbar-shell ${topbarVisible ? "toolbar-visible" : "toolbar-hidden"
@@ -335,15 +414,7 @@ const useCaptureToolbarApp = () => {
             className={`capture-window-resize-handle capture-window-resize-${direction}`}
             data-window-resize={direction}
             data-window-no-drag="true"
-            onPointerDown={(event) => {
-              if (event.button !== 0) {
-                clearQueuedCaptureFocus();
-                return;
-              }
-
-              setTopbarPointerActive(true);
-              queueCaptureFocusOnRelease();
-            }}
+            onPointerDown={handleResizePointerDown}
             aria-hidden="true"
           />
         ))
@@ -351,57 +422,8 @@ const useCaptureToolbarApp = () => {
       <header
         className="capture-window-topbar"
         data-window-left-drag="true"
-        onPointerDown={(event) => {
-          if (event.button !== 0) {
-            setTopbarPointerActive(false);
-            clearQueuedCaptureFocus();
-            return;
-          }
-
-          setTopbarPointerActive(true);
-          const target = event.target;
-          if (!(target instanceof HTMLElement)) {
-            if (event.detail === 2) {
-              event.preventDefault();
-              toggleMaximizeFromPointerDoubleClick();
-              return;
-            }
-
-            queueCaptureFocusOnRelease();
-            return;
-          }
-
-          if (target.closest("[data-window-no-drag='true']")) {
-            clearQueuedCaptureFocus();
-            return;
-          }
-
-          if (event.detail === 2) {
-            event.preventDefault();
-            toggleMaximizeFromPointerDoubleClick();
-            return;
-          }
-
-          queueCaptureFocusOnRelease();
-        }}
-        onDoubleClick={(event) => {
-          if (
-            performance.now() - lastPointerDoubleClickToggleRef.current <
-            DOUBLE_CLICK_TOGGLE_SUPPRESS_MS
-          ) {
-            return;
-          }
-
-          const target = event.target;
-          if (
-            target instanceof HTMLElement &&
-            target.closest("[data-window-no-drag='true']")
-          ) {
-            return;
-          }
-
-          toggleMaximize();
-        }}
+        onPointerDown={handleTopbarPointerDown}
+        onDoubleClick={handleTopbarDoubleClick}
         onPointerEnter={() => setTopbarHovered(true)}
         onPointerLeave={() => setTopbarHovered(false)}
       >

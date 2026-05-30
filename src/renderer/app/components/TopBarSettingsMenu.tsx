@@ -9,17 +9,21 @@ import { useI18n } from "@renderer/i18n";
 
 type TopBarMenuKey = "file" | "edit" | "view";
 
+interface TopBarMenuAvailability {
+  cropSelected: boolean;
+  paste: boolean;
+  exportSelectedTask: boolean;
+  exportAnyTask: boolean;
+  undo: boolean;
+  redo: boolean;
+}
+
 interface TopBarSettingsMenuProps {
   shortcutBindings: ShortcutBindings;
   settingsOpen: boolean;
   selectedCount: number;
-  canCropSelected: boolean;
-  canPaste: boolean;
-  canExportSelectedTask: boolean;
-  canExportAnyTask: boolean;
   canvasLocked: boolean;
-  canUndo: boolean;
-  canRedo: boolean;
+  availability: TopBarMenuAvailability;
   onToggleSettings: () => void;
   onOpenProject: () => void;
   onImportTasks: () => void;
@@ -47,18 +51,25 @@ interface TopBarSettingsMenuProps {
   onExit: () => void;
 }
 
-export const TopBarSettingsMenu = ({
+interface TopBarMenuButtonProps extends TopBarSettingsMenuProps {
+  menu: TopBarMenuKey;
+  activeMenu: TopBarMenuKey | null;
+  runMenuAction: (action: () => void) => void;
+  toggleMenu: (menu: TopBarMenuKey) => void;
+  onHoverMenu: (menu: TopBarMenuKey) => void;
+}
+
+const TopBarMenuButton = ({
+  menu,
   shortcutBindings,
   settingsOpen,
   selectedCount,
-  canCropSelected,
-  canPaste,
-  canExportSelectedTask,
-  canExportAnyTask,
   canvasLocked,
-  canUndo,
-  canRedo,
-  onToggleSettings,
+  availability,
+  activeMenu,
+  runMenuAction,
+  toggleMenu,
+  onHoverMenu,
   onOpenProject,
   onImportTasks,
   onSaveProject,
@@ -83,52 +94,17 @@ export const TopBarSettingsMenu = ({
   onUndo,
   onRedo,
   onExit,
-}: TopBarSettingsMenuProps) => {
+}: TopBarMenuButtonProps) => {
   const { copy } = useI18n();
-  const [activeMenu, setActiveMenu] = useState<TopBarMenuKey | null>(null);
   const visibleActiveMenu = settingsOpen ? activeMenu : null;
 
-  const openMenu = (menu: TopBarMenuKey) => {
-    if (!settingsOpen) {
-      onToggleSettings();
-    }
-    setActiveMenu(menu);
-  };
-
-  const closeMenus = () => {
-    if (settingsOpen) {
-      onToggleSettings();
-    }
-    setActiveMenu(null);
-  };
-
-  const toggleMenu = (menu: TopBarMenuKey) => {
-    if (settingsOpen && visibleActiveMenu === menu) {
-      closeMenus();
-      return;
-    }
-
-    openMenu(menu);
-  };
-
-  const runMenuAction = (action: () => void) => {
-    const activeElement = document.activeElement;
-    if (activeElement instanceof HTMLElement) {
-      activeElement.blur();
-    }
-
-    closeMenus();
-    action();
-  };
-
-  const renderMenuButton = (menu: TopBarMenuKey) => (
+  return (
     <div
-      key={menu}
       className="topbar-settings-shell"
       onPointerDown={(event) => event.stopPropagation()}
       onPointerEnter={() => {
         if (settingsOpen) {
-          setActiveMenu(menu);
+          onHoverMenu(menu);
         }
       }}
     >
@@ -149,8 +125,8 @@ export const TopBarSettingsMenu = ({
           {menu === "file" ? (
             <TopBarFileMenu
               shortcutBindings={shortcutBindings}
-              canExportSelectedTask={canExportSelectedTask}
-              canExportAnyTask={canExportAnyTask}
+              canExportSelectedTask={availability.exportSelectedTask}
+              canExportAnyTask={availability.exportAnyTask}
               runMenuAction={runMenuAction}
               onOpenProject={onOpenProject}
               onImportTasks={onImportTasks}
@@ -171,7 +147,7 @@ export const TopBarSettingsMenu = ({
               <button
                 type="button"
                 onClick={() => runMenuAction(onPaste)}
-                disabled={!canPaste}
+                disabled={!availability.paste}
               >
                 <MenuItemContent
                   {...getMenuActionContentProps(
@@ -184,7 +160,7 @@ export const TopBarSettingsMenu = ({
               <button
                 type="button"
                 onClick={() => runMenuAction(onCropSelected)}
-                disabled={!canCropSelected}
+                disabled={!availability.cropSelected}
               >
                 <MenuItemContent
                   {...getMenuActionContentProps(
@@ -213,7 +189,7 @@ export const TopBarSettingsMenu = ({
               <button
                 type="button"
                 onClick={() => runMenuAction(onUndo)}
-                disabled={!canUndo}
+                disabled={!availability.undo}
               >
                 <MenuItemContent
                   {...getMenuActionContentProps(
@@ -226,7 +202,7 @@ export const TopBarSettingsMenu = ({
               <button
                 type="button"
                 onClick={() => runMenuAction(onRedo)}
-                disabled={!canRedo}
+                disabled={!availability.redo}
               >
                 <MenuItemContent
                   {...getMenuActionContentProps(
@@ -269,15 +245,121 @@ export const TopBarSettingsMenu = ({
       ) : null}
     </div>
   );
+};
+
+export const TopBarSettingsMenu = ({
+  shortcutBindings,
+  settingsOpen,
+  selectedCount,
+  canvasLocked,
+  availability,
+  onToggleSettings,
+  onOpenProject,
+  onImportTasks,
+  onSaveProject,
+  onSaveProjectAs,
+  onExportCanvasImage,
+  onExportGroupImages,
+  onExportSelectedTaskHtml,
+  onExportAllTasksHtml,
+  onExportSelectedTaskTxt,
+  onExportAllTasksTxt,
+  onChangeCanvasSize,
+  onToggleCanvasLock,
+  onToggleSwatches,
+  onAutoArrange,
+  onShowBackgroundColor,
+  onResetView,
+  onFitCanvasToContent,
+  onShowShortcuts,
+  onPaste,
+  onCropSelected,
+  onFlipSelectedHorizontally,
+  onUndo,
+  onRedo,
+  onExit,
+}: TopBarSettingsMenuProps) => {
+  const [activeMenu, setActiveMenu] = useState<TopBarMenuKey | null>(null);
+  const visibleActiveMenu = settingsOpen ? activeMenu : null;
+
+  const openMenu = (menu: TopBarMenuKey) => {
+    if (!settingsOpen) {
+      onToggleSettings();
+    }
+    setActiveMenu(menu);
+  };
+
+  const closeMenus = () => {
+    if (settingsOpen) {
+      onToggleSettings();
+    }
+    setActiveMenu(null);
+  };
+
+  const toggleMenu = (menu: TopBarMenuKey) => {
+    if (settingsOpen && visibleActiveMenu === menu) {
+      closeMenus();
+      return;
+    }
+
+    openMenu(menu);
+  };
+
+  const runMenuAction = (action: () => void) => {
+    const activeElement = document.activeElement;
+    if (activeElement instanceof HTMLElement) {
+      activeElement.blur();
+    }
+
+    closeMenus();
+    action();
+  };
+
+  const menuButtonProps = {
+    shortcutBindings,
+    settingsOpen,
+    selectedCount,
+    canvasLocked,
+    availability,
+    activeMenu: visibleActiveMenu,
+    runMenuAction,
+    toggleMenu,
+    onHoverMenu: setActiveMenu,
+    onToggleSettings,
+    onOpenProject,
+    onImportTasks,
+    onSaveProject,
+    onSaveProjectAs,
+    onExportCanvasImage,
+    onExportGroupImages,
+    onExportSelectedTaskHtml,
+    onExportAllTasksHtml,
+    onExportSelectedTaskTxt,
+    onExportAllTasksTxt,
+    onChangeCanvasSize,
+    onToggleCanvasLock,
+    onToggleSwatches,
+    onAutoArrange,
+    onShowBackgroundColor,
+    onResetView,
+    onFitCanvasToContent,
+    onShowShortcuts,
+    onPaste,
+    onCropSelected,
+    onFlipSelectedHorizontally,
+    onUndo,
+    onRedo,
+    onExit,
+  };
 
   return (
     <div
       className="topbar-menu-bar"
       onPointerDown={(event) => event.stopPropagation()}
     >
-      {renderMenuButton("file")}
-      {renderMenuButton("edit")}
-      {renderMenuButton("view")}
+      {(["file", "edit", "view"] satisfies TopBarMenuKey[]).map((menu) => (
+        <TopBarMenuButton key={menu} menu={menu} {...menuButtonProps} />
+      ))}
     </div>
   );
 };

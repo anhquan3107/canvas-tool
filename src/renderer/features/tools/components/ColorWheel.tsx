@@ -276,11 +276,10 @@ const useColorWheel = ({
     }
   };
 
-  useEffect(() => {
-    if (doodleMode !== "brush") {
-      wheelDraggingRef.current = false;
-    }
-  }, [doodleMode]);
+  const changeDoodleMode = (mode: DoodleMode) => {
+    wheelDraggingRef.current = false;
+    onDoodleModeChange(mode);
+  };
 
   useEffect(() => {
     const handlePointerMove = (event: PointerEvent) => {
@@ -377,7 +376,7 @@ const useColorWheel = ({
                 className={doodleMode === "brush" ? "doodle-mode-button active" : "doodle-mode-button"}
                 aria-label={copy.doodle.brush}
                 title={copy.doodle.brush}
-                onClick={() => onDoodleModeChange("brush")}
+                onClick={() => changeDoodleMode("brush")}
               >
                 {copy.doodle.brush}
               </button>
@@ -388,7 +387,7 @@ const useColorWheel = ({
                 }
                 aria-label={copy.doodle.erase}
                 title={copy.doodle.erase}
-                onClick={() => onDoodleModeChange(lastEraserMode)}
+                onClick={() => changeDoodleMode(lastEraserMode)}
               >
                 {copy.doodle.erase}
               </button>
@@ -403,7 +402,7 @@ const useColorWheel = ({
                       ? "doodle-submode-button active"
                       : "doodle-submode-button"
                   }
-                  onClick={() => onDoodleModeChange("erase-line")}
+                  onClick={() => changeDoodleMode("erase-line")}
                 >
                   {copy.doodle.eraseLine}
                 </button>
@@ -414,7 +413,7 @@ const useColorWheel = ({
                       ? "doodle-submode-button active"
                       : "doodle-submode-button"
                   }
-                  onClick={() => onDoodleModeChange("erase-pixel")}
+                  onClick={() => changeDoodleMode("erase-pixel")}
                 >
                   {copy.doodle.erasePixel}
                 </button>

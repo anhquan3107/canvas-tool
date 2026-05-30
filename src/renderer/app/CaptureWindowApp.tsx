@@ -114,8 +114,14 @@ const useCaptureWindowApp = () => {
     },
   );
   const [quality, setQuality] = useState<CaptureQuality>(initial.quality);
-  const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [previewState, setPreviewState] = useState<{
+    loading: boolean;
+    errorMessage: string | null;
+  }>({
+    loading: false,
+    errorMessage: null,
+  });
+  const { loading, errorMessage } = previewState;
   const [dialogOpen, setDialogOpen] = useState(false);
   const [loadingSources, setLoadingSources] = useState(false);
   const [sources, setSources] = useState<CaptureSource[]>([]);
@@ -287,8 +293,10 @@ const useCaptureWindowApp = () => {
     }
 
     let mounted = true;
-    setLoading(true);
-    setErrorMessage(null);
+    setPreviewState({
+      loading: true,
+      errorMessage: null,
+    });
 
     const startStream = async () => {
       const profile = CAPTURE_QUALITY_PROFILES[quality];
@@ -310,7 +318,10 @@ const useCaptureWindowApp = () => {
         await video.play();
       }
 
-      setLoading(false);
+      setPreviewState({
+        loading: false,
+        errorMessage: null,
+      });
     };
 
     void startStream().catch((error) => {
@@ -318,13 +329,14 @@ const useCaptureWindowApp = () => {
         return;
       }
 
-      setLoading(false);
-      setErrorMessage(
-        error instanceof Error &&
+      setPreviewState({
+        loading: false,
+        errorMessage:
+          error instanceof Error &&
           error.message.toLowerCase().includes("permission")
-          ? copy.capture.permissionRequired
-          : copy.capture.previewStartFailed,
-      );
+            ? copy.capture.permissionRequired
+            : copy.capture.previewStartFailed,
+      });
     });
 
     return () => {

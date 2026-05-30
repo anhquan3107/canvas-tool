@@ -174,37 +174,44 @@ export const useTaskDetailPanel = ({
     };
   }, []);
 
-  useEffect(() => {
-    if (!taskCreationPreviewActive || taskOverlayHovered) {
+  const finishTaskCreationPreview = useCallback(() => {
+    if (!taskDetailPinned) {
+      setTaskDetailOpen(false);
+      setPendingTaskSelectionDismissal(true);
+    }
+    setTaskCreationPreviewActive(false);
+
+    if (selectedTaskId) {
+      queueCollapseAfterDeadline();
       return;
     }
 
-    const timeoutId = window.setTimeout(() => {
-      if (!taskDetailPinned) {
-        setTaskDetailOpen(false);
-        setPendingTaskSelectionDismissal(true);
-      }
-      setTaskCreationPreviewActive(false);
-
-      if (selectedTaskId) {
-        queueCollapseAfterDeadline();
-        return;
-      }
-
-      setTaskListExpanded(false);
-    }, TASK_IDLE_TIMEOUT_MS);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
+    setTaskListExpanded(false);
   }, [
     queueCollapseAfterDeadline,
     selectedTaskId,
     setPendingTaskSelectionDismissal,
     setTaskCreationPreviewActive,
     setTaskListExpanded,
-    taskCreationPreviewActive,
     taskDetailPinned,
+  ]);
+
+  useEffect(() => {
+    if (!taskCreationPreviewActive || taskOverlayHovered) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(
+      finishTaskCreationPreview,
+      TASK_IDLE_TIMEOUT_MS,
+    );
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [
+    finishTaskCreationPreview,
+    taskCreationPreviewActive,
     taskOverlayActivityVersion,
     taskOverlayHovered,
   ]);

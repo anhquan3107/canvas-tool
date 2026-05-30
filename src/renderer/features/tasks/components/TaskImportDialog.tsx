@@ -2,8 +2,8 @@ import { useRef } from "react";
 import type { TasksImportResult } from "@shared/types/ipc";
 import { useI18n } from "@renderer/i18n";
 import { DialogScrim } from "@renderer/ui/DialogScrim";
-import { createDialogKeyDownHandler } from "@renderer/ui/dialog-keyboard";
 import { useDialogInitialFocus } from "@renderer/ui/use-dialog-initial-focus";
+import { useDialogKeyboardShortcuts } from "@renderer/ui/use-dialog-keyboard-shortcuts";
 
 type TaskImportMode = "merge" | "replace" | "skip-duplicates";
 
@@ -67,21 +67,20 @@ export const TaskImportDialog = ({
   onClose,
 }: TaskImportDialogProps) => {
   const { copy, locale } = useI18n();
-  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const dialogRef = useRef<HTMLDialogElement | null>(null);
   const fileName = preview.filePath.split(/[\\/]/).pop() ?? preview.filePath;
   const exportedAt = formatExportedAt(preview.exportedAt, locale);
   const visibleTasks = preview.tasks.slice(0, 5);
 
   useDialogInitialFocus(dialogRef);
+  useDialogKeyboardShortcuts({ onClose });
 
   return (
     <DialogScrim onClose={onClose}>
-      <div
+      <dialog
+        open
         ref={dialogRef}
         className="dialog-card task-import-dialog"
-        onClick={(event) => event.stopPropagation()}
-        onKeyDown={createDialogKeyDownHandler({ onClose })}
-        role="dialog"
         aria-modal="true"
         aria-label={copy.tasks.import.ariaLabel}
         tabIndex={-1}
@@ -178,7 +177,7 @@ export const TaskImportDialog = ({
             </button>
           </div>
         </div>
-      </div>
+      </dialog>
     </DialogScrim>
   );
 };

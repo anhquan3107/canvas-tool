@@ -140,7 +140,19 @@ export const CaptureWindowApp = () => {
   useWindowResize(!windowControls.isMaximized, { lockAspectRatio: true });
 
   const toggleDotGainBlackAndWhite = useCallback(() => {
+    setBwFrameReady(false);
     setBwEnabled((previous) => !previous);
+  }, []);
+
+  const applyQuality = useCallback((nextQuality: CaptureQuality) => {
+    setQuality(nextQuality);
+    setSelectedQuality(nextQuality);
+    setPreviewCropInsets(NO_PREVIEW_CROP);
+  }, []);
+
+  const applySourceSelection = useCallback((nextSelection: CaptureSourceSelection) => {
+    setSourceSelection(nextSelection);
+    setPreviewCropInsets(NO_PREVIEW_CROP);
   }, []);
 
   const loadSources = useCallback(async () => {
@@ -246,14 +258,6 @@ export const CaptureWindowApp = () => {
   }, [copy.capture.title, sourceSelection.name]);
 
   useEffect(() => {
-    setSelectedQuality(quality);
-  }, [quality]);
-
-  useEffect(() => {
-    setPreviewCropInsets(NO_PREVIEW_CROP);
-  }, [quality, sourceSelection.id, sourceSelection.kind]);
-
-  useEffect(() => {
     sessionStateRef.current = {
       sourceName: sourceSelection.name,
       quality,
@@ -350,7 +354,6 @@ export const CaptureWindowApp = () => {
     }
 
     context.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
-    setBwFrameReady(false);
   }, [bwEnabled]);
 
   useEffect(() => {
@@ -596,11 +599,12 @@ export const CaptureWindowApp = () => {
         case "set-dialog-open":
           setDialogOpen(message.open);
           if (message.open) {
+            setSelectedQuality(sessionStateRef.current.quality);
             void loadSourcesRef.current();
           }
           break;
         case "set-quality":
-          setQuality(message.quality);
+          applyQuality(message.quality);
           break;
         case "toggle-blur":
           setBlurEnabled((previous) => !previous);
@@ -630,7 +634,7 @@ export const CaptureWindowApp = () => {
         channelRef.current = null;
       }
     };
-  }, [initial.sessionId, toggleDotGainBlackAndWhite]);
+  }, [applyQuality, initial.sessionId, toggleDotGainBlackAndWhite]);
 
   useEffect(() => {
     postSessionMessage({
@@ -741,12 +745,12 @@ export const CaptureWindowApp = () => {
       return;
     }
 
-    setSourceSelection({
+    applySourceSelection({
       id: nextSource.id,
       name: nextSource.name,
       kind: nextSource.kind,
     });
-    setQuality(selectedQuality);
+    applyQuality(selectedQuality);
     setDialogOpen(false);
   };
 

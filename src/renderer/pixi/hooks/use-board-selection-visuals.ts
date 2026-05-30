@@ -1,7 +1,7 @@
 import { Container, Graphics } from "pixi.js";
 import type { CanvasItem } from "@shared/types/project";
 
-export const SELECTION_DIM_ALPHA = 0.34;
+const SELECTION_DIM_ALPHA = 0.34;
 export const SELECTION_HIGHLIGHT_ALPHA = 0.08;
 export const SELECTION_HIGHLIGHT_NAME = "selection-highlight";
 

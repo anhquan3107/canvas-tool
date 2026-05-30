@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 import { Application, Container, Graphics } from "pixi.js";
 import type { ReferenceGroup } from "@shared/types/project";
 import { ZERO_INSETS } from "@renderer/pixi/constants";
@@ -70,9 +70,12 @@ export const useCanvasBoardRefs = ({
   const annotationMaskRef = useRef<Graphics | null>(null);
   const annotationLayerRef = useRef<Graphics | null>(null);
   const annotationPreviewLayerRef = useRef<Graphics | null>(null);
-  const frameByIdRef = useRef(new Map<string, Graphics>());
-  const itemNodeByIdRef = useRef(new Map<string, Container>());
-  const frameMetaByIdRef = useRef(new Map<string, FrameMeta>());
+  const frameById = useMemo(() => new Map<string, Graphics>(), []);
+  const itemNodeById = useMemo(() => new Map<string, Container>(), []);
+  const frameMetaById = useMemo(() => new Map<string, FrameMeta>(), []);
+  const frameByIdRef = useRef(frameById);
+  const itemNodeByIdRef = useRef(itemNodeById);
+  const frameMetaByIdRef = useRef(frameMetaById);
   const selectionIdsRef = useRef(selectedItemIds);
   const groupRef = useRef(group);
   const surfaceOpacityRef = useRef(surfaceOpacity);

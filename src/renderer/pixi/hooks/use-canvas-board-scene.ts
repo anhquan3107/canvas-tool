@@ -480,6 +480,7 @@ export const useCanvasBoardScene = ({
     redrawAnnotations,
     renderTokenRef,
     selectionIdsRef,
+    showSwatchesRef,
     spacePanActiveRef,
     startAnnotationSession,
     syncViewFromGroup,

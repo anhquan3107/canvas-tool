@@ -104,7 +104,7 @@ export const drawAnnotationStroke = (
   }
 };
 
-export const strokeTouchesPoint = (
+const strokeTouchesPoint = (
   stroke: AnnotationStroke,
   point: { x: number; y: number },
   radius: number,
@@ -413,7 +413,7 @@ const getEraseBoundarySample = (
   return boundary;
 };
 
-export const eraseStrokePixelsAlongSegment = (
+const eraseStrokePixelsAlongSegment = (
   stroke: AnnotationStroke,
   start: Point,
   end: Point,

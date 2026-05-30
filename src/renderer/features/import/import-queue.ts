@@ -11,7 +11,7 @@ export interface ImportQueueEntry {
 }
 
 const IMPORT_QUEUE_STORAGE_PREFIX = "canvastool.import-queue.v1";
-export const blockedSuffix = " (preview blocked)";
+const blockedSuffix = " (preview blocked)";
 
 export const toImportQueueStorageKey = (project: Project) => {
   const projectScope = project.filePath ?? project.id;

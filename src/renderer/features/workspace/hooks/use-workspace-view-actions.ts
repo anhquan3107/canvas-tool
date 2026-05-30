@@ -130,7 +130,15 @@ export const useWorkspaceViewActions = ({
         }
       });
     },
-    [activeGroup, activeGroupId, ensureCanvasFitsItems, patchGroupItems, pushToast, runHistoryBatch],
+    [
+      activeGroup,
+      activeGroupId,
+      copy.toasts.canvasLocked,
+      ensureCanvasFitsItems,
+      patchGroupItems,
+      pushToast,
+      runHistoryBatch,
+    ],
   );
 
   const resetView = useCallback(() => {

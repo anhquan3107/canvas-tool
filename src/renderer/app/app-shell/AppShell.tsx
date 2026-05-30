@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -101,9 +102,13 @@ export const AppShell = ({
   const [topbarAnimating, setTopbarAnimating] = useState(false);
   const [lockedCanvasInteractionPulse, setLockedCanvasInteractionPulse] =
     useState(false);
+  const initialSavedWindowOpacity = useMemo(
+    () => clampWindowOpacity(initialWindowOpacity),
+    [initialWindowOpacity],
+  );
   const topbarVisibleRef = useRef(true);
   const topbarAnimatingRef = useRef(false);
-  const savedWindowOpacityRef = useRef(clampWindowOpacity(initialWindowOpacity));
+  const savedWindowOpacityRef = useRef(initialSavedWindowOpacity);
   const [windowOpacity, setWindowOpacity] = useState(() =>
     clampWindowOpacity(initialWindowOpacity),
   );
@@ -377,6 +382,16 @@ export const AppShell = ({
     const detachProgressListener = window.desktopApi.project.onOperationProgress(
       (progress) => {
         const label = progress.message.replace(/\s+\d+%$/, "");
+        if (progress.progress >= 100) {
+          const controller =
+            progressToastControllerRef.current ??
+            beginProgressToast(label, progress.progress);
+          controller.update(progress.progress, progress.message);
+          controller.complete("success", label);
+          progressToastControllerRef.current = null;
+          return;
+        }
+
         if (!progressToastControllerRef.current) {
           progressToastControllerRef.current = beginProgressToast(
             label,

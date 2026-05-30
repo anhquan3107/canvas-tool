@@ -512,10 +512,7 @@ export const CaptureWindowApp = () => {
     };
   }, [
     bwEnabled,
-    previewCropInsets.bottom,
-    previewCropInsets.left,
-    previewCropInsets.right,
-    previewCropInsets.top,
+    previewCropInsets,
     quality,
     sourceSelection.id,
   ]);
@@ -633,7 +630,7 @@ export const CaptureWindowApp = () => {
         channelRef.current = null;
       }
     };
-  }, [initial.sessionId]);
+  }, [initial.sessionId, toggleDotGainBlackAndWhite]);
 
   useEffect(() => {
     postSessionMessage({
@@ -734,10 +731,7 @@ export const CaptureWindowApp = () => {
     };
   }, [
     dialogOpen,
-    previewCropInsets.bottom,
-    previewCropInsets.left,
-    previewCropInsets.right,
-    previewCropInsets.top,
+    previewCropInsets,
     sourceSelection.id,
   ]);
 
@@ -821,6 +815,7 @@ export const CaptureWindowApp = () => {
             <video
               ref={videoRef}
               className="capture-preview-video"
+              aria-label={copy.capture.title}
               muted
               playsInline
               autoPlay

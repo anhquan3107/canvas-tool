@@ -42,7 +42,7 @@ export const toUrlFingerprint = (value: string) => {
   }
 };
 
-export const isHttpUrl = (value: string) => {
+const isHttpUrl = (value: string) => {
   try {
     const url = new URL(normalizeUrlCandidate(value));
     return url.protocol === "http:" || url.protocol === "https:";
@@ -54,7 +54,7 @@ export const isHttpUrl = (value: string) => {
 export const isImportableImageSource = (value: string) =>
   isHttpUrl(value) || isDataImageUrl(value);
 
-export const fileHasSupportedExtension = (name: string) => {
+const fileHasSupportedExtension = (name: string) => {
   const lowered = name.toLowerCase();
   for (const extension of SUPPORTED_EXTENSIONS) {
     if (lowered.endsWith(extension)) {

@@ -348,5 +348,5 @@ export const useAppShortcuts = ({
 
     window.addEventListener("paste", onPaste);
     return () => window.removeEventListener("paste", onPaste);
-  }, [importFromPayload, pasteClipboardItems]);
+  }, [clipboardItems.length, importFromPayload, pasteClipboardItems]);
 };

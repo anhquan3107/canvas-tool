@@ -190,7 +190,7 @@ export const CaptureToolbarApp = () => {
       window.removeEventListener("blur", clearHoverState);
       document.removeEventListener("visibilitychange", clearHoverState);
     };
-  }, [clearQueuedCaptureFocus]);
+  }, [clearQueuedCaptureFocus, setTopbarHovered, setTopbarPointerActive]);
 
   useEffect(() => {
     const handlePointerFinish = () => {
@@ -214,7 +214,7 @@ export const CaptureToolbarApp = () => {
       window.removeEventListener("mouseup", handlePointerFinish);
       window.removeEventListener("blur", handleWindowBlur);
     };
-  }, [clearQueuedCaptureFocus, flushQueuedCaptureFocus]);
+  }, [clearQueuedCaptureFocus, flushQueuedCaptureFocus, setTopbarPointerActive]);
 
   useEffect(() => {
     if (hideWindowTimeoutRef.current !== null) {

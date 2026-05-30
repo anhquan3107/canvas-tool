@@ -372,6 +372,8 @@ export const en = {
       addPlaceholder: "Add a new task... (Ctrl+Enter to save)",
       addAria: "Add a new task",
       add: "Add",
+      toggleAria: (text: string) => `Toggle ${text}`,
+      editAria: (text: string) => `Edit ${text}`,
       deleteAria: (text: string) => `Delete ${text}`,
     },
     exportAllName: "All Tasks",

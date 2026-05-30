@@ -48,7 +48,7 @@ interface MenuActionMeta {
   shortcutActionId?: ShortcutActionId;
 }
 
-export const MENU_ACTION_META: Record<MenuActionKey, MenuActionMeta> = {
+const MENU_ACTION_META: Record<MenuActionKey, MenuActionMeta> = {
   open: { icon: "open", shortcutActionId: "file.open" },
   importTasks: { icon: "task" },
   saveCanvas: { icon: "save", shortcutActionId: "file.save" },

@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
@@ -73,11 +74,15 @@ export const CanvasBoard = ({
   const annotationMaskRef = useRef<Graphics | null>(null);
   const annotationLayerRef = useRef<Graphics | null>(null);
   const annotationPreviewLayerRef = useRef<Graphics | null>(null);
-  const frameByIdRef = useRef(new Map<string, Graphics>());
-  const itemNodeByIdRef = useRef(new Map<string, Container>());
-  const frameMetaByIdRef = useRef(
-    new Map<string, { width: number; height: number; isCapture: boolean }>(),
+  const frameById = useMemo(() => new Map<string, Graphics>(), []);
+  const itemNodeById = useMemo(() => new Map<string, Container>(), []);
+  const frameMetaById = useMemo(
+    () => new Map<string, { width: number; height: number; isCapture: boolean }>(),
+    [],
   );
+  const frameByIdRef = useRef(frameById);
+  const itemNodeByIdRef = useRef(itemNodeById);
+  const frameMetaByIdRef = useRef(frameMetaById);
   const { captureSessionByIdRef, stopCaptureSession, ensureCaptureSession } =
     useCaptureSessions();
   const selectionIdsRef = useRef(selectedItemIds);
@@ -198,43 +203,6 @@ export const CanvasBoard = ({
     onExportReadyRef.current = onExportReady;
   }, [onExportReady]);
 
-  useEffect(() => {
-    activeToolRef.current = activeTool;
-    if (activeTool !== "doodle") {
-      hideDoodleCursor();
-      return;
-    }
-
-    const lastPointer = lastPointerClientRef.current;
-    if (lastPointer) {
-      updateDoodleCursor(lastPointer.clientX, lastPointer.clientY, lastPointer);
-    }
-  }, [activeTool]);
-
-  useEffect(() => {
-    doodleModeRef.current = doodleMode;
-    const lastPointer = lastPointerClientRef.current;
-    if (lastPointer) {
-      updateDoodleCursor(lastPointer.clientX, lastPointer.clientY, lastPointer);
-    }
-  }, [doodleMode]);
-
-  useEffect(() => {
-    doodleColorRef.current = doodleColor;
-    const lastPointer = lastPointerClientRef.current;
-    if (lastPointer) {
-      updateDoodleCursor(lastPointer.clientX, lastPointer.clientY, lastPointer);
-    }
-  }, [doodleColor]);
-
-  useEffect(() => {
-    doodleSizeRef.current = doodleSize;
-    const lastPointer = lastPointerClientRef.current;
-    if (lastPointer) {
-      updateDoodleCursor(lastPointer.clientX, lastPointer.clientY, lastPointer);
-    }
-  }, [doodleSize]);
-
   const {
     hideDoodleCursor,
     hideSelectionMarquee,
@@ -275,6 +243,43 @@ export const CanvasBoard = ({
     activeSelectionTransformRef,
     cropSessionRef,
   });
+
+  useEffect(() => {
+    activeToolRef.current = activeTool;
+    if (activeTool !== "doodle") {
+      hideDoodleCursor();
+      return;
+    }
+
+    const lastPointer = lastPointerClientRef.current;
+    if (lastPointer) {
+      updateDoodleCursor(lastPointer.clientX, lastPointer.clientY, lastPointer);
+    }
+  }, [activeTool, hideDoodleCursor, updateDoodleCursor]);
+
+  useEffect(() => {
+    doodleModeRef.current = doodleMode;
+    const lastPointer = lastPointerClientRef.current;
+    if (lastPointer) {
+      updateDoodleCursor(lastPointer.clientX, lastPointer.clientY, lastPointer);
+    }
+  }, [doodleMode, updateDoodleCursor]);
+
+  useEffect(() => {
+    doodleColorRef.current = doodleColor;
+    const lastPointer = lastPointerClientRef.current;
+    if (lastPointer) {
+      updateDoodleCursor(lastPointer.clientX, lastPointer.clientY, lastPointer);
+    }
+  }, [doodleColor, updateDoodleCursor]);
+
+  useEffect(() => {
+    doodleSizeRef.current = doodleSize;
+    const lastPointer = lastPointerClientRef.current;
+    if (lastPointer) {
+      updateDoodleCursor(lastPointer.clientX, lastPointer.clientY, lastPointer);
+    }
+  }, [doodleSize, updateDoodleCursor]);
 
   useEffect(() => {
     surfaceOpacityRef.current = surfaceOpacity;
@@ -517,6 +522,9 @@ export const CanvasBoard = ({
     group.items,
     group.canvasSize.width,
     group.canvasSize.height,
+    group.panX,
+    group.panY,
+    group.zoom,
     preserveLiveBoardView,
     rebuildScene,
     commitView,
@@ -603,12 +611,13 @@ export const CanvasBoard = ({
       }
     }
 
-    captureSessionByIdRef.current.forEach((_, captureId) => {
+    const captureSessionById = captureSessionByIdRef.current;
+    captureSessionById.forEach((_, captureId) => {
       if (!activeCaptureIds.has(captureId)) {
         stopCaptureSession(captureId);
       }
     });
-  }, [group.id, group.items, stopCaptureSession]);
+  }, [captureSessionByIdRef, group.id, group.items, stopCaptureSession]);
 
   useEffect(() => {
     if (!appReady) {
@@ -724,10 +733,15 @@ export const CanvasBoard = ({
   ]);
 
   useEffect(
-    () => () => {
-      onCanvasSizePreviewChangeRef.current?.(null);
-      onExportReadyRef.current?.(null);
-      hideSelectedBoundsOverlay();
+    () => {
+      const onCanvasSizePreviewChange = onCanvasSizePreviewChangeRef.current;
+      const onExportReady = onExportReadyRef.current;
+
+      return () => {
+        onCanvasSizePreviewChange?.(null);
+        onExportReady?.(null);
+        hideSelectedBoundsOverlay();
+      };
     },
     [hideSelectedBoundsOverlay],
   );
@@ -738,7 +752,8 @@ export const CanvasBoard = ({
       return;
     }
 
-    onExportReadyRef.current?.(() => {
+    const notifyExportReady = onExportReadyRef.current;
+    notifyExportReady?.(() => {
       const app = appRef.current;
       const boardContainer = boardContainerRef.current;
 
@@ -776,7 +791,6 @@ export const CanvasBoard = ({
     });
 
     return () => {
-      const notifyExportReady = onExportReadyRef.current;
       notifyExportReady?.(null);
     };
   }, [appReady, group.canvasSize.height, group.canvasSize.width]);
@@ -797,24 +811,28 @@ export const CanvasBoard = ({
         <button
           type="button"
           className="canvas-transform-handle handle-nw"
+          aria-label="Resize selection from top-left"
           data-handle="nw"
           onPointerDown={handleTransformHandlePointerDown}
         />
         <button
           type="button"
           className="canvas-transform-handle handle-ne"
+          aria-label="Resize selection from top-right"
           data-handle="ne"
           onPointerDown={handleTransformHandlePointerDown}
         />
         <button
           type="button"
           className="canvas-transform-handle handle-se"
+          aria-label="Resize selection from bottom-right"
           data-handle="se"
           onPointerDown={handleTransformHandlePointerDown}
         />
         <button
           type="button"
           className="canvas-transform-handle handle-sw"
+          aria-label="Resize selection from bottom-left"
           data-handle="sw"
           onPointerDown={handleTransformHandlePointerDown}
         />

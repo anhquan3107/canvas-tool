@@ -17,10 +17,15 @@ export const useCanvasBoardExport = ({
   hideSelectedBoundsOverlay,
 }: UseCanvasBoardExportOptions) => {
   useEffect(
-    () => () => {
-      refs.onCanvasSizePreviewChangeRef.current?.(null);
-      refs.onExportReadyRef.current?.(null);
-      hideSelectedBoundsOverlay();
+    () => {
+      const onCanvasSizePreviewChange = refs.onCanvasSizePreviewChangeRef.current;
+      const onExportReady = refs.onExportReadyRef.current;
+
+      return () => {
+        onCanvasSizePreviewChange?.(null);
+        onExportReady?.(null);
+        hideSelectedBoundsOverlay();
+      };
     },
     [hideSelectedBoundsOverlay, refs],
   );
@@ -31,7 +36,8 @@ export const useCanvasBoardExport = ({
       return;
     }
 
-    refs.onExportReadyRef.current?.(() => {
+    const onExportReady = refs.onExportReadyRef.current;
+    onExportReady?.(() => {
       const app = refs.appRef.current;
       const boardContainer = refs.boardContainerRef.current;
 
@@ -69,7 +75,7 @@ export const useCanvasBoardExport = ({
     });
 
     return () => {
-      refs.onExportReadyRef.current?.(null);
+      onExportReady?.(null);
     };
   }, [appReady, group.canvasSize.height, group.canvasSize.width, refs]);
 };

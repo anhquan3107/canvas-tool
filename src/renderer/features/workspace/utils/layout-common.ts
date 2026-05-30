@@ -6,7 +6,7 @@ import {
 import { BOARD_EXPANSION_PADDING } from "@renderer/pixi/constants";
 import type { ImagePatch } from "@renderer/features/workspace/types";
 
-export const CANVAS_EXPANSION_PADDING = BOARD_EXPANSION_PADDING;
+const CANVAS_EXPANSION_PADDING = BOARD_EXPANSION_PADDING;
 export const MIN_CANVAS_WIDTH = 360;
 export const MIN_CANVAS_HEIGHT = 240;
 
@@ -22,7 +22,7 @@ export type LayoutItem = {
   visible?: boolean;
 };
 
-export const getVisualBounds = (item: LayoutItem) => {
+const getVisualBounds = (item: LayoutItem) => {
   const safeWidth = Math.max(1, item.width);
   const safeHeight = Math.max(1, item.height);
   const safeScaleX =

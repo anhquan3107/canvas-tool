@@ -134,6 +134,13 @@ export const useCanvasBoardBootstrap = ({
       return ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
     };
 
+    const clearViewCommitTimer = () => {
+      if (viewCommitTimerRef.current !== null) {
+        window.clearTimeout(viewCommitTimerRef.current);
+        viewCommitTimerRef.current = null;
+      }
+    };
+
     const onPointerLeave = () => {
       hideDoodleCursor();
     };
@@ -545,10 +552,7 @@ export const useCanvasBoardBootstrap = ({
     return () => {
       mounted = false;
 
-      if (viewCommitTimerRef.current !== null) {
-        window.clearTimeout(viewCommitTimerRef.current);
-        viewCommitTimerRef.current = null;
-      }
+      clearViewCommitTimer();
 
       cleanupListeners?.();
       resizeObserver?.disconnect();
@@ -581,9 +585,11 @@ export const useCanvasBoardBootstrap = ({
     boardGraphicRef,
     groupRef,
     captureSessionByIdRef,
+    cancelWheelZoomAnimationRef,
     commitAnnotationSession,
     commitDraggedItemPatch,
     commitView,
+    contentLayerRef,
     drawBoardSurface,
     gridGraphicRef,
     hideDoodleCursor,

@@ -68,7 +68,7 @@ const toDateAtEndOfDay = (value: string) => {
   return parsed;
 };
 
-export const getTaskRemainingDays = (endDate?: string) => {
+const getTaskRemainingDays = (endDate?: string) => {
   if (!endDate) {
     return null;
   }

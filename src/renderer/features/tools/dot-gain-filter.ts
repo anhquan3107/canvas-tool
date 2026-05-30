@@ -31,9 +31,6 @@ const loadDotGain20TransferTable = () => {
   return transferTablePromise;
 };
 
-export const ensureDotGain20SvgFilterReady = async () =>
-  loadDotGain20TransferTable();
-
 export const useDotGain20SvgFilterTable = () => {
   const [table, setTable] = useState<string | null>(cachedTransferTable);
 

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { CanvasItem } from "@shared/types/project";
 import type { CanvasSizePreview, MenuState } from "@renderer/app/types";
 
@@ -20,8 +20,9 @@ export const useAppUiState = () => {
     useState(false);
   const [canvasWidthInput, setCanvasWidthInput] = useState("");
   const [canvasHeightInput, setCanvasHeightInput] = useState("");
+  const centeredGroupIds = useMemo(() => new Set<string>(), []);
   const hasInitializedViewRef = useRef(false);
-  const centeredGroupIdsRef = useRef(new Set<string>());
+  const centeredGroupIdsRef = useRef(centeredGroupIds);
   const previousActiveGroupIdRef = useRef<string | null>(null);
   const lastSavedSignatureRef = useRef<string>("");
 

@@ -19,6 +19,17 @@ interface TodoListProps {
   onShowGuide: () => void;
 }
 
+const autoResizeTextArea = (event: FormEvent<HTMLTextAreaElement>) => {
+  const element = event.currentTarget;
+  const baseHeight = Number(element.dataset.baseHeight ?? "48");
+  const maxHeight = Number(element.dataset.maxHeight ?? "200");
+  element.style.setProperty("height", `${baseHeight}px`);
+  element.style.setProperty(
+    "height",
+    `${Math.min(element.scrollHeight, maxHeight)}px`,
+  );
+};
+
 export const TodoList = ({
   task,
   onInteract,
@@ -53,17 +64,6 @@ export const TodoList = ({
       newTodoInputRef.current.style.height = "48px";
     }
     onShowGuide();
-  };
-
-  const autoResizeTextArea = (event: FormEvent<HTMLTextAreaElement>) => {
-    const element = event.currentTarget;
-    const baseHeight = Number(element.dataset.baseHeight ?? "48");
-    const maxHeight = Number(element.dataset.maxHeight ?? "200");
-    element.style.setProperty("height", `${baseHeight}px`);
-    element.style.setProperty(
-      "height",
-      `${Math.min(element.scrollHeight, maxHeight)}px`,
-    );
   };
 
   const editTextareaRef = useCallback((element: HTMLTextAreaElement | null) => {
@@ -158,6 +158,7 @@ export const TodoList = ({
               <input
                 type="checkbox"
                 checked={todo.completed}
+                aria-label={copy.tasks.todo.toggleAria(todo.text)}
                 onChange={() => onToggleTodo(task.id, todo.id)}
               />
               <span className="todo-checkbox-ui" aria-hidden="true" />
@@ -170,6 +171,7 @@ export const TodoList = ({
                 className="todo-text-input"
                 data-base-height="22"
                 data-max-height="200"
+                aria-label={copy.tasks.todo.editAria(todo.text)}
                 value={todo.text}
                 onChange={(event) =>
                   onRenameTodo(task.id, todo.id, event.target.value)

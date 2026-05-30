@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -195,7 +196,7 @@ export const ColorWheel = ({
     context.putImageData(imageData, 0, 0);
   }, []);
 
-  const updateColorFromPointer = (clientX: number, clientY: number) => {
+  const updateColorFromPointer = useCallback((clientX: number, clientY: number) => {
     const wheel = wheelRef.current;
     if (!wheel) {
       return;
@@ -222,7 +223,7 @@ export const ColorWheel = ({
       ringRef.current.style.transform = `translate(${nextThumbPosition.x}px, ${nextThumbPosition.y}px)`;
     }
     onDoodleColorChange(nextColor);
-  };
+  }, [onDoodleColorChange]);
 
   const handleWheelPointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
     if (doodleMode !== "brush") {
@@ -266,7 +267,7 @@ export const ColorWheel = ({
     if (doodleMode !== "brush") {
       wheelDraggingRef.current = false;
     }
-  }, [doodleMode]);
+  }, [doodleMode, updateColorFromPointer]);
 
   useEffect(() => {
     const handlePointerMove = (event: PointerEvent) => {
@@ -312,7 +313,7 @@ export const ColorWheel = ({
       window.removeEventListener("mouseup", handleMouseUp);
       window.removeEventListener("blur", handleBlur);
     };
-  }, [doodleMode]);
+  }, [doodleMode, updateColorFromPointer]);
 
   const erasing = doodleMode === "erase-line" || doodleMode === "erase-pixel";
   const activeSize = erasing ? eraserSize : brushSize;

@@ -176,6 +176,7 @@ export const useCanvasBoardAnnotations = ({
     [
       activeAnnotationSessionRef,
       clearDraftAnnotation,
+      commitBrushDraftStroke,
       groupRef,
       onAnnotationsChangeRef,
       redrawAnnotations,
@@ -470,8 +471,8 @@ export const useCanvasBoardAnnotations = ({
       clientPointToCanvas,
       clearDraftAnnotation,
       commitBrushDraftStroke,
+      doodleColorRef,
       doodleSizeRef,
-      finalizeAnnotationSession,
       redrawAnnotations,
       redrawDraftAnnotation,
     ],

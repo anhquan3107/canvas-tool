@@ -1,5 +1,4 @@
 export {
-  CANVAS_EXPANSION_PADDING,
   MIN_CANVAS_HEIGHT,
   MIN_CANVAS_WIDTH,
   calculateImportVisibilitySnapshot,

@@ -274,8 +274,6 @@ export const useCanvasBoardTransform = ({
       clientPointToWorld,
       groupRef,
       itemNodeByIdRef,
-      onCanvasSizePreviewChangeRef,
-      previewInsetsRef,
       setPreviewInsets,
       updateSelectedBoundsOverlayRef,
     ],

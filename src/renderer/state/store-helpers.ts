@@ -7,8 +7,8 @@ import {
 import type { Action } from "@renderer/state/project-store-types";
 
 export const randomUUID = () => crypto.randomUUID();
-export const now = () => new Date().toISOString();
-export const MAX_HISTORY_ENTRIES = 100;
+const now = () => new Date().toISOString();
+const MAX_HISTORY_ENTRIES = 100;
 
 export const cloneProject = (project: Project) => structuredClone(project);
 
@@ -26,7 +26,7 @@ export const touchProject = (project: Project): Project => ({
 export const reorderTodos = (todos: TodoItem[]) =>
   todos.map((todo, index) => ({ ...todo, order: index }));
 
-export const createEmptyGroup = (
+const createEmptyGroup = (
   name: string,
   order: number,
   canvasSize: Project["canvasSize"],

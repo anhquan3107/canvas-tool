@@ -1,6 +1,6 @@
 import type { CaptureQuality, CaptureQualityProfile } from "./types";
 
-export const CONSISTENT_CAPTURE_STREAM_SIZE = {
+const CONSISTENT_CAPTURE_STREAM_SIZE = {
   width: 1600,
   height: 900,
 } as const;
@@ -32,7 +32,7 @@ export const CAPTURE_QUALITY_PROFILES: Record<
   },
 };
 
-export const isWindowsDesktopCapturePlatform = () =>
+const isWindowsDesktopCapturePlatform = () =>
   /win/i.test(
     (() => {
       if (typeof navigator === "undefined") {

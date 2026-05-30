@@ -374,6 +374,8 @@ export const vi: LocaleMessages = {
       addPlaceholder: "Thêm một việc mới... (Ctrl+Enter để lưu)",
       addAria: "Thêm một việc mới",
       add: "Thêm",
+      toggleAria: (text: string) => `Bật/tắt ${text}`,
+      editAria: (text: string) => `Sửa ${text}`,
       deleteAria: (text: string) => `Xóa ${text}`,
     },
     exportAllName: "Tất cả công việc",

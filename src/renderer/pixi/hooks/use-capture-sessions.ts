@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { Texture } from "pixi.js";
 import type { CaptureItem } from "@shared/types/project";
 import {
@@ -9,7 +9,8 @@ import type { CaptureSession } from "@renderer/pixi/types";
 import { configureBoardTextureQuality } from "@renderer/pixi/utils/textures";
 
 export const useCaptureSessions = () => {
-  const captureSessionByIdRef = useRef(new Map<string, CaptureSession>());
+  const captureSessionById = useMemo(() => new Map<string, CaptureSession>(), []);
+  const captureSessionByIdRef = useRef(captureSessionById);
 
   const stopCaptureSession = useCallback((captureId: string) => {
     const session = captureSessionByIdRef.current.get(captureId);

@@ -21,10 +21,10 @@ const LOCALE_MESSAGES: Record<AppLocale, LocaleMessages> = {
 const normalizeLocale = (locale: AppLocale | null | undefined): AppLocale =>
   locale === "vi" ? "vi" : "en";
 
-export const getLocaleMessages = (locale?: AppLocale | null) =>
+const getLocaleMessages = (locale?: AppLocale | null) =>
   LOCALE_MESSAGES[normalizeLocale(locale)];
 
-export const getDocumentLocale = (): AppLocale => {
+const getDocumentLocale = (): AppLocale => {
   if (typeof document === "undefined") {
     return "en";
   }

@@ -41,7 +41,9 @@ import type {
 import { drawItemFrame } from "@renderer/pixi/utils/item-frame";
 import type { NormalizedPointerData } from "@renderer/pixi/utils/pointer";
 
-export const CanvasBoard = ({
+export const CanvasBoard = (props: CanvasBoardProps) => useCanvasBoardContent(props);
+
+const useCanvasBoardContent = ({
   group,
   surfaceOpacity = 1,
   showSwatches = true,

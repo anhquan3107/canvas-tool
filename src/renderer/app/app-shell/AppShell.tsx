@@ -81,7 +81,9 @@ interface AppShellProps {
 
 const clampWindowOpacity = (value: number) => Math.min(1, Math.max(0.01, value));
 
-export const AppShell = ({
+export const AppShell = (props: AppShellProps) => useAppShell(props);
+
+const useAppShell = ({
   initialWindowOpacity,
   initialDoodleMode,
   initialDoodleEraserMode,

@@ -54,7 +54,9 @@ const getDisplayTaskTitle = (title: string) => {
   return clampTaskTitle(normalized);
 };
 
-export const TaskOverlay = ({
+export const TaskOverlay = (props: TaskOverlayProps) => useTaskOverlay(props);
+
+const useTaskOverlay = ({
   tasks,
   groups,
   primaryTask,

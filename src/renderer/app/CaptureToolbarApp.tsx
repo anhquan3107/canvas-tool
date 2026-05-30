@@ -35,7 +35,9 @@ const DEFAULT_CAPTURE_SESSION_STATE: CaptureSessionState = {
   windowAlwaysOnTop: false,
 };
 
-export const CaptureToolbarApp = () => {
+export const CaptureToolbarApp = () => useCaptureToolbarApp();
+
+const useCaptureToolbarApp = () => {
   const { copy } = useI18n();
 
   const initial = useMemo(() => getCaptureLocationParams(), []);

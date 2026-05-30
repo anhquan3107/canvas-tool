@@ -364,7 +364,9 @@ const GroupPreviewCard = ({
   );
 };
 
-export const GroupOverlay = ({
+export const GroupOverlay = (props: GroupOverlayProps) => useGroupOverlay(props);
+
+const useGroupOverlay = ({
   groups,
   activeGroupId,
   open,

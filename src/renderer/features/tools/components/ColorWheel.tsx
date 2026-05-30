@@ -75,7 +75,9 @@ const hexToRgb = (hex: string) => {
   };
 };
 
-export const ColorWheel = ({
+export const ColorWheel = (props: ColorWheelProps) => useColorWheel(props);
+
+const useColorWheel = ({
   doodleMode,
   lastEraserMode,
   doodleColor,

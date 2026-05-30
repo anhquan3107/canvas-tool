@@ -82,7 +82,9 @@ const getEffectivePreviewSize = (
   return { width, height };
 };
 
-export const CaptureWindowApp = () => {
+export const CaptureWindowApp = () => useCaptureWindowApp();
+
+const useCaptureWindowApp = () => {
   const { copy } = useI18n();
   useWindowRightDrag({ enableLeftWindowDrag: true, mode: "renderer" });
   const windowFocused = useWindowFocusState();

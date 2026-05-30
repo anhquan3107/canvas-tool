@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { CaptureItem } from "@shared/types/project";
 import { useI18n } from "@renderer/i18n";
 import type { CaptureSource, CaptureQuality } from "@renderer/features/connect/types";
@@ -23,20 +23,20 @@ export const useConnectFeature = ({
   const [sources, setSources] = useState<CaptureSource[]>([]);
   const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null);
   const [quality, setQuality] = useState<CaptureItem["quality"]>("medium");
+  const loadRequestIdRef = useRef(0);
 
-  const openDialog = useCallback(() => {
-    setDialogOpen(true);
-  }, []);
-
-  useEffect(() => {
-    if (!dialogOpen) {
-      return;
-    }
-
+  const loadSources = useCallback(() => {
+    const requestId = loadRequestIdRef.current + 1;
+    loadRequestIdRef.current = requestId;
     setLoadingSources(true);
+
     void window.desktopApi.capture
       .listSources()
       .then((nextSources) => {
+        if (loadRequestIdRef.current !== requestId) {
+          return;
+        }
+
         setSources(nextSources);
         setSelectedSourceId((previous) => {
           if (previous && nextSources.some((source) => source.id === previous)) {
@@ -46,12 +46,25 @@ export const useConnectFeature = ({
         });
       })
       .catch(() => {
+        if (loadRequestIdRef.current !== requestId) {
+          return;
+        }
+
         setSources([]);
         setSelectedSourceId(null);
         pushToast("error", copy.toasts.couldNotListSources);
       })
-      .finally(() => setLoadingSources(false));
-  }, [copy.toasts.couldNotListSources, dialogOpen, pushToast]);
+      .finally(() => {
+        if (loadRequestIdRef.current === requestId) {
+          setLoadingSources(false);
+        }
+      });
+  }, [copy.toasts.couldNotListSources, pushToast]);
+
+  const openDialog = useCallback(() => {
+    setDialogOpen(true);
+    loadSources();
+  }, [loadSources]);
 
   const handleConfirm = useCallback(() => {
     const source = sources.find((entry) => entry.id === selectedSourceId);

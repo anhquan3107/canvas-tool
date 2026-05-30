@@ -385,6 +385,7 @@ export const GroupOverlay = ({
   });
   const stackRef = useRef<HTMLDivElement | null>(null);
   const autoHideTimerRef = useRef<number | null>(null);
+  const visibleMenuState = open ? menuState : null;
 
   const getMenuPosition = useCallback((x: number, y: number) => {
     const maxLeft = Math.max(
@@ -435,7 +436,7 @@ export const GroupOverlay = ({
 
   const scheduleAutoHide = useCallback(() => {
     clearAutoHideTimer();
-    if (!open || menuState) {
+    if (!open || visibleMenuState) {
       return;
     }
 
@@ -443,10 +444,11 @@ export const GroupOverlay = ({
       setMenuState(null);
       onOpenChange(false);
     }, AUTO_HIDE_DELAY_MS);
-  }, [clearAutoHideTimer, menuState, onOpenChange, open]);
+  }, [clearAutoHideTimer, onOpenChange, open, visibleMenuState]);
 
   const registerInteraction = useCallback(() => {
     if (!open) {
+      setMenuState(null);
       onOpenChange(true);
       return;
     }
@@ -457,9 +459,6 @@ export const GroupOverlay = ({
   const updateScrollIndicators = useCallback(() => {
     const stack = stackRef.current;
     if (!open || !stack) {
-      setScrollIndicators((current) =>
-        current.up || current.down ? { up: false, down: false } : current,
-      );
       return;
     }
 
@@ -478,15 +477,13 @@ export const GroupOverlay = ({
 
   useEffect(() => {
     if (!open) {
-      setMenuState(null);
       clearAutoHideTimer();
-      updateScrollIndicators();
       return;
     }
 
     scheduleAutoHide();
     return clearAutoHideTimer;
-  }, [clearAutoHideTimer, menuState, open, scheduleAutoHide, updateScrollIndicators]);
+  }, [clearAutoHideTimer, open, scheduleAutoHide]);
 
   useEffect(() => {
     updateScrollIndicators();
@@ -495,7 +492,6 @@ export const GroupOverlay = ({
   useEffect(() => {
     const stack = stackRef.current;
     if (!open || !stack) {
-      updateScrollIndicators();
       return;
     }
 
@@ -509,7 +505,7 @@ export const GroupOverlay = ({
   }, [open, updateScrollIndicators]);
 
   useEffect(() => {
-    if (!menuState) {
+    if (!visibleMenuState) {
       return;
     }
 
@@ -520,7 +516,7 @@ export const GroupOverlay = ({
       window.removeEventListener("pointerdown", closeMenu);
       window.removeEventListener("blur", closeMenu);
     };
-  }, [menuState]);
+  }, [visibleMenuState]);
 
   useEffect(() => {
     const previewGroups = orderedGroups.map((group) => {
@@ -654,10 +650,13 @@ export const GroupOverlay = ({
           aria-hidden="true"
         />
       ) : null}
-      {menuState ? (
+      {visibleMenuState ? (
         <div
           className="group-preview-context-menu"
-          style={{ left: `${menuState.x}px`, top: `${menuState.y}px` }}
+          style={{
+            left: `${visibleMenuState.x}px`,
+            top: `${visibleMenuState.y}px`,
+          }}
           onPointerDown={(event) => {
             event.stopPropagation();
             registerInteraction();
@@ -670,7 +669,7 @@ export const GroupOverlay = ({
           <button
             type="button"
             onClick={() => {
-              onRenameGroup(menuState.groupId);
+              onRenameGroup(visibleMenuState.groupId);
               setMenuState(null);
             }}
           >
@@ -680,7 +679,7 @@ export const GroupOverlay = ({
             type="button"
             className="danger"
             onClick={() => {
-              onDeleteGroup(menuState.groupId);
+              onDeleteGroup(visibleMenuState.groupId);
               setMenuState(null);
             }}
           >

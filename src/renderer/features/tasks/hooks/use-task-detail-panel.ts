@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useRef,
   useState,
   type Dispatch,
   type SetStateAction,
@@ -39,12 +40,21 @@ export const useTaskDetailPanel = ({
   const [taskDetailPinned, setTaskDetailPinned] = useState(false);
   const [taskOverlayActivityVersion, setTaskOverlayActivityVersion] = useState(0);
   const [taskDetailActivityVersion, setTaskDetailActivityVersion] = useState(0);
-  const [taskOverlayHovered, setTaskOverlayHovered] = useState(false);
-  const [taskOverlayFocused, setTaskOverlayFocused] = useState(false);
-  const [taskDetailHovered, setTaskDetailHovered] = useState(false);
-  const [taskDetailFocused, setTaskDetailFocused] = useState(false);
-  const [collapseAfterDeadlineQueued, setCollapseAfterDeadlineQueued] =
-    useState(false);
+  const [taskOverlayHoveredTaskId, setTaskOverlayHoveredTaskId] =
+    useState<string | null>(null);
+  const [taskDetailHoveredTaskId, setTaskDetailHoveredTaskId] =
+    useState<string | null>(null);
+  const [taskDetailFocusedTaskId, setTaskDetailFocusedTaskId] =
+    useState<string | null>(null);
+  const collapseAfterDeadlineTimerRef = useRef<number | null>(null);
+  const primaryTaskId = primaryTask?.id ?? null;
+  const selectedTaskStableId = selectedTask?.id ?? null;
+  const taskOverlayHovered =
+    taskOverlayHoveredTaskId !== null && taskOverlayHoveredTaskId === primaryTaskId;
+  const taskDetailHovered =
+    taskDetailHoveredTaskId !== null && taskDetailHoveredTaskId === selectedTaskStableId;
+  const taskDetailFocused =
+    taskDetailFocusedTaskId !== null && taskDetailFocusedTaskId === selectedTaskStableId;
 
   const registerTaskOverlayInteraction = useCallback(() => {
     setTaskOverlayActivityVersion((version) => version + 1);
@@ -54,19 +64,33 @@ export const useTaskDetailPanel = ({
     setTaskDetailActivityVersion((version) => version + 1);
   }, []);
 
+  const clearCollapseAfterDeadlineTimer = useCallback(() => {
+    if (collapseAfterDeadlineTimerRef.current !== null) {
+      window.clearTimeout(collapseAfterDeadlineTimerRef.current);
+      collapseAfterDeadlineTimerRef.current = null;
+    }
+  }, []);
+
+  const queueCollapseAfterDeadline = useCallback(() => {
+    clearCollapseAfterDeadlineTimer();
+    collapseAfterDeadlineTimerRef.current = window.setTimeout(() => {
+      setTaskListExpanded(false);
+      collapseAfterDeadlineTimerRef.current = null;
+    }, TASK_SELECTION_HIDE_DURATION_MS + TASK_IDLE_TIMEOUT_MS);
+  }, [clearCollapseAfterDeadlineTimer, setTaskListExpanded]);
+
   const setTaskOverlayHovering = useCallback(
     (hovered: boolean) => {
-      setTaskOverlayHovered(hovered);
+      setTaskOverlayHoveredTaskId(hovered ? primaryTaskId : null);
       if (hovered) {
         registerTaskOverlayInteraction();
       }
     },
-    [registerTaskOverlayInteraction],
+    [primaryTaskId, registerTaskOverlayInteraction],
   );
 
   const setTaskOverlayFocusWithin = useCallback(
     (focused: boolean) => {
-      setTaskOverlayFocused(focused);
       if (focused) {
         registerTaskOverlayInteraction();
       }
@@ -76,22 +100,22 @@ export const useTaskDetailPanel = ({
 
   const setTaskDetailHovering = useCallback(
     (hovered: boolean) => {
-      setTaskDetailHovered(hovered);
+      setTaskDetailHoveredTaskId(hovered ? selectedTaskStableId : null);
       if (hovered) {
         registerTaskDetailInteraction();
       }
     },
-    [registerTaskDetailInteraction],
+    [registerTaskDetailInteraction, selectedTaskStableId],
   );
 
   const setTaskDetailFocusWithin = useCallback(
     (focused: boolean) => {
-      setTaskDetailFocused(focused);
+      setTaskDetailFocusedTaskId(focused ? selectedTaskStableId : null);
       if (focused) {
         registerTaskDetailInteraction();
       }
     },
-    [registerTaskDetailInteraction],
+    [registerTaskDetailInteraction, selectedTaskStableId],
   );
 
   const toggleTaskListExpanded = useCallback(() => {
@@ -99,16 +123,22 @@ export const useTaskDetailPanel = ({
     setTaskListExpanded((expanded) => {
       const nextExpanded = !expanded;
       if (nextExpanded) {
-        setTaskOverlayHovered(true);
-        setCollapseAfterDeadlineQueued(false);
+        setTaskOverlayHoveredTaskId(primaryTaskId);
+        clearCollapseAfterDeadlineTimer();
       }
       if (!nextExpanded) {
         setTaskCreationPreviewActive(false);
-        setCollapseAfterDeadlineQueued(false);
+        clearCollapseAfterDeadlineTimer();
       }
       return nextExpanded;
     });
-  }, [registerTaskOverlayInteraction, setTaskCreationPreviewActive, setTaskListExpanded]);
+  }, [
+    clearCollapseAfterDeadlineTimer,
+    primaryTaskId,
+    registerTaskOverlayInteraction,
+    setTaskCreationPreviewActive,
+    setTaskListExpanded,
+  ]);
 
   const toggleTaskDetailOpen = useCallback(() => {
     setPendingTaskSelectionDismissal(false);
@@ -124,10 +154,9 @@ export const useTaskDetailPanel = ({
 
   useEffect(() => {
     const clearInteractionState = () => {
-      setTaskOverlayHovered(false);
-      setTaskOverlayFocused(false);
-      setTaskDetailHovered(false);
-      setTaskDetailFocused(false);
+      setTaskOverlayHoveredTaskId(null);
+      setTaskDetailHoveredTaskId(null);
+      setTaskDetailFocusedTaskId(null);
     };
 
     const handleVisibilityChange = () => {
@@ -158,7 +187,7 @@ export const useTaskDetailPanel = ({
       setTaskCreationPreviewActive(false);
 
       if (selectedTaskId) {
-        setCollapseAfterDeadlineQueued(true);
+        queueCollapseAfterDeadline();
         return;
       }
 
@@ -169,7 +198,7 @@ export const useTaskDetailPanel = ({
       window.clearTimeout(timeoutId);
     };
   }, [
-    setCollapseAfterDeadlineQueued,
+    queueCollapseAfterDeadline,
     selectedTaskId,
     setPendingTaskSelectionDismissal,
     setTaskCreationPreviewActive,
@@ -192,7 +221,7 @@ export const useTaskDetailPanel = ({
     const timeoutId = window.setTimeout(() => {
       if (selectedTaskId) {
         setPendingTaskSelectionDismissal(true);
-        setCollapseAfterDeadlineQueued(true);
+        queueCollapseAfterDeadline();
         return;
       }
 
@@ -203,7 +232,7 @@ export const useTaskDetailPanel = ({
       window.clearTimeout(timeoutId);
     };
   }, [
-    setCollapseAfterDeadlineQueued,
+    queueCollapseAfterDeadline,
     selectedTaskId,
     setPendingTaskSelectionDismissal,
     setTaskListExpanded,
@@ -214,27 +243,17 @@ export const useTaskDetailPanel = ({
   ]);
 
   useEffect(() => {
-    if (!collapseAfterDeadlineQueued) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setTaskListExpanded(false);
-      setCollapseAfterDeadlineQueued(false);
-    }, TASK_SELECTION_HIDE_DURATION_MS + TASK_IDLE_TIMEOUT_MS);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [collapseAfterDeadlineQueued, setTaskListExpanded]);
-
-  useEffect(() => {
     if (taskListExpanded) {
       return;
     }
 
-    setCollapseAfterDeadlineQueued(false);
-  }, [taskListExpanded]);
+    clearCollapseAfterDeadlineTimer();
+  }, [clearCollapseAfterDeadlineTimer, taskListExpanded]);
+
+  useEffect(
+    () => clearCollapseAfterDeadlineTimer,
+    [clearCollapseAfterDeadlineTimer],
+  );
 
   useEffect(() => {
     if (
@@ -264,24 +283,6 @@ export const useTaskDetailPanel = ({
     taskDetailOpen,
     taskDetailPinned,
   ]);
-
-  useEffect(() => {
-    if (primaryTask) {
-      return;
-    }
-
-    setTaskOverlayHovered(false);
-    setTaskOverlayFocused(false);
-  }, [primaryTask]);
-
-  useEffect(() => {
-    if (selectedTask) {
-      return;
-    }
-
-    setTaskDetailHovered(false);
-    setTaskDetailFocused(false);
-  }, [selectedTask]);
 
   useEffect(() => {
     if (!pendingTaskSelectionDismissal) {

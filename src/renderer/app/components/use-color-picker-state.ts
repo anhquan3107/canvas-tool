@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -18,7 +19,6 @@ import {
 } from "@renderer/app/components/color-picker-utils";
 
 interface UseColorPickerStateOptions {
-  open: boolean;
   canvasColor: string;
   backgroundColor: string;
   onPreviewChange: (colors: {
@@ -32,7 +32,6 @@ interface UseColorPickerStateOptions {
 }
 
 export const useColorPickerState = ({
-  open,
   canvasColor,
   backgroundColor,
   onPreviewChange,
@@ -40,7 +39,6 @@ export const useColorPickerState = ({
 }: UseColorPickerStateOptions) => {
   const squareCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const hueTrackRef = useRef<HTMLDivElement | null>(null);
-  const previousOpenRef = useRef(false);
   const squareDraggingRef = useRef(false);
   const hueDraggingRef = useRef(false);
   const targetRef = useRef<ColorTarget>("canvas");
@@ -50,9 +48,11 @@ export const useColorPickerState = ({
   const [target, setTarget] = useState<ColorTarget>("canvas");
   const [draftCanvasColor, setDraftCanvasColor] = useState(canvasColor);
   const [draftBackgroundColor, setDraftBackgroundColor] = useState(backgroundColor);
-  const [hue, setHue] = useState(0);
-  const [saturation, setSaturation] = useState(0);
-  const [value, setValue] = useState(0);
+  const [hue, setHue] = useState(() => hexToHsv(canvasColor).hue);
+  const [saturation, setSaturation] = useState(
+    () => hexToHsv(canvasColor).saturation,
+  );
+  const [value, setValue] = useState(() => hexToHsv(canvasColor).value);
   const [hexInput, setHexInput] = useState(() => canvasColor.toUpperCase());
 
   const activeColor =
@@ -75,37 +75,13 @@ export const useColorPickerState = ({
   }, [value]);
 
   useEffect(() => {
-    if (!open) {
-      setDraftCanvasColor(canvasColor);
-      setDraftBackgroundColor(backgroundColor);
-      return;
-    }
-
-    if (previousOpenRef.current) {
-      return;
-    }
-
-    setTarget("canvas");
-    setDraftCanvasColor(canvasColor);
-    setDraftBackgroundColor(backgroundColor);
-  }, [backgroundColor, canvasColor, open]);
-
-  useEffect(() => {
-    previousOpenRef.current = open;
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
     const nextColor = target === "canvas" ? draftCanvasColor : draftBackgroundColor;
     const nextHsv = hexToHsv(nextColor);
     setHue(nextHsv.hue);
     setSaturation(nextHsv.saturation);
     setValue(nextHsv.value);
     setHexInput(nextColor.toUpperCase());
-  }, [draftBackgroundColor, draftCanvasColor, open, target]);
+  }, [draftBackgroundColor, draftCanvasColor, target]);
 
   useEffect(() => {
     const canvas = squareCanvasRef.current;
@@ -143,20 +119,16 @@ export const useColorPickerState = ({
     blackGradient.addColorStop(1, "rgba(0,0,0,1)");
     context.fillStyle = blackGradient;
     context.fillRect(0, 0, pixelSize, pixelSize);
-  }, [hue, open]);
+  }, [hue]);
 
   useEffect(() => {
-    if (!open) {
-      return;
-    }
-
     onPreviewChange({
       canvasColor: draftCanvasColor,
       backgroundColor: draftBackgroundColor,
     });
-  }, [draftBackgroundColor, draftCanvasColor, onPreviewChange, open]);
+  }, [draftBackgroundColor, draftCanvasColor, onPreviewChange]);
 
-  const squarePointer = (clientX: number, clientY: number) => {
+  const squarePointer = useCallback((clientX: number, clientY: number) => {
     const canvas = squareCanvasRef.current;
     if (!canvas) {
       return;
@@ -175,9 +147,9 @@ export const useColorPickerState = ({
     } else {
       setDraftBackgroundColor(nextHex);
     }
-  };
+  }, []);
 
-  const huePointer = (clientY: number) => {
+  const huePointer = useCallback((clientY: number) => {
     const track = hueTrackRef.current;
     if (!track) {
       return;
@@ -195,7 +167,7 @@ export const useColorPickerState = ({
     } else {
       setDraftBackgroundColor(nextHex);
     }
-  };
+  }, []);
 
   const handleSquarePointerDown = (event: ReactPointerEvent<HTMLCanvasElement>) => {
     event.preventDefault();
@@ -266,12 +238,6 @@ export const useColorPickerState = ({
   };
 
   useEffect(() => {
-    if (!open) {
-      squareDraggingRef.current = false;
-      hueDraggingRef.current = false;
-      return;
-    }
-
     const handlePointerMove = (event: PointerEvent) => {
       if (squareDraggingRef.current) {
         squarePointer(event.clientX, event.clientY);
@@ -322,7 +288,7 @@ export const useColorPickerState = ({
       window.removeEventListener("mouseup", handleMouseUp);
       window.removeEventListener("blur", handleBlur);
     };
-  }, [open]);
+  }, [huePointer, squarePointer]);
 
   const squareThumbStyle = useMemo(
     () => ({

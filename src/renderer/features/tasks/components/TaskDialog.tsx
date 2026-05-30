@@ -21,6 +21,31 @@ interface TaskDialogProps {
   onTaskDatesChange: Dispatch<SetStateAction<TaskDateRange>>;
 }
 
+type TaskDialogContentProps = Omit<TaskDialogProps, "open">;
+
+const openDatePicker = (input: HTMLInputElement | null) => {
+  if (!input) {
+    return;
+  }
+
+  input.focus();
+  if ("showPicker" in input && typeof input.showPicker === "function") {
+    input.showPicker();
+  }
+};
+
+const wouldOverflowTitleLimit = (
+  input: HTMLInputElement,
+  incomingText: string,
+) => {
+  const selectionStart = input.selectionStart ?? input.value.length;
+  const selectionEnd = input.selectionEnd ?? input.value.length;
+  const nextLength =
+    input.value.length - (selectionEnd - selectionStart) + incomingText.length;
+
+  return nextLength > TASK_TITLE_MAX_LENGTH;
+};
+
 export const TaskDialog = ({
   open,
   mode = "create",
@@ -32,6 +57,34 @@ export const TaskDialog = ({
   onDraftTaskTitleChange,
   onTaskDatesChange,
 }: TaskDialogProps) => {
+  if (!open) {
+    return null;
+  }
+
+  return (
+    <TaskDialogContent
+      mode={mode}
+      draftTaskTitle={draftTaskTitle}
+      taskDates={taskDates}
+      taskDuration={taskDuration}
+      onClose={onClose}
+      onSubmitTask={onSubmitTask}
+      onDraftTaskTitleChange={onDraftTaskTitleChange}
+      onTaskDatesChange={onTaskDatesChange}
+    />
+  );
+};
+
+const TaskDialogContent = ({
+  mode = "create",
+  draftTaskTitle,
+  taskDates,
+  taskDuration,
+  onClose,
+  onSubmitTask,
+  onDraftTaskTitleChange,
+  onTaskDatesChange,
+}: TaskDialogContentProps) => {
   const { copy, locale } = useI18n();
   const titleInputRef = useRef<HTMLInputElement | null>(null);
   const startDateInputRef = useRef<HTMLInputElement | null>(null);
@@ -39,45 +92,12 @@ export const TaskDialog = ({
   const [showTitleLimitWarning, setShowTitleLimitWarning] = useState(false);
 
   useEffect(() => {
-    if (!open) {
-      setShowTitleLimitWarning(false);
-    }
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
     const frameId = window.requestAnimationFrame(() => {
       titleInputRef.current?.select();
     });
 
     return () => window.cancelAnimationFrame(frameId);
-  }, [open]);
-
-  const openDatePicker = (input: HTMLInputElement | null) => {
-    if (!input) {
-      return;
-    }
-
-    input.focus();
-    if ("showPicker" in input && typeof input.showPicker === "function") {
-      input.showPicker();
-    }
-  };
-
-  const wouldOverflowTitleLimit = (
-    input: HTMLInputElement,
-    incomingText: string,
-  ) => {
-    const selectionStart = input.selectionStart ?? input.value.length;
-    const selectionEnd = input.selectionEnd ?? input.value.length;
-    const nextLength =
-      input.value.length - (selectionEnd - selectionStart) + incomingText.length;
-
-    return nextLength > TASK_TITLE_MAX_LENGTH;
-  };
+  }, []);
 
   const handleTitleBeforeInput = (event: FormEvent<HTMLInputElement>) => {
     const nativeEvent = event.nativeEvent as InputEvent;
@@ -105,10 +125,6 @@ export const TaskDialog = ({
     onDraftTaskTitleChange(clampTaskTitle(value));
   };
 
-  if (!open) {
-    return null;
-  }
-
   return (
     <DialogFrame
       className="task-deadline-dialog"
@@ -128,7 +144,6 @@ export const TaskDialog = ({
           <input
             ref={titleInputRef}
             id="task-title"
-            autoFocus
             value={draftTaskTitle}
             maxLength={TASK_TITLE_MAX_LENGTH}
             onBeforeInput={handleTitleBeforeInput}
@@ -149,7 +164,6 @@ export const TaskDialog = ({
                 <label htmlFor="task-start">{copy.tasks.dialog.startDate}</label>
                 <div
                   className="task-dialog-date-input-shell"
-                  onClick={() => openDatePicker(startDateInputRef.current)}
                 >
                   <input
                     ref={startDateInputRef}
@@ -175,7 +189,6 @@ export const TaskDialog = ({
                 <label htmlFor="task-end">{copy.tasks.dialog.endDate}</label>
                 <div
                   className="task-dialog-date-input-shell"
-                  onClick={() => openDatePicker(endDateInputRef.current)}
                 >
                   <input
                     ref={endDateInputRef}

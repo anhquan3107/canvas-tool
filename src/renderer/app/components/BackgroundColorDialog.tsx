@@ -22,6 +22,8 @@ interface BackgroundColorDialogProps {
   onWindowOpacityChange: (opacity: number) => void;
 }
 
+type BackgroundColorDialogContentProps = Omit<BackgroundColorDialogProps, "open">;
+
 export const BackgroundColorDialog = ({
   open,
   canvasColor,
@@ -32,6 +34,32 @@ export const BackgroundColorDialog = ({
   onConfirm,
   onWindowOpacityChange,
 }: BackgroundColorDialogProps) => {
+  if (!open) {
+    return null;
+  }
+
+  return (
+    <BackgroundColorDialogContent
+      canvasColor={canvasColor}
+      backgroundColor={backgroundColor}
+      windowOpacity={windowOpacity}
+      onClose={onClose}
+      onPreviewChange={onPreviewChange}
+      onConfirm={onConfirm}
+      onWindowOpacityChange={onWindowOpacityChange}
+    />
+  );
+};
+
+const BackgroundColorDialogContent = ({
+  canvasColor,
+  backgroundColor,
+  windowOpacity,
+  onClose,
+  onPreviewChange,
+  onConfirm,
+  onWindowOpacityChange,
+}: BackgroundColorDialogContentProps) => {
   const { copy } = useI18n();
   const {
     squareCanvasRef,
@@ -53,16 +81,11 @@ export const BackgroundColorDialog = ({
     handleReset,
     handleConfirm,
   } = useColorPickerState({
-    open,
     canvasColor,
     backgroundColor,
     onPreviewChange,
     onConfirm,
   });
-
-  if (!open) {
-    return null;
-  }
 
   return (
     <DialogFrame

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { ShortcutBindings } from "@shared/shortcuts";
 import { MenuItemContent } from "@renderer/app/components/MenuItemContent";
 import { TopBarCanvasMenu } from "@renderer/app/components/TopBarCanvasMenu";
@@ -86,12 +86,7 @@ export const TopBarSettingsMenu = ({
 }: TopBarSettingsMenuProps) => {
   const { copy } = useI18n();
   const [activeMenu, setActiveMenu] = useState<TopBarMenuKey | null>(null);
-
-  useEffect(() => {
-    if (!settingsOpen) {
-      setActiveMenu(null);
-    }
-  }, [settingsOpen]);
+  const visibleActiveMenu = settingsOpen ? activeMenu : null;
 
   const openMenu = (menu: TopBarMenuKey) => {
     if (!settingsOpen) {
@@ -108,7 +103,7 @@ export const TopBarSettingsMenu = ({
   };
 
   const toggleMenu = (menu: TopBarMenuKey) => {
-    if (settingsOpen && activeMenu === menu) {
+    if (settingsOpen && visibleActiveMenu === menu) {
       closeMenus();
       return;
     }
@@ -141,7 +136,7 @@ export const TopBarSettingsMenu = ({
         <button
           type="button"
           className={`toolbar-button ${
-            settingsOpen && activeMenu === menu ? "active" : ""
+            visibleActiveMenu === menu ? "active" : ""
           }`}
           onClick={() => toggleMenu(menu)}
         >
@@ -149,7 +144,7 @@ export const TopBarSettingsMenu = ({
         </button>
       </TopBarHoverTooltip>
 
-      {settingsOpen && activeMenu === menu ? (
+      {visibleActiveMenu === menu ? (
         <div className="topbar-settings-menu">
           {menu === "file" ? (
             <TopBarFileMenu

@@ -12,6 +12,17 @@ interface CanvasSizeDialogProps {
   onHeightChange: (value: string) => void;
 }
 
+type CanvasSizeDialogContentProps = Omit<CanvasSizeDialogProps, "open">;
+
+const getAspectRatio = (widthValue: string, heightValue: string) => {
+  const width = Number(widthValue);
+  const height = Number(heightValue);
+
+  return Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0
+    ? width / height
+    : 1;
+};
+
 export const CanvasSizeDialog = ({
   open,
   widthValue,
@@ -21,57 +32,65 @@ export const CanvasSizeDialog = ({
   onWidthChange,
   onHeightChange,
 }: CanvasSizeDialogProps) => {
+  if (!open) {
+    return null;
+  }
+
+  return (
+    <CanvasSizeDialogContent
+      widthValue={widthValue}
+      heightValue={heightValue}
+      onClose={onClose}
+      onConfirm={onConfirm}
+      onWidthChange={onWidthChange}
+      onHeightChange={onHeightChange}
+    />
+  );
+};
+
+const CanvasSizeDialogContent = ({
+  widthValue,
+  heightValue,
+  onClose,
+  onConfirm,
+  onWidthChange,
+  onHeightChange,
+}: CanvasSizeDialogContentProps) => {
   const { copy } = useI18n();
   const [maintainAspectRatio, setMaintainAspectRatio] = useState(true);
-  const aspectRatioRef = useRef(1);
+  const aspectRatioRef = useRef<number | null>(null);
   const widthInputRef = useRef<HTMLInputElement | null>(null);
 
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    const width = Number(widthValue);
-    const height = Number(heightValue);
-    aspectRatioRef.current =
-      Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0
-        ? width / height
-        : 1;
-    setMaintainAspectRatio(true);
-  }, [open]);
+  if (aspectRatioRef.current === null) {
+    aspectRatioRef.current = getAspectRatio(widthValue, heightValue);
+  }
 
   useEffect(() => {
-    if (!open) {
-      return;
-    }
-
     const frameId = window.requestAnimationFrame(() => {
       widthInputRef.current?.select();
     });
 
     return () => window.cancelAnimationFrame(frameId);
-  }, [open]);
-
-  if (!open) {
-    return null;
-  }
+  }, []);
 
   const syncHeightFromWidth = (nextWidthValue: string) => {
     const nextWidth = Number(nextWidthValue);
-    if (!Number.isFinite(nextWidth) || nextWidth <= 0 || aspectRatioRef.current <= 0) {
+    const aspectRatio = aspectRatioRef.current ?? 1;
+    if (!Number.isFinite(nextWidth) || nextWidth <= 0 || aspectRatio <= 0) {
       return;
     }
 
-    onHeightChange(String(Math.max(1, Math.round(nextWidth / aspectRatioRef.current))));
+    onHeightChange(String(Math.max(1, Math.round(nextWidth / aspectRatio))));
   };
 
   const syncWidthFromHeight = (nextHeightValue: string) => {
     const nextHeight = Number(nextHeightValue);
-    if (!Number.isFinite(nextHeight) || nextHeight <= 0 || aspectRatioRef.current <= 0) {
+    const aspectRatio = aspectRatioRef.current ?? 1;
+    if (!Number.isFinite(nextHeight) || nextHeight <= 0 || aspectRatio <= 0) {
       return;
     }
 
-    onWidthChange(String(Math.max(1, Math.round(nextHeight * aspectRatioRef.current))));
+    onWidthChange(String(Math.max(1, Math.round(nextHeight * aspectRatio))));
   };
 
   const handleWidthChange = (nextWidthValue: string) => {
@@ -119,7 +138,6 @@ export const CanvasSizeDialog = ({
             className="group-dialog-input"
             id="canvas-width"
             type="text"
-            autoFocus
             inputMode="numeric"
             value={widthValue}
             onChange={(event) => handleWidthChange(event.target.value)}

@@ -54,6 +54,8 @@ export const ZoomViewport = ({
   <div
     ref={viewportRef}
     className="zoom-overlay-viewport"
+    role="application"
+    aria-label="Zoom viewport"
     style={{ cursor: viewportCursor }}
     onWheel={onWheel}
     onMouseDown={onMouseDown}

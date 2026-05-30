@@ -1,5 +1,4 @@
 import {
-  createContext,
   useCallback,
   useMemo,
   useReducer,
@@ -14,11 +13,10 @@ import type {
   Task,
 } from "@shared/types/project";
 import { historyReducer } from "@renderer/state/project-store-reducer";
+import { ProjectContext } from "@renderer/state/project-context";
 import type { CanvasItemPatch, Store } from "@renderer/state/project-store-types";
 
 const randomUUID = () => crypto.randomUUID();
-
-export const ProjectContext = createContext<Store | null>(null);
 
 export const ProjectProvider = ({
   initialProject,

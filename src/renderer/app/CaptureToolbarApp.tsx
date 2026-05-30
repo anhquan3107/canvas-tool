@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { AppWindowControlsState } from "@shared/types/ipc";
 import {
   createCaptureSessionChannel,
@@ -134,6 +142,22 @@ export const CaptureToolbarApp = () => {
     focusCaptureWindow();
   }, [focusCaptureWindow]);
 
+  const clearHoverStateEvent = useEffectEvent(() => {
+    setTopbarHovered(false);
+    setTopbarPointerActive(false);
+    clearQueuedCaptureFocus();
+  });
+
+  const finishPointerEvent = useEffectEvent(() => {
+    setTopbarPointerActive(false);
+    flushQueuedCaptureFocus();
+  });
+
+  const clearPointerOnBlurEvent = useEffectEvent(() => {
+    setTopbarPointerActive(false);
+    clearQueuedCaptureFocus();
+  });
+
   useEffect(() => {
     const channel = createCaptureSessionChannel(initial.sessionId);
     const handleMessage = (event: MessageEvent<CaptureSessionMessage>) => {
@@ -178,9 +202,7 @@ export const CaptureToolbarApp = () => {
 
   useEffect(() => {
     const clearHoverState = () => {
-      setTopbarHovered(false);
-      setTopbarPointerActive(false);
-      clearQueuedCaptureFocus();
+      clearHoverStateEvent();
     };
 
     window.addEventListener("blur", clearHoverState);
@@ -190,17 +212,15 @@ export const CaptureToolbarApp = () => {
       window.removeEventListener("blur", clearHoverState);
       document.removeEventListener("visibilitychange", clearHoverState);
     };
-  }, [clearQueuedCaptureFocus, setTopbarHovered, setTopbarPointerActive]);
+  }, []);
 
   useEffect(() => {
     const handlePointerFinish = () => {
-      setTopbarPointerActive(false);
-      flushQueuedCaptureFocus();
+      finishPointerEvent();
     };
 
     const handleWindowBlur = () => {
-      setTopbarPointerActive(false);
-      clearQueuedCaptureFocus();
+      clearPointerOnBlurEvent();
     };
 
     window.addEventListener("pointerup", handlePointerFinish);
@@ -214,7 +234,7 @@ export const CaptureToolbarApp = () => {
       window.removeEventListener("mouseup", handlePointerFinish);
       window.removeEventListener("blur", handleWindowBlur);
     };
-  }, [clearQueuedCaptureFocus, flushQueuedCaptureFocus, setTopbarPointerActive]);
+  }, []);
 
   useEffect(() => {
     if (hideWindowTimeoutRef.current !== null) {

@@ -1,5 +1,5 @@
 import { use } from "react";
-import { ProjectContext } from "@renderer/state/project-store";
+import { ProjectContext } from "@renderer/state/project-context";
 
 export const useProjectStore = () => {
   const ctx = use(ProjectContext);

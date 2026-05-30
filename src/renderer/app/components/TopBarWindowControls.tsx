@@ -2,7 +2,7 @@ import { Lock, Settings } from "lucide-react";
 import { useCallback, type PointerEventHandler } from "react";
 import type { ShortcutBindings } from "@shared/shortcuts";
 import { TopBarHoverTooltip } from "@renderer/app/components/TopBarHoverTooltip";
-import { formatMenuShortcut } from "@renderer/app/components/MenuItemContent";
+import { formatMenuShortcut } from "@renderer/app/components/menu-shortcuts";
 import { useI18n } from "@renderer/i18n";
 
 interface TopBarWindowControlsProps {
@@ -50,7 +50,7 @@ export const TopBarWindowControls = ({
 
   return (
     <div className="window-cluster" data-window-no-drag="true">
-      <div className="topbar-filename" style={{ marginRight: 8, fontSize: 11, opacity: 0.6, userSelect: 'none' }}>
+      <div className="topbar-filename" style={{ marginRight: 8, fontSize: 12, opacity: 0.6, userSelect: 'none' }}>
         {projectFileName ? projectFileName : "Untitled"}
       </div>
       <TopBarHoverTooltip

@@ -7,11 +7,12 @@ const FALLBACK_WINDOWS_MOTION_FPS = 60;
 const getDisplayRefreshRates = () =>
   screen
     .getAllDisplays()
-    .map((display) => Math.round(display.displayFrequency))
-    .filter(
-      (frequency) =>
-        Number.isFinite(frequency) && frequency >= MIN_WINDOW_MOTION_FPS,
-    );
+    .flatMap((display) => {
+      const frequency = Math.round(display.displayFrequency);
+      return Number.isFinite(frequency) && frequency >= MIN_WINDOW_MOTION_FPS
+        ? [frequency]
+        : [];
+    });
 
 const getWindowMotionFps = () => {
   if (process.platform !== "win32") {

@@ -12,7 +12,7 @@ import type { ShortcutBindings } from "@shared/shortcuts";
 import { TopBarHoverTooltip } from "@renderer/app/components/TopBarHoverTooltip";
 import type { ToolMode } from "@renderer/features/tools/types";
 import { TitleBarTooltipConfirmDialog } from "@renderer/app/components/TitleBarTooltipConfirmDialog";
-import { formatMenuShortcut } from "@renderer/app/components/MenuItemContent";
+import { formatMenuShortcut } from "@renderer/app/components/menu-shortcuts";
 import {
   type PendingTitleBarAction,
   type TitleBarTooltipMeta,

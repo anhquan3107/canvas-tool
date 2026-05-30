@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useEffectEvent,
   useMemo,
   useRef,
   useState,
@@ -225,6 +226,16 @@ export const ColorWheel = ({
     onDoodleColorChange(nextColor);
   }, [onDoodleColorChange]);
 
+  const updateDraggingColorEvent = useEffectEvent(
+    (clientX: number, clientY: number) => {
+      if (doodleMode !== "brush" || !wheelDraggingRef.current) {
+        return;
+      }
+
+      updateColorFromPointer(clientX, clientY);
+    },
+  );
+
   const handleWheelPointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
     if (doodleMode !== "brush") {
       return;
@@ -267,23 +278,15 @@ export const ColorWheel = ({
     if (doodleMode !== "brush") {
       wheelDraggingRef.current = false;
     }
-  }, [doodleMode, updateColorFromPointer]);
+  }, [doodleMode]);
 
   useEffect(() => {
     const handlePointerMove = (event: PointerEvent) => {
-      if (doodleMode !== "brush" || !wheelDraggingRef.current) {
-        return;
-      }
-
-      updateColorFromPointer(event.clientX, event.clientY);
+      updateDraggingColorEvent(event.clientX, event.clientY);
     };
 
     const handleMouseMove = (event: MouseEvent) => {
-      if (doodleMode !== "brush" || !wheelDraggingRef.current) {
-        return;
-      }
-
-      updateColorFromPointer(event.clientX, event.clientY);
+      updateDraggingColorEvent(event.clientX, event.clientY);
     };
 
     const handlePointerEnd = () => {
@@ -313,7 +316,7 @@ export const ColorWheel = ({
       window.removeEventListener("mouseup", handleMouseUp);
       window.removeEventListener("blur", handleBlur);
     };
-  }, [doodleMode, updateColorFromPointer]);
+  }, []);
 
   const erasing = doodleMode === "erase-line" || doodleMode === "erase-pixel";
   const activeSize = erasing ? eraserSize : brushSize;

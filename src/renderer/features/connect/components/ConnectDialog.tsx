@@ -1,6 +1,5 @@
 import { useRef } from "react";
 import { DialogFrame } from "@renderer/ui/DialogFrame";
-import { createDialogKeyDownHandler } from "@renderer/ui/dialog-keyboard";
 import { useI18n } from "@renderer/i18n";
 import { useDialogInitialFocus } from "@renderer/ui/use-dialog-initial-focus";
 import type { CaptureQuality, CaptureSource } from "@renderer/features/connect/types";
@@ -32,7 +31,7 @@ export const ConnectDialog = ({
   onConfirm,
 }: ConnectDialogProps) => {
   const { copy } = useI18n();
-  const embeddedDialogRef = useRef<HTMLDivElement | null>(null);
+  const embeddedDialogRef = useRef<HTMLElement | null>(null);
 
   useDialogInitialFocus(embeddedDialogRef, open && embedded);
 
@@ -124,17 +123,14 @@ export const ConnectDialog = ({
 
   if (embedded) {
     return (
-      <div
+      <section
         ref={embeddedDialogRef}
         className="connect-dialog-embedded"
-        onKeyDown={createDialogKeyDownHandler({
-          onClose,
-          onConfirm: selectedSourceId && !loading ? onConfirm : undefined,
-        })}
+        aria-label={copy.connectDialog.title}
         tabIndex={-1}
       >
         {content}
-      </div>
+      </section>
     );
   }
 

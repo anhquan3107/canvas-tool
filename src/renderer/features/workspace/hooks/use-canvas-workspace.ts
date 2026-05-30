@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import type { AnnotationStroke } from "@shared/types/project";
 import type { CanvasBoardViewState } from "@renderer/pixi/types";
 import type { UseCanvasWorkspaceOptions } from "@renderer/features/workspace/types";
 import {
@@ -10,6 +11,17 @@ import { useWorkspaceImportActions } from "@renderer/features/workspace/hooks/us
 import { useWorkspaceClipboardActions } from "@renderer/features/workspace/hooks/use-workspace-clipboard-actions";
 import { useWorkspaceViewActions } from "@renderer/features/workspace/hooks/use-workspace-view-actions";
 import { useWorkspaceLayoutActions } from "@renderer/features/workspace/hooks/use-workspace-layout-actions";
+
+const translateAnnotationStroke = (
+  stroke: AnnotationStroke,
+  deltaX: number,
+  deltaY: number,
+): AnnotationStroke => ({
+  ...stroke,
+  points: stroke.points.map((value, index) =>
+    index % 2 === 0 ? value + deltaX : value + deltaY,
+  ),
+});
 
 export const useCanvasWorkspace = ({
   project,
@@ -92,6 +104,23 @@ export const useCanvasWorkspace = ({
       if (expansionPlan.shiftedUpdates) {
         patchGroupItems(groupId, expansionPlan.shiftedUpdates);
 
+        if (
+          activeGroup?.id === groupId &&
+          activeGroup.annotations.length > 0 &&
+          (expansionPlan.expandLeft > 0 || expansionPlan.expandTop > 0)
+        ) {
+          setGroupAnnotations(
+            groupId,
+            activeGroup.annotations.map((stroke) =>
+              translateAnnotationStroke(
+                stroke,
+                expansionPlan.expandLeft,
+                expansionPlan.expandTop,
+              ),
+            ),
+          );
+        }
+
         if (currentView) {
           const previewShiftLeft =
             currentView.previewInsets?.left ?? expansionPlan.expandLeft;
@@ -106,7 +135,13 @@ export const useCanvasWorkspace = ({
         }
       }
     },
-    [patchGroupItems, setGroupCanvasSize, setGroupView],
+    [
+      activeGroup,
+      patchGroupItems,
+      setGroupAnnotations,
+      setGroupCanvasSize,
+      setGroupView,
+    ],
   );
   const { saveProject, saveProjectAs, openProject } = useWorkspaceFileActions({
     project,

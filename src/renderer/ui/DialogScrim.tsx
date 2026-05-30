@@ -1,4 +1,4 @@
-import { useRef, type MouseEvent, type PointerEvent, type ReactNode } from "react";
+import { useRef, type PointerEvent, type ReactNode } from "react";
 
 interface DialogScrimProps {
   children: ReactNode;
@@ -19,7 +19,7 @@ export const DialogScrim = ({
     pressStartedOnScrimRef.current = event.target === event.currentTarget;
   };
 
-  const handleClick = (event: MouseEvent<HTMLDivElement>) => {
+  const closeFromScrimPointerUp = (event: PointerEvent<HTMLDivElement>) => {
     const shouldClose =
       pressStartedOnScrimRef.current && event.target === event.currentTarget;
     pressStartedOnScrimRef.current = false;
@@ -34,7 +34,7 @@ export const DialogScrim = ({
       className={className}
       role={role}
       onPointerDownCapture={handlePointerDownCapture}
-      onClick={handleClick}
+      onPointerUpCapture={closeFromScrimPointerUp}
     >
       {children}
     </div>

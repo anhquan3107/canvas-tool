@@ -1,7 +1,7 @@
 import type { ReferenceGroup } from "@shared/types/project";
 import type { ShortcutBindings } from "@shared/shortcuts";
 import { TopBarHoverTooltip } from "@renderer/app/components/TopBarHoverTooltip";
-import { formatMenuShortcut } from "@renderer/app/components/MenuItemContent";
+import { formatMenuShortcut } from "@renderer/app/components/menu-shortcuts";
 import {
   TOOL_ORDER,
   getToolTooltipMeta,

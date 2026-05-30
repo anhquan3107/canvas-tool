@@ -20,7 +20,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { ShortcutActionId, ShortcutBindings } from "@shared/shortcuts";
-import { formatMenuShortcut } from "@renderer/app/components/MenuItemContent";
+import { formatMenuShortcut } from "@renderer/app/components/menu-shortcuts";
 import { useI18n } from "@renderer/i18n";
 import { DialogScrim } from "@renderer/ui/DialogScrim";
 import { createDialogKeyDownHandler } from "@renderer/ui/dialog-keyboard";

@@ -78,6 +78,7 @@ export const TodoList = ({
       "height",
       `${Math.min(element.scrollHeight, maxHeight)}px`,
     );
+    element.focus({ preventScroll: true });
   }, []);
 
   return (
@@ -167,7 +168,6 @@ export const TodoList = ({
             {editingTodoId === todo.id ? (
               <textarea
                 ref={editTextareaRef}
-                autoFocus
                 className="todo-text-input"
                 data-base-height="22"
                 data-max-height="200"

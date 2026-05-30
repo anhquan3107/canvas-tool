@@ -52,7 +52,6 @@ export const GroupDialog = ({
             ref={nameInputRef}
             className="group-dialog-input"
             id="group-name"
-            autoFocus
             value={draftGroupName}
             onChange={(event) => onDraftGroupNameChange(event.target.value)}
           />

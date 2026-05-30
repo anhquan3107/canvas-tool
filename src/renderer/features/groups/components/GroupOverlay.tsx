@@ -481,9 +481,16 @@ export const GroupOverlay = ({
       return;
     }
 
-    scheduleAutoHide();
+    clearAutoHideTimer();
+    if (!visibleMenuState) {
+      autoHideTimerRef.current = window.setTimeout(() => {
+        setMenuState(null);
+        onOpenChange(false);
+      }, AUTO_HIDE_DELAY_MS);
+    }
+
     return clearAutoHideTimer;
-  }, [clearAutoHideTimer, open, scheduleAutoHide]);
+  }, [clearAutoHideTimer, onOpenChange, open, visibleMenuState]);
 
   useEffect(() => {
     updateScrollIndicators();

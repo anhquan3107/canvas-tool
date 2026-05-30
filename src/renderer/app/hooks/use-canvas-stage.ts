@@ -43,12 +43,11 @@ export const useCanvasStage = () => {
       frameId = window.requestAnimationFrame(updateViewportSize);
     };
 
-    updateViewportSize();
-
     const observer = new ResizeObserver(() => {
       scheduleViewportSizeUpdate();
     });
     observer.observe(node);
+    scheduleViewportSizeUpdate();
 
     return () => {
       observer.disconnect();

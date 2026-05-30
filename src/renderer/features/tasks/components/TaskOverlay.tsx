@@ -75,7 +75,7 @@ export const TaskOverlay = ({
 }: TaskOverlayProps) => {
   const { copy, locale } = useI18n();
   const shellRef = useRef<HTMLElement | null>(null);
-  const [renderPopover, setRenderPopover] = useState(expanded);
+  const [renderPopover, setRenderPopover] = useState(() => expanded);
   const [renderPrimaryMeta, setRenderPrimaryMeta] = useState(Boolean(selectedTaskId));
   const [menuState, setMenuState] = useState<{
     taskId: string;

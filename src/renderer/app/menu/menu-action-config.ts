@@ -1,8 +1,8 @@
 import type { ShortcutActionId, ShortcutBindings } from "@shared/shortcuts";
 import {
-  formatMenuShortcut,
   type MenuIconId,
 } from "@renderer/app/components/MenuItemContent";
+import { formatMenuShortcut } from "@renderer/app/components/menu-shortcuts";
 import type { LocaleMessages } from "@renderer/i18n";
 
 export type MenuActionKey =

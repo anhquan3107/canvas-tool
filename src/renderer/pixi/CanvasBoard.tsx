@@ -134,7 +134,7 @@ export const CanvasBoard = ({
   const contentColorMatrixFilterRef = useRef<ColorMatrixFilter | null>(null);
   const lastAppliedGrayscaleRef = useRef(group.filters.grayscale);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     selectionIdsRef.current = selectedItemIds;
     frameByIdRef.current.forEach((frame, id) => {
       const meta = frameMetaByIdRef.current.get(id);
@@ -167,7 +167,7 @@ export const CanvasBoard = ({
     groupRef.current = group;
   }, [group]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     cropSessionRef.current = cropSession;
   }, [cropSession]);
 
@@ -244,7 +244,7 @@ export const CanvasBoard = ({
     cropSessionRef,
   });
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     activeToolRef.current = activeTool;
     if (activeTool !== "doodle") {
       hideDoodleCursor();
@@ -257,7 +257,7 @@ export const CanvasBoard = ({
     }
   }, [activeTool, hideDoodleCursor, updateDoodleCursor]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     doodleModeRef.current = doodleMode;
     const lastPointer = lastPointerClientRef.current;
     if (lastPointer) {
@@ -265,7 +265,7 @@ export const CanvasBoard = ({
     }
   }, [doodleMode, updateDoodleCursor]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     doodleColorRef.current = doodleColor;
     const lastPointer = lastPointerClientRef.current;
     if (lastPointer) {
@@ -273,7 +273,7 @@ export const CanvasBoard = ({
     }
   }, [doodleColor, updateDoodleCursor]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     doodleSizeRef.current = doodleSize;
     const lastPointer = lastPointerClientRef.current;
     if (lastPointer) {
@@ -281,7 +281,7 @@ export const CanvasBoard = ({
     }
   }, [doodleSize, updateDoodleCursor]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     surfaceOpacityRef.current = surfaceOpacity;
     drawBoardSurface();
   }, [drawBoardSurface, surfaceOpacity]);
@@ -567,7 +567,7 @@ export const CanvasBoard = ({
     });
   }, [appReady, group.filters.grayscale, group.id, group.items, group.zoom]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!appReady) {
       return;
     }
@@ -619,7 +619,7 @@ export const CanvasBoard = ({
     });
   }, [captureSessionByIdRef, group.id, group.items, stopCaptureSession]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!appReady) {
       return;
     }
@@ -631,7 +631,7 @@ export const CanvasBoard = ({
     redrawAnnotations(group.annotations);
   }, [appReady, cancelAnnotationSession, group.annotations, redrawAnnotations]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!appReady) {
       return;
     }
@@ -639,7 +639,7 @@ export const CanvasBoard = ({
     updateSelectedBoundsOverlay();
   }, [appReady, selectedItemIds, updateSelectedBoundsOverlay]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!appReady) {
       return;
     }
@@ -647,7 +647,7 @@ export const CanvasBoard = ({
     updateSelectedBoundsOverlay();
   }, [appReady, cropSession, updateSelectedBoundsOverlay]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!appReady) {
       return;
     }
@@ -655,7 +655,7 @@ export const CanvasBoard = ({
     updateSelectedBoundsOverlay();
   }, [appReady, group.items, updateSelectedBoundsOverlay]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!appReady) {
       return;
     }
@@ -671,7 +671,7 @@ export const CanvasBoard = ({
     updateSelectedBoundsOverlay,
   ]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!appReady) {
       return;
     }
@@ -682,7 +682,7 @@ export const CanvasBoard = ({
     }
   }, [appReady, group.zoom, updateDoodleCursor]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!appReady) {
       return;
     }

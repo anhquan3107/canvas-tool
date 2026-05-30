@@ -56,7 +56,7 @@ export const useGroupFeature = ({
     setSelectedItemIds([]);
     setGroupDialogOpen(false);
     onCreateGroupSuccess();
-    pushToast("success", copy.toasts.savedCurrentCanvasAs(name));
+    pushToast("success", copy.toasts.createdLabel(name));
   }, [
     addGroup,
     copy.groups,

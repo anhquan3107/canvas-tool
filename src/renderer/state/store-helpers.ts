@@ -53,6 +53,12 @@ const createEmptyGroup = (
   extractedSwatches: [],
 });
 
+export const createEmptyReferenceGroup = (
+  name: string,
+  order: number,
+): ReferenceGroup =>
+  createEmptyGroup(name, order, DEFAULT_EMPTY_GROUP_CANVAS_SIZE, "group");
+
 export const createResetCanvasGroup = (
   sourceGroup: ReferenceGroup,
 ): ReferenceGroup => {

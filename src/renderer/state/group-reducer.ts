@@ -2,6 +2,7 @@ import type { Project } from "@shared/types/project";
 import type { Action } from "@renderer/state/project-store-types";
 import {
   cloneGroupSnapshot,
+  createEmptyReferenceGroup,
   createResetCanvasGroup,
   touchProject,
 } from "@renderer/state/store-helpers";
@@ -81,31 +82,32 @@ export const reduceGroupAction = (
     case "add-group": {
       const canvasGroup =
         project.groups.find((group) => group.kind === "canvas") ?? project.groups[0];
-      const sourceGroup =
+      const activeGroup =
         project.groups.find((group) => group.id === project.activeGroupId) ??
         canvasGroup;
 
-      if (!canvasGroup || !sourceGroup) {
+      if (!canvasGroup || !activeGroup) {
         return project;
       }
 
-      const snapshotGroup = cloneGroupSnapshot(
-        sourceGroup,
+      const name =
         action.payload.name ||
-          `Group ${project.groups.filter((group) => group.kind === "group").length + 1}`,
-        project.groups.length,
-      );
+        `Group ${project.groups.filter((group) => group.kind === "group").length + 1}`;
+      const shouldSnapshotCanvas = activeGroup.kind === "canvas";
+      const nextGroup = shouldSnapshotCanvas
+        ? cloneGroupSnapshot(activeGroup, name, project.groups.length)
+        : createEmptyReferenceGroup(name, project.groups.length);
 
       return touchProject({
         ...project,
-        activeGroupId: canvasGroup.id,
+        activeGroupId: shouldSnapshotCanvas ? canvasGroup.id : project.activeGroupId,
         groups: project.groups
           .map((group) =>
-            group.id === canvasGroup.id
+            shouldSnapshotCanvas && group.id === canvasGroup.id
               ? createResetCanvasGroup(canvasGroup)
               : group,
           )
-          .concat(snapshotGroup)
+          .concat(nextGroup)
           .map((group, index) => ({
             ...group,
             order: index,

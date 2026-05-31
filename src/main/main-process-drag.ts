@@ -58,7 +58,12 @@ const pollAndApplyDrag = () => {
     return;
   }
 
-  win.setPosition(nextX, nextY, false);
+  try {
+    win.setPosition(nextX, nextY, false);
+  } catch {
+    stopDrag();
+    return;
+  }
   activeSession.lastAppliedX = nextX;
   activeSession.lastAppliedY = nextY;
   notifyWindowBoundsChanged(win);

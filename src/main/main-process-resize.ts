@@ -227,6 +227,9 @@ const pollAndApply = () => {
   resizingWindows.add(win);
   try {
     win.setBounds(next, false);
+  } catch {
+    stopResize();
+    return;
   } finally {
     resizingWindows.delete(win);
   }

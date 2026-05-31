@@ -35,6 +35,72 @@ export const registerWindowHandlers = (window: BrowserWindow) => {
     isFiniteNumber(payload.y) &&
     isFiniteNumber(payload.width) &&
     isFiniteNumber(payload.height);
+  const getNativeCoordinateEnvelope = () => {
+    const displays = screen.getAllDisplays();
+    if (displays.length === 0) {
+      return {
+        minX: -100_000,
+        maxX: 100_000,
+        minY: -100_000,
+        maxY: 100_000,
+      };
+    }
+
+    const minX = Math.min(...displays.map((display) => display.bounds.x));
+    const minY = Math.min(...displays.map((display) => display.bounds.y));
+    const maxX = Math.max(
+      ...displays.map((display) => display.bounds.x + display.bounds.width),
+    );
+    const maxY = Math.max(
+      ...displays.map((display) => display.bounds.y + display.bounds.height),
+    );
+    const spanX = Math.max(1, maxX - minX);
+    const spanY = Math.max(1, maxY - minY);
+
+    return {
+      minX: minX - spanX,
+      maxX: maxX + spanX,
+      minY: minY - spanY,
+      maxY: maxY + spanY,
+    };
+  };
+  const clampInteger = (value: number, min: number, max: number) => {
+    const rounded = Math.round(value);
+    if (!Number.isSafeInteger(rounded)) {
+      return null;
+    }
+
+    const clamped = Math.min(max, Math.max(min, rounded));
+    return Object.is(clamped, -0) ? 0 : clamped;
+  };
+  const sanitizeWindowPosition = (
+    payload: AppWindowPosition | null | undefined,
+  ): AppWindowPosition | null => {
+    if (!isValidWindowPosition(payload)) {
+      return null;
+    }
+
+    const envelope = getNativeCoordinateEnvelope();
+    const x = clampInteger(payload.x, envelope.minX, envelope.maxX);
+    const y = clampInteger(payload.y, envelope.minY, envelope.maxY);
+    return x === null || y === null ? null : { x, y };
+  };
+  const sanitizeWindowBounds = (
+    payload: AppWindowBounds | null | undefined,
+  ): AppWindowBounds | null => {
+    if (!isValidWindowBounds(payload)) {
+      return null;
+    }
+
+    const envelope = getNativeCoordinateEnvelope();
+    const x = clampInteger(payload.x, envelope.minX, envelope.maxX);
+    const y = clampInteger(payload.y, envelope.minY, envelope.maxY);
+    const width = clampInteger(payload.width, 1, 100_000);
+    const height = clampInteger(payload.height, 1, 100_000);
+    return x === null || y === null || width === null || height === null
+      ? null
+      : { x, y, width, height };
+  };
   const toWindowSize = (width: number, height: number): AppWindowSize => ({
     width: Math.max(0, Math.round(width)),
     height: Math.max(0, Math.round(height)),
@@ -198,40 +264,55 @@ export const registerWindowHandlers = (window: BrowserWindow) => {
 
   ipcMain.handle("window:set-position", (event, payload: AppWindowPosition) => {
     const targetWindow = getTargetWindow(event);
-    if (!isValidWindowPosition(payload)) {
+    const nextPosition = sanitizeWindowPosition(payload);
+    if (!nextPosition) {
       return;
     }
-    targetWindow.setPosition(Math.round(payload.x), Math.round(payload.y));
+    try {
+      targetWindow.setPosition(nextPosition.x, nextPosition.y);
+    } catch {
+      // Native window APIs can reject transient OS pointer coordinates.
+    }
   });
 
   ipcMain.on("window:set-position-immediate", (event, payload: AppWindowPosition) => {
     const targetWindow = getTargetWindow(event);
-    if (!isValidWindowPosition(payload)) {
+    const nextPosition = sanitizeWindowPosition(payload);
+    if (!nextPosition) {
       return;
     }
-    targetWindow.setPosition(Math.round(payload.x), Math.round(payload.y));
+    try {
+      targetWindow.setPosition(nextPosition.x, nextPosition.y);
+    } catch {
+      // Ignore one bad native move instead of surfacing a main-process dialog.
+    }
   });
 
   ipcMain.handle("window:set-bounds", (event, payload: AppWindowBounds) => {
     const targetWindow = getTargetWindow(event);
-    targetWindow.setBounds({
-      x: Math.round(payload.x),
-      y: Math.round(payload.y),
-      width: Math.round(payload.width),
-      height: Math.round(payload.height),
-    });
+    const nextBounds = sanitizeWindowBounds(payload);
+    if (!nextBounds) {
+      return;
+    }
+    try {
+      targetWindow.setBounds(nextBounds);
+    } catch {
+      return;
+    }
     notifyWindowBoundsChanged(targetWindow);
   });
 
   ipcMain.on("window:set-bounds-immediate", (event, payload: AppWindowBounds) => {
     const targetWindow = getTargetWindow(event);
-    targetWindow.setBounds({
-      x: Math.round(payload.x),
-      y: Math.round(payload.y),
-      width: Math.round(payload.width),
-      height: Math.round(payload.height),
-    });
-    notifyWindowBoundsChanged(targetWindow);
+    const nextBounds = sanitizeWindowBounds(payload);
+    if (nextBounds) {
+      try {
+        targetWindow.setBounds(nextBounds);
+        notifyWindowBoundsChanged(targetWindow);
+      } catch {
+        // Required below: still set returnValue so sendSync() unblocks.
+      }
+    }
     // Required: set returnValue so ipcRenderer.sendSync() unblocks immediately.
     event.returnValue = null;
   });

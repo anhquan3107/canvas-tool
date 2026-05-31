@@ -2,7 +2,7 @@ import { screen } from "electron";
 
 const MAX_WINDOW_MOTION_FPS = 120;
 const MIN_WINDOW_MOTION_FPS = 30;
-const FALLBACK_WINDOWS_MOTION_FPS = 60;
+const FALLBACK_WINDOWS_MOTION_FPS = MAX_WINDOW_MOTION_FPS;
 
 const getDisplayRefreshRates = () =>
   screen
@@ -20,14 +20,14 @@ const getWindowMotionFps = () => {
   }
 
   const refreshRates = getDisplayRefreshRates();
-  const slowestRefreshRate =
+  const fastestRefreshRate =
     refreshRates.length > 0
-      ? Math.min(...refreshRates)
+      ? Math.max(...refreshRates)
       : FALLBACK_WINDOWS_MOTION_FPS;
 
   return Math.min(
     MAX_WINDOW_MOTION_FPS,
-    Math.max(MIN_WINDOW_MOTION_FPS, slowestRefreshRate),
+    Math.max(MIN_WINDOW_MOTION_FPS, fastestRefreshRate),
   );
 };
 

@@ -16,11 +16,14 @@ export const setWindowBoundsListener = (
   boundsListenerByWindow.delete(window);
 };
 
-export const notifyWindowBoundsChanged = (window: BrowserWindow) => {
+export const notifyWindowBoundsChanged = (
+  window: BrowserWindow,
+  bounds: Electron.Rectangle | null = null,
+) => {
   const listener = boundsListenerByWindow.get(window);
   if (!listener || window.isDestroyed()) {
     return;
   }
 
-  listener(window.getBounds());
+  listener(bounds ?? window.getBounds());
 };

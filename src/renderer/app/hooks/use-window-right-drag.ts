@@ -70,25 +70,12 @@ const isFinitePosition = (
 ): value is { x: number; y: number } =>
   value !== null && isFiniteNumber(value.x) && isFiniteNumber(value.y);
 
-const getNavigatorPlatform = () => {
-  try {
-    const navigatorWithUAData = navigator as Navigator & {
-      userAgentData?: { platform?: string };
-    };
-    return navigatorWithUAData.userAgentData?.platform ?? navigator.platform ?? "";
-  } catch {
-    return "";
-  }
-};
-
-const isMacPlatform = () => /mac/i.test(getNavigatorPlatform());
-
 const getResolvedDragMode = (mode: WindowDragMode | undefined) => {
   if (mode && mode !== "auto") {
     return mode;
   }
 
-  return isMacPlatform() ? "renderer" : "main-process";
+  return "main-process";
 };
 
 const isTypingTarget = (target: EventTarget | null) => {

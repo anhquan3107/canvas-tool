@@ -31,9 +31,9 @@ export const isMainProcessDragActive = (window: BrowserWindow) =>
  *   newPos = startBounds + (currentCursor - startCursor)
  *
  * We never re-read win.getBounds() mid-drag because the OS may report
- * stale/lagging values during rapid movement, which would corrupt the
- * anchor point and cause cumulative drift. We only read current bounds as a
- * guard so Windows DPI changes cannot silently resize the window during moves.
+ * stale/lagging values during rapid movement, and the extra native round-trip
+ * makes Windows dragging visibly sluggish. Every applied move uses setBounds()
+ * with the original width/height, so DPI changes cannot resize the window.
  */
 const pollAndApplyDrag = () => {
   if (!activeSession) return;
@@ -52,13 +52,7 @@ const pollAndApplyDrag = () => {
   const nextX = Math.round(activeSession.startBoundsX + dx);
   const nextY = Math.round(activeSession.startBoundsY + dy);
 
-  const currentBounds = win.getBounds();
-  if (
-    nextX === activeSession.lastAppliedX &&
-    nextY === activeSession.lastAppliedY &&
-    currentBounds.width === activeSession.startBoundsWidth &&
-    currentBounds.height === activeSession.startBoundsHeight
-  ) {
+  if (nextX === activeSession.lastAppliedX && nextY === activeSession.lastAppliedY) {
     return;
   }
 
@@ -77,7 +71,7 @@ const pollAndApplyDrag = () => {
   }
   activeSession.lastAppliedX = nextX;
   activeSession.lastAppliedY = nextY;
-  notifyWindowBoundsChanged(win);
+  notifyWindowBoundsChanged(win, nextBounds);
 };
 
 const stopDrag = () => {
@@ -116,6 +110,7 @@ export const registerMainProcessDrag = (window: BrowserWindow) => {
       timerId: setInterval(pollAndApplyDrag, getWindowMotionPollIntervalMs()),
     };
 
+    pollAndApplyDrag();
     event.returnValue = true;
   });
 

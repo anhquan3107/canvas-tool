@@ -13,8 +13,11 @@ type RightMouseGestureState = {
   suppressContextMenuUntil: number;
 };
 
+type WindowDragMode = "auto" | "main-process" | "renderer";
+
 type WindowDragOptions = {
   enableLeftWindowDrag?: boolean;
+  mode?: WindowDragMode;
 };
 
 type DragState = {
@@ -27,6 +30,8 @@ type DragState = {
   startScreenY: number;
   lastScreenX: number;
   lastScreenY: number;
+  startWindowX: number;
+  startWindowY: number;
   ready: boolean;
   moved: boolean;
 };
@@ -64,6 +69,27 @@ const isFinitePosition = (
   value: { x: number; y: number } | null,
 ): value is { x: number; y: number } =>
   value !== null && isFiniteNumber(value.x) && isFiniteNumber(value.y);
+
+const getNavigatorPlatform = () => {
+  try {
+    const navigatorWithUAData = navigator as Navigator & {
+      userAgentData?: { platform?: string };
+    };
+    return navigatorWithUAData.userAgentData?.platform ?? navigator.platform ?? "";
+  } catch {
+    return "";
+  }
+};
+
+const isMacPlatform = () => /mac/i.test(getNavigatorPlatform());
+
+const getResolvedDragMode = (mode: WindowDragMode | undefined) => {
+  if (mode && mode !== "auto") {
+    return mode;
+  }
+
+  return isMacPlatform() ? "renderer" : "main-process";
+};
 
 const isTypingTarget = (target: EventTarget | null) => {
   if (!isElement(target)) {
@@ -108,7 +134,6 @@ const getPointerScreenPosition = (event: PointerEvent) => {
     // Fall back to renderer pointer coordinates below.
   }
 
-  // Fallback: use the renderer's own event coordinates (already in DIP/CSS pixels).
   const fallbackX = isFiniteNumber(event.screenX)
     ? event.screenX
     : window.screenX + event.clientX;
@@ -123,13 +148,85 @@ const getPointerScreenPosition = (event: PointerEvent) => {
   return { x: fallbackX, y: fallbackY };
 };
 
+const getImmediateWindowPosition = () => {
+  try {
+    return window.desktopApi.window.getPositionSync();
+  } catch {
+    return null;
+  }
+};
+
+const getCachedWindowPosition = async (
+  cachedPosition: { x: number; y: number } | null,
+) => {
+  if (isFinitePosition(cachedPosition)) {
+    return cachedPosition;
+  }
+
+  const immediatePosition = getImmediateWindowPosition();
+  if (isFinitePosition(immediatePosition)) {
+    return immediatePosition;
+  }
+
+  const nextPosition = await window.desktopApi.window.getPosition();
+  return isFinitePosition(nextPosition) ? nextPosition : null;
+};
+
 export const useWindowRightDrag = (options?: WindowDragOptions) => {
   const enableLeftWindowDrag = options?.enableLeftWindowDrag ?? false;
+  const mode = getResolvedDragMode(options?.mode);
 
   useEffect(() => {
     const gestureState = getWindowRightMouseGestureState();
     let dragToken = 0;
     let dragState: DragState | null = null;
+    let cachedWindowPosition: { x: number; y: number } | null = null;
+    let pendingMove: { x: number; y: number } | null = null;
+    let moveFrame: number | null = null;
+
+    const scheduleMove = () => {
+      if (moveFrame === null) {
+        moveFrame = window.requestAnimationFrame(flushMove);
+      }
+    };
+
+    const flushMove = () => {
+      moveFrame = null;
+      const nextMove = pendingMove;
+      pendingMove = null;
+
+      if (!isFinitePosition(nextMove)) {
+        return;
+      }
+
+      cachedWindowPosition = nextMove;
+      try {
+        window.desktopApi.window.setPositionImmediate(nextMove);
+      } catch {
+        void window.desktopApi.window.setPosition(nextMove).catch(() => null);
+      }
+    };
+
+    const flushPendingMoveImmediately = () => {
+      const nextMove = pendingMove;
+      pendingMove = null;
+
+      if (moveFrame !== null) {
+        window.cancelAnimationFrame(moveFrame);
+        moveFrame = null;
+      }
+
+      if (!isFinitePosition(nextMove)) {
+        return;
+      }
+
+      cachedWindowPosition = nextMove;
+      try {
+        window.desktopApi.window.setPositionImmediate(nextMove);
+      } catch {
+        void window.desktopApi.window.setPosition(nextMove).catch(() => null);
+      }
+    };
 
     const releasePointerCapture = () => {
       if (!dragState?.captureTarget) {
@@ -145,14 +242,23 @@ export const useWindowRightDrag = (options?: WindowDragOptions) => {
       }
     };
 
-    const clearDrag = () => {
-      if (dragState?.moved) {
+    const clearDrag = (cancelQueuedMove = true) => {
+      if (mode === "main-process" && dragState?.moved) {
         try {
           window.desktopApi.window.stopDrag();
         } catch {}
       }
+
       releasePointerCapture();
       dragState = null;
+
+      if (mode === "renderer" && cancelQueuedMove) {
+        pendingMove = null;
+      }
+      if (mode === "renderer" && cancelQueuedMove && moveFrame !== null) {
+        window.cancelAnimationFrame(moveFrame);
+        moveFrame = null;
+      }
     };
 
     const handlePointerDown = (event: PointerEvent) => {
@@ -179,10 +285,24 @@ export const useWindowRightDrag = (options?: WindowDragOptions) => {
         return;
       }
 
+      if (mode === "renderer") {
+        flushPendingMoveImmediately();
+      }
+
       const token = ++dragToken;
       const button = leftDragTarget ? 0 : 2;
       const buttonMask = button === 0 ? 1 : 2;
       const captureTarget = isElement(event.target) ? event.target : null;
+      const initialPosition =
+        mode === "renderer"
+          ? getImmediateWindowPosition() ?? cachedWindowPosition
+          : null;
+
+      if (mode === "renderer") {
+        cachedWindowPosition = isFinitePosition(initialPosition)
+          ? initialPosition
+          : null;
+      }
 
       if (captureTarget) {
         try {
@@ -202,7 +322,9 @@ export const useWindowRightDrag = (options?: WindowDragOptions) => {
         startScreenY: pointerScreenPosition.y,
         lastScreenX: pointerScreenPosition.x,
         lastScreenY: pointerScreenPosition.y,
-        ready: false,
+        startWindowX: cachedWindowPosition?.x ?? 0,
+        startWindowY: cachedWindowPosition?.y ?? 0,
+        ready: mode === "renderer" && cachedWindowPosition !== null,
         moved: false,
       };
 
@@ -214,6 +336,39 @@ export const useWindowRightDrag = (options?: WindowDragOptions) => {
         gestureState.startY = event.clientY;
         gestureState.suppressCurrentContextMenu = false;
       }
+
+      if (mode !== "renderer" || cachedWindowPosition) {
+        return;
+      }
+
+      void getCachedWindowPosition(cachedWindowPosition).then((position) => {
+        if (token !== dragToken || dragState?.token !== token) {
+          return;
+        }
+
+        if (!isFinitePosition(position)) {
+          return;
+        }
+
+        cachedWindowPosition = position;
+        dragState = {
+          ...dragState,
+          startWindowX: position.x,
+          startWindowY: position.y,
+          ready: true,
+        };
+
+        const deltaX = dragState.lastScreenX - dragState.startScreenX;
+        const deltaY = dragState.lastScreenY - dragState.startScreenY;
+        if (dragState.moved) {
+          pendingMove = {
+            x: position.x + deltaX,
+            y: position.y + deltaY,
+          };
+          cachedWindowPosition = pendingMove;
+          scheduleMove();
+        }
+      });
     };
 
     const handlePointerMove = (event: PointerEvent) => {
@@ -239,7 +394,6 @@ export const useWindowRightDrag = (options?: WindowDragOptions) => {
         return;
       }
 
-      // Use screen-space delta only for the drag-threshold check.
       const screenDeltaX = pointerScreenPosition.x - dragState.startScreenX;
       const screenDeltaY = pointerScreenPosition.y - dragState.startScreenY;
       if (!dragState.moved && Math.hypot(screenDeltaX, screenDeltaY) < DRAG_THRESHOLD) {
@@ -248,7 +402,7 @@ export const useWindowRightDrag = (options?: WindowDragOptions) => {
 
       dragState.moved = true;
 
-      if (!dragState.ready) {
+      if (mode === "main-process" && !dragState.ready) {
         dragState.ready = true;
         try {
           window.desktopApi.window.startDrag();
@@ -264,11 +418,46 @@ export const useWindowRightDrag = (options?: WindowDragOptions) => {
 
       event.preventDefault();
 
+      if (mode === "renderer" && !dragState.ready) {
+        dragState = {
+          ...dragState,
+          lastScreenX: pointerScreenPosition.x,
+          lastScreenY: pointerScreenPosition.y,
+        };
+        return;
+      }
+
+      if (mode === "renderer") {
+        const totalDeltaX = pointerScreenPosition.x - dragState.startScreenX;
+        const totalDeltaY = pointerScreenPosition.y - dragState.startScreenY;
+        const nextMove = {
+          x: dragState.startWindowX + totalDeltaX,
+          y: dragState.startWindowY + totalDeltaY,
+        };
+
+        if (!isFinitePosition(nextMove)) {
+          return;
+        }
+
+        dragState = {
+          ...dragState,
+          lastScreenX: pointerScreenPosition.x,
+          lastScreenY: pointerScreenPosition.y,
+        };
+        cachedWindowPosition = nextMove;
+        pendingMove = nextMove;
+        scheduleMove();
+        return;
+      }
+
       dragState.lastScreenX = pointerScreenPosition.x;
       dragState.lastScreenY = pointerScreenPosition.y;
     };
 
     const handlePointerUp = () => {
+      if (mode === "renderer" && pendingMove) {
+        scheduleMove();
+      }
       if (dragState?.moved && dragState.button === 2) {
         gestureState.suppressCurrentContextMenu = true;
         gestureState.suppressContextMenuUntil =
@@ -280,7 +469,7 @@ export const useWindowRightDrag = (options?: WindowDragOptions) => {
         gestureState.pointerType = null;
       }
       dragToken += 1;
-      clearDrag();
+      clearDrag(false);
     };
 
     const handleContextMenu = (event: MouseEvent) => {
@@ -320,6 +509,21 @@ export const useWindowRightDrag = (options?: WindowDragOptions) => {
     window.addEventListener("contextmenu", handleContextMenu, true);
     window.addEventListener("blur", handleWindowBlur);
 
+    if (mode === "renderer") {
+      const initialCachedPosition = getImmediateWindowPosition();
+      cachedWindowPosition = isFinitePosition(initialCachedPosition)
+        ? initialCachedPosition
+        : null;
+      if (!cachedWindowPosition) {
+        void window.desktopApi.window
+          .getPosition()
+          .then((position) => {
+            cachedWindowPosition = isFinitePosition(position) ? position : null;
+          })
+          .catch(() => null);
+      }
+    }
+
     gestureState.isRightMouseDown = false;
     gestureState.isDragging = false;
     gestureState.pointerType = null;
@@ -340,5 +544,5 @@ export const useWindowRightDrag = (options?: WindowDragOptions) => {
       gestureState.suppressContextMenuUntil = 0;
       clearDrag();
     };
-  }, [enableLeftWindowDrag]);
+  }, [enableLeftWindowDrag, mode]);
 };

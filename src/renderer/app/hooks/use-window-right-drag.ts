@@ -18,6 +18,8 @@ type WindowDragMode = "auto" | "main-process" | "renderer";
 type WindowDragOptions = {
   enableLeftWindowDrag?: boolean;
   mode?: WindowDragMode;
+  preferNativeMacLeftDrag?: boolean;
+  useRendererDragOnMac?: boolean;
 };
 
 type DragState = {
@@ -69,6 +71,19 @@ const isFinitePosition = (
   value: { x: number; y: number } | null,
 ): value is { x: number; y: number } =>
   value !== null && isFiniteNumber(value.x) && isFiniteNumber(value.y);
+
+const getNavigatorPlatform = () => {
+  try {
+    const navigatorWithUAData = navigator as Navigator & {
+      userAgentData?: { platform?: string };
+    };
+    return navigatorWithUAData.userAgentData?.platform ?? navigator.platform ?? "";
+  } catch {
+    return "";
+  }
+};
+
+const isMacPlatform = () => /mac/i.test(getNavigatorPlatform());
 
 const getResolvedDragMode = (mode: WindowDragMode | undefined) => {
   if (mode && mode !== "auto") {
@@ -161,7 +176,16 @@ const getCachedWindowPosition = async (
 
 export const useWindowRightDrag = (options?: WindowDragOptions) => {
   const enableLeftWindowDrag = options?.enableLeftWindowDrag ?? false;
-  const mode = getResolvedDragMode(options?.mode);
+  const macPlatform = isMacPlatform();
+  const preferNativeMacLeftDrag =
+    options?.preferNativeMacLeftDrag === true && macPlatform;
+  const requestedMode = getResolvedDragMode(options?.mode);
+  const mode =
+    (options?.mode === undefined || options.mode === "auto") &&
+    options?.useRendererDragOnMac === true &&
+    macPlatform
+      ? "renderer"
+      : requestedMode;
 
   useEffect(() => {
     const gestureState = getWindowRightMouseGestureState();
@@ -254,6 +278,7 @@ export const useWindowRightDrag = (options?: WindowDragOptions) => {
       }
 
       const leftDragTarget =
+        !preferNativeMacLeftDrag &&
         enableLeftWindowDrag &&
         event.button === 0 &&
         (event.buttons & 1) === 1 &&
@@ -531,5 +556,5 @@ export const useWindowRightDrag = (options?: WindowDragOptions) => {
       gestureState.suppressContextMenuUntil = 0;
       clearDrag();
     };
-  }, [enableLeftWindowDrag, mode]);
+  }, [enableLeftWindowDrag, mode, preferNativeMacLeftDrag]);
 };

@@ -89,7 +89,10 @@ const useAppShell = ({
   initialDoodleMode,
   initialDoodleEraserMode,
 }: AppShellProps) => {
-  useWindowRightDrag({ enableLeftWindowDrag: true });
+  useWindowRightDrag({
+    enableLeftWindowDrag: true,
+    preferNativeMacLeftDrag: true,
+  });
   const { copy } = useI18n();
   const windowFocused = useWindowFocusState();
   const appShellRef = useRef<HTMLDivElement | null>(null);

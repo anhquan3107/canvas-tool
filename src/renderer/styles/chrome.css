@@ -119,6 +119,10 @@
     border-color 160ms ease;
 }
 
+.app-topbar.macos-native-window-controls {
+  -webkit-app-region: drag;
+}
+
 .desktop-frame.window-unfocused .app-topbar {
   opacity: 0;
   transform: translateY(-100%);
@@ -159,15 +163,18 @@
 }
 
 .app-topbar.macos-native-window-controls .app-drag-region {
+  -webkit-app-region: drag;
   padding-left: 76px;
 }
 
 .topbar-brand,
+.topbar-actions,
 .toolbar-button,
 .chrome-chip,
 .window-button,
 .topbar-hover-tooltip-shell,
-.window-cluster {
+.window-cluster,
+[data-window-no-drag="true"] {
   -webkit-app-region: no-drag;
 }
 

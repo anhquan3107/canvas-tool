@@ -86,7 +86,10 @@ export const CaptureWindowApp = () => useCaptureWindowApp();
 
 const useCaptureWindowApp = () => {
   const { copy } = useI18n();
-  useWindowRightDrag({ enableLeftWindowDrag: true });
+  useWindowRightDrag({
+    enableLeftWindowDrag: true,
+    useRendererDragOnMac: true,
+  });
   const windowFocused = useWindowFocusState();
   const initial = useMemo(() => getCaptureLocationParams(), []);
   const videoRef = useRef<HTMLVideoElement | null>(null);

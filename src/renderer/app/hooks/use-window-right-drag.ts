@@ -397,11 +397,6 @@ export const useWindowRightDrag = (options?: WindowDragOptions) => {
             x: position.x + deltaX,
             y: position.y + deltaY,
           };
-          dragState = {
-            ...dragState,
-            windowX: pendingMove.x,
-            windowY: pendingMove.y,
-          };
           cachedWindowPosition = pendingMove;
           scheduleMove();
         }
@@ -469,11 +464,11 @@ export const useWindowRightDrag = (options?: WindowDragOptions) => {
       }
 
       if (mode === "renderer") {
-        const stepDeltaX = pointerScreenPosition.x - dragState.lastScreenX;
-        const stepDeltaY = pointerScreenPosition.y - dragState.lastScreenY;
+        const totalDeltaX = pointerScreenPosition.x - dragState.startScreenX;
+        const totalDeltaY = pointerScreenPosition.y - dragState.startScreenY;
         const nextMove = {
-          x: dragState.windowX + stepDeltaX,
-          y: dragState.windowY + stepDeltaY,
+          x: dragState.windowX + totalDeltaX,
+          y: dragState.windowY + totalDeltaY,
         };
 
         if (!isFinitePosition(nextMove)) {
@@ -484,8 +479,6 @@ export const useWindowRightDrag = (options?: WindowDragOptions) => {
           ...dragState,
           lastScreenX: pointerScreenPosition.x,
           lastScreenY: pointerScreenPosition.y,
-          windowX: nextMove.x,
-          windowY: nextMove.y,
         };
         cachedWindowPosition = nextMove;
         pendingMove = {

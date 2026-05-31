@@ -9,7 +9,10 @@ import {
   getAnnotationStrokeBounds,
 } from "@renderer/pixi/utils/annotations";
 import { distanceBetween } from "@renderer/pixi/utils/geometry";
-import type { ActiveAnnotationSessionState } from "@renderer/pixi/types";
+import type {
+  ActiveAnnotationSessionState,
+  RequestCanvasRender,
+} from "@renderer/pixi/types";
 import type { DoodleMode } from "@renderer/features/tools/types";
 import {
   isPenPointerType,
@@ -61,6 +64,7 @@ interface UseCanvasBoardAnnotationsOptions {
   doodleColorRef: MutableRefObject<string>;
   doodleSizeRef: MutableRefObject<number>;
   clientPointToCanvas: (clientX: number, clientY: number) => CanvasPoint | null;
+  requestRender: RequestCanvasRender;
 }
 
 export const useCanvasBoardAnnotations = ({
@@ -75,10 +79,12 @@ export const useCanvasBoardAnnotations = ({
   doodleColorRef,
   doodleSizeRef,
   clientPointToCanvas,
+  requestRender,
 }: UseCanvasBoardAnnotationsOptions) => {
   const clearDraftAnnotation = useCallback(() => {
     annotationPreviewLayerRef.current?.clear();
-  }, [annotationPreviewLayerRef]);
+    requestRender();
+  }, [annotationPreviewLayerRef, requestRender]);
 
   const redrawAnnotations = useCallback(
     (annotations = groupRef.current.annotations) => {
@@ -91,8 +97,9 @@ export const useCanvasBoardAnnotations = ({
       annotations.forEach((stroke) =>
         drawAnnotationStroke(annotationLayer, stroke),
       );
+      requestRender();
     },
-    [annotationLayerRef, groupRef],
+    [annotationLayerRef, groupRef, requestRender],
   );
 
   const redrawDraftAnnotation = useCallback(
@@ -106,8 +113,9 @@ export const useCanvasBoardAnnotations = ({
       if (stroke) {
         drawAnnotationStroke(previewLayer, stroke);
       }
+      requestRender();
     },
-    [annotationPreviewLayerRef],
+    [annotationPreviewLayerRef, requestRender],
   );
 
   const appendDraftAnnotation = useCallback(
@@ -118,8 +126,9 @@ export const useCanvasBoardAnnotations = ({
       }
 
       drawAnnotationStroke(previewLayer, stroke, renderedPointCount);
+      requestRender();
     },
-    [annotationPreviewLayerRef],
+    [annotationPreviewLayerRef, requestRender],
   );
 
   const appendCommittedAnnotation = useCallback(
@@ -130,8 +139,9 @@ export const useCanvasBoardAnnotations = ({
       }
 
       drawAnnotationStroke(annotationLayer, stroke);
+      requestRender();
     },
-    [annotationLayerRef],
+    [annotationLayerRef, requestRender],
   );
 
   const commitBrushDraftStroke = useCallback(

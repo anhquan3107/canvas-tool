@@ -20,6 +20,10 @@ import {
   syncSelectionItemOrder,
 } from "@renderer/pixi/hooks/use-board-selection-visuals";
 import { refreshBoardImageVisuals } from "@renderer/pixi/hooks/use-board-item-render";
+import {
+  getBoardRenderAssetPath,
+  pruneBoardTextureCache,
+} from "@renderer/pixi/utils/textures";
 import { useCaptureSessions } from "@renderer/pixi/hooks/use-capture-sessions";
 import { useCanvasBoardAnnotations } from "@renderer/pixi/hooks/use-canvas-board-annotations";
 import { useCanvasBoardBootstrap } from "@renderer/pixi/hooks/use-canvas-board-bootstrap";
@@ -28,6 +32,8 @@ import { useCanvasBoardScene } from "@renderer/pixi/hooks/use-canvas-board-scene
 import { useCanvasBoardTransform } from "@renderer/pixi/hooks/use-canvas-board-transform";
 import { useCanvasBoardView } from "@renderer/pixi/hooks/use-canvas-board-view";
 import { ZERO_INSETS } from "@renderer/pixi/constants";
+import { DEFAULT_VIEW_ZOOM_BASELINE } from "@shared/project-defaults";
+import type { CanvasItem, ColorSwatch } from "@shared/types/project";
 import type {
   ActiveAnnotationSessionState,
   ActiveItemDragState,
@@ -36,12 +42,145 @@ import type {
   CanvasBoardProps,
   CropRect,
   CropSession,
+  RequestCanvasRender,
   TransformHandle,
 } from "@renderer/pixi/types";
 import { drawItemFrame } from "@renderer/pixi/utils/item-frame";
 import type { NormalizedPointerData } from "@renderer/pixi/utils/pointer";
 
 export const CanvasBoard = (props: CanvasBoardProps) => useCanvasBoardContent(props);
+
+interface RenderedSceneKey {
+  groupId: string;
+  canvasWidth: number;
+  canvasHeight: number;
+  preferHighResolution: boolean;
+  showSwatches: boolean;
+}
+
+const getRenderedSceneKey = (
+  group: CanvasBoardProps["group"],
+  showSwatches: boolean,
+  zoomBaseline?: number,
+): RenderedSceneKey => ({
+  groupId: group.id,
+  canvasWidth: group.canvasSize.width,
+  canvasHeight: group.canvasSize.height,
+  preferHighResolution: group.zoom >= 2 * (zoomBaseline ?? DEFAULT_VIEW_ZOOM_BASELINE),
+  showSwatches,
+});
+
+const isSameRenderedSceneKey = (
+  previous: RenderedSceneKey,
+  next: RenderedSceneKey,
+) =>
+  previous.groupId === next.groupId &&
+  previous.canvasWidth === next.canvasWidth &&
+  previous.canvasHeight === next.canvasHeight &&
+  previous.preferHighResolution === next.preferHighResolution &&
+  previous.showSwatches === next.showSwatches;
+
+const isSameRenderedSceneShell = (
+  previous: RenderedSceneKey,
+  next: RenderedSceneKey,
+) =>
+  previous.groupId === next.groupId &&
+  previous.canvasWidth === next.canvasWidth &&
+  previous.canvasHeight === next.canvasHeight &&
+  previous.showSwatches === next.showSwatches;
+
+const areSwatchesEqual = (
+  previous: ColorSwatch[] | undefined,
+  next: ColorSwatch[] | undefined,
+) => {
+  if ((previous?.length ?? 0) !== (next?.length ?? 0)) {
+    return false;
+  }
+
+  for (let index = 0; index < (previous?.length ?? 0); index += 1) {
+    const previousSwatch = previous?.[index];
+    const nextSwatch = next?.[index];
+    if (
+      previousSwatch?.id !== nextSwatch?.id ||
+      previousSwatch?.colorHex !== nextSwatch?.colorHex ||
+      previousSwatch?.origin !== nextSwatch?.origin ||
+      previousSwatch?.label !== nextSwatch?.label
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+};
+
+const haveSameRenderableItemContent = (
+  previous: CanvasItem,
+  next: CanvasItem,
+) => {
+  if (
+    previous.id !== next.id ||
+    previous.type !== next.type ||
+    previous.width !== next.width ||
+    previous.height !== next.height ||
+    previous.locked !== next.locked ||
+    previous.visible !== next.visible
+  ) {
+    return false;
+  }
+
+  if (previous.type === "image" && next.type === "image") {
+    return (
+      previous.assetPath === next.assetPath &&
+      previous.previewAssetPath === next.previewAssetPath &&
+      previous.thumbnailAssetPath === next.thumbnailAssetPath &&
+      previous.source === next.source &&
+      previous.label === next.label &&
+      previous.originalWidth === next.originalWidth &&
+      previous.originalHeight === next.originalHeight &&
+      previous.fileSizeBytes === next.fileSizeBytes &&
+      previous.format === next.format &&
+      previous.cropX === next.cropX &&
+      previous.cropY === next.cropY &&
+      previous.cropWidth === next.cropWidth &&
+      previous.cropHeight === next.cropHeight &&
+      previous.previewStatus === next.previewStatus &&
+      previous.swatchHex === next.swatchHex &&
+      areSwatchesEqual(previous.swatches, next.swatches)
+    );
+  }
+
+  if (previous.type === "capture" && next.type === "capture") {
+    return (
+      previous.sourceId === next.sourceId &&
+      previous.sourceName === next.sourceName &&
+      previous.quality === next.quality &&
+      previous.blur === next.blur &&
+      previous.grayscale === next.grayscale &&
+      previous.refreshMs === next.refreshMs
+    );
+  }
+
+  return false;
+};
+
+const canPatchItemTransformsOnly = (
+  previousItems: CanvasItem[],
+  nextItems: CanvasItem[],
+) => {
+  if (previousItems.length !== nextItems.length) {
+    return false;
+  }
+
+  const previousById = new Map(previousItems.map((item) => [item.id, item]));
+  for (const nextItem of nextItems) {
+    const previousItem = previousById.get(nextItem.id);
+    if (!previousItem || !haveSameRenderableItemContent(previousItem, nextItem)) {
+      return false;
+    }
+  }
+
+  return true;
+};
 
 const useCanvasBoardContent = ({
   group,
@@ -62,6 +201,7 @@ const useCanvasBoardContent = ({
   onLockedInteraction,
   onCanvasSizePreviewChange,
   onExportReady,
+  zoomBaseline,
 }: CanvasBoardProps) => {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const cursorOverlayRef = useRef<HTMLDivElement | null>(null);
@@ -103,6 +243,7 @@ const useCanvasBoardContent = ({
   const doodleModeRef = useRef(doodleMode);
   const doodleColorRef = useRef(doodleColor);
   const doodleSizeRef = useRef(doodleSize);
+  const renderFrameRef = useRef<number | null>(null);
   const renderTokenRef = useRef(0);
   const viewCommitTimerRef = useRef<number | null>(null);
   const isPanningRef = useRef(false);
@@ -131,10 +272,36 @@ const useCanvasBoardContent = ({
   >(null);
   const lastItemPressRef = useRef<{ itemId: string; time: number } | null>(null);
   const cropSessionRef = useRef<CropSession | null>(cropSession);
+  const renderedSceneItemsRef = useRef<CanvasItem[]>(group.items);
+  const renderedSceneKeyRef = useRef<RenderedSceneKey | null>(null);
+  if (renderedSceneKeyRef.current === null) {
+    renderedSceneKeyRef.current = getRenderedSceneKey(group, showSwatches, zoomBaseline);
+  }
   const [appReady, setAppReady] = useState(false);
   const contentBlurFilterRef = useRef<BlurFilter | null>(null);
   const contentColorMatrixFilterRef = useRef<ColorMatrixFilter | null>(null);
   const lastAppliedGrayscaleRef = useRef(group.filters.grayscale);
+
+  const requestRender = useCallback<RequestCanvasRender>(() => {
+    if (renderFrameRef.current !== null) {
+      return;
+    }
+
+    renderFrameRef.current = window.requestAnimationFrame(() => {
+      renderFrameRef.current = null;
+      appRef.current?.render();
+    });
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (renderFrameRef.current !== null) {
+        window.cancelAnimationFrame(renderFrameRef.current);
+        renderFrameRef.current = null;
+      }
+    },
+    [],
+  );
 
   useLayoutEffect(() => {
     selectionIdsRef.current = selectedItemIds;
@@ -163,7 +330,8 @@ const useCanvasBoardContent = ({
       group.items,
       selectedItemIds,
     );
-  }, [group.items, selectedItemIds]);
+    requestRender();
+  }, [group.items, requestRender, selectedItemIds]);
 
   useLayoutEffect(() => {
     groupRef.current = group;
@@ -244,6 +412,7 @@ const useCanvasBoardContent = ({
     lastPointerClientRef,
     activeSelectionTransformRef,
     cropSessionRef,
+    requestRender,
   });
 
   useLayoutEffect(() => {
@@ -304,6 +473,7 @@ const useCanvasBoardContent = ({
     onItemsPatchRef,
     onLockedInteractionRef,
     onCropRectChange,
+    requestRender,
   });
 
   useEffect(() => {
@@ -328,6 +498,7 @@ const useCanvasBoardContent = ({
     doodleColorRef,
     doodleSizeRef,
     clientPointToCanvas,
+    requestRender,
   });
 
   const { updateDraggedItemPosition, commitDraggedItemPatch } =
@@ -341,6 +512,7 @@ const useCanvasBoardContent = ({
       setPreviewInsets,
       updateSelectedBoundsOverlay,
       scheduleViewCommit,
+      requestRender,
     });
 
   const preserveLiveBoardView = useCallback(() => {
@@ -356,6 +528,120 @@ const useCanvasBoardContent = ({
       panY: boardContainer.y,
     };
   }, []);
+
+  const rememberRenderedScene = useCallback(
+    (nextItems: CanvasItem[], nextKey: RenderedSceneKey) => {
+      renderedSceneItemsRef.current = nextItems;
+      renderedSceneKeyRef.current = nextKey;
+    },
+    [],
+  );
+
+  const patchItemTransformsOnly = useCallback(() => {
+    const itemLayer = itemLayerRef.current;
+    if (!itemLayer) {
+      return false;
+    }
+
+    for (const item of group.items) {
+      if (!item.visible) {
+        continue;
+      }
+
+      const itemNode = itemNodeByIdRef.current.get(item.id);
+      if (!itemNode) {
+        return false;
+      }
+
+      const safeWidth =
+        Number.isFinite(item.width) && item.width > 1 ? item.width : 180;
+      const safeRotation = Number.isFinite(item.rotation) ? item.rotation : 0;
+      const safeScaleX =
+        Number.isFinite(item.scaleX) && item.scaleX !== 0 ? item.scaleX : 1;
+      const safeScaleY =
+        Number.isFinite(item.scaleY) && item.scaleY !== 0 ? item.scaleY : 1;
+
+      itemNode.position.set(item.x, item.y);
+      itemNode.rotation = safeRotation;
+      itemNode.scale.set(item.flippedX ? -safeScaleX : safeScaleX, safeScaleY);
+      itemNode.pivot.x = item.flippedX ? safeWidth : 0;
+    }
+
+    syncSelectionItemOrder(
+      itemLayer,
+      itemNodeByIdRef.current,
+      group.items,
+      selectedItemIds,
+    );
+    updateSelectedBoundsOverlay();
+    requestRender();
+    return true;
+  }, [group.items, requestRender, selectedItemIds, updateSelectedBoundsOverlay]);
+
+  const refreshImageQualityForZoom = useCallback(
+    (preferHighResolution: boolean) => {
+      if (!patchItemTransformsOnly()) {
+        return false;
+      }
+
+      const renderToken = ++renderTokenRef.current;
+      const activeTextureAssetPaths = new Set<string>();
+      const refreshes: Array<Promise<void>> = [];
+
+      for (const item of group.items) {
+        if (item.type !== "image" || !item.visible) {
+          continue;
+        }
+
+        const renderAssetPath = getBoardRenderAssetPath(item, {
+          preferHighResolution,
+        });
+        if (renderAssetPath) {
+          activeTextureAssetPaths.add(renderAssetPath);
+        }
+
+        const itemNode = itemNodeByIdRef.current.get(item.id);
+        const frameMeta = frameMetaByIdRef.current.get(item.id);
+        if (!itemNode || !frameMeta) {
+          return false;
+        }
+
+        refreshes.push(
+          refreshBoardImageVisuals({
+            item,
+            itemNode,
+            safeWidth: frameMeta.width,
+            safeHeight: frameMeta.height,
+            canvasZoom: preferHighResolution ? 2 : 1,
+            dotGain20BlackAndWhite: group.filters.grayscale > 0,
+            renderToken,
+            renderTokenRef,
+            requestRender,
+          }),
+        );
+      }
+
+      if (refreshes.length === 0) {
+        pruneBoardTextureCache(activeTextureAssetPaths);
+        return true;
+      }
+
+      void Promise.allSettled(refreshes).then(() => {
+        if (renderTokenRef.current !== renderToken) {
+          return;
+        }
+
+        pruneBoardTextureCache(activeTextureAssetPaths);
+      });
+      return true;
+    },
+    [
+      group.filters.grayscale,
+      group.items,
+      patchItemTransformsOnly,
+      requestRender,
+    ],
+  );
 
   const rebuildScene = useCanvasBoardScene({
     hostRef,
@@ -390,6 +676,8 @@ const useCanvasBoardContent = ({
     hideSelectionMarquee,
     redrawAnnotations,
     startAnnotationSession,
+    requestRender,
+    zoomBaseline,
   });
 
   useEffect(() => {
@@ -407,7 +695,18 @@ const useCanvasBoardContent = ({
 
     preserveLiveBoardView();
     rebuildScene();
-  }, [appReady, preserveLiveBoardView, rebuildScene, showSwatches]);
+    rememberRenderedScene(
+      groupRef.current.items,
+      getRenderedSceneKey(groupRef.current, showSwatchesRef.current, zoomBaseline),
+    );
+  }, [
+    appReady,
+    preserveLiveBoardView,
+    rebuildScene,
+    rememberRenderedScene,
+    showSwatches,
+    zoomBaseline,
+  ]);
 
   useCanvasBoardBootstrap({
     hostRef,
@@ -443,14 +742,41 @@ const useCanvasBoardContent = ({
     commitDraggedItemPatch,
     hideSelectionMarquee,
     commitView,
-    scheduleViewCommit,
     drawBoardSurface,
     updateSelectedBoundsOverlay,
     rebuildScene,
     setAppReady,
     stopCaptureSession,
     captureSessionByIdRef,
+    requestRender,
   });
+
+  useEffect(() => {
+    if (!appReady) {
+      return undefined;
+    }
+
+    const app = appRef.current;
+    if (!app) {
+      return undefined;
+    }
+
+    const hasLiveCapture = group.items.some(
+      (item) => item.type === "capture" && item.visible,
+    );
+
+    if (hasLiveCapture) {
+      app.ticker.maxFPS = 24;
+      app.ticker.start();
+      return () => {
+        app.ticker.stop();
+      };
+    }
+
+    app.ticker.stop();
+    requestRender();
+    return undefined;
+  }, [appReady, group.items, requestRender]);
 
   useLayoutEffect(() => {
     if (!appReady) {
@@ -517,7 +843,43 @@ const useCanvasBoardContent = ({
       previewInsetsRef.current = ZERO_INSETS;
       onCanvasSizePreviewChangeRef.current?.(null);
     }
+
+    const nextRenderedSceneKey = {
+      groupId: group.id,
+      canvasWidth: group.canvasSize.width,
+      canvasHeight: group.canvasSize.height,
+      preferHighResolution: group.zoom >= 2 * (zoomBaseline ?? DEFAULT_VIEW_ZOOM_BASELINE),
+      showSwatches,
+    } satisfies RenderedSceneKey;
+    const canPatchTransforms =
+      !activeItemDragRef.current &&
+      !activeSelectionTransformRef.current &&
+      renderedSceneKeyRef.current !== null &&
+      isSameRenderedSceneKey(renderedSceneKeyRef.current, nextRenderedSceneKey) &&
+      canPatchItemTransformsOnly(renderedSceneItemsRef.current, group.items);
+
+    if (canPatchTransforms && patchItemTransformsOnly()) {
+      rememberRenderedScene(group.items, nextRenderedSceneKey);
+      return;
+    }
+
+    const canRefreshImageQuality =
+      !activeItemDragRef.current &&
+      !activeSelectionTransformRef.current &&
+      renderedSceneKeyRef.current !== null &&
+      isSameRenderedSceneShell(renderedSceneKeyRef.current, nextRenderedSceneKey) &&
+      canPatchItemTransformsOnly(renderedSceneItemsRef.current, group.items);
+
+    if (
+      canRefreshImageQuality &&
+      refreshImageQualityForZoom(nextRenderedSceneKey.preferHighResolution)
+    ) {
+      rememberRenderedScene(group.items, nextRenderedSceneKey);
+      return;
+    }
+
     rebuildScene();
+    rememberRenderedScene(group.items, nextRenderedSceneKey);
   }, [
     appReady,
     group.id,
@@ -527,9 +889,14 @@ const useCanvasBoardContent = ({
     group.panX,
     group.panY,
     group.zoom,
+    showSwatches,
     preserveLiveBoardView,
+    patchItemTransformsOnly,
+    refreshImageQualityForZoom,
     rebuildScene,
+    rememberRenderedScene,
     commitView,
+    zoomBaseline,
   ]);
 
   useEffect(() => {
@@ -556,18 +923,27 @@ const useCanvasBoardContent = ({
         return;
       }
 
-      refreshBoardImageVisuals({
+      void refreshBoardImageVisuals({
         item,
         itemNode,
         safeWidth: frameMeta.width,
         safeHeight: frameMeta.height,
-        canvasZoom: group.zoom,
+        canvasZoom: group.zoom / (zoomBaseline ?? DEFAULT_VIEW_ZOOM_BASELINE),
         dotGain20BlackAndWhite: group.filters.grayscale > 0,
         renderToken,
         renderTokenRef,
+        requestRender,
       });
     });
-  }, [appReady, group.filters.grayscale, group.id, group.items, group.zoom]);
+  }, [
+    appReady,
+    group.filters.grayscale,
+    group.id,
+    group.items,
+    group.zoom,
+    requestRender,
+    zoomBaseline,
+  ]);
 
   useLayoutEffect(() => {
     if (!appReady) {
@@ -603,7 +979,8 @@ const useCanvasBoardContent = ({
     }
 
     contentLayer.filters = filters.length > 0 ? filters : null;
-  }, [appReady, group.filters.blur, group.filters.grayscale]);
+    requestRender();
+  }, [appReady, group.filters.blur, group.filters.grayscale, requestRender]);
 
   useEffect(() => {
     const activeCaptureIds = new Set<string>();
@@ -771,6 +1148,7 @@ const useCanvasBoardContent = ({
       try {
         boardContainer.position.set(0, 0);
         boardContainer.scale.set(1, 1);
+        app.render();
 
         const exportCanvas = app.renderer.extract.canvas({
           target: boardContainer,
@@ -789,6 +1167,7 @@ const useCanvasBoardContent = ({
       } finally {
         boardContainer.position.set(previousX, previousY);
         boardContainer.scale.set(previousScaleX, previousScaleY);
+        app.render();
       }
     });
 

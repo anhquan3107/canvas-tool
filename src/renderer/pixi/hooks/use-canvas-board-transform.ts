@@ -7,6 +7,7 @@ import type {
   CanvasBoardViewState,
   CropRect,
   CropSession,
+  RequestCanvasRender,
   TransformHandle,
 } from "@renderer/pixi/types";
 import type { CanvasItem, CaptureItem, ImageItem, ReferenceGroup } from "@shared/types/project";
@@ -45,6 +46,7 @@ interface UseCanvasBoardTransformOptions {
   >;
   onLockedInteractionRef: RefObject<(() => void) | undefined>;
   onCropRectChange?: (rect: CropRect) => void;
+  requestRender: RequestCanvasRender;
 }
 
 export const useCanvasBoardTransform = ({
@@ -63,6 +65,7 @@ export const useCanvasBoardTransform = ({
   onItemsPatchRef,
   onLockedInteractionRef,
   onCropRectChange,
+  requestRender,
 }: UseCanvasBoardTransformOptions) => {
   const getItemBounds = useCallback((item: CanvasItem) => {
     const safeWidth = Number.isFinite(item.width) && item.width > 1 ? item.width : 180;
@@ -221,6 +224,7 @@ export const useCanvasBoardTransform = ({
 
         node.position.set(nextX, itemMinY);
         node.scale.set(nextResolvedScaleX, nextScaleY);
+        requestRender();
         activeTransform.patchBuffer[itemState.itemId] = {
           x: Math.round(nextX),
           y: Math.round(itemMinY),
@@ -276,6 +280,7 @@ export const useCanvasBoardTransform = ({
       itemNodeByIdRef,
       setPreviewInsets,
       updateSelectedBoundsOverlayRef,
+      requestRender,
     ],
   );
 

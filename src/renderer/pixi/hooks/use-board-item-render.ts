@@ -4,7 +4,7 @@ import {
   getBoardRenderAssetPath,
   loadTextureForAssetPath,
 } from "@renderer/pixi/utils/textures";
-import type { CaptureSession } from "@renderer/pixi/types";
+import type { CaptureSession, RequestCanvasRender } from "@renderer/pixi/types";
 import { drawSwatchTray } from "@renderer/pixi/hooks/use-board-swatch-render";
 import { getDocumentMessages } from "@renderer/i18n";
 
@@ -54,6 +54,7 @@ interface RenderBoardImageVisualsOptions {
   dotGain20BlackAndWhite: boolean;
   renderToken: number;
   renderTokenRef: { current: number };
+  requestRender: RequestCanvasRender;
 }
 
 const renderBoardImageVisuals = ({
@@ -65,16 +66,17 @@ const renderBoardImageVisuals = ({
   dotGain20BlackAndWhite,
   renderToken,
   renderTokenRef,
+  requestRender,
 }: RenderBoardImageVisualsOptions) => {
   const renderAssetPath = getBoardRenderAssetPath(item, {
     preferHighResolution: canvasZoom >= 2,
   });
 
   if (!renderAssetPath) {
-    return;
+    return Promise.resolve();
   }
 
-  void loadTextureForAssetPath(renderAssetPath, {
+  return loadTextureForAssetPath(renderAssetPath, {
     preferHighResolution: canvasZoom >= 2,
     dotGain20: dotGain20BlackAndWhite,
   })
@@ -131,6 +133,7 @@ const renderBoardImageVisuals = ({
       sprite.roundPixels = false;
       sprite.alpha = 1;
       itemNode.addChildAt(sprite, 1);
+      requestRender();
     })
     .catch(() => {
       if (renderTokenRef.current !== renderToken) {
@@ -145,6 +148,7 @@ const renderBoardImageVisuals = ({
           : "Preview unavailable",
         safeHeight,
       );
+      requestRender();
     });
 };
 
@@ -159,6 +163,7 @@ interface RenderBoardItemVisualsOptions {
   renderToken: number;
   renderTokenRef: { current: number };
   ensureCaptureSession: (item: CaptureItem) => Promise<CaptureSession>;
+  requestRender: RequestCanvasRender;
 }
 
 export const renderBoardItemVisuals = ({
@@ -172,9 +177,10 @@ export const renderBoardItemVisuals = ({
   renderToken,
   renderTokenRef,
   ensureCaptureSession,
+  requestRender,
 }: RenderBoardItemVisualsOptions) => {
   if (item.type === "image" && item.assetPath) {
-    renderBoardImageVisuals({
+    void renderBoardImageVisuals({
       item,
       itemNode,
       safeWidth,
@@ -183,6 +189,7 @@ export const renderBoardItemVisuals = ({
       dotGain20BlackAndWhite,
       renderToken,
       renderTokenRef,
+      requestRender,
     });
   }
 
@@ -199,6 +206,7 @@ export const renderBoardItemVisuals = ({
         sprite.roundPixels = false;
         sprite.alpha = 0.98;
         itemNode.addChildAt(sprite, 1);
+        requestRender();
       })
       .catch((error) => {
         if (renderTokenRef.current !== renderToken) {
@@ -213,6 +221,7 @@ export const renderBoardItemVisuals = ({
             : copy.capture.previewUnavailable,
           safeHeight,
         );
+        requestRender();
       });
   }
 
@@ -228,6 +237,7 @@ export const renderBoardItemVisuals = ({
           ? [item.swatchHex]
           : [];
     drawSwatchTray(itemNode, paletteColors, safeWidth, safeHeight);
+    requestRender();
   }
 };
 
@@ -240,8 +250,9 @@ export const refreshBoardImageVisuals = ({
   dotGain20BlackAndWhite,
   renderToken,
   renderTokenRef,
+  requestRender,
 }: RenderBoardImageVisualsOptions) => {
-  renderBoardImageVisuals({
+  return renderBoardImageVisuals({
     item,
     itemNode,
     safeWidth,
@@ -250,5 +261,6 @@ export const refreshBoardImageVisuals = ({
     dotGain20BlackAndWhite,
     renderToken,
     renderTokenRef,
+    requestRender,
   });
 };

@@ -159,5 +159,6 @@ export const useAppDerivedState = ({
     selectedStatusImage,
     zoomLabel,
     zoomOverlayFilter,
+    normalizedZoomBaseline,
   };
 };

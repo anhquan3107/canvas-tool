@@ -523,6 +523,7 @@ const useAppShell = ({
     selectedStatusImage,
     zoomLabel,
     zoomOverlayFilter,
+    normalizedZoomBaseline,
   } = useAppDerivedState({
     project,
     selectedItemIds,
@@ -1437,6 +1438,7 @@ const useAppShell = ({
                   onExportReady={(exportCanvas) => {
                     exportCanvasImageRef.current = exportCanvas;
                   }}
+                  zoomBaseline={normalizedZoomBaseline}
                 />
               ) : null}
 

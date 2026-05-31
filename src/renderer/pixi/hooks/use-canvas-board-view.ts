@@ -11,6 +11,7 @@ import type {
   CanvasInsets,
   CanvasSizePreview,
   CropSession,
+  RequestCanvasRender,
 } from "@renderer/pixi/types";
 import type { ReferenceGroup } from "@shared/types/project";
 import type { DoodleMode, ToolMode } from "@renderer/features/tools/types";
@@ -48,6 +49,7 @@ interface UseCanvasBoardViewOptions {
       "clientX" | "clientY" | "pointerType" | "pressure" | "buttons"
     > | null
   >;
+  requestRender: RequestCanvasRender;
 }
 
 export const useCanvasBoardView = ({
@@ -76,6 +78,7 @@ export const useCanvasBoardView = ({
   doodleColorRef,
   doodleSizeRef,
   lastPointerClientRef,
+  requestRender,
 }: UseCanvasBoardViewOptions) => {
   const hideDoodleCursor = useCallback(() => {
     const cursorOverlay = cursorOverlayRef.current;
@@ -234,6 +237,7 @@ export const useCanvasBoardView = ({
           width,
           height,
         );
+        requestRender();
         return;
       }
 
@@ -260,6 +264,7 @@ export const useCanvasBoardView = ({
         Math.max(1, hitMaxX - hitMinX),
         Math.max(1, hitMaxY - hitMinY),
       );
+      requestRender();
     },
     [
       annotationMaskRef,
@@ -268,6 +273,7 @@ export const useCanvasBoardView = ({
       groupRef,
       hostRef,
       previewInsetsRef,
+      requestRender,
       surfaceOpacityRef,
     ],
   );

@@ -13,6 +13,7 @@ import type {
   CanvasInsets,
   CanvasItemPatch,
   CanvasBoardViewState,
+  RequestCanvasRender,
 } from "@renderer/pixi/types";
 
 interface UseCanvasBoardDragOptions {
@@ -30,6 +31,7 @@ interface UseCanvasBoardDragOptions {
   setPreviewInsets: (nextInsets: CanvasInsets) => void;
   updateSelectedBoundsOverlay: () => void;
   scheduleViewCommit: (delay?: number) => void;
+  requestRender: RequestCanvasRender;
 }
 
 export const useCanvasBoardDrag = ({
@@ -42,6 +44,7 @@ export const useCanvasBoardDrag = ({
   setPreviewInsets,
   updateSelectedBoundsOverlay,
   scheduleViewCommit,
+  requestRender,
 }: UseCanvasBoardDragOptions) => {
   const autoPanFrameRef = useRef<number | null>(null);
   const lastDragPointerRef = useRef<{ x: number; y: number } | null>(null);
@@ -113,6 +116,7 @@ export const useCanvasBoardDrag = ({
         activeDrag.startPointer.x += panDeltaX;
         activeDrag.startPointer.y += panDeltaY;
         scheduleViewCommit(30);
+        requestRender();
 
         if (autoPanFrameRef.current === null) {
           autoPanFrameRef.current = window.requestAnimationFrame(() => {
@@ -285,6 +289,7 @@ export const useCanvasBoardDrag = ({
           x: committedX,
           y: committedY,
         };
+        requestRender();
 
         minX = Math.min(minX, committedX);
         minY = Math.min(minY, committedY);
@@ -322,6 +327,7 @@ export const useCanvasBoardDrag = ({
       scheduleViewCommit,
       setPreviewInsets,
       updateSelectedBoundsOverlay,
+      requestRender,
     ],
   );
 

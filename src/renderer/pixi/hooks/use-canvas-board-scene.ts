@@ -7,6 +7,7 @@ import {
 } from "pixi.js";
 import type { CaptureItem, ReferenceGroup } from "@shared/types/project";
 import { drawItemFrame } from "@renderer/pixi/utils/item-frame";
+import { DEFAULT_VIEW_ZOOM_BASELINE } from "@shared/project-defaults";
 import {
   applySelectionVisualState,
   SELECTION_HIGHLIGHT_ALPHA,
@@ -27,6 +28,7 @@ import type {
   ActiveSelectionBoxState,
   CanvasInsets,
   CaptureSession,
+  RequestCanvasRender,
 } from "@renderer/pixi/types";
 
 interface FrameMeta {
@@ -73,6 +75,8 @@ interface UseCanvasBoardSceneOptions {
       "clientX" | "clientY" | "pointerId" | "pointerType" | "pressure"
     >,
   ) => void;
+  requestRender: RequestCanvasRender;
+  zoomBaseline?: number;
 }
 
 export const useCanvasBoardScene = ({
@@ -108,6 +112,8 @@ export const useCanvasBoardScene = ({
   hideSelectionMarquee,
   redrawAnnotations,
   startAnnotationSession,
+  requestRender,
+  zoomBaseline,
 }: UseCanvasBoardSceneOptions) => {
   return useCallback(() => {
     const boardContainer = boardContainerRef.current;
@@ -172,7 +178,7 @@ export const useCanvasBoardScene = ({
           item.type === "image"
             ? [
                 getBoardRenderAssetPath(item, {
-                  preferHighResolution: scene.zoom >= 2,
+                  preferHighResolution: scene.zoom >= 2 * (zoomBaseline ?? DEFAULT_VIEW_ZOOM_BASELINE),
                 }),
               ].filter((assetPath): assetPath is string => Boolean(assetPath))
             : [],
@@ -238,11 +244,12 @@ export const useCanvasBoardScene = ({
         safeWidth,
         safeHeight,
         showSwatches: showSwatchesRef.current,
-        canvasZoom: scene.zoom,
+        canvasZoom: scene.zoom / (zoomBaseline ?? DEFAULT_VIEW_ZOOM_BASELINE),
         dotGain20BlackAndWhite: scene.filters.grayscale > 0,
         renderToken,
         renderTokenRef,
         ensureCaptureSession,
+        requestRender,
       });
 
       applySelectionVisualState(itemNode, item.id, selectionIdsRef.current);
@@ -405,6 +412,7 @@ export const useCanvasBoardScene = ({
     );
 
     redrawAnnotations(scene.annotations);
+    requestRender();
 
     board.on("pointerdown", (event: FederatedPointerEvent) => {
       event.stopPropagation();
@@ -485,5 +493,6 @@ export const useCanvasBoardScene = ({
     startAnnotationSession,
     syncViewFromGroup,
     lastItemPressRef,
+    requestRender,
   ]);
 };

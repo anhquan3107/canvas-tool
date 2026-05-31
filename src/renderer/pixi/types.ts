@@ -9,6 +9,7 @@ import type { AnnotationStrokeBounds } from "@renderer/pixi/utils/annotations";
 import type { DoodleMode, ToolMode } from "@renderer/features/tools/types";
 
 export type CanvasItemPatch = Partial<Omit<CanvasItemBase, "id" | "type">>;
+export type RequestCanvasRender = () => void;
 
 export interface CanvasInsets {
   left: number;
@@ -51,6 +52,7 @@ export interface CanvasBoardProps {
   onLockedInteraction?: () => void;
   onCanvasSizePreviewChange?: (size: CanvasSizePreview | null) => void;
   onExportReady?: (exportCanvas: (() => string | null) | null) => void;
+  zoomBaseline?: number;
 }
 
 export interface CaptureSession {

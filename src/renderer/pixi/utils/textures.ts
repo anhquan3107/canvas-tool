@@ -4,13 +4,31 @@ import type { ImageItem } from "@shared/types/project";
 interface TextureCacheEntry {
   promise: Promise<Texture>;
   sourceAssetPath: string;
+  byteSize: number;
+  lastUsedAt: number;
 }
 
 const boardTextureCache = new Map<string, TextureCacheEntry>();
 const boardTextureVariantCache = new Map<string, Promise<string>>();
+const activeBoardTextureAssetPaths = new Set<string>();
 const IS_WINDOWS =
   typeof navigator !== "undefined" &&
   /windows/i.test(navigator.userAgent);
+const navigatorWithDeviceMemory =
+  typeof navigator !== "undefined"
+    ? (navigator as Navigator & { deviceMemory?: number })
+    : undefined;
+const DEVICE_MEMORY_GB =
+  typeof navigatorWithDeviceMemory?.deviceMemory === "number"
+    ? navigatorWithDeviceMemory.deviceMemory
+    : 8;
+const MAX_TEXTURE_CACHE_ENTRIES = IS_WINDOWS ? 48 : 64;
+const MAX_TEXTURE_CACHE_BYTES =
+  DEVICE_MEMORY_GB <= 4
+    ? 160 * 1024 * 1024
+    : IS_WINDOWS
+      ? 256 * 1024 * 1024
+      : 384 * 1024 * 1024;
 const MAX_PARALLEL_TEXTURE_DECODES = Math.max(
   2,
   Math.min(
@@ -22,6 +40,7 @@ const MAX_PARALLEL_TEXTURE_DECODES = Math.max(
   ),
 );
 let activeTextureDecodeCount = 0;
+let textureCacheSequence = 0;
 const pendingTextureDecodeTasks: Array<() => void> = [];
 
 export const configureBoardTextureQuality = (
@@ -76,7 +95,7 @@ export const getBoardRenderAssetPath = (
 ) =>
   options?.preferHighResolution
     ? item.assetPath ?? item.previewAssetPath
-    : item.assetPath ?? item.previewAssetPath;
+    : item.previewAssetPath ?? item.assetPath;
 
 const scheduleTextureDecode = <T>(task: () => Promise<T>) =>
   new Promise<T>((resolve, reject) => {
@@ -100,18 +119,94 @@ const scheduleTextureDecode = <T>(task: () => Promise<T>) =>
     pendingTextureDecodeTasks.push(runTask);
   });
 
+const estimateTextureBytes = (texture: Texture) => {
+  const width = Math.max(1, Math.ceil(texture.width || 1));
+  const height = Math.max(1, Math.ceil(texture.height || 1));
+  return width * height * 4;
+};
+
+const destroyTexturePromise = (promise: Promise<Texture>) => {
+  void promise
+    .then((texture) => {
+      texture.destroy(true);
+    })
+    .catch(() => undefined);
+};
+
+const touchCacheEntry = (cacheKey: string, entry: TextureCacheEntry) => {
+  entry.lastUsedAt = ++textureCacheSequence;
+  boardTextureCache.delete(cacheKey);
+  boardTextureCache.set(cacheKey, entry);
+};
+
+const getTextureCacheBytes = () => {
+  let total = 0;
+  boardTextureCache.forEach((entry) => {
+    total += entry.byteSize;
+  });
+  return total;
+};
+
+const enforceTextureCacheLimits = () => {
+  let totalBytes = getTextureCacheBytes();
+
+  for (const [cacheKey, entry] of boardTextureCache) {
+    const overEntryLimit = boardTextureCache.size > MAX_TEXTURE_CACHE_ENTRIES;
+    const overByteLimit = totalBytes > MAX_TEXTURE_CACHE_BYTES;
+    if (!overEntryLimit && !overByteLimit) {
+      break;
+    }
+
+    if (activeBoardTextureAssetPaths.has(entry.sourceAssetPath)) {
+      continue;
+    }
+
+    boardTextureCache.delete(cacheKey);
+    totalBytes -= entry.byteSize;
+    destroyTexturePromise(entry.promise);
+  }
+};
+
+const textureFromBlob = async (blob: Blob) => {
+  if (typeof createImageBitmap !== "function") {
+    return null;
+  }
+
+  const bitmap = await createImageBitmap(blob);
+  return configureBoardTextureQuality(Texture.from(bitmap));
+};
+
 const loadTextureDirectly = async (assetPath: string) =>
   scheduleTextureDecode(
-    () =>
-      new Promise<Texture>((resolve, reject) => {
+    async () => {
+      try {
+        const response = await fetch(assetPath);
+        if (response.ok) {
+          const bitmapTexture = await textureFromBlob(await response.blob());
+          if (bitmapTexture) {
+            return bitmapTexture;
+          }
+        }
+      } catch {
+        // Fall back to DOM image decoding below for protocols fetch cannot read.
+      }
+
+      return new Promise<Texture>((resolve, reject) => {
         const image = new Image();
         image.decoding = "async";
-        image.onload = () =>
+        image.onload = () => {
+          image.onload = null;
+          image.onerror = null;
           resolve(configureBoardTextureQuality(Texture.from(image)));
-        image.onerror = () =>
+        };
+        image.onerror = () => {
+          image.onload = null;
+          image.onerror = null;
           reject(new Error(`Failed to decode texture for ${assetPath}`));
+        };
         image.src = assetPath;
-      }),
+      });
+    },
   );
 
 export const loadTextureForAssetPath = async (
@@ -119,19 +214,32 @@ export const loadTextureForAssetPath = async (
   options?: LoadTextureOptions,
 ) => {
   const resolvedAssetPath = await resolveTextureAssetPath(assetPath, options);
-  const cacheKey = `${resolvedAssetPath}::${options?.preferHighResolution ? "hq" : "std"}`;
-  const cachedTexture = boardTextureCache.get(cacheKey)?.promise;
+  const cacheKey = resolvedAssetPath;
+  const cachedEntry = boardTextureCache.get(cacheKey);
 
-  if (cachedTexture) {
-    return cachedTexture;
+  if (cachedEntry) {
+    touchCacheEntry(cacheKey, cachedEntry);
+    return cachedEntry.promise;
   }
 
-  const texturePromise = loadTextureDirectly(resolvedAssetPath);
+  const texturePromise = loadTextureDirectly(resolvedAssetPath).then((texture) => {
+    const entry = boardTextureCache.get(cacheKey);
+    if (entry) {
+      entry.byteSize = estimateTextureBytes(texture);
+      touchCacheEntry(cacheKey, entry);
+      enforceTextureCacheLimits();
+    }
+
+    return texture;
+  });
 
   boardTextureCache.set(cacheKey, {
     promise: texturePromise,
     sourceAssetPath: assetPath,
+    byteSize: 0,
+    lastUsedAt: ++textureCacheSequence,
   });
+  enforceTextureCacheLimits();
 
   try {
     return await texturePromise;
@@ -142,18 +250,20 @@ export const loadTextureForAssetPath = async (
 };
 
 export const pruneBoardTextureCache = (allowedAssetPaths: Set<string>) => {
+  activeBoardTextureAssetPaths.clear();
+  allowedAssetPaths.forEach((assetPath) => {
+    activeBoardTextureAssetPaths.add(assetPath);
+  });
+
   boardTextureCache.forEach((entry, cacheKey) => {
     if (allowedAssetPaths.has(entry.sourceAssetPath)) {
       return;
     }
 
     boardTextureCache.delete(cacheKey);
-    void entry.promise
-      .then((texture) => {
-        texture.destroy(true);
-      })
-      .catch(() => undefined);
+    destroyTexturePromise(entry.promise);
   });
+  enforceTextureCacheLimits();
 
   boardTextureVariantCache.forEach((_, cacheKey) => {
     const sourceAssetPath = cacheKey.replace(/::dot-gain-20$/, "");

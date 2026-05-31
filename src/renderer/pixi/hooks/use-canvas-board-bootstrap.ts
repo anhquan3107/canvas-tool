@@ -5,6 +5,7 @@ import type {
   ActiveAnnotationSessionState,
   ActiveItemDragState,
   ActiveSelectionBoxState,
+  RequestCanvasRender,
 } from "@renderer/pixi/types";
 import { clamp } from "@renderer/pixi/utils/geometry";
 import {
@@ -62,13 +63,13 @@ interface UseCanvasBoardBootstrapOptions {
   commitDraggedItemPatch: () => void;
   hideSelectionMarquee: () => void;
   commitView: () => void;
-  scheduleViewCommit: (delay?: number) => void;
   drawBoardSurface: () => void;
   updateSelectedBoundsOverlay: () => void;
   rebuildScene: () => void;
   setAppReady: (ready: boolean) => void;
   stopCaptureSession: (captureId: string) => void;
   captureSessionByIdRef: MutableRefObject<Map<string, unknown>>;
+  requestRender: RequestCanvasRender;
 }
 
 export const useCanvasBoardBootstrap = ({
@@ -105,13 +106,13 @@ export const useCanvasBoardBootstrap = ({
   commitDraggedItemPatch,
   hideSelectionMarquee,
   commitView,
-  scheduleViewCommit,
   drawBoardSurface,
   updateSelectedBoundsOverlay,
   rebuildScene,
   setAppReady,
   stopCaptureSession,
   captureSessionByIdRef,
+  requestRender,
 }: UseCanvasBoardBootstrapOptions) => {
   useEffect(() => {
     const host = hostRef.current;
@@ -163,16 +164,20 @@ export const useCanvasBoardBootstrap = ({
       }
 
       const app = new Application();
-      const rendererResolution = Math.max(window.devicePixelRatio || 1, 2);
+      const rendererResolution = Math.min(
+        2,
+        Math.max(window.devicePixelRatio || 1, 1),
+      );
       await app.init({
         antialias: true,
+        autoStart: false,
         autoDensity: true,
         background: "#000000",
         backgroundAlpha: 0,
-        preserveDrawingBuffer: true,
         resolution: rendererResolution,
         resizeTo: host,
       });
+      app.ticker.stop();
 
       if (!mounted) {
         app.destroy(true, { children: true });
@@ -262,6 +267,7 @@ export const useCanvasBoardBootstrap = ({
           drawBoardSurface();
           updateSelectedBoundsOverlay();
           wheelZoomAnimationFrame = null;
+          commitView();
           return;
         }
 
@@ -484,7 +490,6 @@ export const useCanvasBoardBootstrap = ({
           wheelZoomAnimationFrame = window.requestAnimationFrame(animateWheelZoom);
         }
 
-        scheduleViewCommit(120);
       };
 
       const onKeyDown = (event: KeyboardEvent) => {
@@ -532,6 +537,7 @@ export const useCanvasBoardBootstrap = ({
 
       resizeObserver = new ResizeObserver(() => {
         app.renderer.resize(host.clientWidth, host.clientHeight);
+        requestRender();
       });
       resizeObserver.observe(host);
       rebuildScene();
@@ -617,11 +623,11 @@ export const useCanvasBoardBootstrap = ({
     panOriginRef,
     panStartRef,
     rebuildScene,
-    scheduleViewCommit,
     selectionIdsRef,
     setAppReady,
     spacePanActiveRef,
     stopCaptureSession,
+    requestRender,
     updateAnnotationSession,
     updateDoodleCursor,
     updateDraggedItemPosition,

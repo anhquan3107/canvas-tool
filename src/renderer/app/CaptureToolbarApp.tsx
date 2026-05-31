@@ -43,7 +43,7 @@ const useCaptureToolbarApp = () => {
   const { copy } = useI18n();
 
   const initial = useMemo(() => getCaptureLocationParams(), []);
-  useWindowRightDrag({ enableLeftWindowDrag: true, mode: "renderer" });
+  useWindowRightDrag({ enableLeftWindowDrag: true });
   const channelRef = useRef<BroadcastChannel | null>(null);
   const lastPointerDoubleClickToggleRef = useRef(0);
 

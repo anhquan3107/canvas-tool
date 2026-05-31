@@ -276,7 +276,7 @@ export interface DesktopApi {
   capture: {
     listSources: () => Promise<DesktopCaptureSource[]>;
     openWindow: (payload: OpenCaptureWindowRequest) => Promise<void>;
-    updateWindowAspect: (payload: CaptureWindowAspectRequest) => Promise<void>;
+    updateWindowAspect: (payload: CaptureWindowAspectRequest) => Promise<boolean>;
     setToolbarVisibility: (
       payload: CaptureToolbarVisibilityRequest,
     ) => Promise<void>;

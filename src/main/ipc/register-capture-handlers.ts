@@ -7,6 +7,8 @@ import {
 } from "electron";
 import path from "node:path";
 import { guardWindowDevTools } from "../devtools-guard";
+import { isMainProcessDragActive } from "../main-process-drag";
+import { setWindowBoundsListener } from "../window-bounds-listeners";
 import {
   clearWindowActionTarget,
   getWindowActionTarget,
@@ -65,6 +67,10 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
     nextSourceSize: { width: number; height: number },
     preserveScale: boolean,
   ) => {
+    if (isMainProcessDragActive(captureWindow)) {
+      return false;
+    }
+
     const normalizedSourceSize = normalizeCaptureSourceSize(
       nextSourceSize.width,
       nextSourceSize.height,
@@ -98,6 +104,8 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
         false,
       );
     }
+
+    return true;
   };
 
   ipcMain.handle("capture:list-sources", async () => {
@@ -237,6 +245,8 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
       syncToolbarWindowToBounds();
     };
 
+    setWindowBoundsListener(captureWindow, syncToolbarWindowToBounds);
+
     const hideToolbarWindow = () => {
       if (!toolbarWindow.isDestroyed() && toolbarWindow.isVisible()) {
         toolbarWindow.hide();
@@ -260,6 +270,7 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
       }
 
       clearWindowActionTarget(toolbarWindow);
+      setWindowBoundsListener(captureWindow, null);
       if (!toolbarWindow.isDestroyed()) {
         toolbarWindow.close();
       }
@@ -353,10 +364,10 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
     const payload = ensureCaptureWindowAspectPayload(rawPayload);
     const captureWindow = getSenderWindow(event.sender);
     if (!captureWindow || captureWindow.isDestroyed()) {
-      return;
+      return false;
     }
 
-    applyCaptureWindowAspect(
+    const applied = applyCaptureWindowAspect(
       captureWindow,
       {
         width: payload.sourceWidth,
@@ -368,6 +379,8 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
     if (!captureWindow.isVisible()) {
       captureWindow.show();
     }
+
+    return applied;
   });
 
   ipcMain.handle("capture:set-toolbar-visibility", (event, rawPayload) => {

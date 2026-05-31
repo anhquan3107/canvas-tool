@@ -86,7 +86,7 @@ export const CaptureWindowApp = () => useCaptureWindowApp();
 
 const useCaptureWindowApp = () => {
   const { copy } = useI18n();
-  useWindowRightDrag({ enableLeftWindowDrag: true, mode: "renderer" });
+  useWindowRightDrag({ enableLeftWindowDrag: true });
   const windowFocused = useWindowFocusState();
   const initial = useMemo(() => getCaptureLocationParams(), []);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -690,6 +690,18 @@ const useCaptureWindowApp = () => {
     let pendingSignature = "";
     let pendingSize: { width: number; height: number } | null = null;
     let syncTimeoutId: number | null = null;
+    let cancelled = false;
+
+    const scheduleCaptureWindowAspectFlush = () => {
+      if (syncTimeoutId !== null) {
+        window.clearTimeout(syncTimeoutId);
+      }
+      syncTimeoutId = window.setTimeout(
+        flushCaptureWindowAspect,
+        CAPTURE_WINDOW_ASPECT_SYNC_DELAY_MS,
+      );
+    };
+
     const flushCaptureWindowAspect = () => {
       syncTimeoutId = null;
       if (!pendingSize) {
@@ -705,6 +717,15 @@ const useCaptureWindowApp = () => {
         .updateWindowAspect({
           sourceWidth: nextSize.width,
           sourceHeight: nextSize.height,
+        })
+        .then((applied) => {
+          if (cancelled || applied !== false) {
+            return;
+          }
+
+          pendingSignature = nextSignature;
+          pendingSize = nextSize;
+          scheduleCaptureWindowAspectFlush();
         })
         .catch(() => undefined);
     };
@@ -725,13 +746,7 @@ const useCaptureWindowApp = () => {
 
       pendingSignature = nextSignature;
       pendingSize = nextSize;
-      if (syncTimeoutId !== null) {
-        window.clearTimeout(syncTimeoutId);
-      }
-      syncTimeoutId = window.setTimeout(
-        flushCaptureWindowAspect,
-        CAPTURE_WINDOW_ASPECT_SYNC_DELAY_MS,
-      );
+      scheduleCaptureWindowAspectFlush();
     };
 
     syncCaptureWindowAspect();
@@ -740,6 +755,7 @@ const useCaptureWindowApp = () => {
     video.addEventListener("playing", syncCaptureWindowAspect);
 
     return () => {
+      cancelled = true;
       if (syncTimeoutId !== null) {
         window.clearTimeout(syncTimeoutId);
       }

@@ -299,7 +299,7 @@ export const registerWindowHandlers = (window: BrowserWindow) => {
     } catch {
       return;
     }
-    notifyWindowBoundsChanged(targetWindow);
+    notifyWindowBoundsChanged(targetWindow, nextBounds);
   });
 
   ipcMain.on("window:set-bounds-immediate", (event, payload: AppWindowBounds) => {
@@ -308,7 +308,7 @@ export const registerWindowHandlers = (window: BrowserWindow) => {
     if (nextBounds) {
       try {
         targetWindow.setBounds(nextBounds);
-        notifyWindowBoundsChanged(targetWindow);
+        notifyWindowBoundsChanged(targetWindow, nextBounds);
       } catch {
         // Required below: still set returnValue so sendSync() unblocks.
       }

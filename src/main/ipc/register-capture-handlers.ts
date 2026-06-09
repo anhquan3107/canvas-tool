@@ -149,7 +149,7 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
       minWidth: minimumSize.width,
       minHeight: minimumSize.height,
       show: false,
-      resizable: true,
+      resizable: false,
       frame: false,
       thickFrame: false,
       transparent: false,

@@ -233,7 +233,7 @@ const pollAndApply = () => {
   } finally {
     resizingWindows.delete(win);
   }
-  notifyWindowBoundsChanged(win);
+  notifyWindowBoundsChanged(win, next);
 };
 
 const stopResize = () => {

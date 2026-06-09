@@ -181,6 +181,12 @@ export const registerCaptureHandlers = (_window: BrowserWindow) => {
       backgroundColor: "#00000000",
       roundedCorners: false,
       acceptFirstMouse: true,
+      ...(process.platform === "darwin"
+        ? {
+            // Keep the auxiliary toolbar from appearing as a separate Mission Control window.
+            hiddenInMissionControl: true,
+          }
+        : {}),
       webPreferences: {
         preload: path.join(__dirname, "../preload/index.js"),
         contextIsolation: true,
